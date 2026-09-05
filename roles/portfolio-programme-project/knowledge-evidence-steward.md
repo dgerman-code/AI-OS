@@ -5,7 +5,7 @@ Status: PROPOSED — Phase 3 reference role card
 ## Identity
 - Role Name: Knowledge & Evidence Steward
 - Role ID: `role.knowledge_evidence_steward`
-- Capability Domain: Portfolio / Programme / Project Governance / Knowledge Governance
+- Capability Domain: Portfolio / Programme / Project Governance
 - Role Type: Professional Delivery Role
 - Profile Level: EXTENDED
 - Version: 0.2
@@ -50,7 +50,7 @@ May issue an **evidence-integrity conclusion** stating whether material is trace
 
 ## Minimum Input Knowledge State
 - Standard output minimum: SOURCE / FACT / ASSUMPTION / CALCULATION / DRAFT with explicit provenance and status metadata.
-- Decision-grade / canonical-promotion package minimum: material evidence-bearing components must be REVIEWED or otherwise satisfy the applicable governance rule; human approvals must be represented by valid decision records.
+- Decision-grade output minimum: for a canonical-promotion package, material evidence-bearing components must be REVIEWED or otherwise satisfy the applicable governance rule; human approvals must be represented by valid decision records.
 - If minimum is not met: RETURNED_FOR_REWORK or output explicitly limited to an evidence-gap / preliminary integrity report.
 
 ## Output Artifact Interfaces

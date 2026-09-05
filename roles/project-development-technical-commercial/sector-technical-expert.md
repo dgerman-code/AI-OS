@@ -110,7 +110,7 @@ May issue a professional sector opinion on whether stated technical parameters, 
 
 ## Review Obligation
 - Review Required: conditional
-- Review Profile Reference(s): `review.technical`
+- Review Profile Reference(s): `review.engineering_technical`
 
 ## Human Decision Gates
 - Decision Right Reference(s): none by default; inherited from the consuming workflow

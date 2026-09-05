@@ -123,7 +123,7 @@ May issue a professional conclusion on projected demand and revenue within a sta
 
 ## Review Obligation
 - Review Required: yes for Enhanced Decision-Grade and lender-facing work; conditional otherwise
-- Review Profile Reference(s): `review.commercial`, `review.factual_evidence`
+- Review Profile Reference(s): `review.commercial_structure`, `review.factual_evidence`
 
 ## Human Decision Gates
 - Decision Right Reference(s): `decision.demand_basis_acceptance`, `decision.commercial_structure_selection`

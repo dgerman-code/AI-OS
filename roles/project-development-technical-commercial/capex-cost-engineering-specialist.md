@@ -123,7 +123,7 @@ May issue a professional conclusion on estimated project cost at a stated accura
 
 ## Review Obligation
 - Review Required: yes for Enhanced Decision-Grade and lender-facing estimates; conditional otherwise
-- Review Profile Reference(s): `review.cost_estimate`, `review.technical`
+- Review Profile Reference(s): `review.cost_estimate`, `review.engineering_technical`
 
 ## Human Decision Gates
 - Decision Right Reference(s): `decision.cost_estimate_acceptance`, `decision.budget_approval`

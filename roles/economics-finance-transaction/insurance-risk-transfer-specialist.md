@@ -68,7 +68,7 @@ May issue a professional conclusion on insurability, appropriate programme struc
   - Default Knowledge State: DRAFT
   - Evidence / Source Linkage Required: yes
   - Independent Review Required: yes for lender-facing use
-  - Decision Right Reference: none
+  - Decision Right Reference: `decision.lender_engagement`
   - Reversibility at Creation: REVERSIBLE
   - Transmitting Act: submission where provided to lenders
   - Reversibility after Transmitting Act: COSTLY_TO_REVERSE
@@ -126,7 +126,7 @@ May issue a professional conclusion on insurability, appropriate programme struc
 - Review Profile Reference(s): `review.insurance_adequacy`, `review.legal_compliance`
 
 ## Human Decision Gates
-- Decision Right Reference(s): `decision.insurance_programme_adoption`, `decision.insurance_placement`
+- Decision Right Reference(s): `decision.insurance_programme_adoption`, `decision.insurance_placement`, `decision.lender_engagement`
 - Required sequence: specialist output -> required review -> human decision before any placement instruction
 - Approval invalidation condition: exposure change, contract amendment, lender requirement change or policy renewal invalidates prior adoption.
 

@@ -132,7 +132,7 @@ May issue a **financial-model integrity conclusion** stating whether the model i
 
 ## Review Obligation
 - Review Required: yes for decision-grade use; conditional otherwise
-- Review Profile Reference(s): `review.independent_financial_model_review`
+- Review Profile Reference(s): `review.financial_model`
 
 ## Human Decision Gates
 - Decision Right Reference(s): `decision.financial_model_external_reliance`, `decision.investment_or_financing_use`

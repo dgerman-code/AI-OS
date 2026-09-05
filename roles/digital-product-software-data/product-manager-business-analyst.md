@@ -66,11 +66,11 @@ May issue a professional conclusion on product requirement completeness, priorit
   - Reversibility after Transmitting Act: REVERSIBLE
   - Validity / Expiry / Refresh Rule: refresh on material user, policy, process or architecture change
 - Artifact Type / ID: `artifact.release_scope_recommendation`
-  - Description: prioritised scope and release-readiness recommendation
+  - Description: prioritised recommendation on which already-approved product scope enters a specific release, with release-readiness assessment
   - Default Knowledge State: DRAFT
   - Evidence / Source Linkage Required: yes
   - Independent Review Required: conditional
-  - Decision Right Reference: `decision.production_release_scope`
+  - Decision Right Reference: `decision.release_scope_approval`
   - Reversibility at Creation: REVERSIBLE
   - Transmitting Act: deployment
   - Reversibility after Transmitting Act: COSTLY_TO_REVERSE
@@ -116,7 +116,7 @@ May issue a professional conclusion on product requirement completeness, priorit
 - Review Profile Reference(s): `review.product_requirements_quality`
 
 ## Human Decision Gates
-- Decision Right Reference(s): `decision.product_scope_approval`, `decision.production_release_scope`
+- Decision Right Reference(s): `decision.product_scope_approval` for approval of the product / feature requirements scope; `decision.release_scope_approval` for approval of which already-defined scope enters a specific release
 - Required sequence: specialist output -> required review -> human decision
 - Approval invalidation condition: material requirement, risk, feasibility or policy change.
 

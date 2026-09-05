@@ -137,7 +137,7 @@ May issue a professional conclusion on deployment readiness, environment integri
 - Review Profile Reference(s): `review.security`, `review.architecture`, `review.code`
 
 ## Human Decision Gates
-- Decision Right Reference(s): `decision.production_release`, `decision.production_infrastructure_change`, `decision.production_database_migration`, `decision.emergency_change`
+- Decision Right Reference(s): `decision.production_release`, `decision.production_infrastructure_change`, `decision.production_database_migration`, `decision.emergency_production_change`
 - Required sequence: change -> independent review -> gate evidence -> human release decision -> deployment
 - Approval invalidation condition: change of artifact version, environment definition or rollback feasibility invalidates prior release approval.
 

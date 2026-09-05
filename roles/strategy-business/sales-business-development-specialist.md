@@ -4,7 +4,7 @@ Status: PROPOSED — Phase 3 reference role card
 
 ## Identity
 - Role Name: Sales / Business Development Specialist
-- Role ID: `role.sales_business_development`
+- Role ID: `role.sales_business_development_specialist`
 - Capability Domain: Strategy / Research / General Business
 - Role Type: Professional Delivery Role
 - Profile Level: EXTENDED
@@ -53,7 +53,7 @@ May recommend opportunity priority, outreach strategy, next commercial action an
 
 ## Minimum Input Knowledge State
 - Standard output minimum: current approved offer baseline plus FACT / SOURCE / REVIEWED CRM or account inputs, with unknown prospect assumptions explicitly labelled.
-- Decision-grade / externally usable output minimum: material pricing, scope, delivery, performance and legal claims must be REVIEWED or APPROVED under the applicable commercial governance path.
+- Decision-grade output minimum: for externally usable output, material pricing, scope, delivery, performance and legal claims must be REVIEWED or APPROVED under the applicable commercial governance path.
 - If minimum is not met: produce a preliminary internal draft only or RETURNED_FOR_REWORK; do not transmit externally as an approved offer or commitment.
 
 ## Output Artifact Interfaces

@@ -122,7 +122,7 @@ May issue a professional conclusion on project development maturity, readiness a
 
 ## Review Obligation
 - Review Required: conditional; mandatory for financing and investment gates
-- Review Profile Reference(s): `review.project_readiness`, `review.technical`, `review.factual_evidence`
+- Review Profile Reference(s): `review.project_readiness`, `review.engineering_technical`, `review.factual_evidence`
 
 ## Human Decision Gates
 - Decision Right Reference(s): `decision.project_definition_freeze`, `decision.stage_gate_progression`, `decision.land_or_site_commitment`

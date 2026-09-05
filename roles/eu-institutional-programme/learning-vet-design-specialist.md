@@ -77,7 +77,7 @@ May issue a professional conclusion on learning design coherence, learning-outco
   - Default Knowledge State: DRAFT
   - Evidence / Source Linkage Required: yes
   - Independent Review Required: yes where used for formal recognition
-  - Decision Right Reference: `decision.assessment_approval`
+  - Decision Right Reference: `decision.learning_assessment_approval`
   - Reversibility at Creation: REVERSIBLE
   - Transmitting Act: publication where released for use
   - Reversibility after Transmitting Act: COSTLY_TO_REVERSE
@@ -124,7 +124,7 @@ May issue a professional conclusion on learning design coherence, learning-outco
 - Review Profile Reference(s): `review.learning_design_quality`
 
 ## Human Decision Gates
-- Decision Right Reference(s): `decision.curriculum_adoption`, `decision.assessment_approval`
+- Decision Right Reference(s): `decision.curriculum_adoption`, `decision.learning_assessment_approval`
 - Required sequence: specialist output -> required review -> human decision before release for delivery
 - Approval invalidation condition: framework revision, occupational standard change or identified validity concern invalidates prior approval.
 

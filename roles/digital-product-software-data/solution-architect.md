@@ -77,8 +77,8 @@ May issue a professional architecture conclusion on whether a proposed system st
   - Description: system-level interface contracts, protocols, versioning and compatibility rules
   - Default Knowledge State: DRAFT
   - Evidence / Source Linkage Required: yes
-  - Independent Review Required: conditional where external parties consume the contract
-  - Decision Right Reference: none
+  - Independent Review Required: yes where external parties consume the contract
+  - Decision Right Reference: `decision.api_contract_publication`
   - Reversibility at Creation: REVERSIBLE
   - Transmitting Act: publication where issued to external consumers
   - Reversibility after Transmitting Act: COSTLY_TO_REVERSE
@@ -126,7 +126,7 @@ May issue a professional architecture conclusion on whether a proposed system st
 - Review Profile Reference(s): `review.architecture`, `review.security`
 
 ## Human Decision Gates
-- Decision Right Reference(s): `decision.architecture_adoption`, `decision.technology_selection`, `decision.production_release`
+- Decision Right Reference(s): `decision.architecture_adoption`, `decision.technology_selection`, `decision.production_release`, `decision.api_contract_publication`
 - Required sequence: specialist output -> required review -> human decision
 - Approval invalidation condition: material change in requirements, load, constraints or platform terms invalidates prior adoption.
 

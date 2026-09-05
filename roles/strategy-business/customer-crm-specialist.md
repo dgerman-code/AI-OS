@@ -124,7 +124,7 @@ May issue a professional conclusion on customer lifecycle design, segmentation l
 - data classification / confidentiality.
 
 ## Adjacent / Boundary Roles
-- `role.sales_business_development` — new-business commitment boundary.
+- `role.sales_business_development_specialist` — new-business commitment boundary.
 - `role.operations_service_delivery_specialist` — service process and capacity boundary.
 - `role.data_protection_gdpr_specialist` — customer personal-data boundary.
 - `role.marketing_growth_specialist` — outbound claim and campaign boundary.

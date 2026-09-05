@@ -71,10 +71,10 @@ May issue a **delivery integration conclusion** stating whether the current pack
   - Default Knowledge State: DRAFT
   - Evidence / Source Linkage Required: yes, inherited from component artifacts
   - Independent Review Required: conditional
-  - Decision Right Reference: `decision.external_submission_or_commitment`
+  - Decision Right Reference: none; external act must resolve to the consuming workflow's specific `decision.<id>`
   - Reversibility at Creation: REVERSIBLE
-  - Transmitting Act: submission / send / publication / deployment / filing / binding commitment, depending on workflow
-  - Reversibility after Transmitting Act: COSTLY_TO_REVERSE or IRREVERSIBLE depending on act
+  - Transmitting Act: none; external transmission is a downstream workflow act
+  - Reversibility after Transmitting Act: REVERSIBLE while retained as an internal package; downstream external act has its own reversibility classification
   - Validity / Expiry / Refresh Rule: invalidate or require impact assessment when a material component becomes SUPERSEDED or materially changes.
 - Artifact Type / ID: `artifact.escalation_note`
   - Description: unresolved conflict, dependency, authority, evidence or delivery-readiness issue requiring action.
@@ -130,7 +130,8 @@ May issue a **delivery integration conclusion** stating whether the current pack
 - Review Profile Reference(s): `review.project_integration_coherence`
 
 ## Human Decision Gates
-- Decision Right Reference(s): `decision.workflow_scope_approval`, `decision.external_submission_or_commitment`, `decision.production_change`
+- Decision Right Reference(s): `decision.workflow_scope_approval`, `decision.production_release`
+- Any external submission, publication, deployment, filing or binding commitment arising from an integrated delivery package must resolve to the specific decision right owned by the consuming workflow or specialist role; a generic catch-all decision right must not be used for an external act.
 - Required sequence: specialist output -> required review -> human decision, unless explicitly defined otherwise
 - Approval invalidation condition: material change in scope, specialist conclusion, component version, critical assumption, controlled-source version or deadline requires impact assessment and may invalidate prior approval.
 

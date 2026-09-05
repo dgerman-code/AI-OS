@@ -68,7 +68,7 @@ May issue a professional conclusion on call fit, proposal readiness, compliance 
   - Default Knowledge State: DRAFT
   - Evidence / Source Linkage Required: yes
   - Independent Review Required: yes for material external submissions
-  - Decision Right Reference: `decision.eu_application_submission`
+  - Decision Right Reference: `decision.granting_authority_submission`
   - Reversibility at Creation: REVERSIBLE
   - Transmitting Act: submission
   - Reversibility after Transmitting Act: COSTLY_TO_REVERSE
@@ -113,7 +113,7 @@ May issue a professional conclusion on call fit, proposal readiness, compliance 
 - Review Profile Reference(s): `review.eu_programme_compliance`
 
 ## Human Decision Gates
-- Decision Right Reference(s): `decision.eu_application_submission`, `decision.partner_commitment`, `decision.budget_commitment`
+- Decision Right Reference(s): `decision.granting_authority_submission`, `decision.partner_commitment`, `decision.budget_approval`
 - Required sequence: specialist output -> required review -> human decision
 - Approval invalidation condition: material call amendment, applicant/consortium change, budget change or new eligibility conflict.
 

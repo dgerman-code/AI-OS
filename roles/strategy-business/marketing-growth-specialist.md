@@ -124,7 +124,7 @@ May issue a professional conclusion on positioning fit, channel suitability, cam
 - personal-data purpose and lawful-basis reference.
 
 ## Adjacent / Boundary Roles
-- `role.sales_business_development` — direct commercial commitment boundary.
+- `role.sales_business_development_specialist` — direct commercial commitment boundary.
 - `role.institutional_communications_editorial_specialist` — institutional and editorial publication boundary.
 - `role.data_protection_gdpr_specialist` — lawful-basis and marketing-consent boundary.
 - `role.data_business_analytics_specialist` — measurement and attribution methodology boundary.

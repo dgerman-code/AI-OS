@@ -123,7 +123,7 @@ May issue a professional conclusion on technical feasibility of a defined config
 
 ## Review Obligation
 - Review Required: yes for Enhanced Decision-Grade and lender-facing work; conditional otherwise
-- Review Profile Reference(s): `review.technical`, `review.factual_evidence`
+- Review Profile Reference(s): `review.engineering_technical`, `review.factual_evidence`
 
 ## Human Decision Gates
 - Decision Right Reference(s): `decision.technical_basis_freeze`, `decision.feasibility_acceptance`

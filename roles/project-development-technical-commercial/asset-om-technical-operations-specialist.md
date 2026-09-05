@@ -122,7 +122,7 @@ May issue a professional conclusion on the operability and maintainability of a 
 
 ## Review Obligation
 - Review Required: conditional; mandatory where the availability basis is relied on in a financing model
-- Review Profile Reference(s): `review.technical`
+- Review Profile Reference(s): `review.engineering_technical`
 
 ## Human Decision Gates
 - Decision Right Reference(s): `decision.om_model_selection`
