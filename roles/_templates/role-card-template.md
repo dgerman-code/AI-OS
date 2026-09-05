@@ -3,7 +3,7 @@
 Status: PROPOSED — Phase 3 standard candidate
 Template Version: 1.0
 
-All Professional Delivery Role Cards inherit `standard.role.common_constraints@0.1` unless an approved exception is stated.
+All Professional Delivery Role Cards inherit `standard.role.common_constraints@0.2` unless an approved exception is stated.
 
 Use **Profile Level: CORE** for ordinary professional roles. Use **Profile Level: EXTENDED** when the role handles regulated, high-stakes, irreversible/external-commitment, sensitive-information, production or decision-grade outputs.
 
@@ -16,7 +16,7 @@ Use **Profile Level: CORE** for ordinary professional roles. Use **Profile Level
 - Version:
 - Status: PROPOSED / APPROVED / DEPRECATED
 - Methodology Owner:
-- Inherits: `standard.role.common_constraints@0.1`
+- Inherits: `standard.role.common_constraints@0.2`
 - Supersedes: optional role version / ID
 - Superseded By: optional role version / ID
 
@@ -83,7 +83,7 @@ List role-inherent competencies only. Domain / programme / technology skill pack
 - Conflict-detection obligations:
 
 ## Role-Specific Authority Limits
-**Normative.** List only limits additional to `standard.role.common_constraints@0.1`.
+**Normative.** List only limits additional to `standard.role.common_constraints@0.2`.
 - 
 
 ## Input Acceptance Rules
