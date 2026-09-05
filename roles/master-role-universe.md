@@ -1,6 +1,6 @@
-# Master Role Universe v1.0
+# Master Role Universe v1.1
 
-Status: APPROVED — Phase 2 complete
+Status: APPROVED — Phase 2 complete; nomenclature update approved 2026-09-05
 
 This document contains the approved professional delivery role universe for AI-OS Phase 2. It intentionally excludes System Control Profiles, Review Profiles and Human Decision Rights, which are separate architectural entities.
 
@@ -10,7 +10,7 @@ Seniority (Junior / Senior / Lead / Principal), criticality and assignment respo
 
 ## 1. Portfolio / Programme / Project Governance
 1. Portfolio / Programme Manager
-2. Project / Workflow Lead
+2. Project / Delivery Lead
 3. Knowledge & Evidence Steward
 
 ## 2. Strategy / Research / General Business
@@ -127,12 +127,9 @@ A separate first-class role is justified only when at least one is true:
 - it recurrently produces a distinct professional artifact or decision-grade output;
 - it needs independent review separation that cannot be represented cleanly by a Review Profile.
 
-## Phase 2 approval
+## Approved change log
 
-The four final audit additions were approved by the human owner on 2026-09-05:
-- Monitoring, Evaluation & Learning Specialist
-- FP&A / Management Finance Specialist
-- Data / Business Analytics Specialist
-- Supply Chain & Procurement Operations Specialist
+### 2026-09-05
+`Project / Workflow Lead` renamed to `Project / Delivery Lead` to avoid namespace and responsibility ambiguity with the System Control Profile `Workflow Controller`. The professional role integrates delivery; System Control orchestrates routing, context allocation and runtime execution.
 
-Master Role Universe v1.0 therefore contains 59 approved professional roles. Further changes require explicit review and change control.
+The professional role count remains 59.
