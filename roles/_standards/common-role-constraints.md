@@ -2,7 +2,7 @@
 
 Status: PROPOSED — Phase 3 shared standard
 Standard ID: standard.role.common_constraints
-Version: 0.1
+Version: 0.2
 
 All Professional Delivery Role Cards inherit this standard unless an approved role-specific exception explicitly overrides a clause.
 
@@ -32,6 +32,8 @@ All material information handled or created by the role MUST use the system know
 
 A role may propose a state transition only within its authority. Human or governance-controlled transitions remain subject to the Decision Rights Register and knowledge-governance rules.
 
+A downstream role MUST NOT treat the mere existence of an upstream artifact as sufficient input quality. Each Role Card must define the minimum acceptable input knowledge state for material work. If the required state is not met, the receiving role must either return the input for rework or explicitly downgrade its own output to preliminary / non-decision-grade status.
+
 ## Universal Handoff Interface
 Role Cards define input types and output artifact interfaces, not named upstream/downstream teammates. Workflow Registry binds producer and consumer roles.
 
@@ -56,6 +58,16 @@ Role Cards state whether independent review is required and reference Review Pro
 
 ## Human Decision Boundary
 Role Cards reference Decision Right IDs for human-only approvals. Identity of the human authority, required confirmation form and invalidation rules live in the Decision Rights Register, not in the Role Card.
+
+## Artifact Creation vs External Act
+Creating an artifact and externally transmitting / deploying / filing / publishing / sending / committing that artifact are separate events.
+
+Role Cards must distinguish:
+- reversibility of the artifact at creation;
+- the external transmitting act, if any;
+- reversibility after that act.
+
+An artifact that is reversible as a draft may become costly to reverse or irreversible once submitted, sent, published, deployed or used to create a binding commitment. External acts that require human authority must reference a Decision Right ID.
 
 ## Source / Standard Currency
 Where a role relies on external law, programme rules, technical standards, donor rules, accounting standards, ESG frameworks or other controlled sources, the applicable source class and version / effective date must be captured in the assignment or artifact metadata.
