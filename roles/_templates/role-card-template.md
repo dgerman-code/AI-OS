@@ -1,20 +1,22 @@
-# Role Card Template
+# Role Card Standard v1.0 Candidate
 
-Status: TEMPLATE — Phase 3
-Template Version: 0.2
+Status: PROPOSED — Phase 3 standard candidate
+Template Version: 1.0
 
-All Professional Delivery Role Cards inherit `standard.role.common_constraints` unless an approved exception is stated.
+All Professional Delivery Role Cards inherit `standard.role.common_constraints@0.1` unless an approved exception is stated.
 
-Use the **Core Profile** for low-risk roles and assignments. Use the **Extended Regulated / Decision-Grade Profile** when the role handles regulated, high-stakes, irreversible, external-submission, production or decision-grade outputs.
+Use **Profile Level: CORE** for ordinary professional roles. Use **Profile Level: EXTENDED** when the role handles regulated, high-stakes, irreversible/external-commitment, sensitive-information, production or decision-grade outputs.
 
 ## Identity
 - Role Name:
 - Role ID: `role.<namespace>`
 - Capability Domain:
 - Role Type: Professional Delivery Role
+- Profile Level: CORE / EXTENDED
 - Version:
 - Status: PROPOSED / APPROVED / DEPRECATED
 - Methodology Owner:
+- Inherits: `standard.role.common_constraints@0.1`
 - Supersedes: optional role version / ID
 - Superseded By: optional role version / ID
 
@@ -24,47 +26,56 @@ One concise statement of why this role exists and what professional outcome it o
 ## Professional Scope
 ### Owns
 - 
-- 
 
 ### Does Not Own
 - 
-- 
 
 ## Professional Decision Right
-State the professional conclusion this role may issue within its competence, and what that conclusion does **not** constitute.
+State the professional conclusion this role may issue within its competence and what that conclusion does **not** constitute.
 
-Example distinction: may issue a draft legal analysis for review; may not issue a binding legal opinion, execute a filing or bind a client.
+## Context Breadth Limit
+State:
+- minimum permitted context granularity;
+- whether multi-project / multi-programme context is allowed;
+- whether cross-context knowledge inheritance is allowed and under what governance condition.
 
 ## Typical Input Interfaces
-Describe input **types / artifact classes**, not named upstream roles.
+Describe input **artifact classes / information types**, not named upstream roles.
 - 
-- 
+
+## Minimum Input Knowledge State
+Define the minimum acceptable state for material inputs.
+- Standard output minimum:
+- Decision-grade output minimum:
+- If minimum is not met: RETURNED_FOR_REWORK / preliminary output only / other explicit behaviour
 
 ## Output Artifact Interfaces
-For each material output, specify:
+For each material output specify:
 - Artifact Type / ID:
 - Description:
-- Default Knowledge State: DRAFT / CALCULATION / AI_SUGGESTION / other permitted state
+- Default Knowledge State:
 - Evidence / Source Linkage Required: yes / no
-- Independent Review Required: yes / no
+- Independent Review Required: yes / conditional / no
 - Decision Right Reference: optional `decision.<id>`
-- Reversibility Class: REVERSIBLE / COSTLY_TO_REVERSE / IRREVERSIBLE
-- Validity / Expiry / Refresh Rule: if applicable
+- Reversibility at Creation: REVERSIBLE / COSTLY_TO_REVERSE / IRREVERSIBLE
+- Transmitting Act: none / submission / send / publication / deployment / filing / binding commitment / other
+- Reversibility after Transmitting Act: REVERSIBLE / COSTLY_TO_REVERSE / IRREVERSIBLE
+- Validity / Expiry / Refresh Rule:
+
+Reversibility is evaluated separately for creation of an artifact and for any external act that transmits, deploys, files, publishes or otherwise commits it.
 
 ## Required Methodologies
-Methodologies are part of role identity. They define the professional method the role must apply and are centrally version-controlled.
-- 
+Methodologies are part of role identity and are centrally version-controlled.
 - 
 
-## Required Skills / Skill Packs
-Skills are execution capabilities that may be attached at assignment time without changing role identity.
-- Core skills:
-- Optional/domain skill packs:
+## Core Skills
+List role-inherent competencies only. Domain / programme / technology skill packs belong to the Skill / Specialisation Registry.
+- 
 
 ## Evidence, Source & Knowledge-State Requirements
 - Permitted / preferred source classes:
 - Prohibited or insufficient source classes:
-- Currency / version requirements:
+- Currency / version / effective-date requirements:
 - Claims that must be source-backed:
 - Assumptions that must be explicitly labelled:
 - Calculations / logic that must be reproducible:
@@ -72,70 +83,54 @@ Skills are execution capabilities that may be attached at assignment time withou
 - Conflict-detection obligations:
 
 ## Role-Specific Authority Limits
-List only limits that add to `standard.role.common_constraints`.
+**Normative.** List only limits additional to `standard.role.common_constraints@0.1`.
 - 
 
 ## Input Acceptance Rules
-State what the role must verify before accepting a material handoff.
 - Required fields / artifacts:
 - Conditions for ACCEPTED_WITH_CONDITIONS:
 - Conditions for RETURNED_FOR_REWORK:
 
 ## Review Obligation
-Do not copy review methodology here.
+Reference review methodology only by ID.
 - Review Required: yes / conditional / no
 - Review Profile Reference(s): `review.<id>`
-- Workflow / artifact determines trigger: yes
 
 ## Human Decision Gates
-Do not name the human approver here unless the decision record requires it. Reference Decision Rights Registry IDs.
+Reference human-only decision rights only by ID.
 - Decision Right Reference(s): `decision.<id>`
 - Required sequence: specialist output -> required review -> human decision, unless explicitly defined otherwise
-- Approval invalidation condition: define whether material input / assumption / version change invalidates prior approval
+- Approval invalidation condition:
 
-## Assignment Attributes
-Assigned at runtime and not part of role identity:
-- seniority
-- responsibility level
-- criticality
-- organisation / programme / project / product / workstream / task scope
-- language
-- jurisdiction / regulatory perimeter, where applicable
-- applicable standards / versions
-- data classification / confidentiality
-- residency / processing constraints
-- model runtime
+## Mandatory Assignment Attributes
+List only attributes whose absence makes assignment invalid for this role.
+- 
+
+## Adjacent / Boundary Roles
+Optional. Use role IDs only.
+- `role.<id>` — boundary statement
 
 ## Incompatible Assignments / Independence Constraints
-List role-specific incompatibilities only. Generic author-review separation belongs to Review Profiles and workflow controls.
+List only role-specific incompatibilities. Generic author-review separation belongs to Review Profiles and workflow controls.
 - 
 
 ## Escalation Conditions
-List role-specific triggers in addition to the common inherited standard.
 - 
 
 ## Completion Criteria
-State observable conditions for the role's work to be considered complete.
-- 
 - 
 
 ## Failure Modes to Avoid
-Role-specific professional failure modes only.
-- 
+**Advisory / non-normative.** Role-specific professional failure modes only.
 - 
 
 ## Extended Regulated / Decision-Grade Profile
-Complete this block when applicable.
+Required when `Profile Level: EXTENDED`.
 
 ### Licensed / Regulated Activity Boundary
 - Activity or conclusion requiring licensed / authorised human professional:
 - Jurisdiction / competence gateway:
 - Formal sign-off required:
-
-### External Standards / Controlled Sources
-- Standard / law / programme / donor / technical framework:
-- Version / effective date required:
-- Official source class required:
 
 ### Irreversible / External Commitments
 - External submission / filing / publication / deployment / binding commitment:
@@ -148,7 +143,12 @@ Complete this block when applicable.
 - Commercial / inside / restricted information:
 - Storage / disclosure constraints:
 
-## Change Control
-Changes to purpose, professional decision right, required methodology, regulated-activity boundary or review obligation require explicit Role Registry review and versioning.
-
-When a new version supersedes an old one, the workflow must define whether in-flight assignments continue under the old version or must be revalidated against the new version.
+## Inherited and Not Repeated in Role Cards
+The common standard governs:
+- universal authority limits;
+- universal knowledge-state taxonomy;
+- universal handoff interface;
+- Review vs Decision separation;
+- generic conflict detection;
+- generic sensitive-data obligations;
+- central change control.
