@@ -1,99 +1,125 @@
-# Master Role Universe
+# Master Role Universe v1.0 Candidate
 
-Status: PROPOSED — Phase 2 working set
+Status: PROPOSED — Phase 2 candidate for human approval
 
-This is the initial professional role universe. These are role profiles, not permanently running agents. Workflows will later activate only the roles required for a task.
+This document contains professional delivery roles only. It intentionally excludes System Control profiles, Review Profiles and Human Decision Rights, which are separate architectural entities.
 
-## Control / Orchestration
-1. Chief Orchestrator
-2. Portfolio / Programme Manager
-3. Project / Workflow Lead
-4. Knowledge & Evidence Steward
+A role is a reusable professional methodology profile, not a permanently running agent and not a model binding. Workflows later activate only the roles required for a task.
 
-## Strategy / Research / Business
-5. Strategy & Business Analyst
-6. Research / Market Intelligence Analyst
-7. Sales / Business Development Specialist
-8. Marketing / Growth Specialist
-9. Operations / Service Delivery Specialist
-10. People / Organisation Specialist
-11. Customer / CRM Specialist
+Seniority (Junior / Senior / Lead / Principal), criticality and assignment responsibility are attributes of an assignment, not separate roles.
 
-## EU / Institutional / Programme
-12. EU Policy & Institutional Affairs Specialist
-13. EU Enlargement / Governance Specialist
-14. Institutional Affairs & Stakeholder Specialist
-15. Programme / Partnership Manager
-16. EU Grants & Programmes Specialist
-17. EU Programme Implementation & Grant Management Specialist
-18. Consortium / Partner Coordination Specialist
-19. Grant Financial Compliance / Budget Specialist
-20. Deliverables / Reporting Specialist
-21. Skills / VET / Human Capital Specialist
-22. Social Dialogue Specialist
+## 1. Portfolio / Programme / Project Governance
+1. Portfolio / Programme Manager
+2. Project / Workflow Lead
+3. Knowledge & Evidence Steward
 
-## Project Development / Engineering / Commercial
-23. Project Development Lead
-24. Technical / Feasibility Lead
-25. Sector Technical Expert
-26. Commercial & Demand Specialist
-27. CAPEX / Cost Engineering Specialist
-28. OPEX / Operating Model Specialist
+## 2. Strategy / Research / General Business
+4. Strategy & Business Analyst
+5. Research / Market Intelligence Analyst
+6. Sales / Business Development Specialist
+7. Marketing / Growth Specialist
+8. Operations / Service Delivery Specialist
+9. People / Organisation Specialist
+10. Customer / CRM Specialist
 
-## Economics / Finance / Transaction
-29. Financial Modelling Specialist
-30. Economic / CBA Specialist
-31. Funding & Bankability Architect
-32. Project Finance / Transaction Specialist
-33. IFI / DFI Project Preparation Specialist
-34. PPP / Concession Specialist
-35. Tax Specialist
-36. Accounting / Financial Due Diligence Specialist
-37. Insurance / Risk Transfer Specialist
+## 3. EU / Institutional / Programme
+11. EU Policy & Institutional Affairs Specialist
+12. EU Enlargement / Governance Specialist
+13. Institutional Affairs & Stakeholder Specialist
+14. Programme / Partnership Manager
+15. EU Grants & Programmes Specialist
+16. EU Programme Implementation & Grant Management Specialist
+17. Consortium / Partner Coordination Specialist
+18. Grant Financial Compliance / Budget Specialist
+19. Deliverables / Reporting Specialist
+20. Learning / VET Design Specialist
+21. Social Dialogue Specialist
 
-## Legal / Compliance / ESG / Risk
-38. Legal & Regulatory Lead
-39. Procurement / State Aid Specialist
-40. ESG / E&S Specialist
-41. Enterprise / Project Risk Specialist
-42. Integrity / Due Diligence Specialist
-43. Data Protection / GDPR Specialist
+Note: Labour-market analysis, skills forecasting and skills intelligence are treated as a specialisation / skill pack under Research / Market Intelligence rather than folded into Learning / VET Design.
 
-## Digital Product / Software / Data
-44. Product Manager / Business Analyst
-45. UX / UI & Information Architecture Specialist
-46. Institutional Communications / Editorial Specialist
-47. Solution Architect
-48. Full-Stack Software Engineer
-49. Integration / API Engineer
-50. Platform / DevOps Engineer
-51. Data & Database Architect
-52. Database / Data Engineer
-53. AI / Knowledge Systems Engineer
-54. Security Engineer / Reviewer
-55. Software QA / Test Automation Specialist
+## 4. Project Development / Technical / Commercial
+22. Project Development Lead
+23. Technical / Feasibility Lead
+24. Sector Technical Expert
+25. Commercial & Demand Specialist
+26. CAPEX / Cost Engineering Specialist
+27. Asset O&M / Technical Operations Specialist
 
-## Knowledge / Documentation / Data Room
-56. Document / Data Room Manager
-57. Documentation / Version Control Specialist
+Note: Corporate operating-model design belongs to Operations / Service Delivery. Asset O&M strategy for infrastructure and industrial projects belongs to the technical project-preparation domain.
 
-## Independent Assurance
-58. Independent Factual / Evidence Reviewer
-59. Financial Model Reviewer
-60. Economic Review Specialist
-61. Technical Reviewer
-62. Commercial Reviewer
-63. IFI / Bankability Reviewer
-64. Independent EU Programme Evaluator
-65. Legal / Compliance Reviewer
-66. Tax / Accounting Reviewer
-67. ESG / Safeguards Reviewer
-68. Architecture Reviewer
-69. Security Reviewer
-70. Independent Code Reviewer
-71. Red Team / Challenger
-72. Final Quality Controller / Arbiter
+## 5. Economics / Finance / Transaction
+28. Financial Modelling Specialist
+29. Economic / CBA Specialist
+30. Funding & Bankability Architect
+31. Project Finance / Transaction Specialist
+32. IFI / DFI Project Preparation Specialist
+33. PPP / Concession Specialist
+34. Tax Specialist
+35. Accounting / Financial Due Diligence Specialist
+36. Insurance / Risk Transfer Specialist
+
+Funding & Bankability and Project Finance / Transaction remain separate at this stage: the former designs financing strategy and bankability pathways; the latter executes financing structures, lender processes and transaction work toward close.
+
+## 6. Legal / Compliance / ESG / Risk
+37. Legal & Regulatory Lead
+38. Procurement / State Aid Specialist
+39. ESG / E&S Specialist
+40. Enterprise / Project Risk Specialist
+41. Integrity / Due Diligence Specialist
+42. Data Protection / GDPR Specialist
+
+## 7. Digital Product / Software / Data
+43. Product Manager / Business Analyst
+44. UX / UI & Information Architecture Specialist
+45. Institutional Communications / Editorial Specialist
+46. Solution Architect
+47. Full-Stack Software Engineer
+48. Integration / API Engineer
+49. Platform / DevOps Engineer
+50. Data & Database Architect
+51. Database / Data Engineer
+52. AI / Knowledge Systems Engineer
+53. Security Engineer
+54. Software QA / Test Automation Specialist
+
+## 8. Knowledge / Documentation / Transaction Disclosure
+55. Data Room & Disclosure Manager
+
+Knowledge & Evidence Steward and Data Room & Disclosure Manager remain separate because they govern different things: epistemic status / canonicality versus controlled confidential disclosure and access.
+
+## Reusable specialisations currently NOT first-class roles
+
+These are candidates for the Skill / Specialisation Registry rather than separate roles:
+
+- Bid / Proposal Management
+- Labour Market & Skills Intelligence
+- Technical Writing / Documentation
+- Version Control / Document Configuration
+- EU programme-specific packs (e.g. Erasmus+, CoVE, LIFE, Horizon Europe)
+- IFI-specific packs (e.g. EIB, EBRD, World Bank, IFC, BGK, InvestEU, Ukraine Facility)
+- Technology-specific packs (e.g. Supabase, PostgreSQL, Vercel)
+- Sector packs (e.g. solar, BESS, water, waste, transport, industrial, health, real estate)
+- Metrics and modelling packs (e.g. DSCR, LLCR, PLCR, tariff modelling, affordability)
+
+## Explicit exclusions from the Role Registry
+
+The following are intentionally modelled elsewhere:
+
+- Chief Orchestrator -> System Control Profile
+- Context Manager -> System Control Profile
+- Workflow Controller -> System Control Profile
+- Model Router -> System Control Profile
+- Financial Model Reviewer, Technical Reviewer, Legal Reviewer, ESG Reviewer, Code Reviewer, etc. -> Review Profiles
+- Final Approver / Investment Approver / Legal Approver, etc. -> Decision Rights Register
+- Junior / Senior / Lead / Principal -> assignment attributes
 
 ## Design rule
 
-This universe is intentionally broader than the future MVP. During Phase 2 review, overlapping roles may be merged, some profiles may become skill packs, and truly distinct roles will remain first-class. No role becomes canonical until reviewed and approved.
+A separate first-class role is justified only when at least one is true:
+
+- it requires a distinct professional methodology;
+- it has a materially different authority boundary;
+- it recurrently produces a distinct professional artifact or decision-grade output;
+- it needs independent review separation that cannot be represented cleanly by a Review Profile.
+
+No role in this candidate list is CANONICAL until human approval of Phase 2.
