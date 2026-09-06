@@ -10,6 +10,8 @@ Wave 1 (`skills/mappings/wave-1-exemplar-role-skill-mapping.md`) is a reviewed e
 
 This mapping changes no Role Card, creates no Skill, Specialisation or Skill Pack Card, and creates no first-class Role.
 
+**Normalized in Wave 3.** Cross-domain normalization retired 5 duplicate IDs, added 3 reusable capability classes, reclassified 2 Specialisations and corrected the Project Development Lead audit-trail prose. Section 11 records it; the consolidated rationale is in `reviews/phase-4-wave-3-cross-domain-normalization.md`.
+
 **Remediated after independent Wave 2 audit.** The audit returned FAIL on 48 card-allowlist compatibility conflicts — 37 direct Skill mappings and 11 direct Pack mappings whose consuming Roles were absent from the target card allowlists. All 48 are resolved: 45 by governed card widening after Role-Card review, 3 by removing the mapping instead. Two relationship defects were also corrected. Section 10 records the remediation in full.
 
 ## Canonical source statement
@@ -216,8 +218,6 @@ Role: `role.operations_service_delivery_specialist`
 ### REQUIRED_FOR_CONTEXT
 - `skill.sop_design`
   - trigger: operating procedures must be documented for repeatable execution
-- `skill.resource_planning`
-  - trigger: service design depends on staffing or resource envelope
 - `skill.operating_model_analysis`
   - trigger: assignment covers corporate operating-model structure rather than a single process
 - `skill_pack.change_management_adoption`
@@ -326,6 +326,8 @@ Role: `role.supply_chain_procurement_operations_specialist`
   - trigger: supply continuity or concentration risk is in assignment scope
 - `specialisation.supply_chain_operations`
   - trigger: assignment is end-to-end supply chain rather than single-category sourcing
+- `skill.negotiation_preparation`
+  - trigger: supplier terms must be prepared for negotiation within delegated limits
 
 ### OPTIONAL
 - `skill.benchmarking`
@@ -464,6 +466,8 @@ Role: `role.programme_partnership_manager`
 - `skill.decision_criteria_design`
 
 ### REQUIRED_FOR_CONTEXT
+- `skill.negotiation_preparation`
+  - trigger: partnership or consortium terms must be prepared for negotiation within delegated limits
 - `skill.relationship_risk_analysis`
   - trigger: partner portfolio carries dependency, concentration or relationship risk
 - `skill.contract_review`
@@ -592,6 +596,8 @@ Role: `role.grant_financial_compliance_budget_specialist`
   - trigger: clawback or ineligibility exposure must be quantified
 - `specialisation.eu_grant_delivery`
   - trigger: assignment is financial compliance for an EU-funded grant
+- `skill.variance_analysis`
+  - trigger: budget execution must be explained against plan by cost driver
 
 ### OPTIONAL
 - `skill.source_verification`
@@ -767,6 +773,8 @@ Role: `role.project_development_lead`
   - trigger: development risk must be surfaced across workstreams
 - `specialisation.infrastructure_project_preparation`
   - trigger: project preparation for infrastructure, utility or industrial investment
+- `skill.negotiation_preparation`
+  - trigger: counterparty or land terms must be prepared for negotiation within delegated limits
 
 ### OPTIONAL
 - `skill.stakeholder_mapping`
@@ -778,7 +786,7 @@ Role: `role.project_development_lead`
 - Support-only boundary vs `role.technical_feasibility_lead`: `skill.multidisciplinary_integration` integrates specialist workstreams without absorbing them — the Role Card's own Core Skills say so. Technical feasibility conclusions and basis of design remain the Technical / Feasibility Lead's, consumed at their stated state.
 - Support-only boundary vs `role.funding_bankability_architect`: readiness assessment against financing gates does not produce a bankability conclusion. Funding strategy and bankability remain the Funding & Bankability Role's under `decision.funding_strategy_adoption`.
 - `skill.licensing_requirement_analysis` is contextual and support-only: statutory permits and regulatory determinations are excluded by the Role Card, and legal conclusions remain `role.legal_regulatory_lead`'s.
-- `skill_pack.bid_proposal_management` is deliberately **not** mapped here. An earlier draft mapped it contextually, but the Role Card carries no bidding, tendering, proposal or governed-submission surface: its owned artifacts are internal preparation documents and its Core Skills reach only to negotiation preparation within delegated limits. Formal competitive submission belongs to `role.sales_business_development_specialist` and `role.eu_grants_programmes_specialist`, which the Pack Card already lists. The mapping was removed rather than the Pack Card widened.
+- `skill_pack.bid_proposal_management` is deliberately **not** mapped here, and the reason must be stated precisely because an earlier revision overstated it. This Role **does** transmit externally: `artifact.project_definition_document` and `artifact.development_readiness_assessment` both carry a submission transmitting act to lenders, investors or authorities and are COSTLY_TO_REVERSE afterwards, and the Role Card requires tender deadlines and permitting windows to be captured. What the Role does **not** own is a formal competitive response-to-solicitation process — bid/no-bid qualification, a compliance matrix built from a solicitation, multi-author narrative coordination and submission-readiness control against evaluation criteria. That is the Pack's subject, and it belongs to `role.sales_business_development_specialist` and `role.eu_grants_programmes_specialist`, which the Pack Card already lists. The distinction is between submitting a project case and competing in a governed procurement or call, so the mapping was removed rather than the Pack Card widened.
 - Investment, financing and land-acquisition decisions are gated by `decision.project_definition_freeze`, `decision.stage_gate_progression` and `decision.land_or_site_commitment`.
 
 ### Sparse-core rationale
@@ -845,26 +853,23 @@ Role: `role.commercial_demand_specialist`
 
 ### REQUIRED_FOR_CONTEXT
 - `skill.tariff_analysis`
-  - trigger: revenue is set through a regulated or contracted tariff
+  - trigger: revenue is set through a regulated or contracted tariff; absorbs the retired `specialisation.tariff_modelling`
 - `skill.offtake_analysis`
   - trigger: revenue depends on offtake or purchase agreements with identified counterparties
 - `skill.affordability_analysis`
-  - trigger: end users are price-constrained and affordability bounds achievable tariff
+  - trigger: end users are price-constrained and affordability bounds achievable tariff; absorbs the retired `specialisation.affordability`
 - `skill.scenario_analysis`
   - trigger: demand basis must be expressed across materially different demand futures
 - `specialisation.regulated_market`
   - trigger: market is subject to regulated pricing or access rules
 - `specialisation.public_service_demand`
   - trigger: demand is for a public service with non-commercial drivers
-- `specialisation.tariff_modelling`
-  - trigger: tariff structure itself must be modelled rather than applied
-- `specialisation.affordability`
-  - trigger: affordability constraints must be quantified against ability-to-pay evidence
+- `skill.revenue_model_design`
+  - trigger: revenue structure itself must be designed rather than applied
 
 ### OPTIONAL
 - `skill.market_segmentation`
 - `skill.competitor_analysis`
-- `skill.revenue_model_design`
 - `skill.source_verification`
 
 ### Boundaries
@@ -929,13 +934,11 @@ Role: `role.asset_om_technical_operations_specialist`
 ### REQUIRED_CORE
 - `skill.om_strategy_design`
 - `skill.asset_performance_analysis`
-- `skill.resource_planning`
+- `skill.capacity_planning`
 
 ### REQUIRED_FOR_CONTEXT
 - `skill.technical_risk_analysis`
   - trigger: operational risk and failure modes are in assignment scope
-- `skill.capacity_planning`
-  - trigger: operations resourcing must be sized against workload
 - `skill.sop_design`
   - trigger: operating procedures must be documented for the operating model
 
@@ -1022,6 +1025,7 @@ Role: `role.fpa_management_finance_specialist`
 ### REQUIRED_CORE
 - `skill.cash_flow_modelling`
 - `skill.financial_evidence_reconciliation`
+- `skill.variance_analysis`
 - `skill.metric_definition`
 - `skill.scenario_analysis`
 
@@ -1121,6 +1125,8 @@ Role: `role.project_finance_transaction_specialist`
   - trigger: financing structure is project finance or a lender-facing debt model governs coverage conventions
 - `skill.evidence_indexing`
   - trigger: closing requires assembled and indexed condition-precedent evidence
+- `skill.negotiation_preparation`
+  - trigger: term sheet or financing document positions must be prepared for negotiation within delegated limits
 
 ### OPTIONAL
 - `skill.scenario_analysis`
@@ -1314,7 +1320,6 @@ Role: `role.insurance_risk_transfer_specialist`
 
 ### REQUIRED_CORE
 - `skill.insurance_programme_analysis`
-- `skill.insurance_gap_analysis`
 - `skill.risk_identification`
 
 ### REQUIRED_FOR_CONTEXT
@@ -1631,6 +1636,7 @@ Role: `role.full_stack_software_engineer`
 - `skill.observability_design`
 - `skill.technical_writing`
 - `skill.integration_pattern_selection`
+- `skill.defect_management`
 
 ### ALTERNATIVE
 - choice set: **Implementation layer**
@@ -1889,6 +1895,7 @@ Role: `role.software_qa_test_automation_specialist`
 ### REQUIRED_CORE
 - `skill.test_automation`
 - `skill.acceptance_criteria_design`
+- `skill.defect_management`
 
 ### REQUIRED_FOR_CONTEXT
 - `skill.performance_testing`
@@ -1965,14 +1972,14 @@ Core is five: index, access matrix, tracking, redaction and version control — 
 
 All figures below are computed from the mapping entries in section 2, not estimated.
 
-- Total active mapping entries: **673**
-  - `REQUIRED_CORE`: 187
-  - `REQUIRED_FOR_CONTEXT`: 228
+- Total active mapping entries: **676**
+  - `REQUIRED_CORE`: 188
+  - `REQUIRED_FOR_CONTEXT`: 230
   - `OPTIONAL`: 192
   - `ALTERNATIVE`: 56
   - `PROHIBITED_IN_CONTEXT`: 10
-- Unique Skills used in active (non-prohibited) mappings: **182**
-- Unique Specialisations used: **36**
+- Unique Skills used in active (non-prohibited) mappings: **183**
+- Unique Specialisations used: **34**
 - Unique Skill Packs used: **20**
 - Roles mapped: **48**
 - REQUIRED_CORE per role: min 2, max 5, mean 3.9
@@ -2004,7 +2011,7 @@ All figures below are computed from the mapping entries in section 2, not estima
 
 ## Single-role capabilities across Wave 1 + Wave 2
 
-- Capability IDs used by exactly one Role across both waves: **95** of **265** used IDs (**35.8%**).
+- Capability IDs used by exactly one Role across both waves: **92** of **263** used IDs (**35.0%**).
 - This is the anti-proliferation signal to watch. A capability used by exactly one Role is not automatically wrong — some methods genuinely belong to a single professional Role — but a high proportion suggests the universe carries entries that are Role-specific technique rather than reusable capability.
 
 Single-role capability IDs:
@@ -2043,7 +2050,6 @@ Single-role capability IDs:
 - `skill.grant_cost_eligibility_analysis` — Grant Financial Compliance / Budget Specialist
 - `skill.information_architecture` — UX / UI & Information Architecture Specialist
 - `skill.infrastructure_as_code` — Platform / DevOps Engineer
-- `skill.insurance_gap_analysis` — Insurance / Risk Transfer Specialist
 - `skill.insurance_programme_analysis` — Insurance / Risk Transfer Specialist
 - `skill.inventory_analysis` — Supply Chain & Procurement Operations Specialist
 - `skill.knowledge_graph_design` — AI / Knowledge Systems Engineer
@@ -2087,7 +2093,6 @@ Single-role capability IDs:
 - `skill.user_story_design` — ## 7. Product Manager / Business Analyst
 - `skill.work_breakdown_design` — ## 1. Project / Delivery Lead
 - `skill.workforce_planning` — People / Organisation Specialist
-- `specialisation.affordability` — Commercial & Demand Specialist
 - `specialisation.ai_assisted_research` — AI / Knowledge Systems Engineer
 - `specialisation.b2b_sales` — ## 11. Sales / Business Development Specialist
 - `specialisation.commercial_growth_strategy` — Strategy & Business Analyst
@@ -2103,18 +2108,16 @@ Single-role capability IDs:
 - `specialisation.service_operations` — Operations / Service Delivery Specialist
 - `specialisation.social_partner_context` — Social Dialogue Specialist
 - `specialisation.supply_chain_operations` — Supply Chain & Procurement Operations Specialist
-- `specialisation.tariff_modelling` — Commercial & Demand Specialist
 
 - Universe entries declared but **not used by any Role** across Wave 1 + Wave 2: **4**. These are listed in section 7 as Wave 3 audit candidates, not deleted here.
 
 # 4. Specialisation Coverage
 
-Wave 2 exercises **36** distinct Specialisation IDs across the following classes. Every one is an existing entry in `skills/master-skill-universe.md`; none is created here.
+Wave 2 exercises **34** distinct Specialisation IDs across the following classes. Every one is an existing entry in `skills/master-skill-universe.md`; none is created here.
 
 | Specialisation | Class | Roles | Why it is bounded context, not authority |
 |---|---|---:|---|
-| `specialisation.admin_console` | TECHNOLOGY | 1 | Bounds a platform or product surface. Platform constraints limit what is achievable; they confer no change, deployment or vendor-commitment authority. |
-| `specialisation.affordability` | METRIC | 1 | Bounds definitions and calculation conventions. Conventions constrain how a number is produced, never what may be decided from it. |
+| `specialisation.admin_console` | OPERATING_CONTEXT | 1 | Bounds the operating environment the method is applied in. It changes what is relevant, not who may conclude. |
 | `specialisation.ai_assisted_research` | OPERATING_CONTEXT | 1 | Bounds the operating environment the method is applied in. It changes what is relevant, not who may conclude. |
 | `specialisation.bess` | SECTOR | 3 | Bounds which benchmarks, norms and failure modes apply. It supplies domain content; the professional conclusion stays with the Role. |
 | `specialisation.commercial_growth_strategy` | OPERATING_CONTEXT | 1 | Bounds the operating environment the method is applied in. It changes what is relevant, not who may conclude. |
@@ -2126,7 +2129,7 @@ Wave 2 exercises **36** distinct Specialisation IDs across the following classes
 | `specialisation.ifi_esg_safeguards` | INSTITUTION | 2 | Bounds an institution's policy framework. Institutional requirements constrain the package; the institution's own decision is outside the registry. |
 | `specialisation.industrial` | SECTOR | 3 | Bounds which benchmarks, norms and failure modes apply. It supplies domain content; the professional conclusion stays with the Role. |
 | `specialisation.infrastructure_project_preparation` | OPERATING_CONTEXT | 4 | Bounds the operating environment the method is applied in. It changes what is relevant, not who may conclude. |
-| `specialisation.institutional_website` | TECHNOLOGY | 2 | Bounds a platform or product surface. Platform constraints limit what is achievable; they confer no change, deployment or vendor-commitment authority. |
+| `specialisation.institutional_website` | OPERATING_CONTEXT | 2 | Bounds the operating environment the method is applied in. It changes what is relevant, not who may conclude. |
 | `specialisation.integrity_sanctions_context` | OPERATING_CONTEXT | 1 | Bounds the operating environment the method is applied in. It changes what is relevant, not who may conclude. |
 | `specialisation.multi_partner_programme_delivery` | OPERATING_CONTEXT | 3 | Bounds the operating environment the method is applied in. It changes what is relevant, not who may conclude. |
 | `specialisation.multilingual_content` | OPERATING_CONTEXT | 5 | Bounds the operating environment the method is applied in. It changes what is relevant, not who may conclude. |
@@ -2145,12 +2148,11 @@ Wave 2 exercises **36** distinct Specialisation IDs across the following classes
 | `specialisation.solar` | SECTOR | 3 | Bounds which benchmarks, norms and failure modes apply. It supplies domain content; the professional conclusion stays with the Role. |
 | `specialisation.state_aid` | JURISDICTION | 1 | Bounds the legal or regulatory perimeter. Perimeter is not permission: regulated determinations stay with their owning Role. |
 | `specialisation.supply_chain_operations` | OPERATING_CONTEXT | 1 | Bounds the operating environment the method is applied in. It changes what is relevant, not who may conclude. |
-| `specialisation.tariff_modelling` | METRIC | 1 | Bounds definitions and calculation conventions. Conventions constrain how a number is produced, never what may be decided from it. |
 | `specialisation.transport` | SECTOR | 3 | Bounds which benchmarks, norms and failure modes apply. It supplies domain content; the professional conclusion stays with the Role. |
 | `specialisation.waste` | SECTOR | 3 | Bounds which benchmarks, norms and failure modes apply. It supplies domain content; the professional conclusion stays with the Role. |
 | `specialisation.water` | SECTOR | 3 | Bounds which benchmarks, norms and failure modes apply. It supplies domain content; the professional conclusion stays with the Role. |
 
-Classes exercised: INSTITUTION, JURISDICTION, METRIC, OPERATING_CONTEXT, PROGRAMME, SECTOR, TECHNOLOGY.
+Classes exercised: INSTITUTION, JURISDICTION, OPERATING_CONTEXT, PROGRAMME, SECTOR, TECHNOLOGY.
 
 The Specialisation model holds under Wave 2. In every case above the Specialisation narrows applicability — which sector's benchmarks, which jurisdiction's rules, which metric conventions, which operating environment — and in no case does it add a decision right, an artifact, a review identity or a scope element absent from the consuming Role Card. Sector Specialisations appear as ALTERNATIVE choice sets rather than as contextual singles for three technical Roles, because exactly one asset class normally governs and selecting several would silently blend incompatible benchmark bases.
 
@@ -2344,7 +2346,7 @@ Computed against this file and the current repository state.
 | 5 | Every active `specialisation.<id>` exists | PASS — 0 unresolved |
 | 6 | Every active `skill_pack.<id>` exists | PASS — 0 unresolved |
 | 7 | Zero unresolved candidate IDs inside active mappings | PASS — candidate gaps confined to section 6 |
-| 8 | Every REQUIRED_FOR_CONTEXT entry has an explicit trigger | PASS — 228 entries, 0 without trigger |
+| 8 | Every REQUIRED_FOR_CONTEXT entry has an explicit trigger | PASS — 230 entries, 0 without trigger |
 | 9 | Every ALTERNATIVE set has an explicit choice condition and cardinality | PASS — 10 sets |
 | 10 | Every PROHIBITED_IN_CONTEXT entry has a concrete basis | PASS — 10 entries, each citing a Role Card clause or an independence ground |
 | 11 | REQUIRED_CORE remains sparse; flag any role > 8 | PASS — max 5, mean 3.9; 0 roles above 8 |
@@ -2359,7 +2361,7 @@ Computed against this file and the current repository state.
 | 20 | Uncarded Pack components reported as NOT YET VALIDATABLE | PASS — 39 reported, not counted as passes |
 | 21 | No circular Pack dependency introduced | PASS — Wave 2 introduces no dependency; CoVE to Erasmus+ remains one-directional |
 | 22 | Duplicate-effective-activation cases identified and handled | PASS — 7 cases in section 5.3, each resolved once under the stricter obligation |
-| 23 | At least one genuine Specialisation mapping present | PASS — 36 Specialisations across 7 classes, section 4 |
+| 23 | At least one genuine Specialisation mapping present | PASS — 34 Specialisations across 6 classes, section 4 |
 | 24 | PROHIBITED_IN_CONTEXT not fabricated | PASS — 10 entries across 8 Roles, each from a Does Not Own clause or an independence ground |
 | 25 | No active deprecated ID reintroduced | PASS — 0 |
 | 26 | All mapping artifacts remain PROPOSED / working | PASS |
@@ -2407,7 +2409,7 @@ Each affected mapping was checked against its approved Role Card before deciding
 | `skill_pack.supabase` | Database / Data Engineer | Admitted — implements migrations and pipelines on its managed relational layer |
 | `skill_pack.bid_proposal_management` | Project Development Lead | **REMOVED** — see below |
 
-**Why the bid/proposal mapping was removed rather than the Pack widened.** The Project Development Lead Role Card carries no bidding, tendering, proposal or governed-submission surface anywhere in Purpose, Owns, Core Skills or Output Artifact Interfaces. Its three owned artifacts — development plan, definition document, readiness assessment — are internal preparation documents, and its Core Skills reach only to negotiation preparation within delegated limits. Its readiness assessment is against internal investment and financing gates, not a competitive submission. Formal competitive submission belongs to `role.sales_business_development_specialist` and `role.eu_grants_programmes_specialist`, both already on the Pack Card.
+**Why the bid/proposal mapping was removed rather than the Pack widened.** *(Wording corrected in Wave 3; the original was factually too broad and is superseded by this paragraph.)* The Project Development Lead Role Card **does** carry external submission: `artifact.project_definition_document` and `artifact.development_readiness_assessment` both transmit by submission to lenders, investors or authorities and are COSTLY_TO_REVERSE afterwards, and the Role Card requires tender deadlines and permitting windows to be captured. What it does **not** own is a formal competitive response-to-solicitation process — bid/no-bid qualification, a compliance matrix built from a solicitation, multi-author narrative coordination, and submission-readiness control against evaluation criteria. That is the Pack's subject, and it belongs to `role.sales_business_development_specialist` and `role.eu_grants_programmes_specialist`, both already on the Pack Card. The distinction is between submitting a project case and competing in a governed procurement or call.
 
 This removal cascaded. `role.project_development_lead` had been added to the `skill.source_verification` and `skill.requirement_traceability` allowlists in the previous remediation solely as a transitive consequence of this Pack mapping. With the Pack mapping gone, that basis fell away, so the Role was **removed from both Skill Card allowlists** rather than left standing without a mapping — the audit's own rule that a Role needs a valid mapping and Role Card basis, applied in the subtractive direction.
 
@@ -2426,3 +2428,33 @@ This removal cascaded. `role.project_development_lead` had been added to the `sk
 ## 10.6 New rule closing the structural gap
 
 `standard.skill.common_constraints` section **6.1 Direct Mapping Compatibility Rule** now requires that every active direct mapping to a carded capability be permitted by that card, with absence a validation failure, runtime widening forbidden, and remediation limited to a governed card change after Role-boundary review or removal of the mapping. It is cross-referenced from `architecture/role-to-skill-mapping-rules.md` section 8.1. Together with the existing 6.1a transitive rule it covers all four cases: direct Role→Skill, direct Role→Specialisation where carded, direct Role→Pack, and transitive Pack→component. Case 4 alone was covered before; cases 1–3 are why this audit found 48 conflicts.
+
+# 11. Wave 3 Cross-Domain Normalization — changes to this mapping
+
+Wave 3 normalized the registry across all 59 Roles. Changes landing in this file:
+
+**Merges — 5 retired IDs, mappings migrated to survivors**
+
+| Retired | Survivor | Effect here |
+|---|---|---|
+| `skill.resource_planning` | `skill.capacity_planning` | Asset O&M core switched to the survivor; Operations dropped a now-duplicate contextual entry (it already held the survivor in core) |
+| `skill.insurance_gap_analysis` | `skill.insurance_programme_analysis` | Insurance / Risk Transfer core reduced from 3 to 2 |
+| `skill.traceability_matrix_design` | `skill.requirement_traceability` | No Wave 2 effect; both consumers were Wave 1 Roles — see the governed correction recorded in the Wave 1 file |
+| `specialisation.affordability` | `skill.affordability_analysis` | Commercial & Demand contextual entry removed; the surviving Skill's trigger notes the absorption |
+| `specialisation.tariff_modelling` | `skill.tariff_analysis` | Same, with `skill.revenue_model_design` taking the structure-design case |
+
+**Additions — 3 reusable capability classes, mapped where a Role Card supports them**
+
+- `skill.negotiation_preparation` → Programme / Partnership Manager, Supply Chain & Procurement Operations, Project Development Lead, Project Finance / Transaction. All four name it in Core Skills, all four bound as preparation within delegated limits.
+- `skill.variance_analysis` → FP&A / Management Finance (core), Grant Financial Compliance / Budget (contextual).
+- `skill.defect_management` → Software QA / Test Automation (core), Full-Stack Software Engineer (optional). This raised the QA core from two capabilities to three, correcting an under-representation of that Role's owned surface.
+
+**Specialisation reclassification**
+
+`specialisation.admin_console` and `specialisation.institutional_website` are reclassified from TECHNOLOGY to OPERATING_CONTEXT in section 4. Neither binds a platform or version; both describe a product kind and audience. The Universe now carries the classification semantics that make this test explicit. After the two group-14 merges retired the METRIC-classified entries from Wave 2's active set, **six classes** are exercised in this file: SECTOR, JURISDICTION, INSTITUTION, PROGRAMME, TECHNOLOGY and OPERATING_CONTEXT. METRIC remains a valid class, exercised by `specialisation.dscr` / `llcr` / `plcr` inside `skill_pack.project_finance_metrics` rather than by a direct mapping.
+
+**Audit-trail correction**
+
+The Project Development Lead explanation for excluding `skill_pack.bid_proposal_management` was factually too broad and is corrected in both its role section and section 10.3. The Role does transmit externally and does track tender deadlines; what it lacks is a formal competitive response-to-solicitation process. The mapping decision is unchanged.
+
+**Not changed by Wave 3:** every Role subject, every relationship type and trigger not listed above, the Security Engineer exclusions, and the `skill.lifecycle_cost_analysis` support-only scope.

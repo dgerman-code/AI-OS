@@ -326,7 +326,6 @@ Role: `role.data_database_architect`
 ### OPTIONAL
 - `skill.sql_analysis`
 - `skill.data_transformation`
-- `skill.traceability_matrix_design`
 
 ### Boundary
 Does not obtain Database / Data Engineer implementation ownership or production migration authority through these mappings.
@@ -346,7 +345,7 @@ Role: `role.knowledge_evidence_steward`
 ### REQUIRED_FOR_CONTEXT
 - `skill.evidence_indexing`
   - trigger: evidence corpus must be indexed for retrieval, disclosure or audit
-- `skill.traceability_matrix_design`
+- `skill.requirement_traceability`
   - trigger: claims, requirements or obligations must be traced to evidence in a governed matrix
 - `skill_pack.version_control_document_configuration`
   - trigger: governed multi-version document / evidence environment
@@ -401,14 +400,14 @@ Counted from the post-remediation mappings in this document. The previous versio
 
 Capabilities mapped to more than one Wave 1 Role:
 - `skill.source_verification` — 4 Roles: Research / Market Intelligence, EU Grants & Programmes, Legal & Regulatory, Knowledge & Evidence Steward. It reaches four only after remediation, because the former `skill.legal_source_currency_check` merged into it and Legal & Regulatory now maps it directly with a legal-source trigger.
-- `skill.requirement_traceability` — 4 Roles: EU Grants & Programmes, Legal & Regulatory, Solution Architect, Data & Database Architect. Solution Architect is new in this remediation, replacing the removed `skill.security_constraint_allocation`.
+- `skill.requirement_traceability` — 5 Roles: EU Grants & Programmes, Legal & Regulatory, Solution Architect, Data & Database Architect, Knowledge & Evidence Steward. Solution Architect was added in the allowlist remediation, replacing the removed `skill.security_constraint_allocation`; Knowledge & Evidence Steward was migrated here by the Wave 3 merge of `skill.traceability_matrix_design`.
 - `skill.partner_mapping` — 2 Roles: EU Grants & Programmes, Sales / Business Development.
 - `skill.source_monitoring` — 2 Roles: Research / Market Intelligence, Knowledge & Evidence Steward. This is the reusable replacement for the two removed monitoring Specialisations, and its arrival is itself evidence that the Specialisations were mis-classified.
 - `skill.technical_option_comparison` — 2 Roles: Technical / Feasibility Lead, Solution Architect.
 - `skill.metric_definition` — 2 Roles: Product Manager / BA, Data & Database Architect.
 - `skill.market_segmentation` and `skill.competitor_analysis` — 2 Roles each: Research / Market Intelligence, Sales / Business Development.
 - `skill.deliverable_planning` and `skill.milestone_management` — 2 Roles each: Project / Delivery Lead, EU Grants & Programmes; together they replace the removed `skill.reporting_schedule_management`.
-- `skill.traceability_matrix_design`, `skill.change_detection`, `skill.customer_journey_mapping` — 2 Roles each.
+- `skill.change_detection` and `skill.customer_journey_mapping` — 2 Roles each. (`skill.traceability_matrix_design` was listed here before Wave 3 retired it; its Wave 1 uses are now carried by `skill.requirement_traceability`, which reaches 5 Wave 1 Roles as a result.)
 - `skill_pack.bid_proposal_management` — 2 Roles: EU Grants & Programmes, Sales / Business Development, now that the standalone Skill form is removed.
 - `skill_pack.supabase` and `skill_pack.postgresql` — 2 Roles each: Solution Architect, Data & Database Architect.
 - sector specialisations — Technical / Feasibility Lead, and later Sector Technical Expert / Project Development Roles outside Wave 1.
@@ -416,6 +415,15 @@ Capabilities mapped to more than one Wave 1 Role:
 `skill.sensitivity_analysis` is mapped to one Wave 1 Role only (Financial Modelling). Its expected reuse in Strategy, Commercial & Demand, Economic / CBA and Risk is a Wave 2 expectation, not a demonstrated Wave 1 result, and is stated as such rather than counted here.
 
 This reuse is intentional and should reduce duplicate role-specific skill creation.
+
+## Wave 3 governed cross-wave correction
+
+Wave 3 merged `skill.traceability_matrix_design` into `skill.requirement_traceability`, because the surviving Skill's own card already lists matrix granularity design among its methods — the two were the same capability under two IDs. Because both consumers were Wave 1 Roles, this is the one governed correction Wave 3 makes to this reviewed baseline, and it is recorded here rather than applied silently:
+
+- **Data & Database Architect** — the retired ID was OPTIONAL and this Role already carries `skill.requirement_traceability` as REQUIRED_CORE. The optional entry was removed; no relationship changed.
+- **Knowledge & Evidence Steward** — the retired ID was its only traceability route, so it was migrated to `skill.requirement_traceability` at the same REQUIRED_FOR_CONTEXT relationship with its trigger unchanged.
+
+No Wave 1 Role subject, relationship type or trigger was otherwise altered. Full rationale is in `reviews/phase-4-wave-3-cross-domain-normalization.md`.
 
 # Wave 1 Stress Test Matrix
 

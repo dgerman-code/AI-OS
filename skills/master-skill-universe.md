@@ -37,6 +37,26 @@ Create a distinct Skill only when it is:
 
 Prefer a Skill Pack when several capabilities are normally activated together because of a programme, institution, technology, sector or methodology.
 
+## Specialisation Classification Semantics
+
+A Specialisation bounds a **context**; it never names a **method**. The test is whether the identifier answers *where or under what rules the work applies* rather than *what the practitioner does*. An entry that answers the second question is a Skill wearing the wrong namespace, and Wave 3 retired two such entries.
+
+Classes and what each bounds:
+
+| Class | Bounds |
+|---|---|
+| `SECTOR` | an asset class or industry whose benchmarks, norms and failure modes do not transfer |
+| `JURISDICTION` | a legal or regulatory perimeter |
+| `INSTITUTION` | a named institution's policy framework |
+| `PROGRAMME` | a funding programme's rulebook |
+| `TECHNOLOGY` | a specific platform or product surface whose constraints bind the work |
+| `METRIC` | a governed metric definition and its calculation conventions |
+| `OPERATING_CONTEXT` | an operating environment, counterparty type or delivery mode |
+
+`specialisation.admin_console` and `specialisation.institutional_website` are classified **OPERATING_CONTEXT**, not TECHNOLOGY. They describe the kind of product and its audience — an internal operational interface, a public institutional site — and bind no platform or version. Reserving TECHNOLOGY for entries that actually bind a platform keeps the class meaningful; `specialisation.relational_data_platform` is the genuine TECHNOLOGY case in this family.
+
+Classification carries no authority in any class. It is a selection and duplication-control device only.
+
 ## Family Assignment Rule
 
 Each Skill declares **one primary Skill Family** and may carry **optional secondary-family tags** where a capability genuinely reads across families.
@@ -82,6 +102,7 @@ Family scope: structured problem framing, option and scenario analysis, and stra
 - `skill.benchmarking`
 - `skill.decision_criteria_design`
 - `skill.roadmap_design`
+- `skill.negotiation_preparation` — structuring positions, interests, concessions, walk-away limits and issues lists **in preparation for** a negotiation conducted under someone else's delegated authority. Support-only: it never confers a mandate to negotiate, to concede, or to commit, and no proficiency level changes that. Named in the Core Skills prose of four approved Role Cards, always bounded as preparation within delegated limits, which is why it is reusable rather than role-specific.
 
 ### Specialisations / Packs
 - `skill_pack.change_management_adoption`
@@ -152,16 +173,14 @@ Family scope: market and commercial analysis. Sales execution belongs to Sales /
 - `skill.customer_discovery`
 - `skill.offtake_analysis`
 - `skill.pricing_analysis`
-- `skill.tariff_analysis`
+- `skill.tariff_analysis` — tariff structure, level and mechanism analysis, including modelling the structure itself. Absorbs the retired `specialisation.tariff_modelling`, which duplicated this Skill under a Specialisation ID.
 - `skill.competitor_analysis`
 - `skill.go_to_market_analysis`
 - `skill.revenue_model_design`
 - `skill.commercial_structure_analysis`
-- `skill.affordability_analysis`
+- `skill.affordability_analysis` — ability-to-pay and affordability-envelope analysis. Absorbs the retired `specialisation.affordability`, which duplicated this Skill under a Specialisation ID.
 
 ### Specialisations / Packs
-- `specialisation.tariff_modelling`
-- `specialisation.affordability`
 - `specialisation.regulated_market`
 - `specialisation.public_service_demand`
 
@@ -182,6 +201,7 @@ Family scope: financial and economic modelling, appraisal and financial-evidence
 - `skill.financing_scenario_analysis`
 - `skill.economic_cost_benefit_analysis`
 - `skill.cost_effectiveness_analysis`
+- `skill.variance_analysis` — explaining deviation between plan and outcome by driver, distinct from `skill.financial_evidence_reconciliation`, which ties figures back to underlying records. Support-only where it touches another Role's owned figures.
 - `skill.financial_evidence_reconciliation`
 - `skill.bankability_gap_analysis`
 - `skill.funding_source_mapping`
@@ -204,7 +224,7 @@ Family scope: legal obligations and regulated interpretation.
 ### Skills
 - `skill.legal_issue_spotting`
 - `skill.regulatory_mapping`
-- `skill.requirement_traceability`
+- `skill.requirement_traceability` — linking obligations and requirements to sources, artifacts and verification, **including designing the matrix instrument and its granularity**. Absorbs the retired `skill.traceability_matrix_design`, whose content this capability's own method list already claimed.
 - `skill.contract_review` — includes clause-level analysis; the former `skill.contract_clause_analysis` is merged here.
 - `skill.procurement_route_analysis`
 - `skill.state_aid_screening`
@@ -237,8 +257,7 @@ Family scope: risk methods and diligence inputs, without approval authority.
 - `skill.environmental_social_gap_analysis`
 - `skill.counterparty_screening`
 - `skill.sanctions_screening`
-- `skill.insurance_gap_analysis`
-- `skill.insurance_programme_analysis` — support-only; insurance programme adoption and placement remain owned by `role.insurance_risk_transfer_specialist` and its human decision rights.
+- `skill.insurance_programme_analysis` — programme structure, limits, deductibles and the gap between cover and contractual or lender requirements. Absorbs the retired `skill.insurance_gap_analysis`, which was a step inside it. Support-only; insurance programme adoption and placement remain owned by `role.insurance_risk_transfer_specialist` and its human decision rights.
 - `skill.risk_control_design`
 
 Integrity due diligence is not a Skill. The former `skill.integrity_due_diligence` bundled a whole professional methodology and is removed. Its reusable components remain available as `skill.counterparty_screening`, `skill.sanctions_screening`, `skill.source_verification`, `skill.evidence_mapping` and the risk-analysis Skills above. **Integrity due-diligence conclusions remain owned by `role.integrity_due_diligence_specialist`** and are not obtainable by activating any combination of these Skills.
@@ -314,6 +333,7 @@ Family scope: software architecture, integration, platform engineering and secur
 - `skill.backend_implementation`
 - `skill.frontend_implementation`
 - `skill.test_automation`
+- `skill.defect_management` — defect identification, reproduction, severity characterisation and defect-record discipline. Distinct from defect *correction*, which is implementation and belongs to the engineering Roles; this capability establishes that a defect is real, reproducible and correctly severity-rated, and never authorises deferral, which is a human decision right.
 - `skill.release_engineering`
 - `skill.ci_cd_design`
 - `skill.infrastructure_as_code`
@@ -377,7 +397,6 @@ Family scope: governed records, configuration, lineage and disclosure packaging.
 - `skill.disclosure_tracking`
 - `skill.redaction_preparation`
 - `skill.document_gap_analysis`
-- `skill.traceability_matrix_design`
 
 ### Skill Packs
 - `skill_pack.technical_writing_documentation` — adds governed templates, house conventions, controlled documentation requirements and currency rules **beyond** the `skill.technical_writing` technique. Where it would add nothing beyond the Skill, map the Skill directly instead of the Pack.
@@ -414,8 +433,7 @@ Family scope: operating process, capacity and resourcing, sourcing, and workforc
 - `skill.process_design`
 - `skill.sop_design`
 - `skill.service_delivery_design`
-- `skill.capacity_planning`
-- `skill.resource_planning`
+- `skill.capacity_planning` — sizing work against available capacity and resourcing it. Absorbs the retired `skill.resource_planning`, whose two consumers already carried this capability.
 - `skill.supplier_evaluation`
 - `skill.sourcing_analysis`
 - `skill.inventory_analysis`
@@ -506,6 +524,26 @@ A tombstone is not an active reference: a retired ID cannot be activated, cannot
 | `skill.submission_requirement_mapping` | Institution- and version-specific. | Pack-internal component of programme and institution Packs. |
 | `skill.bid_proposal_management` | A governed bundle, not a single technique. | `skill_pack.bid_proposal_management` only. |
 | `skill.security_constraint_allocation` | Read as an architecture-owned security capability. | `skill.quality_attribute_analysis` (security dimension) + `skill.requirement_traceability`. Security ownership stays with `role.security_engineer`. |
+| `skill.resource_planning` | Duplicated capacity sizing; both consumers already carried the survivor. | Merged into `skill.capacity_planning`. |
+| `skill.insurance_gap_analysis` | A step inside programme analysis, not a peer of it; same single consumer. | Merged into `skill.insurance_programme_analysis`. |
+| `skill.traceability_matrix_design` | The survivor's own method list already claimed matrix granularity design. | Merged into `skill.requirement_traceability`. |
+| `specialisation.affordability` | A Skill wearing a Specialisation ID — it names a method, not a bounded context. | Merged into `skill.affordability_analysis`. |
+| `specialisation.tariff_modelling` | A Skill wearing a Specialisation ID — it names a method, not a bounded context. | Merged into `skill.tariff_analysis`. |
+
+# Overlap Boundaries Clarified in Wave 3
+
+These pairs and groups were examined against actual reuse across all 59 Roles and **kept distinct**, because each member carries a different professional method rather than a different name for one method. They are recorded here so a future reviewer does not re-open them without new evidence.
+
+- **`skill.market_sizing` / `skill.market_segmentation` / `skill.demand_analysis`** — sizing a market, dividing it, and forecasting demand for a specific asset or service are three methods with different inputs and error modes. All three are multi-Role.
+- **`skill.risk_identification` / `skill.risk_register_design`** — elicitation versus designing the register instrument (taxonomy, scales, aggregation). Identification reaches 14 Roles; register design is the methodology surface owned by `role.enterprise_project_risk_specialist`.
+- **`skill.action_tracking` / `skill.milestone_management` / `skill.deliverable_planning`** — three different tracked objects with different cadence and completion semantics. All three are multi-Role.
+- **`skill.process_design` / `skill.process_mapping` / `skill.sop_design`** — designing a target process, documenting an existing one, and writing the operating procedure are sequential and separately commissioned.
+- **`skill.source_discovery` / `skill.source_comparison` / `skill.source_verification` / `skill.source_monitoring` / `skill.change_detection`** — finding, comparing, authenticating, watching and diffing are distinct operations on sources. `skill.source_discovery` is currently single-consumer because most Roles are given their source set rather than assembling it; that is a consumer count, not a duplication.
+- **`skill.evidence_indexing` / `skill.data_room_index_design`** — the second carries phased-release and access-tier structure that the first does not, and it maps to a Role-owned artifact. Not merged.
+- **`skill.esg_screening` / `skill.environmental_social_gap_analysis`** — triage and categorisation versus assessment against a named safeguard standard.
+- **`skill.security_control_design` / `skill.risk_control_design`** — technical security controls in a system versus risk-management controls over a process. Different families, different methods; the similarity is only in the names, so both keep their IDs and carry disambiguating scope here.
+- **`skill.source_monitoring` / `skill.change_detection`** — watching a defined set on a cadence versus analysing what differs between two versions.
+- **`skill.privacy_impact_analysis` / `skill.security_control_validation` / `skill.threat_modelling`** — all three are mapped outside their owning Roles as explicitly support-only, and every such mapping in Wave 1 and Wave 2 carries a support-only boundary note naming the Role that retains the conclusion.
 
 # Duplication / Granularity Controls
 

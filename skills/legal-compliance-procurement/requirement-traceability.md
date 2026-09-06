@@ -51,9 +51,13 @@ Outside:
 
 **Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger. This card is not.**
 
-- Compatible Role allowlist: `role.eu_grants_programmes_specialist`, `role.legal_regulatory_lead`, `role.solution_architect`, `role.data_database_architect`, `role.sales_business_development_specialist`, `role.eu_programme_implementation_grant_management_specialist`, `role.learning_vet_design_specialist`, `role.grant_financial_compliance_budget_specialist`, `role.deliverables_reporting_specialist`, `role.ifi_dfi_project_preparation_specialist`, `role.procurement_state_aid_specialist`, `role.data_protection_gdpr_specialist`, `role.software_qa_test_automation_specialist`, `role.data_room_disclosure_manager`
+- Compatible Role allowlist: `role.eu_grants_programmes_specialist`, `role.legal_regulatory_lead`, `role.solution_architect`, `role.data_database_architect`, `role.sales_business_development_specialist`, `role.eu_programme_implementation_grant_management_specialist`, `role.learning_vet_design_specialist`, `role.grant_financial_compliance_budget_specialist`, `role.deliverables_reporting_specialist`, `role.ifi_dfi_project_preparation_specialist`, `role.procurement_state_aid_specialist`, `role.data_protection_gdpr_specialist`, `role.software_qa_test_automation_specialist`, `role.data_room_disclosure_manager`, `role.knowledge_evidence_steward`
 - Canonical mapping reference: `skills/mappings/wave-1-exemplar-role-skill-mapping.md`, sections 3, 6, 8 and 9
 - Canonical mapping reference (Wave 2): `skills/mappings/wave-2-domain-completion-role-skill-mapping.md`
+
+### Wave 3 allowlist basis
+
+`role.knowledge_evidence_steward` was added in Wave 3 as a consequence of merging `skill.traceability_matrix_design` into this Skill. That Role's Wave 1 mapping used the retired ID as its only traceability route, so the mapping migrated here at the same REQUIRED_FOR_CONTEXT relationship with its trigger unchanged. The Role Card basis is direct: it owns provenance and evidence-lineage integrity, which is the linkage this Skill maintains. Eligibility only; relationship and trigger come from the Wave 1 mapping record.
 
 ### Wave 2 allowlist basis
 

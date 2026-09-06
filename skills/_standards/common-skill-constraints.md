@@ -126,6 +126,32 @@ This rule and the transitive rule below are complementary, and together they mus
 
 The direct rule catches what the transitive rule cannot: a Role mapped straight to a capability without any Pack in between. Case 4 alone was checked before this rule existed, and cases 1 to 3 went unvalidated as a result.
 
+### 6.1c Reverse Allowlist Basis Rule
+
+Compatibility must be validated in **both** directions.
+
+**Every Role named in a capability card's compatible-role allowlist must have an actual direct mapping to that capability, or a governed transitive basis through a Pack that is itself mapped to that Role. An allowlist entry with neither is an orphan, and an orphan is a defect.**
+
+The forward rules (6.1, 6.1a) stop a mapping from naming a Role its target card rejects. This rule stops the opposite drift: a card quietly accumulating Roles that no mapping ever justified, which would let a future mapping be waved through on an allowlist entry that was never reviewed against a Role Card.
+
+Where the basis for an allowlist entry disappears — a Pack mapping is removed, a direct mapping is reclassified — the entry must be removed in the same governed change, not left standing.
+
+### Validation specification — the five checks a Phase 4 audit must run
+
+Any independent audit of this registry must run all five and report them separately, never as a single aggregate:
+
+| # | Path | Direction | Failure meaning |
+|---|---|---|---|
+| 1 | direct Role → Skill | forward | mapping names a Role the Skill Card rejects |
+| 2 | direct Role → Specialisation, where carded | forward | mapping names a Role the Specialisation Card rejects |
+| 3 | direct Role → Skill Pack | forward | mapping names a Role the Pack Card rejects |
+| 4 | transitive Pack → component Skill | forward | Pack activation would pull in a component that rejects the consuming Role |
+| 5 | allowlist entry → mapping basis | **reverse** | card permits a Role that no mapping justifies |
+
+Targets without a card are reported as **NOT YET VALIDATABLE**, never as a pass: a check that cannot run has not succeeded. An audit reporting zero conflicts must state how many targets were actually checkable, because zero-of-few and zero-of-many are different results.
+
+None of these five checks defines relationship type or context trigger. All five test compatibility only; relationship and trigger come solely from mapping records.
+
 ### 6.1a Transitive Pack Compatibility Rule
 
 **If a Role is permitted to activate a Skill Pack, every Required Skill and every conditionally activated Skill inside that Pack must be compatible with that Role, either through the Skill Card allowlist or through a governed compatibility rule. A Pack must not transitively activate a Skill that explicitly excludes the consuming Role. This check does not create a Role relationship or trigger; it validates compatibility only.**
