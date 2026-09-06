@@ -50,8 +50,17 @@ This Pack binds a **platform**, not a model or runtime. It introduces no AI mode
 
 **Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger. This card is not.**
 
-- Compatible Role allowlist: `role.solution_architect`, `role.data_database_architect`
+- Compatible Role allowlist: `role.solution_architect`, `role.data_database_architect`, `role.full_stack_software_engineer`, `role.integration_api_engineer`, `role.platform_devops_engineer`, `role.database_data_engineer`
 - Canonical mapping reference: `skills/mappings/wave-1-exemplar-role-skill-mapping.md`, sections 8 and 9
+- Canonical mapping reference (Wave 2): `skills/mappings/wave-2-domain-completion-role-skill-mapping.md`
+
+### Wave 2 allowlist basis
+
+Four engineering Roles are admitted — the "Wave 2 mapping decisions" the paragraph above anticipated. Each works directly against the platform within its own approved scope: Full-Stack implements features against it, Integration / API builds against its interface surface, Platform / DevOps operates its environments and release path, and Database / Data Engineer implements migrations and pipelines on its managed relational layer.
+
+`role.security_engineer` remains deliberately absent, and Wave 2 does not map this Pack to it. Platform-specific security constraints reach that Role through the architecture Roles' outputs. Its exclusion, and the matching exclusion on `skill.quality_attribute_analysis`, were independently confirmed as correct and are unchanged.
+
+Activation still authorizes no production change: `decision.production_release`, `decision.production_infrastructure_change` and `decision.production_database_migration` remain human decision rights. Eligibility only; relationship and trigger come from the Wave 2 mapping record.
 
 `role.full_stack_software_engineer`, `role.integration_api_engineer`, `role.platform_devops_engineer`, `role.database_data_engineer` and `role.security_engineer` all work against this platform in practice, but none is mapped to this Pack in the current record and none is listed. That is a Wave 2 mapping decision, and the omission is deliberate rather than an oversight.
 

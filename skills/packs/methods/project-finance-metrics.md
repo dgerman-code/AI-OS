@@ -50,8 +50,19 @@ Specifically **not** covered:
 
 **Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger. This card is not.**
 
-- Compatible Role allowlist: `role.financial_modelling_specialist`
+- Compatible Role allowlist: `role.financial_modelling_specialist`, `role.funding_bankability_architect`, `role.project_finance_transaction_specialist`, `role.ppp_concession_specialist`
 - Canonical mapping reference: `skills/mappings/wave-1-exemplar-role-skill-mapping.md`, section 5
+- Canonical mapping reference (Wave 2): `skills/mappings/wave-2-domain-completion-role-skill-mapping.md`
+
+### Wave 2 allowlist basis
+
+Three further Roles are admitted, each of which reads coverage ratios rather than building the model that produces them:
+
+- `role.funding_bankability_architect` — Role Card Core Skills include debt capacity and structure reasoning from model outputs, and it carries `review.financial_model`; bankability against lender requirements is unassessable without governed ratio conventions.
+- `role.project_finance_transaction_specialist` — Role Card Core Skills name covenant and coverage-ratio reasoning explicitly, and it owns covenant and intercreditor structure analysis.
+- `role.ppp_concession_specialist` — owns payment mechanism and risk allocation design and carries `review.financial_model`; testing a structure for financeability requires the same conventions.
+
+None gains model ownership, bankability conclusion authority beyond its own Role Card, or any financing decision: `decision.financial_close`, `decision.financing_terms_acceptance` and `decision.lender_engagement` remain human decision rights. Eligibility only; relationship and trigger come from the Wave 2 mapping record.
 
 `role.funding_bankability_architect`, `role.project_finance_transaction_specialist`, `role.ppp_concession_specialist` and `role.ifi_dfi_project_preparation_specialist` all consume these metrics and their Role Cards support the domain, but none is mapped to this Pack in the current record. They are Wave 2 mapping decisions, not assumptions to be made here.
 

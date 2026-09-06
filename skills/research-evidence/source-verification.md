@@ -51,9 +51,15 @@ Outside, and deliberately so:
 
 **Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger. This card is not.** This section declares only which Roles may use this capability at all.
 
-- Compatible Role allowlist: `role.research_market_intelligence_analyst`, `role.eu_grants_programmes_specialist`, `role.legal_regulatory_lead`, `role.knowledge_evidence_steward`, `role.sales_business_development_specialist`, `role.eu_programme_implementation_grant_management_specialist`, `role.learning_vet_design_specialist`, `role.project_development_lead`
+- Compatible Role allowlist: `role.research_market_intelligence_analyst`, `role.eu_grants_programmes_specialist`, `role.legal_regulatory_lead`, `role.knowledge_evidence_steward`, `role.sales_business_development_specialist`, `role.eu_programme_implementation_grant_management_specialist`, `role.learning_vet_design_specialist`, `role.eu_policy_institutional_affairs_specialist`, `role.eu_enlargement_governance_specialist`, `role.grant_financial_compliance_budget_specialist`, `role.deliverables_reporting_specialist`, `role.social_dialogue_specialist`, `role.sector_technical_expert`, `role.commercial_demand_specialist`, `role.capex_cost_engineering_specialist`, `role.economic_cba_specialist`, `role.funding_bankability_architect`, `role.project_finance_transaction_specialist`, `role.ifi_dfi_project_preparation_specialist`, `role.tax_specialist`, `role.accounting_financial_due_diligence_specialist`, `role.insurance_risk_transfer_specialist`, `role.procurement_state_aid_specialist`, `role.esg_es_specialist`, `role.integrity_due_diligence_specialist`, `role.data_protection_gdpr_specialist`, `role.institutional_communications_editorial_specialist`
 - Canonical mapping reference: `skills/mappings/wave-1-exemplar-role-skill-mapping.md`, sections 2, 3, 6 and 10
 - Canonical mapping reference (Wave 2): `skills/mappings/wave-2-domain-completion-role-skill-mapping.md`
+
+### Wave 2 allowlist basis
+
+Wave 2 maps this Skill directly to a further 21 Roles. Each was admitted only after checking its approved Role Card, and every one of them carries an explicit `Currency / version / effective-date requirements ... are mandatory` clause together with a `Claims that must be source-backed` list — which is precisely the surface this Skill serves. Admission is eligibility only; the relationship and any trigger come from the Wave 2 mapping record.
+
+`role.project_development_lead` was present in an earlier revision on the strength of `skill_pack.bid_proposal_management`. That Pack mapping was removed in the Wave 2 remediation as not defensible from the Role Card, so this Role's only basis fell away and it has been removed from the allowlist rather than left standing without a mapping.
 
 Wave 2 adds `role.project_development_lead`, `role.eu_programme_implementation_grant_management_specialist` and `role.learning_vet_design_specialist` for **transitive Pack compatibility** under `standard.skill.common_constraints` §6.1a: those Roles activate `skill_pack.bid_proposal_management`, `skill_pack.life_programme` or `skill_pack.cove`, each of which carries this Skill as a component. Eligibility only — relationship and trigger come from `skills/mappings/wave-2-domain-completion-role-skill-mapping.md`.
 

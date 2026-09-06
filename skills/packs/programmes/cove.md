@@ -48,8 +48,17 @@ None may be re-created as a `skill.<id>`; each is meaningless outside a bound ca
 
 **Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger. This card is not.**
 
-- Compatible Role allowlist: `role.eu_grants_programmes_specialist`
+- Compatible Role allowlist: `role.eu_grants_programmes_specialist`, `role.eu_programme_implementation_grant_management_specialist`, `role.learning_vet_design_specialist`
 - Canonical mapping reference: `skills/mappings/wave-1-exemplar-role-skill-mapping.md`, section 3
+- Canonical mapping reference (Wave 2): `skills/mappings/wave-2-domain-completion-role-skill-mapping.md`
+
+### Wave 2 allowlist basis
+
+`role.eu_programme_implementation_grant_management_specialist` is admitted on the same basis as for the LIFE Pack: it owns obligation mapping and donor-rule interpretation against an executed agreement, which requires this action's rulebook and its inherited Erasmus+ layer at bound versions.
+
+`role.learning_vet_design_specialist` is admitted because CoVE is a vocational-excellence action and that Role's Mandatory Assignment Attributes require a programme / qualification scope and an applicable framework and version reference — exactly what this Pack binds. It consumes the action's intervention logic to shape curriculum and assessment design; it gains no eligibility, budget or submission authority, all of which remain human decision rights.
+
+Eligibility only; relationship and trigger come from the Wave 2 mapping record.
 
 `role.learning_vet_design_specialist`, `role.monitoring_evaluation_learning_specialist` and `role.consortium_partner_coordination_specialist` are all substantively relevant to CoVE work and their Role Cards support the domain, but none is mapped to this Pack in the current record and none is listed. Wave 2 mapping decision.
 

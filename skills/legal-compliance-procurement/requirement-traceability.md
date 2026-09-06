@@ -51,9 +51,15 @@ Outside:
 
 **Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger. This card is not.**
 
-- Compatible Role allowlist: `role.eu_grants_programmes_specialist`, `role.legal_regulatory_lead`, `role.solution_architect`, `role.data_database_architect`, `role.sales_business_development_specialist`, `role.eu_programme_implementation_grant_management_specialist`, `role.learning_vet_design_specialist`, `role.project_development_lead`
+- Compatible Role allowlist: `role.eu_grants_programmes_specialist`, `role.legal_regulatory_lead`, `role.solution_architect`, `role.data_database_architect`, `role.sales_business_development_specialist`, `role.eu_programme_implementation_grant_management_specialist`, `role.learning_vet_design_specialist`, `role.grant_financial_compliance_budget_specialist`, `role.deliverables_reporting_specialist`, `role.ifi_dfi_project_preparation_specialist`, `role.procurement_state_aid_specialist`, `role.data_protection_gdpr_specialist`, `role.software_qa_test_automation_specialist`, `role.data_room_disclosure_manager`
 - Canonical mapping reference: `skills/mappings/wave-1-exemplar-role-skill-mapping.md`, sections 3, 6, 8 and 9
 - Canonical mapping reference (Wave 2): `skills/mappings/wave-2-domain-completion-role-skill-mapping.md`
+
+### Wave 2 allowlist basis
+
+Wave 2 maps this Skill directly to a further 8 Roles. Each either owns an obligation-to-artifact traceability surface in its Role Card — Deliverables / Reporting owns deliverable-to-obligation traceability, IFI / DFI owns institution requirement mapping and gap tracking, Software QA owns coverage analysis for release gates — or needs the linkage to evidence compliance without concluding on it. Admission is eligibility only; the relationship and any trigger come from the Wave 2 mapping record.
+
+`role.project_development_lead` was present in an earlier revision on the strength of `skill_pack.bid_proposal_management`. That Pack mapping was removed in the Wave 2 remediation, so this Role's only basis fell away and it has been removed from the allowlist.
 
 Wave 2 adds `role.project_development_lead`, `role.eu_programme_implementation_grant_management_specialist` and `role.learning_vet_design_specialist` for **transitive Pack compatibility** under `standard.skill.common_constraints` §6.1a: those Roles activate `skill_pack.bid_proposal_management`, `skill_pack.life_programme` or `skill_pack.cove`, each of which requires this Skill. `role.eu_programme_implementation_grant_management_specialist` is additionally mapped directly in Wave 2. Eligibility only — relationship and trigger come from the Wave 2 mapping record.
 

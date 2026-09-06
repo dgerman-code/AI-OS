@@ -53,9 +53,13 @@ The distinction that matters: monitoring says *something changed and here is wha
 
 **Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger. This card is not.**
 
-- Compatible Role allowlist: `role.research_market_intelligence_analyst`, `role.knowledge_evidence_steward`, `role.eu_grants_programmes_specialist`, `role.eu_programme_implementation_grant_management_specialist`, `role.learning_vet_design_specialist`
+- Compatible Role allowlist: `role.research_market_intelligence_analyst`, `role.knowledge_evidence_steward`, `role.eu_grants_programmes_specialist`, `role.eu_programme_implementation_grant_management_specialist`, `role.learning_vet_design_specialist`, `role.eu_policy_institutional_affairs_specialist`, `role.eu_enlargement_governance_specialist`, `role.ifi_dfi_project_preparation_specialist`, `role.tax_specialist`, `role.procurement_state_aid_specialist`, `role.esg_es_specialist`, `role.integrity_due_diligence_specialist`, `role.data_protection_gdpr_specialist`
 - Canonical mapping reference: `skills/mappings/wave-1-exemplar-role-skill-mapping.md`, sections 2 and 10
 - Canonical mapping reference (Wave 2): `skills/mappings/wave-2-domain-completion-role-skill-mapping.md`
+
+### Wave 2 allowlist basis
+
+Wave 2 maps this Skill directly to a further 9 Roles. Each depends on a governed source set that changes inside an engagement period — law as at date, guidance version, sanctions list version, institutional policy version, assessment year — which is the condition this Skill exists to detect. Admission is eligibility only; the relationship and any trigger come from the Wave 2 mapping record.
 
 Wave 2 adds `role.eu_programme_implementation_grant_management_specialist` and `role.learning_vet_design_specialist` for **transitive Pack compatibility** under `standard.skill.common_constraints` §6.1a: both activate `skill_pack.cove`, and the former also `skill_pack.life_programme`, each of which requires this Skill. `role.eu_programme_implementation_grant_management_specialist` is additionally mapped directly in Wave 2. Eligibility only — relationship and trigger come from the Wave 2 mapping record.
 

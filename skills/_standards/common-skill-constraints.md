@@ -105,9 +105,26 @@ The five relationship classes remain the controlled vocabulary, but they are wri
 
 A Role-Skill mapping must not create a new Role identity by combination.
 
-### 6.1 Duplicate effective activation
+### 6.1b Duplicate effective activation
 
 Where a Skill is both individually mapped to a Role and included as a required Skill of an active Pack, it is activated once, under the stricter of the two obligations, with the Pack's currency and evidence rules applied on top. Duplicate effective activation must be detectable at validation time; it must not be left to resolve itself at execution.
+
+### 6.1 Direct Mapping Compatibility Rule
+
+**For every active Role-to-Skill, Role-to-Specialisation or Role-to-Skill-Pack mapping: if the target capability has a card, the consuming Role MUST be permitted by that card's compatible-role allowlist or by a governed compatibility rule. Absence from the allowlist is a validation failure.**
+
+- Runtime may **not** widen an allowlist. A mapping that names a Role the card does not permit fails validation; it does not quietly succeed.
+- Remediation has exactly two governed outcomes: **(a)** widen compatibility through a card change, after reviewing the consuming Role Card and confirming the capability does not widen its authority; or **(b)** remove or reclassify the mapping. Choosing (a) because the Role looks adjacent, without a Role Card basis, is not one of them.
+- This rule defines **compatibility only**. It does not define relationship type or context trigger, which remain solely in Role-to-Skill mapping records.
+
+This rule and the transitive rule below are complementary, and together they must cover four cases:
+
+1. direct Role → Skill;
+2. direct Role → Specialisation, where the Specialisation is carded;
+3. direct Role → Skill Pack;
+4. transitive Pack → component Skill.
+
+The direct rule catches what the transitive rule cannot: a Role mapped straight to a capability without any Pack in between. Case 4 alone was checked before this rule existed, and cases 1 to 3 went unvalidated as a result.
 
 ### 6.1a Transitive Pack Compatibility Rule
 

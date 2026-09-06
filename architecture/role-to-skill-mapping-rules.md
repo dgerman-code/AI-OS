@@ -216,6 +216,16 @@ Resolution rule, in order:
 
 Duplicate effective activation must be detectable at validation time, not discovered during execution. A mapping set that produces it without a stated independent meaning is invalid.
 
+### 8.1 Direct mapping compatibility
+
+**Every active mapping in this registry must be permitted by the target capability's card.** Where a Skill, Specialisation or Skill Pack has a card, the consuming Role must appear in that card's compatible-role allowlist or satisfy a governed compatibility rule. Absence is a validation failure, not a warning.
+
+Runtime may not widen an allowlist. Remediation is either a governed card change after Role-boundary review, or removal or reclassification of the mapping.
+
+This is a **compatibility check, not a relationship**: it creates no relationship type and no trigger, which come only from mapping records.
+
+Together with the transitive rule below it covers direct Role → Skill, direct Role → Specialisation where carded, direct Role → Pack, and transitive Pack → component. The full rule is in `skills/_standards/common-skill-constraints.md` section 6.1, which governs.
+
 ### 8.1a Transitive Pack compatibility
 
 **If a Role is permitted to activate a Skill Pack, every Required Skill and every conditionally activated Skill inside that Pack must be compatible with that Role**, either through the Skill Card allowlist or through a governed compatibility rule. A Pack must not transitively activate a Skill that explicitly excludes the consuming Role.

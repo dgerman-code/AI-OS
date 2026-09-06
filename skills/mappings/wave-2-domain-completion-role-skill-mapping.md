@@ -10,6 +10,8 @@ Wave 1 (`skills/mappings/wave-1-exemplar-role-skill-mapping.md`) is a reviewed e
 
 This mapping changes no Role Card, creates no Skill, Specialisation or Skill Pack Card, and creates no first-class Role.
 
+**Remediated after independent Wave 2 audit.** The audit returned FAIL on 48 card-allowlist compatibility conflicts — 37 direct Skill mappings and 11 direct Pack mappings whose consuming Roles were absent from the target card allowlists. All 48 are resolved: 45 by governed card widening after Role-Card review, 3 by removing the mapping instead. Two relationship defects were also corrected. Section 10 records the remediation in full.
+
 ## Canonical source statement
 
 > Role-to-Skill mapping records are the sole authoritative source for relationship type, context trigger and alternative choice condition. Mapping grants capability applicability, never professional authority.
@@ -765,8 +767,6 @@ Role: `role.project_development_lead`
   - trigger: development risk must be surfaced across workstreams
 - `specialisation.infrastructure_project_preparation`
   - trigger: project preparation for infrastructure, utility or industrial investment
-- `skill_pack.bid_proposal_management`
-  - trigger: project development runs through a formal competitive process with a governed submission cycle
 
 ### OPTIONAL
 - `skill.stakeholder_mapping`
@@ -778,6 +778,7 @@ Role: `role.project_development_lead`
 - Support-only boundary vs `role.technical_feasibility_lead`: `skill.multidisciplinary_integration` integrates specialist workstreams without absorbing them — the Role Card's own Core Skills say so. Technical feasibility conclusions and basis of design remain the Technical / Feasibility Lead's, consumed at their stated state.
 - Support-only boundary vs `role.funding_bankability_architect`: readiness assessment against financing gates does not produce a bankability conclusion. Funding strategy and bankability remain the Funding & Bankability Role's under `decision.funding_strategy_adoption`.
 - `skill.licensing_requirement_analysis` is contextual and support-only: statutory permits and regulatory determinations are excluded by the Role Card, and legal conclusions remain `role.legal_regulatory_lead`'s.
+- `skill_pack.bid_proposal_management` is deliberately **not** mapped here. An earlier draft mapped it contextually, but the Role Card carries no bidding, tendering, proposal or governed-submission surface: its owned artifacts are internal preparation documents and its Core Skills reach only to negotiation preparation within delegated limits. Formal competitive submission belongs to `role.sales_business_development_specialist` and `role.eu_grants_programmes_specialist`, which the Pack Card already lists. The mapping was removed rather than the Pack Card widened.
 - Investment, financing and land-acquisition decisions are gated by `decision.project_definition_freeze`, `decision.stage_gate_progression` and `decision.land_or_site_commitment`.
 
 ### Sparse-core rationale
@@ -887,8 +888,6 @@ Role: `role.capex_cost_engineering_specialist`
 ### REQUIRED_FOR_CONTEXT
 - `skill.risk_quantification`
   - trigger: contingency must be derived from quantified risk rather than a flat allowance
-- `skill.lifecycle_cost_analysis`
-  - trigger: estimate must express whole-life cost rather than capital cost alone
 - `skill.capacity_sizing`
   - trigger: quantities must be derived from sizing rather than supplied
 - `specialisation.infrastructure_project_preparation`
@@ -916,7 +915,8 @@ Role: `role.capex_cost_engineering_specialist`
 
 ### Boundaries
 - This Role is the owner of `skill.capex_estimation` and `skill.opex_estimation`. The Wave 1 remediation removed both from `role.technical_feasibility_lead`; Wave 2 maps them here as REQUIRED_CORE, which is where the capability belongs.
-- Support-only boundary vs `role.financial_modelling_specialist`: `skill.lifecycle_cost_analysis` is contextual here for whole-life estimating. Financial model construction and return metrics remain the Financial Modelling Role's; cost estimates are supplied as inputs at their declared accuracy class.
+- `skill.lifecycle_cost_analysis` is deliberately **not** mapped here. Its reviewed Skill Card scopes it to support-only technical-option comparison by `role.technical_feasibility_lead` and explicitly excludes this Role as a consumer, on the ground that this Role owns the cost inputs that Skill consumes. Whole-life estimating is performed through this Role's own owned capabilities — `skill.capex_estimation`, `skill.opex_estimation` and `skill.cost_estimate_reconciliation` — and the support-only Skill is not recreated under another ID.
+- Support-only boundary vs `role.financial_modelling_specialist`: financial model construction and return metrics remain the Financial Modelling Role's; cost estimates are supplied as inputs at their declared accuracy class.
 - Technical basis of design and scope definition remain owned by `role.technical_feasibility_lead`; procurement award remains outside Role scope. `decision.cost_estimate_acceptance` and `decision.budget_approval` are human decision rights.
 
 ### Sparse-core rationale
@@ -932,8 +932,6 @@ Role: `role.asset_om_technical_operations_specialist`
 - `skill.resource_planning`
 
 ### REQUIRED_FOR_CONTEXT
-- `skill.lifecycle_cost_analysis`
-  - trigger: O&M strategy must express whole-life intervention and replacement implications
 - `skill.technical_risk_analysis`
   - trigger: operational risk and failure modes are in assignment scope
 - `skill.capacity_planning`
@@ -963,11 +961,12 @@ Role: `role.asset_om_technical_operations_specialist`
 
 ### PROHIBITED_IN_CONTEXT
 - `skill.opex_estimation`
-  - basis: Role Card Does Not Own states OPEX cost estimation figures where a cost engineering assignment exists. This is a conditional prohibition and the clearest genuine case in Wave 2: this Role defines operating cost drivers, and `role.capex_cost_engineering_specialist` turns them into estimated figures. Where no cost engineering assignment exists, the workflow must engage one rather than let this Role estimate.
+  - basis: **Trigger-conditional prohibition.** It applies only where a dedicated cost-engineering assignment exists, or where cost-estimate ownership is otherwise assigned to `role.capex_cost_engineering_specialist`. The basis is the Role Card's Does Not Own clause, which excludes OPEX cost estimation figures *where a cost engineering assignment exists*; the prohibition is scoped to exactly that condition and is not asserted more broadly than the Role Card supports. Outside that condition this registry asserts no prohibition. In every case the Role's own approved ownership of operating cost drivers, availability and lifecycle basis is unaffected.
 
 ### Boundaries
 - Support-only boundary vs `role.operations_service_delivery_specialist`: corporate operating-model design is excluded by this Role's Does Not Own clause. This Role owns asset O&M strategy for infrastructure and industrial assets; the Operations Role owns the corporate service model. The two Role Cards exclude each other reciprocally.
 - Support-only boundary vs `role.capex_cost_engineering_specialist`: this Role produces `artifact.operating_cost_driver_definition`, not cost figures — see the prohibition above.
+- `skill.lifecycle_cost_analysis` is deliberately **not** mapped here. Its reviewed Skill Card scopes it to support-only technical-option comparison by `role.technical_feasibility_lead` and explicitly excludes this Role as a consumer. Lifecycle intervention and replacement logic is carried by this Role's own owned capabilities — `skill.om_strategy_design` and `skill.asset_performance_analysis`, producing `artifact.availability_and_lifecycle_basis` — and the support-only Skill is not recreated under another ID.
 - Technical feasibility and basis of design remain `role.technical_feasibility_lead`'s; safety certification and operating licences are outside Role scope.
 
 ### Sparse-core rationale
@@ -978,7 +977,6 @@ Core is three: O&M strategy, asset performance and resourcing. The conditional p
 Role: `role.economic_cba_specialist`
 
 ### REQUIRED_CORE
-- `skill.economic_cost_benefit_analysis`
 - `skill.discounted_cash_flow_analysis`
 - `skill.assumption_analysis`
 - `skill.sensitivity_analysis`
@@ -1015,7 +1013,7 @@ Role: `role.economic_cba_specialist`
 - Environmental impact assessment conclusions remain `role.esg_es_specialist`'s. Funding gap determination by the granting authority is outside Role scope; `decision.economic_appraisal_acceptance` gates reliance.
 
 ### Sparse-core rationale
-Core is the appraisal-and-uncertainty surface. `skill.economic_cost_benefit_analysis` appears in both core and the ALTERNATIVE set: it is the default method, and the ALTERNATIVE records the genuine methodological fork where monetisation is not credible — the choice condition governs which applies.
+Core is the appraisal-and-uncertainty surface. The appraisal method is **not** in core: it sits solely in the one-of ALTERNATIVE set, because exactly one of the two methods governs a given appraisal question and no capability may be simultaneously universally required and mutually exclusive with an alternative. An earlier draft listed `skill.economic_cost_benefit_analysis` in both places, which was logically incoherent; the ALTERNATIVE set is its correct and only home, and the choice condition decides which method applies.
 
 ## 25. FP&A / Management Finance Specialist
 
@@ -1967,15 +1965,15 @@ Core is five: index, access matrix, tracking, redaction and version control — 
 
 All figures below are computed from the mapping entries in section 2, not estimated.
 
-- Total active mapping entries: **677**
-  - `REQUIRED_CORE`: 188
-  - `REQUIRED_FOR_CONTEXT`: 231
+- Total active mapping entries: **673**
+  - `REQUIRED_CORE`: 187
+  - `REQUIRED_FOR_CONTEXT`: 228
   - `OPTIONAL`: 192
   - `ALTERNATIVE`: 56
   - `PROHIBITED_IN_CONTEXT`: 10
-- Unique Skills used in active (non-prohibited) mappings: **183**
+- Unique Skills used in active (non-prohibited) mappings: **182**
 - Unique Specialisations used: **36**
-- Unique Skill Packs used: **21**
+- Unique Skill Packs used: **20**
 - Roles mapped: **48**
 - REQUIRED_CORE per role: min 2, max 5, mean 3.9
 
@@ -2006,7 +2004,7 @@ All figures below are computed from the mapping entries in section 2, not estima
 
 ## Single-role capabilities across Wave 1 + Wave 2
 
-- Capability IDs used by exactly one Role across both waves: **94** of **265** used IDs (**35.5%**).
+- Capability IDs used by exactly one Role across both waves: **95** of **265** used IDs (**35.8%**).
 - This is the anti-proliferation signal to watch. A capability used by exactly one Role is not automatically wrong — some methods genuinely belong to a single professional Role — but a high proportion suggests the universe carries entries that are Role-specific technique rather than reusable capability.
 
 Single-role capability IDs:
@@ -2053,6 +2051,7 @@ Single-role capability IDs:
 - `skill.lawful_basis_analysis` — Data Protection / GDPR Specialist
 - `skill.lead_qualification` — ## 11. Sales / Business Development Specialist
 - `skill.learning_outcome_design` — Learning / VET Design Specialist
+- `skill.lifecycle_cost_analysis` — ## 4. Technical / Feasibility Lead
 - `skill.marketing_message_design` — Marketing / Growth Specialist
 - `skill.monitoring_evaluation_design` — Monitoring, Evaluation & Learning Specialist
 - `skill.offtake_analysis` — Commercial & Demand Specialist
@@ -2157,12 +2156,11 @@ The Specialisation model holds under Wave 2. In every case above the Specialisat
 
 # 5. Pack Activation and Transitive Pack Compatibility
 
-Wave 2 activates **21** distinct Skill Packs:
+Wave 2 activates **20** distinct Skill Packs:
 
 | Pack | Roles activating it |
 |---|---|
 | `skill_pack.bgk` | Funding & Bankability Architect, IFI / DFI Project Preparation Specialist, Project Finance / Transaction Specialist |
-| `skill_pack.bid_proposal_management` | Project Development Lead |
 | `skill_pack.change_management_adoption` | Operations / Service Delivery Specialist, People / Organisation Specialist |
 | `skill_pack.cove` | EU Programme Implementation & Grant Management Specialist, Learning / VET Design Specialist |
 | `skill_pack.ebrd` | Funding & Bankability Architect, IFI / DFI Project Preparation Specialist, Project Finance / Transaction Specialist |
@@ -2192,16 +2190,6 @@ The five Packs with exemplar cards declare components; the remaining Packs have 
 | Pack | Component | Kind | Result |
 |---|---|---|---|
 | `skill_pack.bgk` | — | — | NOT YET VALIDATABLE — no Pack Card, components undeclared |
-| `skill_pack.bid_proposal_management` | `skill.opportunity_qualification` | Required | NOT YET VALIDATABLE — no Skill Card |
-| `skill_pack.bid_proposal_management` | `skill.requirement_traceability` | Required | PASS |
-| `skill_pack.bid_proposal_management` | `skill.deliverable_planning` | Required | NOT YET VALIDATABLE — no Skill Card |
-| `skill_pack.bid_proposal_management` | `skill.milestone_management` | Required | NOT YET VALIDATABLE — no Skill Card |
-| `skill_pack.bid_proposal_management` | `skill.proposal_commercial_narrative` | Optional | NOT YET VALIDATABLE — no Skill Card |
-| `skill_pack.bid_proposal_management` | `skill.claim_substantiation` | Optional | NOT YET VALIDATABLE — no Skill Card |
-| `skill_pack.bid_proposal_management` | `skill.document_structuring` | Optional | NOT YET VALIDATABLE — no Skill Card |
-| `skill_pack.bid_proposal_management` | `skill.publication_requirements_validation` | Optional | NOT YET VALIDATABLE — no Skill Card |
-| `skill_pack.bid_proposal_management` | `skill.partner_mapping` | Optional | NOT YET VALIDATABLE — no Skill Card |
-| `skill_pack.bid_proposal_management` | `skill.source_verification` | Optional | PASS |
 | `skill_pack.change_management_adoption` | — | — | NOT YET VALIDATABLE — no Pack Card, components undeclared |
 | `skill_pack.cove` | `skill.source_verification` | Required | PASS |
 | `skill_pack.cove` | `skill.requirement_traceability` | Required | PASS |
@@ -2248,7 +2236,7 @@ The five Packs with exemplar cards declare components; the remaining Packs have 
 | `skill_pack.version_control_document_configuration` | — | — | NOT YET VALIDATABLE — no Pack Card, components undeclared |
 | `skill_pack.world_bank` | — | — | NOT YET VALIDATABLE — no Pack Card, components undeclared |
 
-Carded components checked and passing: **9**. Components or Packs without a card, reported as **NOT YET VALIDATABLE** rather than as passes: **47**.
+Carded components checked and passing: **7**. Components or Packs without a card, reported as **NOT YET VALIDATABLE** rather than as passes: **39**.
 
 ## 5.2 Allowlist widening performed for Wave 2
 
@@ -2356,7 +2344,7 @@ Computed against this file and the current repository state.
 | 5 | Every active `specialisation.<id>` exists | PASS — 0 unresolved |
 | 6 | Every active `skill_pack.<id>` exists | PASS — 0 unresolved |
 | 7 | Zero unresolved candidate IDs inside active mappings | PASS — candidate gaps confined to section 6 |
-| 8 | Every REQUIRED_FOR_CONTEXT entry has an explicit trigger | PASS — 231 entries, 0 without trigger |
+| 8 | Every REQUIRED_FOR_CONTEXT entry has an explicit trigger | PASS — 228 entries, 0 without trigger |
 | 9 | Every ALTERNATIVE set has an explicit choice condition and cardinality | PASS — 10 sets |
 | 10 | Every PROHIBITED_IN_CONTEXT entry has a concrete basis | PASS — 10 entries, each citing a Role Card clause or an independence ground |
 | 11 | REQUIRED_CORE remains sparse; flag any role > 8 | PASS — max 5, mean 3.9; 0 roles above 8 |
@@ -2367,11 +2355,11 @@ Computed against this file and the current repository state.
 | 16 | No Phase 3 Role Card modified | PASS — 0 changes under `roles/` |
 | 17 | No Skill / Specialisation / Pack Card created | PASS — 0 new cards |
 | 18 | Exemplar-card edits are allowlist/mapping-reference only | PASS — 4 cards, boundary sections byte-identical |
-| 19 | Carded Pack components pass transitive compatibility | PASS — 9 carded components pass after the widening in section 5.2 |
-| 20 | Uncarded Pack components reported as NOT YET VALIDATABLE | PASS — 47 reported, not counted as passes |
+| 19 | Carded Pack components pass transitive compatibility | PASS — 7 carded components pass after the widening in section 5.2 |
+| 20 | Uncarded Pack components reported as NOT YET VALIDATABLE | PASS — 39 reported, not counted as passes |
 | 21 | No circular Pack dependency introduced | PASS — Wave 2 introduces no dependency; CoVE to Erasmus+ remains one-directional |
 | 22 | Duplicate-effective-activation cases identified and handled | PASS — 7 cases in section 5.3, each resolved once under the stricter obligation |
-| 23 | At least one genuine Specialisation mapping present | PASS — 36 Specialisations across 6 classes, section 4 |
+| 23 | At least one genuine Specialisation mapping present | PASS — 36 Specialisations across 7 classes, section 4 |
 | 24 | PROHIBITED_IN_CONTEXT not fabricated | PASS — 10 entries across 8 Roles, each from a Does Not Own clause or an independence ground |
 | 25 | No active deprecated ID reintroduced | PASS — 0 |
 | 26 | All mapping artifacts remain PROPOSED / working | PASS |
@@ -2383,3 +2371,58 @@ Computed against this file and the current repository state.
 ## Standing statement
 
 Nothing in this file is APPROVED or CANONICAL. All 48 mappings, the statistics, the candidate gaps and the Wave 3 audit list remain PROPOSED and require independent audit and human approval before any mass generation of Skill, Specialisation or Skill Pack Cards.
+# 10. Wave 2 Remediation Record — after independent audit
+
+The independent audit returned **FAIL** with 48 CRITICAL/HIGH findings, all of one kind: active mappings whose consuming Role was absent from the target card's compatible-role allowlist. The finding was structural — the registry validated Pack components transitively but never validated direct mappings against cards at all.
+
+## 10.1 Reproduction
+
+The 48 findings were reproduced independently before any change: 37 direct Skill conflicts (`skill.source_verification` 20, `skill.source_monitoring` 8, `skill.requirement_traceability` 7, `skill.lifecycle_cost_analysis` 2) and 11 direct Pack conflicts. Transitive component conflicts were already 0 from the previous remediation. Counts matched the audit exactly.
+
+## 10.2 Direct Skill conflicts — 37 resolved
+
+Each affected mapping was checked against its approved Role Card before deciding to widen or remove.
+
+**`skill.source_verification` — 21 Roles admitted.** Every affected Role Card carries an explicit `Currency / version / effective-date requirements ... are mandatory` clause and a `Claims that must be source-backed` list. Establishing provenance, authority, version and currency is exactly that surface, so all were admitted. The Skill Card's boundaries are untouched: it still determines nothing about whether a claim is true, holds no legal interpretation, no evidence-governance authority and no knowledge-state promotion.
+
+**`skill.source_monitoring` — 9 Roles admitted.** Each depends on a governed source set that changes inside an engagement period: law as at date, guidance version, sanctions list version, institutional policy version, assessment year. Detecting that change is the Skill's purpose. Its boundaries are untouched: detection and triage only, no interpretation, no canonical rewrite, no state transition, no publication authority.
+
+**`skill.requirement_traceability` — 8 Roles admitted.** Three own an obligation-to-artifact traceability surface outright — Deliverables / Reporting owns deliverable-to-obligation traceability, IFI / DFI owns institution requirement mapping and gap tracking, Software QA owns coverage analysis for release gates. The rest need linkage to evidence compliance without concluding on it. Boundaries untouched: linkage only, no requirement approval, no compliance conclusion.
+
+**`skill.lifecycle_cost_analysis` — 2 mappings REMOVED, card not widened.** The reviewed card scopes this Skill to support-only technical-option comparison by `role.technical_feasibility_lead` and explicitly excludes CAPEX / Cost Engineering and Asset O&M as consumers, on the ground that those Roles own the cost inputs it consumes. Widening would have inverted the boundary that the Wave 1 audit created this card to enforce. The mappings were removed from both Roles, and each Role's section now records that its lifecycle work runs through its own owned capabilities — `skill.capex_estimation` / `skill.opex_estimation` / `skill.cost_estimate_reconciliation` for CAPEX, `skill.om_strategy_design` / `skill.asset_performance_analysis` for Asset O&M. The support-only Skill is not recreated under another ID.
+
+## 10.3 Direct Pack conflicts — 10 admitted, 1 removed
+
+| Pack | Role | Decision |
+|---|---|---|
+| `skill_pack.life_programme` | EU Programme Implementation | Admitted — owns grant obligation mapping and donor-rule interpretation, which need the rulebook this Pack binds |
+| `skill_pack.cove` | EU Programme Implementation | Admitted — same basis, plus the inherited Erasmus+ layer |
+| `skill_pack.cove` | Learning / VET Design | Admitted — CoVE is a vocational-excellence action and this Role's Mandatory Assignment Attributes require a programme scope and framework version reference |
+| `skill_pack.project_finance_metrics` | Funding & Bankability Architect | Admitted — Core Skills name debt capacity reasoning from model outputs; carries `review.financial_model` |
+| `skill_pack.project_finance_metrics` | Project Finance / Transaction | Admitted — Core Skills name covenant and coverage-ratio reasoning explicitly |
+| `skill_pack.project_finance_metrics` | PPP / Concession | Admitted — owns payment mechanism and risk allocation design; carries `review.financial_model` |
+| `skill_pack.supabase` | Full-Stack Software Engineer | Admitted — implements features against the platform |
+| `skill_pack.supabase` | Integration / API Engineer | Admitted — builds against its interface surface |
+| `skill_pack.supabase` | Platform / DevOps Engineer | Admitted — operates its environments and release path |
+| `skill_pack.supabase` | Database / Data Engineer | Admitted — implements migrations and pipelines on its managed relational layer |
+| `skill_pack.bid_proposal_management` | Project Development Lead | **REMOVED** — see below |
+
+**Why the bid/proposal mapping was removed rather than the Pack widened.** The Project Development Lead Role Card carries no bidding, tendering, proposal or governed-submission surface anywhere in Purpose, Owns, Core Skills or Output Artifact Interfaces. Its three owned artifacts — development plan, definition document, readiness assessment — are internal preparation documents, and its Core Skills reach only to negotiation preparation within delegated limits. Its readiness assessment is against internal investment and financing gates, not a competitive submission. Formal competitive submission belongs to `role.sales_business_development_specialist` and `role.eu_grants_programmes_specialist`, both already on the Pack Card.
+
+This removal cascaded. `role.project_development_lead` had been added to the `skill.source_verification` and `skill.requirement_traceability` allowlists in the previous remediation solely as a transitive consequence of this Pack mapping. With the Pack mapping gone, that basis fell away, so the Role was **removed from both Skill Card allowlists** rather than left standing without a mapping — the audit's own rule that a Role needs a valid mapping and Role Card basis, applied in the subtractive direction.
+
+## 10.4 Relationship defects corrected
+
+**Economic / CBA — a capability was both REQUIRED_CORE and mutually exclusive ALTERNATIVE.** `skill.economic_cost_benefit_analysis` was listed in core and as a member of the one-of set against `skill.cost_effectiveness_analysis`. That is incoherent: a capability cannot be universally required and simultaneously exclusive with an alternative. It was removed from REQUIRED_CORE; the one-of ALTERNATIVE set and its operational choice condition are retained unchanged, and core is now three capabilities. The Role Card does not require a different structure — it owns *appraisal methodology selection*, which is precisely a choice, so the ALTERNATIVE set is the correct and only home.
+
+**Asset O&M `skill.opex_estimation` prohibition was too broad.** The Role Card excludes OPEX cost estimation figures *where a cost engineering assignment exists*. The prohibition asserted the exclusion without carrying that condition into its basis. It is now stated as trigger-conditional, applying only where a dedicated cost-engineering assignment exists or cost-estimate ownership is assigned to `role.capex_cost_engineering_specialist`, and explicitly asserting nothing beyond that condition. The Role's own approved ownership of operating cost drivers, availability and lifecycle basis is unaffected in every case.
+
+## 10.5 Boundaries confirmed intact
+
+- **Security Engineer** remains excluded from both `skill.quality_attribute_analysis` and `skill_pack.supabase`. The audit independently confirmed this decision as correct; nothing in this remediation changes it, and Wave 2 maps neither to that Role.
+- **`skill.lifecycle_cost_analysis`** card is unchanged in every section, including its allowlist: the fix was to the mappings, not the card.
+- Across all seven cards edited, only compatible-role allowlists, canonical mapping references and compatibility prose changed. Every Skill Boundary, Support-Only Boundary, Independent Review Boundary, Outputs / Contributions, Review / Decision Dependencies, Evidence and Source Requirements, Knowledge-State Constraints and Pack authority section is byte-identical to its prior state.
+
+## 10.6 New rule closing the structural gap
+
+`standard.skill.common_constraints` section **6.1 Direct Mapping Compatibility Rule** now requires that every active direct mapping to a carded capability be permitted by that card, with absence a validation failure, runtime widening forbidden, and remediation limited to a governed card change after Role-boundary review or removal of the mapping. It is cross-referenced from `architecture/role-to-skill-mapping-rules.md` section 8.1. Together with the existing 6.1a transitive rule it covers all four cases: direct Role→Skill, direct Role→Specialisation where carded, direct Role→Pack, and transitive Pack→component. Case 4 alone was covered before; cases 1–3 are why this audit found 48 conflicts.

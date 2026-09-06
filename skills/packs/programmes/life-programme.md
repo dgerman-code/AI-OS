@@ -46,8 +46,13 @@ None may be re-created as a `skill.<id>`. They were removed as standalone Skills
 
 **Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger. This card is not.**
 
-- Compatible Role allowlist: `role.eu_grants_programmes_specialist`
+- Compatible Role allowlist: `role.eu_grants_programmes_specialist`, `role.eu_programme_implementation_grant_management_specialist`
 - Canonical mapping reference: `skills/mappings/wave-1-exemplar-role-skill-mapping.md`, section 3
+- Canonical mapping reference (Wave 2): `skills/mappings/wave-2-domain-completion-role-skill-mapping.md`
+
+### Wave 2 allowlist basis
+
+`role.eu_programme_implementation_grant_management_specialist` is admitted because its Role Card owns grant agreement obligation mapping, donor-rule compliance interpretation for implementation decisions, and amendment preparation — all of which require the programme rulebook this Pack carries, at a bound version. It consumes the Pack post-award; `role.eu_grants_programmes_specialist` consumes it pre-award. Neither gains submission authority: `decision.granting_authority_submission` remains a human decision right on both Role Cards. Eligibility only; relationship and trigger come from the Wave 2 mapping record.
 
 `role.eu_programme_implementation_grant_management_specialist`, `role.grant_financial_compliance_budget_specialist` and `role.consortium_partner_coordination_specialist` all plausibly touch LIFE work, but none is mapped to this Pack in the current record, so none is listed. Extending the allowlist is a Wave 2 mapping decision.
 
