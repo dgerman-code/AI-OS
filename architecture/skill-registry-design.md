@@ -112,13 +112,17 @@ Suggested Skill Families:
 8. ESG / Risk / Integrity
 9. Technical / Engineering
 10. Product / UX / Content
-11. Software / Integration / Platform
+11. Software / Integration / Platform / Security
 12. Data / Analytics / AI
 13. Documentation / Knowledge / Disclosure
 14. Sales / Marketing / Customer
 15. Operations / Supply Chain / People
 
 These are capability families, not new professional Role domains.
+
+Each Skill declares one primary family and may carry optional secondary-family tags. Family assignment is a navigation and duplication-control device: it never implies authority, exclusive Role compatibility or a professional ownership boundary.
+
+There is deliberately no Assurance family. Independent review is a Review Profile, not a Skill Family.
 
 ## 6. Role-to-Skill Relationship
 
@@ -138,6 +142,8 @@ Relationship types:
 - OPTIONAL
 - ALTERNATIVE
 - PROHIBITED_IN_CONTEXT
+
+**Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger.** Skill, Specialisation and Pack Cards may declare a compatible-Role allowlist, a governed compatibility rule and a canonical mapping reference, and may describe typical use in advisory language, but they may not independently declare any of the five relationship classes as a writable role relationship, and may not define or override a trigger. See `architecture/role-to-skill-mapping-rules.md` for the full rule.
 
 ## 7. Assignment Model
 

@@ -37,7 +37,17 @@ Create a distinct Skill only when it is:
 
 Prefer a Skill Pack when several capabilities are normally activated together because of a programme, institution, technology, sector or methodology.
 
+## Family Assignment Rule
+
+Each Skill declares **one primary Skill Family** and may carry **optional secondary-family tags** where a capability genuinely reads across families.
+
+Family assignment is a navigation and duplication-control device only. It must never imply authority, exclusive Role compatibility, or a professional ownership boundary. Role compatibility is governed by the mapping registry, not by family membership.
+
+There is deliberately **no Assurance family**. Independent review is a Review Profile, not a Skill Family; grouping validation-flavoured Skills under an assurance label would invite exactly the confusion between technique and independent assurance that the registry separation exists to prevent.
+
 ## 1. Research & Evidence
+
+Family scope: source acquisition, verification, and claim / evidence analysis.
 
 ### Skills
 - `skill.source_discovery` — finding relevant primary and secondary sources.
@@ -50,13 +60,14 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 - `skill.research_synthesis` — synthesising evidence without erasing uncertainty or provenance.
 - `skill.interview_research_design` — designing structured expert / stakeholder research inputs.
 - `skill.survey_research_design` — designing structured surveys and questionnaires.
+- `skill.source_monitoring` — recurring monitoring of a defined source set for material change. Replaces the former `specialisation.official_source_monitoring` and `specialisation.policy_source_monitoring`; the source class (official / institutional / policy / regulatory / market) is a context trigger on the mapping record, not a separate registry item.
 
 ### Specialisations / Packs
 - `skill_pack.labour_market_skills_intelligence`
-- `specialisation.official_source_monitoring`
-- `specialisation.policy_source_monitoring`
 
 ## 2. Strategy & Analysis
+
+Family scope: structured problem framing, option and scenario analysis, and strategic prioritisation.
 
 ### Skills
 - `skill.problem_structuring`
@@ -80,6 +91,8 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 
 ## 3. Stakeholder & Institutional
 
+Family scope: institutional and stakeholder analysis.
+
 ### Skills
 - `skill.stakeholder_mapping`
 - `skill.stakeholder_segmentation`
@@ -89,7 +102,7 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 - `skill.meeting_brief_preparation`
 - `skill.position_mapping`
 - `skill.partner_mapping`
-- `skill.relationship_risk_analysis`
+- `skill.relationship_risk_analysis` — stakeholder relationship risk only. Formal integrity, counterparty or sanctions conclusions are outside this Skill and remain owned by `role.integrity_due_diligence_specialist`.
 - `skill.social_dialogue_process_design`
 
 ### Specialisations / Packs
@@ -98,6 +111,8 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 - `specialisation.social_partner_context`
 
 ## 4. Project / Programme Delivery
+
+Family scope: delivery structuring, sequencing, integration and programme-level tracking.
 
 ### Skills
 - `skill.scope_definition`
@@ -112,9 +127,13 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 - `skill.multidisciplinary_integration`
 - `skill.action_tracking`
 - `skill.deliverable_planning`
-- `skill.consortium_coordination`
-- `skill.partner_coordination`
-- `skill.reporting_schedule_management`
+- `skill.partner_coordination` — includes formal consortium coordination; the former `skill.consortium_coordination` is merged here, with consortium context expressed as a mapping trigger.
+- `skill.results_framework_design`
+- `skill.indicator_design`
+- `skill.monitoring_evaluation_design`
+- `skill.grant_compliance_monitoring` — support-only; grant compliance conclusions remain owned by `role.grant_financial_compliance_budget_specialist`.
+- `skill.portfolio_prioritisation_analysis` — support-only; portfolio prioritisation decisions remain a human decision right.
+- `skill.benefits_realisation_tracking`
 
 ### Specialisations / Packs
 - `skill_pack.bid_proposal_management`
@@ -123,6 +142,8 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 - `specialisation.infrastructure_project_preparation`
 
 ## 5. Commercial & Market
+
+Family scope: market and commercial analysis. Sales execution belongs to Sales / Marketing / Customer.
 
 ### Skills
 - `skill.market_sizing`
@@ -146,6 +167,8 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 
 ## 6. Finance & Economics
 
+Family scope: financial and economic modelling, appraisal and financial-evidence analysis.
+
 ### Skills
 - `skill.financial_model_design`
 - `skill.financial_statement_modelling`
@@ -162,29 +185,37 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 - `skill.financial_evidence_reconciliation`
 - `skill.bankability_gap_analysis`
 - `skill.funding_source_mapping`
+- `skill.accounting_record_reconciliation` — support-only; statutory accounting conclusions remain owned by `role.accounting_financial_due_diligence_specialist`.
+- `skill.tax_position_analysis` — support-only; a formal tax position or opinion remains owned by `role.tax_specialist` and its human decision rights.
+- `skill.financing_term_analysis` — support-only; financing structure conclusions remain owned by the applicable finance Role.
+- `skill.grant_cost_eligibility_analysis` — support-only; eligibility determinations remain owned by `role.grant_financial_compliance_budget_specialist`.
 
 ### Specialisations / Packs
 - `specialisation.dscr`
 - `specialisation.llcr`
 - `specialisation.plcr`
 - `skill_pack.project_finance_metrics`
-- `skill_pack.ifi_financial_appraisal`
+- `skill_pack.ifi_financial_appraisal` — generic IFI appraisal method pack only. It must not duplicate institution-specific packs (`skill_pack.eib`, `skill_pack.ebrd`, `skill_pack.world_bank`, `skill_pack.ifc` and similar); where an institution pack applies, the institution pack governs and this pack contributes only method content not already covered.
 
 ## 7. Legal / Compliance / Procurement
+
+Family scope: legal obligations and regulated interpretation.
 
 ### Skills
 - `skill.legal_issue_spotting`
 - `skill.regulatory_mapping`
 - `skill.requirement_traceability`
-- `skill.contract_review`
-- `skill.contract_clause_analysis`
+- `skill.contract_review` — includes clause-level analysis; the former `skill.contract_clause_analysis` is merged here.
 - `skill.procurement_route_analysis`
 - `skill.state_aid_screening`
 - `skill.compliance_gap_analysis`
-- `skill.legal_source_currency_check`
 - `skill.jurisdiction_mapping`
 - `skill.obligation_mapping`
 - `skill.licensing_requirement_analysis`
+- `skill.privacy_impact_analysis` — support-only; DPIA acceptance and lawful-basis adoption remain owned by `role.data_protection_gdpr_specialist`.
+- `skill.lawful_basis_analysis` — support-only; the adopted lawful basis remains owned by `role.data_protection_gdpr_specialist`.
+
+Legal source currency is covered by `skill.source_verification` with a legal-source context trigger; the former `skill.legal_source_currency_check` is merged there.
 
 ### Specialisations / Packs
 - `specialisation.public_procurement`
@@ -194,6 +225,8 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 
 ## 8. ESG / Risk / Integrity
 
+Family scope: risk methods and diligence inputs, without approval authority.
+
 ### Skills
 - `skill.risk_identification`
 - `skill.risk_register_design`
@@ -202,11 +235,13 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 - `skill.risk_mitigation_design`
 - `skill.esg_screening`
 - `skill.environmental_social_gap_analysis`
-- `skill.integrity_due_diligence`
 - `skill.counterparty_screening`
 - `skill.sanctions_screening`
 - `skill.insurance_gap_analysis`
-- `skill.control_design`
+- `skill.insurance_programme_analysis` — support-only; insurance programme adoption and placement remain owned by `role.insurance_risk_transfer_specialist` and its human decision rights.
+- `skill.risk_control_design`
+
+Integrity due diligence is not a Skill. The former `skill.integrity_due_diligence` bundled a whole professional methodology and is removed. Its reusable components remain available as `skill.counterparty_screening`, `skill.sanctions_screening`, `skill.source_verification`, `skill.evidence_mapping` and the risk-analysis Skills above. **Integrity due-diligence conclusions remain owned by `role.integrity_due_diligence_specialist`** and are not obtainable by activating any combination of these Skills.
 
 ### Specialisations / Packs
 - `specialisation.ifi_esg_safeguards`
@@ -214,6 +249,8 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 - `specialisation.integrity_sanctions_context`
 
 ## 9. Technical / Engineering
+
+Family scope: technical definition, feasibility, engineering option analysis and asset performance methods.
 
 ### Skills
 - `skill.technical_requirements_definition`
@@ -228,7 +265,8 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 - `skill.asset_performance_analysis`
 - `skill.om_strategy_design`
 - `skill.technical_risk_analysis`
-- `skill.technical_due_diligence_support`
+
+Technical due diligence is not a separate Skill. The former `skill.technical_due_diligence_support` is removed as an unbounded catch-all; the underlying work is covered by `skill.feasibility_analysis`, `skill.technical_option_comparison`, `skill.technical_risk_analysis`, `skill.design_basis_definition` and `skill.evidence_gap_analysis`, with due-diligence reliance remaining a human decision right.
 
 ### Sector Specialisations
 - `specialisation.solar`
@@ -242,6 +280,8 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 
 ## 10. Product / UX / Content
 
+Family scope: product-facing information and content design.
+
 ### Skills
 - `skill.requirements_elicitation`
 - `skill.user_story_design`
@@ -254,19 +294,21 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 - `skill.accessibility_analysis`
 - `skill.content_structure_design`
 - `skill.editorial_quality_control`
-- `skill.publication_readiness_check`
+- `skill.publication_requirements_validation` — validates that stated publication requirements are met. This is a quality-control capability and is **not** independent review and not publication authority.
 
 ### Specialisations / Packs
 - `specialisation.institutional_website`
 - `specialisation.admin_console`
 - `specialisation.multilingual_content`
 
-## 11. Software / Integration / Platform
+## 11. Software / Integration / Platform / Security
+
+Family scope: software architecture, integration, platform engineering and security engineering technique. Security is an explicit subfamily below; family membership never implies authority or exclusive Role compatibility.
 
 ### Skills
 - `skill.solution_decomposition`
 - `skill.architecture_decision_recording`
-- `skill.quality_attribute_analysis`
+- `skill.quality_attribute_analysis` — selectable dimensions may include security, privacy, resilience, performance and availability. Selecting a dimension does **not** transfer professional ownership: security ownership remains with `role.security_engineer` and personal-data ownership with `role.data_protection_gdpr_specialist`.
 - `skill.api_contract_design`
 - `skill.integration_pattern_selection`
 - `skill.backend_implementation`
@@ -279,6 +321,12 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 - `skill.incident_response_design`
 - `skill.performance_testing`
 
+#### Security subfamily
+- `skill.threat_modelling` — support-only; the threat model as a professional conclusion remains owned by `role.security_engineer`.
+- `skill.security_control_design` — support-only; control adequacy conclusions and accreditation remain owned by `role.security_engineer` and its human decision rights.
+- `skill.security_control_validation` — evidence-gathering and validation technique. This is **not** independent security review and not accreditation.
+- `skill.security_testing` — testing technique. Findings are inputs; risk acceptance remains a human decision right.
+
 ### Technology Specialisations / Packs
 - `skill_pack.supabase`
 - `skill_pack.postgresql`
@@ -286,12 +334,15 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 
 ## 12. Data / Analytics / AI
 
+Family scope: data architecture and analytical / AI technique. Platform implementation, deployment and security engineering belong to Software / Integration / Platform / Security; this family covers how data is modelled, analysed and reasoned over, not how a platform is built or secured.
+
 ### Skills
 - `skill.data_model_design`
 - `skill.schema_design`
 - `skill.data_quality_rule_design`
 - `skill.data_pipeline_design`
 - `skill.data_transformation`
+- `skill.database_migration_planning` — support-only; production migration execution and its human decision right remain owned by the applicable engineering Role.
 - `skill.sql_analysis`
 - `skill.metric_definition`
 - `skill.dashboard_design`
@@ -311,24 +362,30 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 
 ## 13. Documentation / Knowledge / Disclosure
 
+Family scope: governed records, configuration, lineage and disclosure packaging.
+
 ### Skills
 - `skill.technical_writing`
 - `skill.document_structuring`
-- `skill.version_control`
+- `skill.document_version_control`
 - `skill.document_configuration_control`
 - `skill.evidence_indexing`
-- `skill.canonical_status_management_support`
+- `skill.knowledge_state_metadata_management` — records and maintains knowledge-state metadata. A Skill may contribute to Role-owned knowledge-state work but can never execute a knowledge-state transition; promotion to APPROVED or CANONICAL remains a governed human decision.
 - `skill.data_room_index_design`
 - `skill.disclosure_package_preparation`
+- `skill.disclosure_access_matrix_design` — support-only; disclosure authorisation and access grants remain human decision rights owned by `role.data_room_disclosure_manager`.
+- `skill.disclosure_tracking`
 - `skill.redaction_preparation`
 - `skill.document_gap_analysis`
 - `skill.traceability_matrix_design`
 
 ### Skill Packs
-- `skill_pack.technical_writing_documentation`
+- `skill_pack.technical_writing_documentation` — adds governed templates, house conventions, controlled documentation requirements and currency rules **beyond** the `skill.technical_writing` technique. Where it would add nothing beyond the Skill, map the Skill directly instead of the Pack.
 - `skill_pack.version_control_document_configuration`
 
 ## 14. Sales / Marketing / Customer
+
+Family scope: commercial acquisition, commercial communication and customer lifecycle. Market analysis belongs to Commercial & Market.
 
 ### Skills
 - `skill.lead_qualification`
@@ -351,6 +408,8 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 
 ## 15. Operations / Supply Chain / People
 
+Family scope: operating process, capacity and resourcing, sourcing, and workforce / organisational design and learning.
+
 ### Skills
 - `skill.process_design`
 - `skill.sop_design`
@@ -364,6 +423,8 @@ Prefer a Skill Pack when several capabilities are normally activated together be
 - `skill.role_responsibility_mapping`
 - `skill.organisation_design_analysis`
 - `skill.training_needs_analysis`
+- `skill.learning_outcome_design` — support-only; curriculum adoption remains a human decision right owned by `role.learning_vet_design_specialist`.
+- `skill.assessment_design` — support-only; approval of an assessment for formal recognition remains a human decision right.
 
 ### Specialisations / Packs
 - `specialisation.service_operations`
@@ -376,11 +437,13 @@ The following packs intentionally span multiple Skill Families.
 
 ## EU Programme Packs
 - `skill_pack.erasmus_plus`
-- `skill_pack.cove`
+- `skill_pack.cove` — **layers over `skill_pack.erasmus_plus`** where the CoVE action operates under Erasmus+ rules. The dependency is declared on the CoVE Pack, in that direction only; Erasmus+ must not declare a dependency on CoVE, which would create a cycle. Where a CoVE action is funded outside Erasmus+, the dependency does not apply and the governing programme Pack is declared instead.
 - `skill_pack.life_programme`
 - `skill_pack.horizon_europe`
 
-Expected composition: programme rules, eligibility, intervention logic, application structure, work-package logic, budget logic, consortium requirements, reporting requirements, controlled-source currency and submission constraints.
+Expected composition: programme rules, eligibility interpretation, intervention logic, application structure, work-package logic, budget logic, consortium requirements, reporting requirements, controlled-source currency and submission requirement mapping.
+
+These programme capabilities are **pack-internal components, not standalone Skill IDs**. Eligibility analysis, work-package logic design, budget logic analysis and submission requirement mapping are meaningless outside a specific programme rulebook and its current call version, so they are governed by the applicable programme Pack and its currency rules rather than mapped individually. Do not reintroduce them as standalone `skill.<id>` entries.
 
 ## IFI / Funding Packs
 - `skill_pack.eib`
@@ -391,7 +454,9 @@ Expected composition: programme rules, eligibility, intervention logic, applicat
 - `skill_pack.investeu`
 - `skill_pack.ukraine_facility`
 
-Expected composition: institutional eligibility, appraisal logic, documentation expectations, financial / economic / ESG requirements, procurement or integrity interfaces, submission route and source-currency controls.
+Expected composition: institutional eligibility, appraisal logic, documentation expectations, financial / economic / ESG requirements, procurement or integrity interfaces, submission requirement mapping, submission route and source-currency controls.
+
+As with programme packs, submission requirement mapping is a **pack-internal component, not a standalone Skill ID**: the requirements are institution-specific and version-sensitive.
 
 ## Technology Packs
 - `skill_pack.supabase`
@@ -399,6 +464,11 @@ Expected composition: institutional eligibility, appraisal logic, documentation 
 - `skill_pack.vercel`
 
 Expected composition: platform-specific architecture, implementation constraints, security controls, version / service-limit currency, deployment practices and compatible Role IDs.
+
+## Bid / Proposal Management Pack
+- `skill_pack.bid_proposal_management`
+
+Bid / proposal management is represented **only** as a Pack. There is no standalone `skill.bid_proposal_management`: the capability is a governed bundle of qualification, compliance-matrix, content-planning, review-cycle and submission-control practices that travel together and carry currency rules, not a single reusable technique.
 
 ## Project Finance Metrics Pack
 - `skill_pack.project_finance_metrics`
@@ -410,6 +480,33 @@ Contains at minimum:
 
 May additionally contain debt sculpting, covenant headroom and sensitivity conventions when later approved.
 
+# Removed and Merged IDs — Deprecation Register
+
+These identifiers are **retired**. None is declared in any Family above and none is mapped to any Role. They are recorded here, and referenced in the deprecation notes beside their surviving replacements, so that the reason for retirement travels with the registry and the identifier is not silently reintroduced.
+
+A tombstone is not an active reference: a retired ID cannot be activated, cannot satisfy a mapping obligation and must not be written into a new mapping record.
+
+| Retired ID | Reason | Where the capability lives now |
+|---|---|---|
+| `skill.integrity_due_diligence` | Bundled an entire professional methodology into one Skill — a hidden Role. | `skill.counterparty_screening`, `skill.sanctions_screening`, `skill.source_verification`, `skill.evidence_mapping`, risk Skills. Conclusions owned by `role.integrity_due_diligence_specialist`. |
+| `skill.technical_due_diligence_support` | Unbounded catch-all. | `skill.feasibility_analysis`, `skill.technical_option_comparison`, `skill.technical_risk_analysis`, `skill.design_basis_definition`, `skill.evidence_gap_analysis`. |
+| `skill.consortium_coordination` | Duplicate of a broader capability. | Merged into `skill.partner_coordination`; consortium context is a mapping trigger. |
+| `skill.contract_clause_analysis` | Sub-step of a broader capability. | Merged into `skill.contract_review`. |
+| `skill.legal_source_currency_check` | Domain-specific restatement of a reusable capability. | Merged into `skill.source_verification` with a legal-source trigger. |
+| `skill.reporting_schedule_management` | Composite of two existing capabilities. | `skill.deliverable_planning` + `skill.milestone_management`. |
+| `skill.version_control` | Ambiguous against software version control. | Renamed `skill.document_version_control`. |
+| `skill.control_design` | Ambiguous against software and process controls. | Renamed `skill.risk_control_design`. |
+| `skill.canonical_status_management_support` | Name implied authority over canonical status. | Renamed `skill.knowledge_state_metadata_management`. |
+| `skill.publication_readiness_check` | "Check" read as assurance. | Renamed `skill.publication_requirements_validation`; explicitly not independent review. |
+| `specialisation.official_source_monitoring` | Context variant mis-modelled as a Specialisation. | `skill.source_monitoring` with a source-class trigger. |
+| `specialisation.policy_source_monitoring` | Context variant mis-modelled as a Specialisation. | `skill.source_monitoring` with a policy-source trigger. |
+| `skill.eligibility_analysis` | Meaningless outside a programme rulebook and call version. | Pack-internal component of the EU programme Packs. |
+| `skill.work_package_logic_design` | Programme-bound, not reusable standalone. | Pack-internal component of the EU programme Packs. |
+| `skill.budget_logic_analysis` | Programme-bound, not reusable standalone. | Pack-internal component of the EU programme Packs. |
+| `skill.submission_requirement_mapping` | Institution- and version-specific. | Pack-internal component of programme and institution Packs. |
+| `skill.bid_proposal_management` | A governed bundle, not a single technique. | `skill_pack.bid_proposal_management` only. |
+| `skill.security_constraint_allocation` | Read as an architecture-owned security capability. | `skill.quality_attribute_analysis` (security dimension) + `skill.requirement_traceability`. Security ownership stays with `role.security_engineer`. |
+
 # Duplication / Granularity Controls
 
 The following pairs must remain distinct unless later review proves otherwise:
@@ -417,7 +514,7 @@ The following pairs must remain distinct unless later review proves otherwise:
 - tariff analysis vs tariff modelling specialisation;
 - affordability analysis vs affordability specialisation;
 - requirements elicitation vs stakeholder consultation design;
-- risk identification vs integrity due diligence;
+- risk identification vs integrity due-diligence conclusions owned by `role.integrity_due_diligence_specialist`;
 - technical feasibility analysis vs sector specialisation;
 - financial modelling skills vs project-finance metric specialisations;
 - data model design vs PostgreSQL technology pack;
@@ -435,15 +532,17 @@ The following should not become separate skills without a demonstrated reuse cas
 
 # Initial Scale
 
-This v0.1 universe intentionally remains bounded.
+This universe intentionally remains bounded.
 
-Approximate initial inventory:
+Inventory counted from this file after Wave 1 remediation:
 - 15 Skill Families;
-- about 150 reusable Skills;
-- sector / programme / institution / technology / metric Specialisations;
-- cross-family Skill Packs for EU programmes, IFIs, technologies and project-finance metrics.
+- 205 reusable Skills;
+- 43 Specialisations (sector / programme / institution / technology / metric / operating context);
+- 21 Skill Packs, including cross-family packs for EU programmes, IFIs, technologies, bid / proposal management and project-finance metrics.
 
-The count is not a target. New items require evidence of reuse and distinct capability value.
+The earlier "about 150 Skills" estimate was inaccurate against the file it described and has been replaced with a counted figure. The count is **not a target** and must not be managed toward a number: it is reported so that drift between the stated and actual inventory is visible. New items still require evidence of reuse and distinct capability value, and the Granularity Rule above governs whether an item is created at all.
+
+Net change from Wave 1 remediation: 23 reusable capability classes added, 6 removed or merged (`skill.integrity_due_diligence`, `skill.technical_due_diligence_support`, `skill.consortium_coordination`, `skill.contract_clause_analysis`, `skill.legal_source_currency_check`, `skill.reporting_schedule_management`), and 2 monitoring Specialisations replaced by the reusable `skill.source_monitoring`.
 
 # Next Phase 4 Work
 

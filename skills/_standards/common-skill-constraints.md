@@ -43,6 +43,18 @@ A Skill may:
 
 The assigned Role remains authoritative for professional output ownership and professional conclusions.
 
+### 3.1 Support-only boundary
+
+Where a Skill touches the methodology of a different approved Role, it is **support-only** and must say so explicitly, naming the Role that retains ownership. A support-only Skill produces inputs to that Role's conclusion; it never produces the conclusion, and it never allows the mapped Role to be represented as the owner of it.
+
+### 3.2 Quality control is not independent review
+
+Capabilities that evaluate, validate, test, check readiness or otherwise assess work — including publication-requirements validation, control validation, security testing, output evaluation and editorial quality control — are **quality-control techniques, not independent review**. They do not satisfy an `Author != Critical Reviewer` obligation, do not discharge a Review Profile, and do not create reviewer identity. Where independent review is required, it is performed under the applicable `review.<id>` by someone who did not author the work.
+
+### 3.3 Role-owned artifact boundary
+
+Every Skill states which Role-owned artifact it contributes to and what part of that artifact it does **not** produce. A Skill that cannot name an owning Role and artifact is a candidate hidden Role and must be reassessed under section 11.
+
 ## 4. Knowledge-State Discipline
 
 Activation of a Skill or Pack does not change knowledge state by itself.
@@ -55,6 +67,8 @@ A Skill or Pack must not:
 - convert any material to CANONICAL without canonical-governance authority.
 
 Conflicts among controlled sources, versions or requirements must be surfaced as `CONFLICT_DETECTED` or equivalent workflow escalation.
+
+A Skill may contribute to Role-owned knowledge-state work — recording state metadata, assembling the evidence a transition would require, checking that stated conditions are met — but **a Skill can never execute a knowledge-state transition**. The transition is performed by the owning Role under the applicable review and decision path, or it does not happen.
 
 ## 5. Controlled Sources and Currency
 
@@ -72,20 +86,56 @@ As applicable, record:
 
 Expired, superseded or unverifiable references must not be treated as current requirements.
 
-## 6. Role Compatibility
+## 6. Role Compatibility and the Canonical Mapping Source
 
-Every Skill or Pack must define compatible Role IDs or a governed compatibility rule.
+**Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger.**
 
-Compatibility does not mean ownership. A Skill may be reusable across multiple Roles.
+Every Skill or Pack must define compatible Role IDs or a governed compatibility rule. Compatibility does not mean ownership, and a Skill may be reusable across multiple Roles.
 
-Relationship types:
-- `REQUIRED_CORE`
-- `REQUIRED_FOR_CONTEXT`
-- `OPTIONAL`
-- `ALTERNATIVE`
-- `PROHIBITED_IN_CONTEXT`
+A Skill, Specialisation or Pack Card **may**:
+- declare a compatible-Role allowlist or a governed compatibility rule;
+- reference the canonical mapping record;
+- describe typical use in clearly advisory, non-authoritative language.
+
+A Skill, Specialisation or Pack Card **must not**:
+- independently declare `REQUIRED_CORE`, `REQUIRED_FOR_CONTEXT`, `OPTIONAL`, `ALTERNATIVE` or `PROHIBITED_IN_CONTEXT` as a writable role relationship;
+- define, qualify or override a context trigger or an alternative choice condition.
+
+The five relationship classes remain the controlled vocabulary, but they are written only in mapping records. Where a card's advisory text diverges from the mapping record, the mapping record governs and the divergence is raised as `CONFLICT_DETECTED`.
 
 A Role-Skill mapping must not create a new Role identity by combination.
+
+### 6.1 Duplicate effective activation
+
+Where a Skill is both individually mapped to a Role and included as a required Skill of an active Pack, it is activated once, under the stricter of the two obligations, with the Pack's currency and evidence rules applied on top. Duplicate effective activation must be detectable at validation time; it must not be left to resolve itself at execution.
+
+### 6.2 Alternative choice sets
+
+Where capabilities are alternatives, the mapping record names the choice set and the condition that selects between members. A card may reference the choice set it belongs to but must not define the selection condition.
+
+### 6.3 Prerequisites and incompatibilities
+
+A Skill or Pack must declare, where they exist:
+- **prerequisite capabilities** — what must already be present for this capability to be applied competently;
+- **incompatibilities** — capabilities, contexts or data classifications with which it must not be combined, and why.
+
+Prerequisites are competence statements, not authority grants: satisfying every prerequisite still confers no authority beyond the assigned Role Card.
+
+## 6A. Pack Structure and Dependency
+
+A Skill Pack declares:
+- `Type: Skill Pack`;
+- the **Skill Families** it draws from (contributing families);
+- the **Specialisations** it includes;
+- the **Packs it depends on or layers over**, with direction stated;
+- explicit dependency / layering metadata sufficient to resolve activation order.
+
+Rules:
+- **No circular pack dependencies.** A dependency cycle is a validation failure. If Pack A depends on Pack B, B must not depend directly or transitively on A.
+- Dependency is transitive for activation, subject to the duplicate-activation rule in 6.1.
+- **Precedence between overlapping Packs:** the stricter requirement prevails; where strictness is not comparable, the more specific Pack prevails over the more generic; where neither is clearly more specific, raise `CONFLICT_DETECTED` and escalate rather than resolving silently. Precedence never operates in the permissive direction.
+- The Role Card and any stricter workflow or assignment control prevail over every Pack.
+- **Pack activation cannot satisfy a licensing, competence, review-independence or human-authority requirement.** Activating a Pack never establishes that a licensed professional was involved, that an independent reviewer acted, or that a human decision right was exercised. Those obligations are discharged only through the Role Card, the applicable Review Profile and the applicable Decision Right.
 
 ## 7. Context and Assignment
 
@@ -105,13 +155,13 @@ A Pack must not silently import assumptions, confidential information or project
 
 Where proficiency is represented, it is an assignment attribute and not a new Skill identity.
 
-Recommended levels may later include:
+The controlled proficiency vocabulary, used consistently across all Phase 4 architecture, standards and templates, is:
 - AWARENESS
 - WORKING
 - ADVANCED
 - EXPERT
 
-These levels do not grant professional or human authority.
+No other proficiency vocabulary may be used in active Phase 4 files. These levels are assignment attributes only; they do not grant professional or human authority and must never be read as evidence of licensing, credentialing or regulated authorisation.
 
 ## 9. Model Independence
 
@@ -131,6 +181,8 @@ A material change to any of the following requires a new Skill or Pack version r
 - review / decision dependencies.
 
 Historical versions must remain traceable when they were used in prior work.
+
+Every Skill, Specialisation and Pack therefore carries explicit `Supersedes` and `Superseded By` metadata. A superseded item must not silently continue to satisfy a mapping: supersession is resolved at activation, and an expired or superseded item cannot discharge a `REQUIRED_CORE` or `REQUIRED_FOR_CONTEXT` obligation.
 
 ## 11. Role-vs-Skill Escalation Test
 

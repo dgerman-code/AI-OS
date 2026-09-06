@@ -29,6 +29,25 @@ A mapping must never:
 - bind a Role to an AI model or runtime;
 - imply that possession of a skill is evidence of competence, licensing or authority.
 
+## Canonical Source Rule
+
+**Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger.**
+
+Only a mapping record may assert that a capability is `REQUIRED_CORE`, `REQUIRED_FOR_CONTEXT`, `OPTIONAL`, `ALTERNATIVE` or `PROHIBITED_IN_CONTEXT` for a Role, and only a mapping record may define the trigger or choice condition that resolves it.
+
+Skill Cards, Specialisation entries and Skill Pack Cards may:
+- declare a compatible-Role allowlist or a governed compatibility rule;
+- reference the canonical mapping record;
+- describe typical use in clearly advisory, non-authoritative language.
+
+They may **not** independently declare a relationship type as a writable role relationship, and they may not define or override a context trigger. Where a card appears to state a relationship, it is descriptive of the mapping record, never a second source of it.
+
+Rationale: two writable sources for the same relationship produce silent divergence. When a Skill Card says a capability is `REQUIRED_CORE` for a Role and the mapping record says `OPTIONAL`, there is no principled way to resolve the conflict at activation time, and the more permissive reading tends to win by accident. One writable source removes the ambiguity.
+
+Where a conflict is nevertheless detected between a card's advisory text and the mapping record, the mapping record governs and the divergence is raised as `CONFLICT_DETECTED` for correction of the card.
+
+The approved Role Card still outranks the mapping record on authority: a mapping may never widen Professional Scope, and the Role Card wins on every question of authority, ownership and decision rights.
+
 ## 1. Mapping Entity Types
 
 Mappings may connect an approved `role.<id>` to:
@@ -185,6 +204,38 @@ Example:
 
 If `skill_pack.life_programme` already includes programme eligibility interpretation, call-structure analysis and submission-calendar controls, do not also create separate REQUIRED_FOR_CONTEXT mappings for every micro-capability unless another role reuses them independently.
 
+### 8.1 Duplicate effective activation
+
+A capability is *effectively activated twice* when it is both mapped individually to the Role and included as a required Skill of an active Pack.
+
+Resolution rule, in order:
+1. the capability is activated **once**;
+2. the **stricter** of the two obligations applies — an individually mapped `REQUIRED_CORE` is not softened by a Pack that treats the same Skill as optional;
+3. the Pack's currency, evidence and controlled-source rules apply on top;
+4. the individual mapping is retained only where it has meaning independent of the Pack; otherwise it is removed from the mapping record.
+
+Duplicate effective activation must be detectable at validation time, not discovered during execution. A mapping set that produces it without a stated independent meaning is invalid.
+
+### 8.2 Pack dependency and layering
+
+A Pack may depend on, or layer over, another Pack. Dependencies must be declared explicitly on the Pack, with the direction stated.
+
+- **No circular pack dependencies.** If Pack A depends on Pack B, B must not depend directly or transitively on A. A dependency cycle is a validation failure, not a runtime warning: it makes activation order and precedence undefinable.
+- Dependency is transitive for activation: activating a Pack activates the Packs it depends on, subject to the same duplicate-activation rule above.
+- Layering does not accumulate authority. A stack of Packs confers exactly the authority of the assigned Role Card, which is to say none beyond it.
+
+Worked case: `skill_pack.cove` layers over `skill_pack.erasmus_plus` where the CoVE action operates under Erasmus+ rules. CoVE declares that dependency; Erasmus+ must not declare a dependency on CoVE.
+
+### 8.3 Precedence between overlapping Packs
+
+Where two active Packs address the same subject with different requirements:
+1. the **stricter** requirement prevails;
+2. where strictness is not comparable, the **more specific** Pack prevails over the more generic one — an institution Pack over a generic method Pack, a programme Pack over a generic delivery Pack;
+3. where neither is clearly more specific, the conflict is **not** silently resolved: raise `CONFLICT_DETECTED` and escalate to the consuming workflow;
+4. in all cases the Role Card and any stricter workflow control prevail over every Pack.
+
+Precedence never operates in the permissive direction. A Pack can tighten a requirement; it can never relax one imposed by another Pack, the Role Card or the assignment.
+
 ## 9. Multi-Role Reuse
 
 A Skill should be mapped to multiple Roles where genuinely reusable.
@@ -261,8 +312,8 @@ No mapping may suppress a required review because a Skill Pack was activated.
 
 Proficiency is an assignment attribute, not a new Role or Skill identity.
 
-Suggested future proficiency states:
-- FOUNDATION
+Proficiency states (single controlled vocabulary across all Phase 4 architecture, standards and templates):
+- AWARENESS
 - WORKING
 - ADVANCED
 - EXPERT
