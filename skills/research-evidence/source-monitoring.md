@@ -53,8 +53,10 @@ The distinction that matters: monitoring says *something changed and here is wha
 
 **Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger. This card is not.**
 
-- Compatible Role allowlist: `role.research_market_intelligence_analyst`, `role.knowledge_evidence_steward`
+- Compatible Role allowlist: `role.research_market_intelligence_analyst`, `role.knowledge_evidence_steward`, `role.eu_grants_programmes_specialist`
 - Canonical mapping reference: `skills/mappings/wave-1-exemplar-role-skill-mapping.md`, sections 2 and 10
+
+`role.eu_grants_programmes_specialist` is present for **transitive Pack compatibility**, not because a mapping record maps this Skill to it directly. Both `skill_pack.life_programme` and `skill_pack.cove` are mapped to that Role and require this Skill, because programme guidance can be revised mid-window and a stale binding must be detected rather than discovered at submission. Rejecting the Role here would make two valid Pack activations fail. Eligibility only: relationship and trigger come from the mapping records for those Packs.
 
 `role.legal_regulatory_lead` and `role.eu_policy_institutional_affairs_specialist` are plausible Wave 2 additions — both depend on sources that move — but neither is currently mapped, so neither is listed.
 

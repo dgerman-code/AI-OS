@@ -51,8 +51,10 @@ Outside, and deliberately so:
 
 **Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger. This card is not.** This section declares only which Roles may use this capability at all.
 
-- Compatible Role allowlist: `role.research_market_intelligence_analyst`, `role.eu_grants_programmes_specialist`, `role.legal_regulatory_lead`, `role.knowledge_evidence_steward`
+- Compatible Role allowlist: `role.research_market_intelligence_analyst`, `role.eu_grants_programmes_specialist`, `role.legal_regulatory_lead`, `role.knowledge_evidence_steward`, `role.sales_business_development_specialist`
 - Canonical mapping reference: `skills/mappings/wave-1-exemplar-role-skill-mapping.md`, sections 2, 3, 6 and 10
+
+`role.sales_business_development_specialist` is present for **transitive Pack compatibility**, not because a mapping record maps this Skill to it directly. `skill_pack.bid_proposal_management` is mapped to that Role and exposes this Skill as an Optional component, so rejecting the Role here would make a valid Pack activation fail. Eligibility only: whether the Skill is actually activated, and under what relationship and trigger, is decided by the mapping record for the Pack, never by this line.
 
 Wave 2 is expected to widen this allowlist — Accounting / Financial Due Diligence, EU Policy & Institutional Affairs and Integrity / Due Diligence are obvious candidates — but a Role is added here only when its Role Card and a mapping record both support it, never by anticipation.
 

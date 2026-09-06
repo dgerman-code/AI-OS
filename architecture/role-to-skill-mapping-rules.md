@@ -216,6 +216,16 @@ Resolution rule, in order:
 
 Duplicate effective activation must be detectable at validation time, not discovered during execution. A mapping set that produces it without a stated independent meaning is invalid.
 
+### 8.1a Transitive Pack compatibility
+
+**If a Role is permitted to activate a Skill Pack, every Required Skill and every conditionally activated Skill inside that Pack must be compatible with that Role**, either through the Skill Card allowlist or through a governed compatibility rule. A Pack must not transitively activate a Skill that explicitly excludes the consuming Role.
+
+This is a **compatibility check, not a relationship**. It creates no relationship type and no trigger; relationship type and context trigger still come only from mapping records. A Role added to a Skill Card allowlist for Pack compatibility becomes eligible to use the capability and nothing more.
+
+Optional Pack components are covered on the same terms, and the rule applies transitively through pack layering. On incompatibility, **activation fails validation** rather than silently widening the Skill allowlist at runtime — a runtime widening would create exactly the second source of truth this architecture excludes.
+
+The full rule, its clarifications and its machine-checkable formulation are in `skills/_standards/common-skill-constraints.md`, section 6.1a, which governs.
+
 ### 8.2 Pack dependency and layering
 
 A Pack may depend on, or layer over, another Pack. Dependencies must be declared explicitly on the Pack, with the direction stated.

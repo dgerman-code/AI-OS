@@ -63,10 +63,12 @@ An analysis that concludes "the system is secure" has left this Skill's boundary
 
 **Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger. This card is not.**
 
-- Compatible Role allowlist: `role.solution_architect`
+- Compatible Role allowlist: `role.solution_architect`, `role.data_database_architect`
 - Canonical mapping reference: `skills/mappings/wave-1-exemplar-role-skill-mapping.md`, section 8
 
-The allowlist is deliberately a single Role. `role.security_engineer` and `role.data_protection_gdpr_specialist` are **not** listed: they own the specialist conclusions this Skill defers to, and they exercise them through their own capabilities, not through this one. Other engineering Roles are Wave 2 mapping decisions.
+`role.data_database_architect` is present for **transitive Pack compatibility**, not because a mapping record maps this Skill to it directly. `skill_pack.supabase` is mapped to that Role and requires this Skill, because the platform's authorisation model is expressed in the data model and its constraints bound achievable quality attributes. Rejecting the Role here would make a valid Pack activation fail. Eligibility only: relationship and trigger come from the mapping record for the Pack.
+
+`role.security_engineer` and `role.data_protection_gdpr_specialist` remain **not** listed, and this addition does not change that: they own the specialist conclusions this Skill defers to, and they exercise them through their own capabilities, not through this one. Widening the allowlist for Pack compatibility widens nothing else — the Data & Database Architect gains eligibility to use the technique, not any security or data-protection conclusion. Other engineering Roles are Wave 2 mapping decisions.
 
 Listing a Role confers eligibility, never a requirement.
 

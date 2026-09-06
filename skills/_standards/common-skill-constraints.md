@@ -109,6 +109,20 @@ A Role-Skill mapping must not create a new Role identity by combination.
 
 Where a Skill is both individually mapped to a Role and included as a required Skill of an active Pack, it is activated once, under the stricter of the two obligations, with the Pack's currency and evidence rules applied on top. Duplicate effective activation must be detectable at validation time; it must not be left to resolve itself at execution.
 
+### 6.1a Transitive Pack Compatibility Rule
+
+**If a Role is permitted to activate a Skill Pack, every Required Skill and every conditionally activated Skill inside that Pack must be compatible with that Role, either through the Skill Card allowlist or through a governed compatibility rule. A Pack must not transitively activate a Skill that explicitly excludes the consuming Role. This check does not create a Role relationship or trigger; it validates compatibility only.**
+
+Clarifications:
+
+- **Optional Pack components** that can be selected for a Role must likewise not be prohibited by their Skill Card allowlist. An Optional component is selectable, and a selectable component that the Role's own Skill Card rejects is the same defect as a Required one, discovered later.
+- **Transitive dependencies count.** Where a Pack layers over another Pack, the components of the inherited Pack are activated for the consuming Role too, and are subject to this rule at every level of the chain.
+- **On incompatibility, activation fails validation.** It must not silently widen the Skill allowlist at runtime. A runtime widening would let a Pack grant eligibility that no reviewed card records, which is precisely the second source of truth this architecture excludes. The correct resolutions are to add the Role to the Skill Card allowlist after review, to remove the Skill from the Pack, or to remove the Role from the Pack's allowlist — each a governed change to a card, not an inference at activation.
+- **Compatibility is not a relationship.** Adding a Role to a Skill Card allowlist for Pack compatibility states only that the Role may use the capability. It creates no `REQUIRED_CORE`, `REQUIRED_FOR_CONTEXT`, `OPTIONAL`, `ALTERNATIVE` or `PROHIBITED_IN_CONTEXT` relationship, and no trigger. **Relationship type and context trigger still come only from Role-to-Skill mapping records.**
+- **Direction of the fix matters.** This rule is satisfied by making the card set consistent, never by having a Pack override a Skill Card at activation time.
+
+The rule is machine-checkable in principle: for each Pack, take its compatible-Role allowlist; for each Required and Optional component, take that component's compatible-Role allowlist; the Pack's allowlist must be a subset of every component's allowlist. Any Role in the Pack's allowlist but absent from a component's is a defect, reported per (Pack, component, Role).
+
 ### 6.2 Alternative choice sets
 
 Where capabilities are alternatives, the mapping record names the choice set and the condition that selects between members. A card may reference the choice set it belongs to but must not define the selection condition.

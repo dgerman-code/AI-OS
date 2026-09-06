@@ -51,8 +51,10 @@ Outside:
 
 **Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger. This card is not.**
 
-- Compatible Role allowlist: `role.eu_grants_programmes_specialist`, `role.legal_regulatory_lead`, `role.solution_architect`, `role.data_database_architect`
+- Compatible Role allowlist: `role.eu_grants_programmes_specialist`, `role.legal_regulatory_lead`, `role.solution_architect`, `role.data_database_architect`, `role.sales_business_development_specialist`
 - Canonical mapping reference: `skills/mappings/wave-1-exemplar-role-skill-mapping.md`, sections 3, 6, 8 and 9
+
+`role.sales_business_development_specialist` is present for **transitive Pack compatibility**, not because a mapping record maps this Skill to it directly. `skill_pack.bid_proposal_management` is mapped to that Role and requires this Skill — the compliance matrix in a competitive bid is a traceability structure — so rejecting the Role here would make a valid Pack activation fail. Eligibility only: relationship and trigger come from the mapping record for the Pack.
 
 `role.product_manager_business_analyst` is a natural candidate and its Role Card supports the capability, but the current Wave 1 mapping does not map it. It is therefore **not** listed here: the allowlist is built from approved Role Cards and existing mapping records, not from what seems reasonable. Adding it is a Wave 2 mapping decision.
 
