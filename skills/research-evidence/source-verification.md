@@ -51,8 +51,11 @@ Outside, and deliberately so:
 
 **Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger. This card is not.** This section declares only which Roles may use this capability at all.
 
-- Compatible Role allowlist: `role.research_market_intelligence_analyst`, `role.eu_grants_programmes_specialist`, `role.legal_regulatory_lead`, `role.knowledge_evidence_steward`, `role.sales_business_development_specialist`
+- Compatible Role allowlist: `role.research_market_intelligence_analyst`, `role.eu_grants_programmes_specialist`, `role.legal_regulatory_lead`, `role.knowledge_evidence_steward`, `role.sales_business_development_specialist`, `role.eu_programme_implementation_grant_management_specialist`, `role.learning_vet_design_specialist`, `role.project_development_lead`
 - Canonical mapping reference: `skills/mappings/wave-1-exemplar-role-skill-mapping.md`, sections 2, 3, 6 and 10
+- Canonical mapping reference (Wave 2): `skills/mappings/wave-2-domain-completion-role-skill-mapping.md`
+
+Wave 2 adds `role.project_development_lead`, `role.eu_programme_implementation_grant_management_specialist` and `role.learning_vet_design_specialist` for **transitive Pack compatibility** under `standard.skill.common_constraints` §6.1a: those Roles activate `skill_pack.bid_proposal_management`, `skill_pack.life_programme` or `skill_pack.cove`, each of which carries this Skill as a component. Eligibility only — relationship and trigger come from `skills/mappings/wave-2-domain-completion-role-skill-mapping.md`.
 
 `role.sales_business_development_specialist` is present for **transitive Pack compatibility**, not because a mapping record maps this Skill to it directly. `skill_pack.bid_proposal_management` is mapped to that Role and exposes this Skill as an Optional component, so rejecting the Role here would make a valid Pack activation fail. Eligibility only: whether the Skill is actually activated, and under what relationship and trigger, is decided by the mapping record for the Pack, never by this line.
 

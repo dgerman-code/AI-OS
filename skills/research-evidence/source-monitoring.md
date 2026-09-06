@@ -53,8 +53,11 @@ The distinction that matters: monitoring says *something changed and here is wha
 
 **Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger. This card is not.**
 
-- Compatible Role allowlist: `role.research_market_intelligence_analyst`, `role.knowledge_evidence_steward`, `role.eu_grants_programmes_specialist`
+- Compatible Role allowlist: `role.research_market_intelligence_analyst`, `role.knowledge_evidence_steward`, `role.eu_grants_programmes_specialist`, `role.eu_programme_implementation_grant_management_specialist`, `role.learning_vet_design_specialist`
 - Canonical mapping reference: `skills/mappings/wave-1-exemplar-role-skill-mapping.md`, sections 2 and 10
+- Canonical mapping reference (Wave 2): `skills/mappings/wave-2-domain-completion-role-skill-mapping.md`
+
+Wave 2 adds `role.eu_programme_implementation_grant_management_specialist` and `role.learning_vet_design_specialist` for **transitive Pack compatibility** under `standard.skill.common_constraints` §6.1a: both activate `skill_pack.cove`, and the former also `skill_pack.life_programme`, each of which requires this Skill. `role.eu_programme_implementation_grant_management_specialist` is additionally mapped directly in Wave 2. Eligibility only — relationship and trigger come from the Wave 2 mapping record.
 
 `role.eu_grants_programmes_specialist` is present for **transitive Pack compatibility**, not because a mapping record maps this Skill to it directly. Both `skill_pack.life_programme` and `skill_pack.cove` are mapped to that Role and require this Skill, because programme guidance can be revised mid-window and a stale binding must be detected rather than discovered at submission. Rejecting the Role here would make two valid Pack activations fail. Eligibility only: relationship and trigger come from the mapping records for those Packs.
 

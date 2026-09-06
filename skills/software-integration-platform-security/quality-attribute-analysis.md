@@ -63,8 +63,11 @@ An analysis that concludes "the system is secure" has left this Skill's boundary
 
 **Role-to-Skill mapping records are the sole authoritative source for relationship type and context trigger. This card is not.**
 
-- Compatible Role allowlist: `role.solution_architect`, `role.data_database_architect`
+- Compatible Role allowlist: `role.solution_architect`, `role.data_database_architect`, `role.database_data_engineer`, `role.full_stack_software_engineer`, `role.integration_api_engineer`, `role.platform_devops_engineer`
 - Canonical mapping reference: `skills/mappings/wave-1-exemplar-role-skill-mapping.md`, section 8
+- Canonical mapping reference (Wave 2): `skills/mappings/wave-2-domain-completion-role-skill-mapping.md`
+
+Wave 2 adds `role.full_stack_software_engineer`, `role.integration_api_engineer`, `role.platform_devops_engineer` and `role.database_data_engineer` for **transitive Pack compatibility** under `standard.skill.common_constraints` §6.1a: each activates `skill_pack.supabase`, which requires this Skill. These are the "other engineering Roles" the paragraph below anticipated as Wave 2 decisions. `role.security_engineer` is deliberately still absent, and Wave 2 does not map this Skill to it — see the Security Engineer section of the Wave 2 mapping. Eligibility only — relationship and trigger come from the Wave 2 mapping record.
 
 `role.data_database_architect` is present for **transitive Pack compatibility**, not because a mapping record maps this Skill to it directly. `skill_pack.supabase` is mapped to that Role and requires this Skill, because the platform's authorisation model is expressed in the data model and its constraints bound achievable quality attributes. Rejecting the Role here would make a valid Pack activation fail. Eligibility only: relationship and trigger come from the mapping record for the Pack.
 
