@@ -1344,7 +1344,7 @@ Role: `role.insurance_risk_transfer_specialist`
 - Placement, broking, binding and regulated insurance advice are outside Role scope. `decision.insurance_programme_adoption`, `decision.insurance_placement` and `decision.lender_engagement` are human decision rights.
 
 ### Sparse-core rationale
-Core is three: programme analysis, gap analysis and exposure identification. Quantification is contextual because many assignments assess adequacy against requirements without a modelled loss distribution.
+Core is two: programme analysis and exposure identification. Quantification is contextual because many assignments assess adequacy against requirements without a modelled loss distribution. *Historically* the core carried three entries, the third being `skill.insurance_gap_analysis`; Wave 3 merged that ID into `skill.insurance_programme_analysis` as a step inside it, and **the current core is two**.
 
 ## 33. Procurement / State Aid Specialist
 
@@ -1926,7 +1926,7 @@ Role: `role.software_qa_test_automation_specialist`
 - Release approval and go/no-go decisions are outside Role scope: `decision.production_release` and `decision.defect_deferral` are human decision rights.
 
 ### Sparse-core rationale
-Core is two: automation and deriving testable conditions. The two prohibitions are an independence case rather than a pure scope case, and are the only independence-based prohibitions in Wave 2.
+Core is three: automation, deriving testable conditions and defect lifecycle discipline. The two prohibitions are an independence case rather than a pure scope case, and are the only independence-based prohibitions in Wave 2. *Historically* the core carried two entries; Wave 3 added `skill.defect_management` — a surface the Role Card owns that the universe had no entry for — and **the current core is three**.
 
 ## 48. Data Room & Disclosure Manager
 
@@ -1979,7 +1979,7 @@ All figures below are computed from the mapping entries in section 2, not estima
   - `ALTERNATIVE`: 56
   - `PROHIBITED_IN_CONTEXT`: 10
 - Unique Skills used in active (non-prohibited) mappings: **183**
-- Unique Specialisations used: **34**
+- Unique Specialisations used **in Wave 2 direct mappings**: **34** — a Wave-2 usage figure, not a universe total. The Master Skill Universe declares **41** active Specialisations; **38** are in positive use across Wave 1 and Wave 2 combined.
 - Unique Skill Packs used: **20**
 - Roles mapped: **48**
 - REQUIRED_CORE per role: min 2, max 5, mean 3.9
@@ -2011,7 +2011,8 @@ All figures below are computed from the mapping entries in section 2, not estima
 
 ## Single-role capabilities across Wave 1 + Wave 2
 
-- Capability IDs used by exactly one Role across both waves: **92** of **263** used IDs (**35.0%**).
+- Capability IDs used by exactly one Role across both waves: **93** of **264** positive-use IDs (**35.2%**).
+  - *Historical note.* This line read **92** of **263** (**35.0%**) until the final audit reconciliation. That figure was produced by a parser that did not read two syntaxes these files use — a grouped parent bullet whose member IDs are nested one level below it, and the inline `` `a` OR `b` `` choice pair in the Wave 1 ALTERNATIVE block — so ten Wave 1 entries and `skill.use_case_modelling` were missed. The values above are the audited current ones; 92 / 263 / 35.0% are superseded and are not a valid historical baseline for any period.
 - This is the anti-proliferation signal to watch. A capability used by exactly one Role is not automatically wrong — some methods genuinely belong to a single professional Role — but a high proportion suggests the universe carries entries that are Role-specific technique rather than reusable capability.
 
 Single-role capability IDs:
@@ -2113,7 +2114,7 @@ Single-role capability IDs:
 
 # 4. Specialisation Coverage
 
-Wave 2 exercises **34** distinct Specialisation IDs across the following classes. Every one is an existing entry in `skills/master-skill-universe.md`; none is created here.
+Wave 2 exercises **34** distinct Specialisation IDs across the following classes — a count of what Wave 2 direct mappings use, **not a universe total**. The Master Skill Universe declares **41** active Specialisations, of which **38** are in positive use across Wave 1 and Wave 2 combined. Every one of the 34 is an existing entry in `skills/master-skill-universe.md`; none is created here.
 
 | Specialisation | Class | Roles | Why it is bounded context, not authority |
 |---|---|---:|---|
@@ -2366,7 +2367,7 @@ Computed against this file and the current repository state.
 | 20 | Uncarded Pack components reported as NOT YET VALIDATABLE | PASS — 39 reported, not counted as passes |
 | 21 | No circular Pack dependency introduced | PASS — Wave 2 introduces no dependency; CoVE to Erasmus+ remains one-directional |
 | 22 | Duplicate-effective-activation cases identified and handled | PASS — 7 cases in section 5.3, each resolved once under the stricter obligation |
-| 23 | At least one genuine Specialisation mapping present | PASS — 34 Specialisations across 6 classes, section 4 |
+| 23 | At least one genuine Specialisation mapping present | PASS — 34 Specialisations used in Wave 2 direct mappings across 6 classes, section 4. This is Wave 2 usage, not the universe total: the universe declares 41 active Specialisations, of which 38 are in positive use across both waves. |
 | 24 | PROHIBITED_IN_CONTEXT not fabricated | PASS — 10 entries across 8 Roles, each from a Does Not Own clause or an independence ground |
 | 25 | No active deprecated ID reintroduced | PASS — 0 |
 | 26 | All mapping artifacts remain PROPOSED / working | PASS |

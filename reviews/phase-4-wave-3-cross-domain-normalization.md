@@ -149,7 +149,7 @@ Optional-component paths by Pack: `skill_pack.supabase` 17, `skill_pack.bid_prop
 
 **Hidden Skills found and retired.** `specialisation.affordability` and `specialisation.tariff_modelling` failed the test above: both name methods. Merged into `skill.affordability_analysis` and `skill.tariff_analysis` (section 3, group 14).
 
-**Audit for other defects.** All 34 remaining active Specialisations were checked against the four failure modes:
+**Audit for other defects.** All 34 Specialisations in positive use in Wave 2 direct mappings were checked against the four failure modes. To be unambiguous: 34 is the scope of *this* classification exercise, not the universe count — the Master Skill Universe declares **41** active Specialisations, of which **38** are in positive use across Wave 1 and Wave 2 combined, and the remaining 3 (`specialisation.dscr`, `specialisation.llcr`, `specialisation.plcr`) reach Roles as components of `skill_pack.project_finance_metrics`. The failure modes checked were:
 
 - *hidden Skill* — none beyond the two retired;
 - *hidden Pack* — none. `specialisation.eu_grant_delivery` and `specialisation.infrastructure_project_preparation` are the broadest, but each bounds a delivery context rather than bundling capabilities;
