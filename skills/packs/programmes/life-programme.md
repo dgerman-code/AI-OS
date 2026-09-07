@@ -54,7 +54,9 @@ None may be re-created as a `skill.<id>`. They were removed as standalone Skills
 
 `role.eu_programme_implementation_grant_management_specialist` is admitted because its Role Card owns grant agreement obligation mapping, donor-rule compliance interpretation for implementation decisions, and amendment preparation — all of which require the programme rulebook this Pack carries, at a bound version. It consumes the Pack post-award; `role.eu_grants_programmes_specialist` consumes it pre-award. Neither gains submission authority: `decision.granting_authority_submission` remains a human decision right on both Role Cards. Eligibility only; relationship and trigger come from the Wave 2 mapping record.
 
-`role.eu_programme_implementation_grant_management_specialist`, `role.grant_financial_compliance_budget_specialist` and `role.consortium_partner_coordination_specialist` all plausibly touch LIFE work, but none is mapped to this Pack in the current record, so none is listed. Extending the allowlist is a Wave 2 mapping decision.
+**Mapping status, reconciled against the canonical records.** Two Roles are mapped to this Pack and both are listed: `role.eu_grants_programmes_specialist` (Wave 1, REQUIRED_FOR_CONTEXT) and `role.eu_programme_implementation_grant_management_specialist` (Wave 2, inside an ALTERNATIVE programme-rulebook choice set). The paragraph that previously stood here still described the second Role as unmapped and unlisted, contradicting both the allowlist and the basis paragraph above it.
+
+`role.grant_financial_compliance_budget_specialist` and `role.consortium_partner_coordination_specialist` plausibly touch LIFE work but are **not** mapped to this Pack in the current canonical record and are correctly not listed. Extending the allowlist to either is a mapping decision.
 
 Listing a Role confers eligibility, never a requirement.
 

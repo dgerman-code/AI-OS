@@ -62,7 +62,9 @@ Four engineering Roles are admitted — the "Wave 2 mapping decisions" the parag
 
 Activation still authorizes no production change: `decision.production_release`, `decision.production_infrastructure_change` and `decision.production_database_migration` remain human decision rights. Eligibility only; relationship and trigger come from the Wave 2 mapping record.
 
-`role.full_stack_software_engineer`, `role.integration_api_engineer`, `role.platform_devops_engineer`, `role.database_data_engineer` and `role.security_engineer` all work against this platform in practice, but none is mapped to this Pack in the current record and none is listed. That is a Wave 2 mapping decision, and the omission is deliberate rather than an oversight.
+**Mapping status, reconciled against the canonical records.** Six Roles are mapped to this Pack and all six are listed: `role.solution_architect` and `role.data_database_architect` (Wave 1, REQUIRED_FOR_CONTEXT), `role.full_stack_software_engineer`, `role.integration_api_engineer` and `role.database_data_engineer` (Wave 2, REQUIRED_FOR_CONTEXT) and `role.platform_devops_engineer` (Wave 2, inside an ALTERNATIVE platform choice set). The paragraph that previously stood here still described the four engineering Roles as unmapped and unlisted, contradicting both the allowlist and the Wave 2 basis paragraph above it.
+
+`role.security_engineer` is the one Role in that former list that genuinely remains unmapped and unlisted, and that exclusion is deliberate and unchanged by this cleanup.
 
 Listing a Role confers eligibility, never a requirement.
 

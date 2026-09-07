@@ -64,7 +64,9 @@ Three further Roles are admitted, each of which reads coverage ratios rather tha
 
 None gains model ownership, bankability conclusion authority beyond its own Role Card, or any financing decision: `decision.financial_close`, `decision.financing_terms_acceptance` and `decision.lender_engagement` remain human decision rights. Eligibility only; relationship and trigger come from the Wave 2 mapping record.
 
-`role.funding_bankability_architect`, `role.project_finance_transaction_specialist`, `role.ppp_concession_specialist` and `role.ifi_dfi_project_preparation_specialist` all consume these metrics and their Role Cards support the domain, but none is mapped to this Pack in the current record. They are Wave 2 mapping decisions, not assumptions to be made here.
+**Mapping status, reconciled against the canonical records.** Four Roles are mapped to this Pack and all four are listed: `role.financial_modelling_specialist` (Wave 1) and `role.funding_bankability_architect`, `role.project_finance_transaction_specialist` and `role.ppp_concession_specialist` (Wave 2). The paragraph that previously stood here still described the three Wave 2 Roles as unmapped; that was written before the Wave 2 mapping record admitted them and it contradicted the allowlist immediately above it.
+
+`role.ifi_dfi_project_preparation_specialist` is substantively relevant — it reads coverage ratios in appraisal — but is **not** mapped to this Pack in the current canonical record and is correctly not listed. Admitting it would be a mapping decision, taken in a mapping record, not here.
 
 Listing a Role confers eligibility, never a requirement.
 

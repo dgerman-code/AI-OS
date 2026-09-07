@@ -2286,20 +2286,25 @@ Capabilities that Wave 2 wanted and the universe does not contain. **None appear
 | `skill.negotiation_preparation` | Named in the Core Skills prose of at least four Role Cards — Programme / Partnership Manager, Supply Chain, Project Development Lead, Project Finance / Transaction — always bounded as preparation within delegated limits, never as negotiation authority. No registry entry exists. | Strategy & Analysis, or Commercial & Market | Programme / Partnership Manager; Supply Chain & Procurement Operations; Project Development Lead; Project Finance / Transaction | Left unmapped; the underlying analysis is covered by option, risk-allocation and commercial-structure capabilities. |
 | `skill.variance_analysis` | Variance analysis and driver explanation is an owned surface of FP&A with no matching capability; `skill.analytics_interpretation` is the analytics-side technique, not the management-finance one. | Finance & Economics | FP&A / Management Finance | Mapped `skill.financial_evidence_reconciliation` plus `skill.analytics_interpretation`. |
 | `skill.commissioning_readiness_assessment` | Handover and commissioning readiness from an operations perspective is an owned surface of Asset O&M; `skill.delivery_readiness_assessment` is the delivery-management technique and does not carry operational acceptance content. | Technical / Engineering | Asset O&M / Technical Operations | Mapped `skill.asset_performance_analysis` and `skill.om_strategy_design`. |
-| `skill.defect_management` | Defect identification, reproduction and severity characterisation is an owned surface of Software QA with no registry entry; `skill.test_automation` covers construction, not defect lifecycle discipline. | Software / Integration / Platform / Security | Software QA / Test Automation | Left unmapped; core kept at two capabilities as a result. |
+| `skill.defect_management` | Defect identification, reproduction and severity characterisation is an owned surface of Software QA with no registry entry; `skill.test_automation` covers construction, not defect lifecycle discipline. | Software / Integration / Platform / Security | Software QA / Test Automation | Left unmapped in Wave 2; core stood at two capabilities as a result. **Superseded by Wave 3**, which added `skill.defect_management` to the universe and mapped it to this Role's core — the current core is three capabilities. |
 | `skill.qa_response_control` | Q&A process control and consistency of information provided to competing parties is an owned surface of Data Room & Disclosure Manager with no registry entry. | Documentation / Knowledge / Disclosure | Data Room & Disclosure Manager | Mapped `skill.disclosure_tracking` and `skill.action_tracking` as an approximation. |
 | `skill.accession_alignment_analysis` | Acquis-alignment and negotiating-chapter analysis is the defining surface of EU Enlargement / Governance; `skill.regulatory_mapping` and `skill.capability_gap_analysis` together approximate it but neither carries the accession-process structure. | Stakeholder & Institutional | EU Enlargement / Governance | Mapped `skill.institutional_mapping`, `skill.capability_gap_analysis` and contextual `skill.regulatory_mapping`. |
 
 Eight candidate gaps. Each was worked around with existing capabilities rather than blocking the mapping, and each workaround is visible in the affected Role's section. The pattern is consistent: the gaps cluster where a Role Card names an owned surface in prose that the universe never turned into a reusable capability, which is exactly the seam a Wave 3 audit should examine.
 
-Separately, **4** universe entries are declared but used by no Role across Wave 1 and Wave 2. They are not deleted here; Wave 3 should decide whether each is a genuine future capability or an entry that never earned its place.
+Separately, universe entries declared but not positively mapped to any Role were listed here. **Corrected after the final independent audit:** the count is **3**, not 4, and all three are Pack components rather than orphans.
 
-- `skill.use_case_modelling`
 - `specialisation.dscr`
 - `specialisation.llcr`
 - `specialisation.plcr`
 
+All three are declared required components of `skill_pack.project_finance_metrics` and reach Roles transitively through that Pack. They are not unused entries and none should be deleted on that basis.
+
+`skill.use_case_modelling` was listed here in error. It **is** mapped: it is one of the two members of the Wave 1 ALTERNATIVE choice set on `role.product_manager_business_analyst`, paired with `skill.user_story_design` under an explicit choice condition. The original count missed it because inline `A OR B` choice-set syntax was not read as two mapping entries.
+
 # 7. Micro-Skill and Overlap Candidates for Wave 3 Audit
+
+**Resolved. This section is now historical.** Every candidate below was answered by the Wave 3 normalization; the dispositions are recorded in section 10 of this file and in `reviews/phase-4-wave-3-cross-domain-normalization.md`. The identifiers named here that Wave 3 retired — `skill.resource_planning`, `skill.insurance_gap_analysis`, `skill.traceability_matrix_design`, `specialisation.affordability`, `specialisation.tariff_modelling` — are tombstoned in the deprecation register and must not be reintroduced. The open questions below are preserved as the record of what was asked, not as questions still awaiting an answer.
 
 Surfaced by the act of mapping. Nothing is deleted or merged here.
 
@@ -2438,7 +2443,7 @@ Wave 3 normalized the registry across all 59 Roles. Changes landing in this file
 | Retired | Survivor | Effect here |
 |---|---|---|
 | `skill.resource_planning` | `skill.capacity_planning` | Asset O&M core switched to the survivor; Operations dropped a now-duplicate contextual entry (it already held the survivor in core) |
-| `skill.insurance_gap_analysis` | `skill.insurance_programme_analysis` | Insurance / Risk Transfer core reduced from 3 to 2 |
+| `skill.insurance_gap_analysis` | `skill.insurance_programme_analysis` | Insurance / Risk Transfer core reduced from 3 entries to 2; the current core is 2 (`skill.insurance_programme_analysis`, `skill.risk_identification`) |
 | `skill.traceability_matrix_design` | `skill.requirement_traceability` | No Wave 2 effect; both consumers were Wave 1 Roles — see the governed correction recorded in the Wave 1 file |
 | `specialisation.affordability` | `skill.affordability_analysis` | Commercial & Demand contextual entry removed; the surviving Skill's trigger notes the absorption |
 | `specialisation.tariff_modelling` | `skill.tariff_analysis` | Same, with `skill.revenue_model_design` taking the structure-design case |

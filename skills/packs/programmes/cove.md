@@ -60,7 +60,9 @@ None may be re-created as a `skill.<id>`; each is meaningless outside a bound ca
 
 Eligibility only; relationship and trigger come from the Wave 2 mapping record.
 
-`role.learning_vet_design_specialist`, `role.monitoring_evaluation_learning_specialist` and `role.consortium_partner_coordination_specialist` are all substantively relevant to CoVE work and their Role Cards support the domain, but none is mapped to this Pack in the current record and none is listed. Wave 2 mapping decision.
+**Mapping status, reconciled against the canonical records.** Three Roles are mapped to this Pack and all three are listed: `role.eu_grants_programmes_specialist` (Wave 1, REQUIRED_FOR_CONTEXT), `role.learning_vet_design_specialist` (Wave 2, REQUIRED_FOR_CONTEXT) and `role.eu_programme_implementation_grant_management_specialist` (Wave 2, inside an ALTERNATIVE programme-rulebook choice set). The paragraph that previously stood here still described `role.learning_vet_design_specialist` as unmapped and unlisted, contradicting both the allowlist and the basis paragraph above it.
+
+`role.monitoring_evaluation_learning_specialist` and `role.consortium_partner_coordination_specialist` are substantively relevant to CoVE work but are **not** mapped to this Pack in the current canonical record and are correctly not listed. Extending the allowlist to either is a mapping decision.
 
 Listing a Role confers eligibility, never a requirement.
 

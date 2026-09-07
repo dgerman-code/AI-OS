@@ -57,7 +57,7 @@ Outside:
 
 ### Wave 3 allowlist basis
 
-`role.knowledge_evidence_steward` was added in Wave 3 as a consequence of merging `skill.traceability_matrix_design` into this Skill. That Role's Wave 1 mapping used the retired ID as its only traceability route, so the mapping migrated here at the same REQUIRED_FOR_CONTEXT relationship with its trigger unchanged. The Role Card basis is direct: it owns provenance and evidence-lineage integrity, which is the linkage this Skill maintains. Eligibility only; relationship and trigger come from the Wave 1 mapping record.
+`role.knowledge_evidence_steward` was added in Wave 3 as a consequence of merging the now-retired `skill.traceability_matrix_design` into this Skill. That identifier is retired and tombstoned in the deprecation register; it is named here only as the historical reason for the migration and is not an activatable capability. That Role's Wave 1 mapping used the retired ID as its only traceability route, so the mapping migrated here at the same REQUIRED_FOR_CONTEXT relationship with its trigger unchanged. The Role Card basis is direct: it owns provenance and evidence-lineage integrity, which is the linkage this Skill maintains. Eligibility only; relationship and trigger come from the Wave 1 mapping record.
 
 ### Wave 2 allowlist basis
 
@@ -65,7 +65,17 @@ Wave 2 maps this Skill directly to a further 8 Roles. Each either owns an obliga
 
 `role.project_development_lead` was present in an earlier revision on the strength of `skill_pack.bid_proposal_management`. That Pack mapping was removed in the Wave 2 remediation, so this Role's only basis fell away and it has been removed from the allowlist.
 
-Wave 2 adds `role.project_development_lead`, `role.eu_programme_implementation_grant_management_specialist` and `role.learning_vet_design_specialist` for **transitive Pack compatibility** under `standard.skill.common_constraints` §6.1a: those Roles activate `skill_pack.bid_proposal_management`, `skill_pack.life_programme` or `skill_pack.cove`, each of which requires this Skill. `role.eu_programme_implementation_grant_management_specialist` is additionally mapped directly in Wave 2. Eligibility only — relationship and trigger come from the Wave 2 mapping record.
+### Current allowlist basis
+
+Recomputed against the canonical mapping records. All 15 allowlisted Roles have a basis and no Role with a basis is missing:
+
+- **11 direct only** — `role.data_database_architect`, `role.data_protection_gdpr_specialist`, `role.data_room_disclosure_manager`, `role.deliverables_reporting_specialist`, `role.grant_financial_compliance_budget_specialist`, `role.ifi_dfi_project_preparation_specialist`, `role.knowledge_evidence_steward`, `role.legal_regulatory_lead`, `role.procurement_state_aid_specialist`, `role.software_qa_test_automation_specialist`, `role.solution_architect`.
+- **2 direct and transitive** — `role.eu_grants_programmes_specialist`, `role.eu_programme_implementation_grant_management_specialist`.
+- **2 transitive only** — `role.sales_business_development_specialist` via `skill_pack.bid_proposal_management`; `role.learning_vet_design_specialist` via `skill_pack.cove`.
+
+`role.project_development_lead` has neither basis and is correctly absent.
+
+`role.learning_vet_design_specialist` is present for **transitive Pack compatibility** under `standard.skill.common_constraints` §6.1a: it activates `skill_pack.cove`, which requires this Skill. `role.eu_programme_implementation_grant_management_specialist` has both bases — it is mapped this Skill directly in Wave 2 and also activates `skill_pack.life_programme` and `skill_pack.cove`. Eligibility only — relationship and trigger come from the Wave 2 mapping record.
 
 `role.sales_business_development_specialist` is present for **transitive Pack compatibility**, not because a mapping record maps this Skill to it directly. `skill_pack.bid_proposal_management` is mapped to that Role and requires this Skill — the compliance matrix in a competitive bid is a traceability structure — so rejecting the Role here would make a valid Pack activation fail. Eligibility only: relationship and trigger come from the mapping record for the Pack.
 
@@ -170,7 +180,6 @@ Proficiency does not create authority and is never evidence of licensing, creden
 ## Adjacent Skills / Packs
 - `skill.obligation_mapping` — extracts obligations that this Skill then traces.
 - `skill.regulatory_mapping` — establishes the regulatory perimeter.
-- `skill.traceability_matrix_design` — designs the matrix instrument; this Skill maintains and analyses the linkage.
 - `skill.source_verification` — establishes that traced sources are current.
 
 ## Completion / Use Criteria

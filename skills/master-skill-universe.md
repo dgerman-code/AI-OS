@@ -549,8 +549,6 @@ These pairs and groups were examined against actual reuse across all 59 Roles an
 
 The following pairs must remain distinct unless later review proves otherwise:
 - source verification vs factual evidence review;
-- tariff analysis vs tariff modelling specialisation;
-- affordability analysis vs affordability specialisation;
 - requirements elicitation vs stakeholder consultation design;
 - risk identification vs integrity due-diligence conclusions owned by `role.integrity_due_diligence_specialist`;
 - technical feasibility analysis vs sector specialisation;
@@ -558,6 +556,13 @@ The following pairs must remain distinct unless later review proves otherwise:
 - data model design vs PostgreSQL technology pack;
 - API contract design vs Supabase technology pack;
 - technical writing skill vs Technical Writing / Documentation pack.
+
+Two controls that stood here until Wave 3 have been **removed rather than weakened**, because the distinction they policed was found not to exist:
+
+- *tariff analysis vs tariff modelling specialisation* — tariff modelling is a method, not a bounded context. It is represented by `skill.tariff_analysis`, whose scope explicitly includes modelling the tariff structure itself. Do not recreate a tariff-modelling Specialisation unless a future bounded context is defined that is distinct from the method — a named regulatory tariff regime, for example, rather than the act of modelling.
+- *affordability analysis vs affordability specialisation* — affordability is likewise a Skill/method and is represented by `skill.affordability_analysis`. Do not recreate an affordability Specialisation on the strength of the method alone.
+
+Both retired identifiers are tombstoned in the deprecation register above and must not be reintroduced by either name.
 
 The following should not become separate skills without a demonstrated reuse case:
 - individual menu-click actions;
@@ -572,11 +577,15 @@ The following should not become separate skills without a demonstrated reuse cas
 
 This universe intentionally remains bounded.
 
-Inventory counted from this file after Wave 1 remediation:
+Inventory recounted from the active declarations in this file after the Wave 3 normalization and confirmed by the final independent audit:
 - 15 Skill Families;
 - 205 reusable Skills;
-- 43 Specialisations (sector / programme / institution / technology / metric / operating context);
-- 21 Skill Packs, including cross-family packs for EU programmes, IFIs, technologies, bid / proposal management and project-finance metrics.
+- 41 Specialisations (sector / programme / institution / technology / metric / operating context);
+- 21 Skill Packs, including cross-family packs for EU programmes, IFIs, technologies, bid / proposal management and project-finance metrics;
+- 267 active capability entries in total;
+- 23 retired identifiers in the deprecation register above, none of them declared or mapped.
+
+The earlier figure of 43 Specialisations was stale: it predated the group-14 merges that retired `specialisation.affordability` and `specialisation.tariff_modelling`. The counts above are derived from the declaration lines themselves, not carried forward from a previous revision.
 
 The earlier "about 150 Skills" estimate was inaccurate against the file it described and has been replaced with a counted figure. The count is **not a target** and must not be managed toward a number: it is reported so that drift between the stated and actual inventory is visible. New items still require evidence of reuse and distinct capability value, and the Granularity Rule above governs whether an item is created at all.
 

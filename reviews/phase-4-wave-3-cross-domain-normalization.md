@@ -85,13 +85,15 @@ Recomputed from actual mappings across all 59 Roles.
 
 | | Before Wave 3 | After Wave 3 |
 |---|---:|---:|
-| Capability IDs in active use | 265 | 263 |
-| Used by exactly one Role | 95 | 92 |
-| Percentage | 35.8% | 35.0% |
+| Capability IDs in positive use | 266 | 264 |
+| Used by exactly one Role | 96 | 93 |
+| Percentage | 36.1% | 35.2% |
+
+> **Corrected after the final independent audit.** This table previously read 265 → 263 and 95 → 92 (35.8% → 35.0%). Both columns were wrong; the before column is recomputed here from commit `7facd10`, the pre-Wave-3 state of the branch. Those figures came from a parser that missed two mapping syntaxes the files genuinely use: a grouped parent bullet whose member IDs are nested one level below it (the eight sector Specialisations under Technical / Feasibility Lead's REQUIRED_FOR_CONTEXT), and the inline `` `a` OR `b` `` choice-set form used by the Wave 1 ALTERNATIVE block. Ten Wave 1 entries were dropped as a result, `skill.use_case_modelling` was wrongly recorded as unused, and the single-role figures were understated. The corrected counts below are reproduced by reading both syntaxes.
 
 The movement is deliberately small. Wave 3 did not rewrite mappings to reduce a percentage; it resolved the cases where the evidence was strong. Three retirements removed single-consumer duplicates, three additions were made where the Role Card evidence justified them, and two of the three additions arrive with two consumers each.
 
-**Classification of the 92 remaining single-role capabilities.** The dominant pattern is that a single-consumer capability is usually *correct*: it belongs to a Role that exists precisely because no one else does that work.
+**Classification of the 93 remaining single-role capabilities.** The dominant pattern is that a single-consumer capability is usually *correct*: it belongs to a Role that exists precisely because no one else does that work.
 
 | Class | Count | Examples and reasoning |
 |---|---:|---|
@@ -99,7 +101,7 @@ The movement is deliberately small. Wave 3 did not rewrite mappings to reduce a 
 | ROLE-SPECIFIC TECHNIQUE — SHOULD NOT BE FIRST-CLASS SKILL | ~8 | Candidates rather than conclusions: `skill.knowledge_graph_design`, `skill.prompt_method_design` and `skill.ai_guardrail_design` are all single-consumer inside AI / Knowledge Systems and may be one capability; `skill.sanctions_screening` sits very close to `skill.counterparty_screening`. **Deliberately not merged in Wave 3** — each would need its own Role-boundary review and the evidence is not yet decisive. Flagged for a future governed decision. |
 | PACK-INTERNAL CANDIDATE | ~6 | The five `skill.disclosure_*` and data-room capabilities cluster on one Role and would travel together as a disclosure Pack if one is ever created. No Pack exists, so no action now. |
 | SPECIALISATION CANDIDATE | 0 | Wave 3 moved in the opposite direction: two Specialisations were found to be Skills, not the reverse. |
-| NEEDS MORE CONSUMERS BEFORE CARDING | 17 (all Specialisations) | 17 of the 92 are single-consumer Specialisations — sector, sales and context entries used by exactly one Role. They are legitimate bounded contexts, but none should be carded until a second consumer or an assignment demands it. |
+| NEEDS MORE CONSUMERS BEFORE CARDING | 17 (all Specialisations) | 17 of the 93 are single-consumer Specialisations — sector, sales and context entries used by exactly one Role. They are legitimate bounded contexts, but none should be carded until a second consumer or an assignment demands it. |
 
 **Interpretation for the next audit.** 35% single-consumer is not by itself a defect at this stage: 48 of the 59 Roles were mapped only in Wave 2, so many capabilities have had exactly one opportunity to be reused. The figure is a watch metric, and the right time to act on it is when real assignments — not mappings — fail to reuse.
 
@@ -107,17 +109,35 @@ The movement is deliberately small. Wave 3 did not rewrite mappings to reduce a 
 
 ## 5. Pack versus direct activation
 
-All duplicate direct-Skill-plus-Pack cases across both waves were re-examined.
+> **Corrected after the final independent audit.** This section previously listed five cases and called the normalization exhaustive. It was not: five cases were the ones examined narratively, not the full detected set. The detector below enumerates every path mechanically from the Wave 1 and Wave 2 relationship blocks and the component declarations on the five Pack Cards (plus the three metric components declared for `skill_pack.project_finance_metrics` in the Master Skill Universe). A subset must not be described as exhaustive.
 
-| Role | Capability | Pack | Outcome |
-|---|---|---|---|
-| EU Programme Implementation | `skill.source_verification` | life_programme / cove | **Retained.** Direct REQUIRED_CORE is stricter than the Pack's requirement and applies outside any programme Pack. Activates once under the stricter obligation. |
-| EU Programme Implementation | `skill.requirement_traceability` | life_programme / cove | **Retained.** Obligation traceability applies to any grant agreement, not only Pack-covered programmes. |
-| EU Programme Implementation | `skill.source_monitoring` | life_programme / cove | **Retained.** Direct mapping is REQUIRED_FOR_CONTEXT; where the Pack is active its REQUIRED obligation is stricter and governs. |
-| Funding & Bankability, Project Finance / Transaction, PPP / Concession | `skill.project_finance_ratio_analysis` | project_finance_metrics | **Retained.** Ratio analysis has meaning without the full metrics Pack. Watch item: if no assignment needs it Pack-free, the direct mappings should go. |
-| Learning / VET Design | `skill.learning_outcome_design` | cove | **Retained.** Direct REQUIRED_CORE is stricter than the Pack's optional selection. |
+**Detector.** A duplicate-activation path exists where a Role is mapped a Pack in any positive relationship **and** is separately mapped, in any positive relationship, a Skill that the Pack declares as a component. Required-component and optional-component paths are counted separately because their obligations differ.
 
-No Pack-internal capability is redundantly exposed as a direct mandatory mapping, no Pack widens authority, and no relationship type or trigger has moved into a Pack Card. All five cases resolve to one activation under the stricter obligation, per `standard.skill.common_constraints` 6.1b.
+| Measure | Count |
+|---|---:|
+| Required-component direct + Pack overlap paths | **20** |
+| Unique Role–Skill pairs among them | **14** |
+| Unique Skills among them | **10** |
+| Optional-component overlap paths | **36** |
+| All required + optional overlap paths | **56** |
+
+The path count exceeds the pair count because a Role can reach the same Skill through two Packs at once — the EU Programme Implementation Role reaches `skill.requirement_traceability`, `skill.source_verification` and `skill.source_monitoring` through both `skill_pack.cove` and `skill_pack.life_programme`, and EU Grants & Programmes reaches `skill.requirement_traceability` through three Packs. Six such doubled paths account for the difference between 20 and 14.
+
+Required-component paths by Pack: `skill_pack.cove` 5, `skill_pack.life_programme` 5, `skill_pack.bid_proposal_management` 4, `skill_pack.project_finance_metrics` 4, `skill_pack.supabase` 2.
+Optional-component paths by Pack: `skill_pack.supabase` 17, `skill_pack.bid_proposal_management` 5, `skill_pack.life_programme` 5, `skill_pack.project_finance_metrics` 5, `skill_pack.cove` 4.
+
+**Disposition.** Every one of the 56 paths resolves the same way and none is a defect: the capability activates **once**, under the **stricter** of the two obligations, with the Pack's constraints applied on top, per `standard.skill.common_constraints` §6.1b. The direct mapping is retained in every case, because in every case it has meaning independent of the Pack — the reasons are recorded below by group rather than one line per path.
+
+| Group | Paths | Why the direct mapping is retained |
+|---|---:|---|
+| EU Programme Implementation → `skill.source_verification`, `skill.requirement_traceability`, `skill.source_monitoring` via cove / life_programme | 6 required | Obligation traceability, source authentication and source monitoring apply to **any** executed grant agreement, not only to the two Pack-covered programmes. Direct `skill.source_verification` and `skill.requirement_traceability` are REQUIRED_CORE — stricter than the Pack's requirement — so the direct mapping governs when both are active. |
+| EU Grants & Programmes → `skill.requirement_traceability` (bid_proposal / cove / life_programme), `skill.source_verification` (cove / life_programme), `skill.deliverable_planning`, `skill.milestone_management` (bid_proposal) | 8 required | Pre-award call-fit work uses all four outside any single programme rulebook. The Role is mapped these directly in Wave 1 and would need them if every programme Pack were deselected. |
+| Funding & Bankability, Project Finance / Transaction, PPP / Concession → `skill.project_finance_ratio_analysis`; Financial Modelling → `skill.debt_schedule_modelling` via project_finance_metrics | 4 required | Ratio analysis and debt scheduling have meaning without the full metrics Pack — a Role can reason about coverage on a non-project-finance structure. **Watch item retained:** if no assignment ever needs them Pack-free, the direct mappings should be withdrawn. |
+| Solution Architect → `skill.quality_attribute_analysis`; Data & Database Architect → `skill.data_model_design` via supabase | 2 required | Neither is Supabase-specific. Both are architecture capabilities the Roles carry on any stack; the Pack adds platform constraints on top. This is the case the Supabase Pack Card's own Duplicate Effective Activation section already documents. |
+| Sales / BD → `skill.opportunity_qualification` via bid_proposal_management | 1 required | Qualification precedes the decision to run a governed bid at all, so it must be reachable before the Pack is activated. |
+| All 36 optional-component paths | 36 optional | An optional Pack component creates no obligation, so no duplicate obligation can arise. Where a Role holds the Skill directly and the Pack lists it as optional, the direct relationship governs and the Pack contributes only its constraints. These are recorded for completeness and reproducibility, not because any requires action. |
+
+**Nothing was removed to lower the count.** No valid direct mapping was withdrawn in this cleanup; the purpose is accurate, reproducible evidence of governed duplicate activation, not a smaller number.
 
 ---
 
@@ -164,7 +184,9 @@ Five paths, run across Wave 1 and Wave 2 against every existing card.
 | transitive Pack → component Skill | forward | **0 conflicts** |
 | allowlist entry → mapping basis | **reverse** | **0 orphans** |
 
-Coverage honesty: 235 Skills, 16 Packs and 31 Pack components have no card and are **NOT YET VALIDATABLE**, not passes. Zero conflicts means zero among what is checkable.
+Coverage honesty, recounted after the final independent audit: **199 of 205 Skills, 40 of 41 Specialisations and 16 of 21 Packs have no card**, as do 28 of the 32 distinct declared Pack components. All of these are **NOT YET VALIDATABLE**, not passes. Zero conflicts means zero among what is checkable — 12 cards against 267 active capabilities.
+
+> The figure previously given here, "235 Skills … have no card", was impossible against a 205-Skill universe and is corrected above. Card coverage is now stated from the actual card files: 6 Skill cards, 1 Specialisation card, 5 Pack cards.
 
 **Authority boundaries.** Every normalization decision was tested against the nine prohibitions. No merge collapsed two authority boundaries: merges 6, 8 and 11 joined capabilities owned by the same Role at the same authority level, and merges in group 14 replaced a Specialisation with a Skill already held by the same consumer. No Role scope widened, no professional conclusion transferred, no artifact ownership created, no review identity created, no human decision authority created, no gate bypassed, no support work converted to ownership.
 
@@ -174,24 +196,71 @@ Coverage honesty: 235 Skills, 16 Packs and 31 Pack components have no card and a
 
 ## 9. Statistics after Wave 3
 
+Recomputed after the final independent audit with a parser that reads grouped parent bullets and inline `a OR b` choice sets. Where these figures differ from the ones this record carried on first publication, the earlier figure is shown and marked.
+
+**Universe (from active declarations)**
+
 | | Before | After |
 |---|---:|---:|
-| Universe Skills declared | 205 | 205 |
-| Universe Specialisations declared | 43 | 41 |
-| Universe Packs declared | 21 | 21 |
-| Wave 2 active mapping entries | 673 | 676 |
-| REQUIRED_CORE / RFC / OPTIONAL / ALTERNATIVE / PROHIBITED | 187 / 228 / 192 / 56 / 10 | 188 / 230 / 192 / 56 / 10 |
-| Capability IDs in active use (both waves) | 265 | 263 |
-| Single-role capabilities | 95 (35.8%) | 92 (35.0%) |
-| Cards | 10 | 12 |
+| Skills declared | 205 | 205 |
+| Specialisations declared | 43 | 41 |
+| Packs declared | 21 | 21 |
+| Total active entries | 269 | **267** |
+| Retired / tombstoned IDs | 18 | **23** |
 
-Universe Skills stayed at 205 because three additions offset three retirements; Specialisations fell by two through the group-14 merges.
+**Mapping entries (from relationship blocks)**
+
+| | Wave 1 | Wave 2 | Combined |
+|---|---:|---:|---:|
+| REQUIRED_CORE | 52 | 188 | **240** |
+| REQUIRED_FOR_CONTEXT | 61 | 230 | **291** |
+| OPTIONAL | 32 | 192 | **224** |
+| ALTERNATIVE | 2 | 56 | **58** |
+| PROHIBITED_IN_CONTEXT | 0 | 10 | **10** |
+| **Total** | **147** | **676** | **823** |
+
+ALTERNATIVE choice sets: 1 in Wave 1 + 10 in Wave 2 = **11**.
+REQUIRED_CORE per Role across all 59 Roles: min **2**, max **8**, average **4.07**.
+
+**Usage**
+
+| | Value |
+|---|---:|
+| Unique capability IDs in positive use | **264** |
+| — Skills | **205** |
+| — Specialisations | **38** |
+| — Packs | **21** |
+| Used by exactly one Role | **93** (35.2%) |
+| Declared but not positively mapped | **3** — `specialisation.dscr`, `specialisation.llcr`, `specialisation.plcr`, all required components of `skill_pack.project_finance_metrics` |
+
+**Card coverage**
+
+| | Carded | Declared |
+|---|---:|---:|
+| Skills | 6 | 205 |
+| Specialisations | 1 | 41 |
+| Packs | 5 | 21 |
+| **Total** | **12** | **267** |
+
+**Corrections to this record's first publication.** Wave 2 entries (676) and the Wave 2 relationship split were correct. The following were not, and all trace to the same two parser blind spots:
+
+| Claim as first published | Actual | Cause |
+|---|---|---|
+| Wave 1 entries not separately stated; combined not stated | 147 / 823 | Grouped and inline-OR syntax unread |
+| Single-role before Wave 3: 95 (35.8%) | **96** (36.1%), recomputed from commit `7facd10` | Same |
+| Capability IDs in active use: 263 | **264** | `skill.use_case_modelling` missed inside a Wave 1 inline choice set |
+| Single-role capabilities: 92 (35.0%) | **93** (35.2%) | Same |
+| Universe Specialisations: 41 | 41 — correct | — |
+| 235 Skills uncarded | **199** | Arithmetically impossible against 205 declared |
+| Five duplicate-activation cases, described as exhaustive | **20 required paths / 14 pairs / 10 Skills / 36 optional / 56 total** | A narratively examined subset was reported as the full set |
+
+Every corrected figure above is reproducible from the mapping files and the card files as they now stand.
 
 ---
 
 ## 10. Remaining non-blocking notes
 
-1. **Card coverage remains the dominant limitation.** 12 cards against 267 declared capabilities. Every "zero conflicts" result is bounded by that.
+1. **Card coverage remains the dominant limitation.** 12 cards against 267 declared capabilities — 199 Skills, 40 Specialisations and 16 Packs have none. Every "zero conflicts" result is bounded by that.
 2. **Eight single-consumer capabilities flagged but not merged** — the AI / Knowledge Systems cluster and `skill.sanctions_screening` versus `skill.counterparty_screening`. Evidence is suggestive, not decisive; each needs a Role-boundary review.
 3. **`skill.governance_structure_design` deferred**, not dismissed. Re-open when a second consumer appears.
 4. **`specialisation.eu_accession_context` proposed and not activated.** Wave 3's only unactivated proposal.
@@ -203,4 +272,4 @@ Universe Skills stayed at 205 because three additions offset three retirements; 
 
 ## 11. Standing statement
 
-Every decision above is PROPOSED. Nothing in the Skill Registry is APPROVED or CANONICAL. Mass generation of Skill, Specialisation or Skill Pack Cards remains prohibited and is not recommended by this record: the single-role distribution and the 235 uncarded Skills both argue for continued selective carding driven by real assignments.
+Every decision above is PROPOSED. Nothing in the Skill Registry is APPROVED or CANONICAL. Mass generation of Skill, Specialisation or Skill Pack Cards remains prohibited and is not recommended by this record: the single-role distribution and the 199 uncarded Skills both argue for continued selective carding driven by real assignments.

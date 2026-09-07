@@ -25,7 +25,7 @@ A Skill is the smallest reusable capability unit that is meaningful across assig
 Examples:
 - requirements elicitation;
 - stakeholder mapping;
-- tariff modelling;
+- tariff analysis, including modelling the tariff structure itself;
 - source verification;
 - API contract design;
 - project scheduling;
@@ -49,8 +49,10 @@ Typical specialisation classes:
 - programme / framework: Erasmus+, CoVE, LIFE, Horizon Europe;
 - institution / financing framework: EIB, EBRD, World Bank, IFC, BGK, InvestEU, Ukraine Facility;
 - technology: Supabase, PostgreSQL, Vercel;
-- method / metric: DSCR, LLCR, PLCR, tariff modelling, affordability;
+- method / metric: DSCR, LLCR, PLCR — bounded, defined metric conventions, not the methods that compute them;
 - operating context: municipal, regulated infrastructure, cross-border, public procurement.
+
+A Specialisation names a **bounded context the work sits in**, never a method the practitioner performs. Tariff modelling and affordability appeared as method/metric examples in an earlier revision of this section; both were found in Wave 3 to be Skills wearing a Specialisation identifier and were merged into `skill.tariff_analysis` and `skill.affordability_analysis`. They are retired and must not be used as Specialisation examples or reintroduced as Specialisation IDs. A metric convention such as DSCR remains a valid Specialisation because it is a defined, bounded convention rather than the analytical method that applies it.
 
 A Specialisation must not become a first-class Role merely because it is commercially important, technically complex or project-specific.
 
@@ -237,7 +239,7 @@ The following were explicitly kept outside the Role Registry and are Phase 4 sta
 - tariff modelling
 - affordability
 
-This is a seed list, not the final registry.
+This is a **historical Phase 3 seed list, not the final registry** and not a live candidate list. It is preserved as the record of what Phase 3 handed to Phase 4. Two of its entries have since been resolved against the taxonomy above: *tariff modelling* and *affordability* are Skills, not Specialisations, and are now `skill.tariff_analysis` and `skill.affordability_analysis`. `specialisation.tariff_modelling` and `specialisation.affordability` are retired and tombstoned in `skills/master-skill-universe.md`; neither may be reintroduced on the strength of this list. The authoritative inventory is the Master Skill Universe.
 
 ## 12. Phase 4 Deliverables
 
