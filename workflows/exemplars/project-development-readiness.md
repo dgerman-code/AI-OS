@@ -59,18 +59,18 @@ It exists because the integration is real work and the failure mode is specific:
 |---|---|---|---|---|
 | `role.project_development_lead` | `LEAD_ROLE` | `ALWAYS` | S1–S7 | Coordinates, integrates and maintains the open-item position. Gains **no** specialist conclusion. Its Role Card excludes specialist conclusions in technical, financial, legal, tax and ESG disciplines; leading this Workflow does not alter that. |
 | `role.technical_feasibility_lead` | `CONTRIBUTING_ROLE` | `ALWAYS` | S2, S6 | Owns the feasibility position and technical basis. Contributes it; does not receive cost ownership — `skill.lifecycle_cost_analysis` remains support-only under Phase 4 and CAPEX/OPEX estimation stays with the cost Roles. |
-| `role.sector_technical_expert` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the project's sector or technology is one for which a sector Specialisation exists and the technical basis depends on it)` | S2 | Owns `artifact.sector_technical_opinion` and nothing else. Contributing rather than consulted **because it owns an artifact** when activated. |
+| `role.sector_technical_expert` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the project's sector or technology is one for which a sector Specialisation exists and the technical basis depends on it)` | S2, S6 | Owns `artifact.sector_technical_opinion` and nothing else. Contributing rather than consulted **because it owns an artifact** when activated. |
 | `role.commercial_demand_specialist` | `CONTRIBUTING_ROLE` | `ALWAYS` | S2, S6 | Owns the demand study and demand basis. Does not own tariff or revenue decisions. |
 | `role.capex_cost_engineering_specialist` | `CONTRIBUTING_ROLE` | `ALWAYS` | S3, S6 | Owns the cost estimate and contingency analysis. Not obtainable through any other Role's contribution. |
-| `role.asset_om_technical_operations_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(an operating-cost or O&M basis is required by the forward gate or by the financial model)` | S3 | Owns `artifact.operating_cost_driver_definition`. Contributing rather than consulted **because it owns an artifact** when activated. |
+| `role.asset_om_technical_operations_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(an operating-cost or O&M basis is required by the forward gate or by the financial model)` | S3, S6 | Owns `artifact.operating_cost_driver_definition`. Contributing rather than consulted **because it owns an artifact** when activated. |
 | `role.financial_modelling_specialist` | `CONTRIBUTING_ROLE` | `ALWAYS` | S4, S6 | Owns the financial model and its assumptions register. Consumes S2–S3 outputs as inputs; does not author them. |
 | `role.funding_bankability_architect` | `CONTRIBUTING_ROLE` | `ALWAYS` | S5, S6 | Owns the bankability assessment and funding strategy. Does not own financing decisions. |
 | `role.legal_regulatory_lead` | `CONTRIBUTING_ROLE` | `ALWAYS` | S3, S6 | Owns the legal and regulatory analysis. Does not issue a formal legal opinion within this Workflow. |
 | `role.esg_es_specialist` | `CONTRIBUTING_ROLE` | `ALWAYS` | S3, S6 | Owns E&S screening and assessment. Does not own the E&S action-plan commitment. |
 | `role.enterprise_project_risk_specialist` | `CONTRIBUTING_ROLE` | `ALWAYS` | S5, S6 | Owns the risk register methodology, quantification and allocation analysis. |
 | `role.knowledge_evidence_steward` | `CONTRIBUTING_ROLE` | `ALWAYS` | S1, S6, S7 | Owns evidence integrity, provenance and the gap/conflict position. Does not own any substantive conclusion. |
-| `role.procurement_state_aid_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the project is subject to public procurement rules or carries State Aid exposure)` | S3 | Owns `artifact.procurement_route_analysis` and `artifact.state_aid_assessment`. Contributing rather than consulted **because it owns artifacts** when activated. |
-| `role.insurance_risk_transfer_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(an insurance programme is material to the bankability or risk-allocation position)` | S5 | Owns `artifact.insurance_programme_design`. Contributing rather than consulted **because it owns an artifact** when activated. |
+| `role.procurement_state_aid_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the project is subject to public procurement rules or carries State Aid exposure)` | S3, S6 | Owns `artifact.procurement_route_analysis` and `artifact.state_aid_assessment`. Contributing rather than consulted **because it owns artifacts** when activated. |
+| `role.insurance_risk_transfer_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(an insurance programme is material to the bankability or risk-allocation position)` | S5, S6 | Owns `artifact.insurance_programme_design`. Contributing rather than consulted **because it owns an artifact** when activated. |
 
 ## Composed Workflow References
 
@@ -171,7 +171,7 @@ S2 and S3 may run in parallel. S4 depends on both. S5 depends on S4. S1, S6 and 
 ### Stage `S6` — Integration and coherence check
 - **Objective:** assemble the specialist positions into one readiness picture and surface every contradiction **between** them — the one thing no single specialist Role can do.
 - **Entry Criteria:** S2–S5 exited.
-- **Participating Roles:** `role.project_development_lead` (`LEAD_ROLE`); every `CONTRIBUTING_ROLE` from S2–S5 re-engaged to confirm its own position; `role.knowledge_evidence_steward` (`CONTRIBUTING_ROLE`).
+- **Participating Roles:** `role.project_development_lead` (`LEAD_ROLE`); `role.knowledge_evidence_steward` (`CONTRIBUTING_ROLE`); and every `CONTRIBUTING_ROLE` from S2–S5 re-engaged to confirm its own position, named explicitly — `role.technical_feasibility_lead`, `role.commercial_demand_specialist`, `role.capex_cost_engineering_specialist`, `role.financial_modelling_specialist`, `role.funding_bankability_architect`, `role.legal_regulatory_lead`, `role.esg_es_specialist`, `role.enterprise_project_risk_specialist` (all `Activation: ALWAYS`), plus `role.sector_technical_expert`, `role.asset_om_technical_operations_specialist`, `role.procurement_state_aid_specialist` and `role.insurance_risk_transfer_specialist` **each re-engaged under the same `Activation: CONDITIONAL(...)` trigger that activated it earlier** — a Role that was not activated in its originating Stage is not activated here either.
 - **Activities:** cross-workstream coherence checking; contradiction identification; traceability of every readiness claim to its owning artifact; consolidation of open items and assumptions.
 - **Artifact Contributions:** `artifact.development_readiness_assessment` (owned by `role.project_development_lead`) — assembled **from** the specialist artifacts, citing each, never restating a specialist conclusion in the lead's own voice; `artifact.evidence_integrity_record` updated by `role.knowledge_evidence_steward`.
 - **Knowledge-State Expectations:** a contradiction between two specialist positions is raised as `CONFLICT_DETECTED` and **blocks or branches**; it is not averaged, reconciled by the lead, or narrated away.
@@ -182,7 +182,7 @@ S2 and S3 may run in parallel. S4 depends on both. S5 depends on S4. S1, S6 and 
 
 ### Stage `S7` — Gate preparation
 - **Objective:** present the readiness position so a human can decide — including presenting the reasons not to.
-- **Entry Criteria:** S6 exited; required reviews for the criticality band satisfied or their absence explicitly recorded.
+- **Entry Criteria:** S6 exited; required reviews for the criticality band are **satisfied under the Phase 6 review semantics**. Recording that a required review is missing is **not** sufficient: where the review is a prerequisite for this stage or for the terminal gate, its absence gives `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED` unless a **named external human `decision.<id>`** explicitly permits progression without it — in which case the review **remains unsatisfied and open**, and this Workflow does not say it was satisfied, waived by the Workflow, or no longer required.
 - **Participating Roles:** `role.project_development_lead` (`LEAD_ROLE`), `role.knowledge_evidence_steward` (`CONTRIBUTING_ROLE`).
 - **Activities:** assemble the gate package; state the open items, unresolved assumptions and gate-critical risks at the front, not the annex; state what the position does **not** establish.
 - **Artifact Contributions:** `artifact.development_readiness_assessment` finalised as a `DRAFT` decision input; `artifact.programme_stage_gate_readiness` where a programme gate applies.
@@ -199,7 +199,7 @@ S2 and S3 may run in parallel. S4 depends on both. S5 depends on S4. S1, S6 and 
 - `BRANCH` — **no external financing:** where no lender or investor is involved, S5's bankability half is reduced to a funding-route position; the risk half is **not** reduced.
 - `EXCEPTION_PATH` — **material input superseded:** a `SUPERSEDED` input to any completed stage returns the dependent stages to `REWORK_REQUIRED`. It does not permit proceeding on the stale input.
 - `EXCEPTION_PATH` — **unresolvable specialist conflict:** `ESCALATED` out of the Workflow. The lead may not adjudicate between two specialist Roles' conclusions.
-- `EXCEPTION_PATH` — **gate deadline pressure:** exits as `COMPLETE_WITH_OPEN_ITEMS` with the items visible, or `BLOCKED`. It never exits by dropping a review or gate reference. There is no expedited path around `decision.stage_gate_progression`.
+- `EXCEPTION_PATH` — **gate deadline pressure:** `COMPLETE_WITH_OPEN_ITEMS` is available **only when every carried item affecting the progression is `NON_MATERIAL_TO_NEXT_STEP`**. Any `MATERIAL_TO_NEXT_STEP_OR_GATE` item — including a missing required review — gives `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED`. Progression with a material item unresolved is possible **only** through a **named external human `decision.<id>`** explicitly permitting it, and that item then **remains open and carried forward**: this Workflow neither resolves nor downgrades it. **Deadline pressure is not such a Decision Right**, removes no review requirement and removes no human gate. There is no expedited path around `decision.stage_gate_progression`.
 
 No exception path bypasses any `HUMAN_GATE_REFERENCE` or `REVIEW_REQUIRED_REFERENCE` carried by the normal path.
 
@@ -219,7 +219,7 @@ The only exception is a **named external human Decision Right** that explicitly 
 
 ## Completion Criteria
 
-`COMPLETION_CRITERION` — S7 exited with the gate decision due, every readiness claim traced to an owning Role's artifact, every open item and unresolved assumption visible, and every required review either satisfied or its absence recorded.
+`COMPLETION_CRITERION` — S7 exited with the gate decision due, every readiness claim traced to an owning Role's artifact, every open item and unresolved assumption visible and classified, and **every required review for the criticality band satisfied under the Phase 6 review semantics**. A missing required review does not become sufficient by being recorded: completion with one outstanding requires a **named external human `decision.<id>`** explicitly permitting it, and the review then remains unsatisfied and open.
 
 Completion is a coordination position. It is **not** approval, not a readiness *decision*, and not a statement that the project is ready.
 

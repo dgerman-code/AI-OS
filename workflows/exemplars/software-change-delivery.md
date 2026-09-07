@@ -57,7 +57,7 @@ The failure mode it is built against is the one every delivery process eventuall
 | `role.product_manager_business_analyst` | `LEAD_ROLE` (S1), `CONTRIBUTING_ROLE` (S5, S6) | `ALWAYS` | S1, S5, S6 | Owns requirements and acceptance criteria. Does not own architecture, security or release. Does not approve its own scope — `decision.product_scope_approval` is human. |
 | `role.ux_ui_information_architecture_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the change alters a user-facing surface)` | S1, S2 | Owns `artifact.information_architecture` and `artifact.interaction_and_interface_design`. |
 | `role.solution_architect` | `LEAD_ROLE` (S2), `CONSULTED_ROLE` (S3), `CONTRIBUTING_ROLE` (S6) | `ALWAYS` at S2 and S6; `CONDITIONAL(implementation deviates from the S2 design position)` at S3 | S2, S3, S6 | Owns the solution architecture specification and architecture decision records. Does not own the security conclusion or the release. |
-| `role.data_database_architect` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the change alters the data model or requires a migration)` | S2, S3 | Owns `artifact.data_architecture_specification` and `artifact.database_migration_design`. |
+| `role.data_database_architect` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the change alters the data model or requires a migration)` | S2 | Owns `artifact.data_architecture_specification` and `artifact.database_migration_design` — both **design** artifacts produced at S2. Implementation of the migration at S3 belongs to `role.database_data_engineer`; this Role does not participate in S3. |
 | `role.full_stack_software_engineer` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the change touches application code)` | S3, S5 | Owns the source change within the approved architecture. Does not alter the architecture position unilaterally. |
 | `role.integration_api_engineer` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the change alters an integration or API contract)` | S3, S5 | Owns `artifact.integration_contract_specification`. |
 | `role.database_data_engineer` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the change requires migration scripts or pipeline work)` | S3, S5 | Owns migration scripts and data pipeline implementation. Does not execute production migration. |
@@ -148,7 +148,7 @@ S2's architecture and security threads run in parallel. S3 implementation thread
 ### Stage `S5` — Test and evidence
 - **Objective:** produce test evidence against the acceptance criteria — evidence, not assurance.
 - **Entry Criteria:** S3 exited at least `COMPLETE_WITH_OPEN_ITEMS`; acceptance criteria from S1 current.
-- **Participating Roles:** `role.software_qa_test_automation_specialist` (`LEAD_ROLE`), `role.product_manager_business_analyst` (`CONTRIBUTING_ROLE`, acceptance-criteria interpretation), implementing engineers (`CONTRIBUTING_ROLE`, defect remediation).
+- **Participating Roles:** `role.software_qa_test_automation_specialist` (`LEAD_ROLE`), `role.product_manager_business_analyst` (`CONTRIBUTING_ROLE`, acceptance-criteria interpretation), and the implementing engineers for defect remediation, named explicitly — `role.full_stack_software_engineer`, `role.integration_api_engineer` and `role.database_data_engineer` (`CONTRIBUTING_ROLE`, each under the same `Activation: CONDITIONAL(...)` trigger that activated it at S3).
 - **Activities:** test strategy and automation; execution; coverage analysis against acceptance criteria; defect identification, reproduction, severity characterisation and lifecycle management.
 - **Artifact Contributions:** `artifact.test_strategy`, `artifact.automated_test_suite`, `artifact.test_evidence_report`, `artifact.defect_record` — all owned by `role.software_qa_test_automation_specialist`.
 - **Knowledge-State Expectations:** `DRAFT`. A passing test suite is `FACT` about the tests that ran; it is not a statement that the change is correct or safe.
@@ -159,7 +159,7 @@ S2's architecture and security threads run in parallel. S3 implementation thread
 
 ### Stage `S6` — Release readiness
 - **Objective:** assemble the readiness position so a human can decide whether to release — and can decide not to.
-- **Entry Criteria:** S4 and S5 exited; required reviews satisfied or their absence explicitly recorded.
+- **Entry Criteria:** S4 and S5 exited; required reviews for the criticality band are **satisfied under the Phase 6 review semantics**. Recording that a required review is missing is **not** sufficient: where the review is a prerequisite for this stage or for the terminal gate, its absence gives `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED` unless a **named external human `decision.<id>`** explicitly permits progression without it — in which case the review **remains unsatisfied and open**, and this Workflow does not say it was satisfied, waived by the Workflow, or no longer required.
 - **Participating Roles:** `role.product_manager_business_analyst`, `role.solution_architect`, `role.platform_devops_engineer`, `role.security_engineer`, `role.software_qa_test_automation_specialist` — all `CONTRIBUTING_ROLE`. **No `LEAD_ROLE` acquires release authority at this stage.**
 - **Activities:** assemble release scope, test evidence, security position, open defects, rollback position and migration plan; state what is not covered.
 - **Artifact Contributions:** `artifact.release_scope_recommendation` (owned by `role.product_manager_business_analyst`) — a **recommendation**, which is what its ID says; `artifact.recovery_and_continuity_design` where rollback design is required.
@@ -178,7 +178,7 @@ S2's architecture and security threads run in parallel. S3 implementation thread
 - `EXCEPTION_PATH` — **security finding at S4 or S5:** returns to S2 or S3 as `REWORK_REQUIRED`. A finding is not resolved by proceeding with it noted.
 - `EXCEPTION_PATH` — **architecture deviation discovered at S3 or S5:** `ESCALATED` to `role.solution_architect`; the implementing Role does not ratify its own deviation.
 - `EXCEPTION_PATH` — **production incident requiring emergency change:** routes to `workflow.incident_response_and_recovery` and to `decision.emergency_production_change`. This is an **emergency gate, not the absence of one**: the change is still gated, and what was bypassed relative to the normal path is recorded.
-- `EXCEPTION_PATH` — **release-date pressure:** exits S6 as `COMPLETE_WITH_OPEN_ITEMS` or `BLOCKED`. It never exits by dropping `review.security`, `review.test_coverage` or the release gate.
+- `EXCEPTION_PATH` — **release-date pressure:** `COMPLETE_WITH_OPEN_ITEMS` at S6 is available **only when every carried item affecting the release gate is `NON_MATERIAL_TO_NEXT_STEP`**. Any `MATERIAL_TO_NEXT_STEP_OR_GATE` item — an untested acceptance criterion, an unvalidated control, an open defect at or above the band's severity, a missing required review — gives `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED`. Progression with a material item unresolved is possible **only** through a **named external human `decision.<id>`** — `decision.defect_deferral` or `decision.security_risk_acceptance` as applicable — and that item then **remains open and carried forward**; this Workflow neither resolves nor downgrades it, and does not treat a missing review as satisfied or waived. **Release-date pressure is not such a Decision Right**: it never drops `review.security`, `review.test_coverage` or the release gate.
 
 No exception path bypasses any gate or review reference carried by the normal path.
 
@@ -198,7 +198,7 @@ The only exception is a **named external human Decision Right** explicitly permi
 
 ## Completion Criteria
 
-`COMPLETION_CRITERION` — S6 exited with the release decision due; every acceptance criterion tested; security position stated; open defects recorded with severity and their deferral status; rollback position stated; required reviews satisfied or their absence recorded.
+`COMPLETION_CRITERION` — S6 exited with the release decision due; every acceptance criterion tested; security position stated; open defects recorded with severity, classified, and their deferral status stated; rollback position stated; and **every required review satisfied under the Phase 6 review semantics**. A missing required review — `review.security`, `review.test_coverage` or any other the criticality band requires — does not become sufficient by being recorded: completion with one outstanding requires a **named external human `decision.<id>`** explicitly permitting it, and the review then remains unsatisfied and open.
 
 **Completion is not release.** The Workflow completes at the gate.
 

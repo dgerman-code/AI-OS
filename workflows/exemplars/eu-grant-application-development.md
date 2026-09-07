@@ -53,8 +53,8 @@ The deadline is the hazard. Every governance failure this card guards against �
 | Role ID | Participation | Activation | Stage(s) | Authority boundary note |
 |---|---|---|---|---|
 | `role.eu_grants_programmes_specialist` | `LEAD_ROLE` | `ALWAYS` | S1–S6 | Owns call fit, application logic and the application package. Leading does **not** grant submission authority, nor the cost-eligibility or legal conclusions. |
-| `role.consortium_partner_coordination_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the application has more than one participant)` | S2, S3, S5 | Owns consortium coordination status and partner-role allocation analysis. Does not commit partners. |
-| `role.grant_financial_compliance_budget_specialist` | `CONTRIBUTING_ROLE` | `ALWAYS` | S3, S4, S5 | Owns grant budget structure and cost-eligibility assessment. This conclusion is not obtainable through the lead Role. |
+| `role.consortium_partner_coordination_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the application has more than one participant)` | S2, S3, S5, S6 | Owns consortium coordination status and partner-role allocation analysis. Does not commit partners. |
+| `role.grant_financial_compliance_budget_specialist` | `CONTRIBUTING_ROLE` | `ALWAYS` | S3, S5 | Owns grant budget structure and cost-eligibility assessment. This conclusion is not obtainable through the lead Role. |
 | `role.learning_vet_design_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the call is a vocational-excellence or learning-design action)` | S3, S4 | Owns `artifact.curriculum_design` and `artifact.assessment_design` only. Contributing rather than consulted **because it owns artifacts** when activated. |
 | `role.monitoring_evaluation_learning_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the call requires a results framework or indicator set)` | S3 | Owns the results-framework content and the MEL methodology. Contributing rather than consulted **because it owns content in the package** when activated. |
 | `role.sector_technical_expert` | `CONSULTED_ROLE` | `CONDITIONAL(the action has material sector technical content)` | S4 | **Advisory only in this Workflow** — it informs the lead's narrative and owns no artifact in S4. Where the action requires an owned sector opinion, that is outside this Workflow's scope. |
@@ -159,7 +159,7 @@ S3 and S4 overlap substantially in practice; the card treats them as partially o
 
 ### Stage `S6` — Submission readiness
 - **Objective:** reach the position where a human can decide whether to submit — and can decide not to.
-- **Entry Criteria:** S5 exited; required reviews satisfied or their absence explicitly recorded.
+- **Entry Criteria:** S5 exited; required reviews for the criticality band are **satisfied under the Phase 6 review semantics**. Recording that a required review is missing is **not** sufficient: where the review is a prerequisite for this stage or for the terminal gate, its absence gives `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED` unless a **named external human `decision.<id>`** explicitly permits progression without it — in which case the review **remains unsatisfied and open**, and this Workflow does not say it was satisfied, waived by the Workflow, or no longer required.
 - **Participating Roles:** `role.eu_grants_programmes_specialist` (`LEAD_ROLE`), `role.consortium_partner_coordination_specialist` (`CONTRIBUTING_ROLE`).
 - **Activities:** assemble the final package; state residual compliance gaps, unconfirmed partners and unverified claims; confirm the rulebook version has not changed since S1; present the submission decision with its risks.
 - **Artifact Contributions:** `artifact.eu_application_package` finalised as `DRAFT` or `REVIEWED`.
@@ -177,7 +177,7 @@ S3 and S4 overlap substantially in practice; the card treats them as partially o
 - `BRANCH` — **single applicant:** S2 reduces to an eligibility-of-applicant check; it is not skipped.
 - `EXCEPTION_PATH` — **rulebook version changes mid-preparation:** returns to S1 as `REWORK_REQUIRED`. Preparing against a superseded rulebook is not permitted, whatever the deadline.
 - `EXCEPTION_PATH` — **partner withdraws:** returns to S2, and S3 budget structure to `REWORK_REQUIRED`.
-- `EXCEPTION_PATH` — **deadline pressure:** exits S6 as `COMPLETE_WITH_OPEN_ITEMS` with the gaps stated, or `BLOCKED`. **There is no expedited path to submission.** `decision.granting_authority_submission` is preserved in every case, and a missed deadline is an acceptable outcome where the alternative is an ungated submission.
+- `EXCEPTION_PATH` — **deadline pressure:** `COMPLETE_WITH_OPEN_ITEMS` at S6 is available **only when every carried item affecting the submission gate is `NON_MATERIAL_TO_NEXT_STEP`**. Any `MATERIAL_TO_NEXT_STEP_OR_GATE` item — an unmet eligibility condition, an unverified claim, an unconfirmed required partner, a missing required review — gives `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED`. Progression with a material item unresolved is possible **only** through a **named external human `decision.<id>`** explicitly permitting it, and that item then **remains open and carried forward**; this Workflow neither resolves nor downgrades it, and does not treat a missing review as satisfied or waived. **Deadline pressure is not such a Decision Right** and removes no review requirement and no human gate. **There is no expedited path to submission**: `decision.granting_authority_submission` is preserved in every case, and a missed deadline is an acceptable outcome where the alternative is an ungated submission.
 
 No exception path bypasses any gate or review reference on the normal path.
 
@@ -197,7 +197,7 @@ The only exception is a **named external human Decision Right** explicitly permi
 
 ## Completion Criteria
 
-`COMPLETION_CRITERION` — S6 exited with the submission decision due; compliance matrix addressed; every factual claim verified or marked; budget eligibility-assessed; partner status stated; required reviews satisfied or their absence recorded.
+`COMPLETION_CRITERION` — S6 exited with the submission decision due; compliance matrix addressed; every factual claim verified or marked; budget eligibility-assessed; partner status stated; every carried open item classified; and **every required review satisfied under the Phase 6 review semantics**. A missing required review does not become sufficient by being recorded: completion with one outstanding requires a **named external human `decision.<id>`** explicitly permitting it, and the review then remains unsatisfied and open.
 
 **Completion is not submission.** The Workflow completes at the gate; the submission is a human act on the far side of it.
 
