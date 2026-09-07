@@ -19,11 +19,19 @@ Inherits: `standard.workflow.common_constraints@0.1`
 
 A decision-grade document is one a human will rely on to make a decision they cannot easily unmake. This Workflow is the **generic reusable pattern** for producing one: sources through evidence, evidence through drafting and specialist contribution, drafting through traceability and review requirement, to a human approval gate.
 
-It is deliberately generic and deliberately **not** a universal mega-workflow. It carries no domain conclusions of its own. Domain workflows compose it for their document-production segment rather than reimplementing it — `workflow.project_development_readiness` S6–S7, `workflow.business_case_development` and `workflow.policy_position_development` all reduce to this shape once their domain conclusions exist.
+It is deliberately generic and deliberately **not** a universal mega-workflow. It carries no domain conclusions of its own.
+
+**This card is a candidate reusable child pattern, available to a parent Workflow through `WORKFLOW_REFERENCE`** where that parent's preconditions and outputs match this card's in full. It is not automatically composed into anything: a parent that references it says so in its own `## Composed Workflow References` section, states the bounded purpose and the parent Stages involved, and keeps this card's gates and review requirements visible.
+
+**No current exemplar references it, and that is an accurate finding rather than an omission.** `workflow.project_development_readiness` is the closest candidate — its S6–S7 map onto this card's S3–S5 — but that parent satisfies this card's S1 evidence base and S2 specialist contribution in its own earlier stages, so the fit is partial and overlapping rather than a clean whole-child composition. Whether this pattern should be decomposed so its document-production segment can be referenced independently needs a wider exemplar set than four.
 
 ### What it is not
 
 It is not a substitute for the domain workflow that produces the conclusions. If this pattern is being used to produce a feasibility position, a legal analysis or a financial model, it is being misused: those are owned elsewhere and this pattern only assembles, traces and prepares.
+
+## Composed Workflow References
+
+**None.** This Workflow references no child pattern; it is itself the candidate child described above. Self-reference, direct or transitive, is prohibited as a registry defect under `standard.workflow.common_constraints` §14C.
 
 ## Trigger
 
@@ -56,16 +64,30 @@ It is not a substitute for the domain workflow that produces the conclusions. If
 
 ## Participating Roles
 
-Role identity is parameterised: the **Document Owner Role** is whichever approved Role owns the document artifact in the instance. The pattern names the fixed participants and the shape of the variable ones.
+Role identity is parameterised through two declared slots. The slots are **closed**, not open placeholders: their binding constraints are stated below and an instance that cannot satisfy them is `BLOCKED`, not accommodated by widening the slot.
 
-| Role ID | Participation | Stage(s) | Authority boundary note |
-|---|---|---|---|
-| *Document Owner Role* (instance-specific approved `role.<id>`) | `LEAD_ROLE` | S1–S5 | Owns the document artifact per its own Role Card. Leading grants nothing further, and does **not** grant the specialist conclusions the document cites. |
-| `role.knowledge_evidence_steward` | `CONTRIBUTING_ROLE` | S1, S3, S4, S5 | Owns evidence integrity, provenance, source verification, the gap/conflict position and knowledge-state metadata. Owns **no** substantive conclusion in the document. |
-| *Specialist Contributing Roles* (instance-specific, e.g. `role.legal_regulatory_lead`, `role.financial_modelling_specialist`, `role.esg_es_specialist`, `role.technical_feasibility_lead`) | `CONTRIBUTING_ROLE` | S2, S3 | Each owns its own section's conclusion. Contribution is by reference and attribution; the Document Owner does not absorb it. |
-| `role.research_market_intelligence_analyst` | `CONSULTED_ROLE` | S1 | Triggered where sources must be discovered rather than supplied. |
-| `role.institutional_communications_editorial_specialist` | `CONSULTED_ROLE` | S5 | Triggered where the document is an institutional position or will be published. Owns editorial standards; does not own the substantive conclusions. |
-| `role.data_room_disclosure_manager` | `CONSULTED_ROLE` | S5 | Triggered where the document enters a controlled disclosure process. |
+| Role ID / Slot | Participation | Activation | Stage(s) | Authority boundary note |
+|---|---|---|---|---|
+| **Slot `SLOT.document_owner`** (binds one approved `role.<id>`) | `LEAD_ROLE` | `ALWAYS` | S1–S5 | Owns the document artifact per its own Role Card. Leading grants nothing further, and does **not** grant the specialist conclusions the document cites. |
+| `role.knowledge_evidence_steward` | `CONTRIBUTING_ROLE` | `ALWAYS` | S1, S3, S4, S5 | Owns evidence integrity, provenance, source verification, the gap/conflict position and knowledge-state metadata. Owns **no** substantive conclusion in the document. |
+| **Slot `SLOT.specialist_contributor`** (binds zero or more approved `role.<id>`) | `CONTRIBUTING_ROLE` | `CONDITIONAL(the document makes a claim whose conclusion the Document Owner's Role Card does not own)` | S2, S3 | Each owns its own section's conclusion. Contribution is by reference and attribution; the Document Owner does not absorb it. |
+| `role.research_market_intelligence_analyst` | `CONTRIBUTING_ROLE` | `CONDITIONAL(sources must be discovered rather than supplied)` | S1 | Owns `artifact.research_evidence_pack`. Contributing rather than consulted **because it owns an artifact** when activated. |
+| `role.institutional_communications_editorial_specialist` | `CONSULTED_ROLE` | `CONDITIONAL(the document is an institutional position or will be published)` | S5 | **Advisory only in this Stage** — it applies editorial standards to a document it does not own and advances no artifact here. Owns no substantive conclusion. |
+| `role.data_room_disclosure_manager` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the document enters a controlled disclosure process)` | S5 | Owns `artifact.disclosure_log`. Contributing rather than consulted **because it owns an artifact** when activated. |
+
+### Parameterized Role Slots
+
+| Slot | Allowed source | Required ownership / interface condition | Permitted participation | Required artifact-ownership relationship | Phase 4 capability validation | Cardinality |
+|---|---|---|---|---|---|---|
+| `SLOT.document_owner` | An approved `role.<id>` from the Phase 3 Role Registry. No other identity type is admissible. | The Role's own Role Card must list the document artifact among its **Output Artifact Interfaces**, and the document's subject must fall inside that Role's *Owns* clause. | `LEAD_ROLE` only. | The bound Role **must already own** the document artifact under its Role Card. The slot selects an owner; it never creates one. | Every Skill, Specialisation or Pack activated for the bound Role must independently pass the approved Phase 4 mapping records — directly or under the Transitive Pack Compatibility Rule. Neither this Workflow nor the slot is evidence of compatibility. | Exactly **1** per instance. |
+| `SLOT.specialist_contributor` | An approved `role.<id>` from the Phase 3 Role Registry. | The Role's Role Card must *own* the conclusion the contributed section states. A Role whose card excludes that conclusion is ineligible regardless of how relevant it seems. | `CONTRIBUTING_ROLE` only. A specialist that owns nothing in the Stage is not bound to this slot; it participates as a named `CONSULTED_ROLE` instead. | The bound Role must already own the artifact carrying its contributed conclusion. Contribution is by attribution and citation, never by transfer. | As above, per bound Role. | **0..n** — one binding per distinct specialist conclusion the document carries. |
+
+Closing rules, applied to both slots:
+
+- **No wildcards.** "Any Role", "an appropriate Role" and equivalents are prohibited. The eligibility conditions above are testable against the Role Card and the approved registries.
+- **A slot cannot grant ownership.** If no approved Role already owns the document or the conclusion, the instance is **`BLOCKED` or invalid for that assignment** — the slot is not widened to make the assignment fit, and ownership is not fabricated.
+- **A slot cannot bind** a System Control Profile, a Review Profile, a Decision Right, a model or a runtime identity.
+- Binding resolves to exactly one concrete `role.<id>` per slot occurrence, per the cardinality column.
 
 ## Activated Skills / Packs
 
@@ -78,10 +100,10 @@ References only; instance Roles activate only what Phase 4 already permits them.
 | `skill.requirement_traceability` | `role.knowledge_evidence_steward` | direct (Wave 1, migrated in Wave 3) |
 | `skill.evidence_mapping`, `skill.evidence_gap_analysis` | `role.knowledge_evidence_steward` | direct |
 | `skill.knowledge_state_metadata_management` | `role.knowledge_evidence_steward` | direct |
-| `skill.document_structuring`, `skill.technical_writing` | Document Owner Role, where its Phase 4 mapping permits | per the instance Role's mapping record |
+| `skill.document_structuring`, `skill.technical_writing` | the Role bound to `SLOT.document_owner`, where its Phase 4 mapping permits | per the bound Role's mapping record — validated at binding, never assumed |
 | `skill.publication_requirements_validation` | per the mapping record for the publishing Role | direct; explicitly **not** independent review |
 
-The Document Owner Role activates document-production capability **only** where its own Phase 4 mapping already allows it. This pattern does not confer `skill.document_structuring` on a Role that Phase 4 has not mapped it to.
+The Role bound to `SLOT.document_owner` activates document-production capability **only** where its own Phase 4 mapping already allows it. This pattern does not confer `skill.document_structuring` on a Role that Phase 4 has not mapped it to, and a binding that would require such a conferral fails — the instance is `BLOCKED` rather than the slot widened.
 
 ## Inputs
 
@@ -97,57 +119,62 @@ The Document Owner Role activates document-production capability **only** where 
 ### Stage `S1` — Source and evidence base
 - **Objective:** establish what is actually known, and with what authority, before a single claim is drafted.
 - **Entry Criteria:** preconditions satisfied.
-- **Participating Roles:** Document Owner Role (`LEAD_ROLE`), `role.knowledge_evidence_steward` (`CONTRIBUTING_ROLE`), `role.research_market_intelligence_analyst` (`CONSULTED_ROLE`, where discovery is needed).
+- **Participating Roles:** the Role bound to `SLOT.document_owner` (`LEAD_ROLE`), `role.knowledge_evidence_steward` (`CONTRIBUTING_ROLE`), `role.research_market_intelligence_analyst` (`CONTRIBUTING_ROLE`, `Activation: CONDITIONAL(sources must be discovered rather than supplied)`).
 - **Activities:** source discovery where triggered; **source verification** — provenance, authority, version and effective date; evidence mapping; evidence gap analysis; conflict identification between sources.
 - **Artifact Contributions:** `artifact.research_evidence_pack` (owned by `role.research_market_intelligence_analyst` where engaged); `artifact.evidence_integrity_record` and `artifact.evidence_gap_conflict_report` (owned by `role.knowledge_evidence_steward`).
 - **Knowledge-State Expectations:** verified sources are `SOURCE` with provenance recorded. **Unverifiable material is `UNKNOWN` and stays `UNKNOWN`** — it is not promoted by being useful. Contradictory sources produce `CONFLICT_DETECTED`, which is carried, not resolved by preference.
 - **Gate / Review References:** none at this stage.
 - **Exit Criteria:** every source verified or explicitly marked unverified; gaps named; conflicts recorded with both positions.
 - **Possible Outcomes:** `COMPLETE`, `COMPLETE_WITH_OPEN_ITEMS`, `BLOCKED`, `CANCELLED`.
+- **Open-Item Materiality:** an unverifiable source that any material claim will rest on is `MATERIAL_TO_NEXT_STEP_OR_GATE` toward S3. A source relevant only to background context is `NON_MATERIAL_TO_NEXT_STEP` and is carried.
 
 ### Stage `S2` — Structure and specialist contribution
-- **Objective:** establish the document's structure and obtain each specialist section **from the Role that owns it**.
+- **Objective:** establish the document's structure and obtain each specialist section **from the Role that owns it**, bound through `SLOT.specialist_contributor`.
 - **Entry Criteria:** S1 exited; the decision the document supports is confirmed unchanged.
-- **Participating Roles:** Document Owner Role (`LEAD_ROLE`), Specialist Contributing Roles (`CONTRIBUTING_ROLE`).
+- **Participating Roles:** the Role bound to `SLOT.document_owner` (`LEAD_ROLE`), Roles bound to `SLOT.specialist_contributor` (`CONTRIBUTING_ROLE`, `Activation: CONDITIONAL` per the slot table).
 - **Activities:** document structuring against the decision's information needs; specialist section contribution; identification of which claims require a specialist and which the owner may make.
-- **Artifact Contributions:** the document artifact (owned by the Document Owner Role); specialist sections contributed **by attribution** — each remains the contributing Role's conclusion, cited rather than restated.
+- **Artifact Contributions:** the document artifact (owned by the Role bound to `SLOT.document_owner`); specialist sections contributed **by attribution** — each remains the contributing Role's conclusion, cited rather than restated.
 - **Knowledge-State Expectations:** `DRAFT`. **AI-generated content enters as `AI_SUGGESTION`** and remains so until a named Role adopts it as its own `DRAFT`. No quantity of drafting, no number of revisions and no stage advancement performs that adoption.
 - **Gate / Review References:** none at this stage; specialist sections may carry their own `review.<id>` requirements inherited from their owning Role Cards.
 - **Exit Criteria:** structure addresses the decision's information needs; every claim requiring a specialist has one; no unattributed specialist conclusion in the draft.
 - **Possible Outcomes:** `COMPLETE`, `COMPLETE_WITH_OPEN_ITEMS`, `BLOCKED`, `REWORK_REQUIRED`, `ESCALATED`.
+- **Open-Item Materiality:** a claim requiring a specialist conclusion that no bound `SLOT.specialist_contributor` Role supplies is `MATERIAL_TO_NEXT_STEP_OR_GATE` — the Document Owner may not supply it, so the claim is removed or the progression blocks.
 
 ### Stage `S3` — Fact, assumption and calculation separation
 - **Objective:** make the document's epistemic structure visible — which statements are established, which are assumed, and which are derived.
 - **Entry Criteria:** S2 exited.
-- **Participating Roles:** Document Owner Role (`LEAD_ROLE`), `role.knowledge_evidence_steward` (`CONTRIBUTING_ROLE`), Specialist Contributing Roles (`CONTRIBUTING_ROLE`, for their own sections).
+- **Participating Roles:** the Role bound to `SLOT.document_owner` (`LEAD_ROLE`), `role.knowledge_evidence_steward` (`CONTRIBUTING_ROLE`), Roles bound to `SLOT.specialist_contributor` (`CONTRIBUTING_ROLE`, for their own sections).
 - **Activities:** classify every material statement as `FACT`, `ASSUMPTION` or `CALCULATION`; build the assumption register; trace each `CALCULATION` to its inputs and method; trace each `FACT` to its verified source.
 - **Artifact Contributions:** assumption register within the document artifact; `artifact.evidence_integrity_record` updated (owned by `role.knowledge_evidence_steward`).
 - **Knowledge-State Expectations:** the three classes remain **separable in the finished document** and are not merged into undifferentiated narrative. An assumption presented as a fact is a defect, not a style choice.
 - **Gate / Review References:** `REVIEW_REQUIRED_REFERENCE` → `review.factual_evidence`, `review.evidence_integrity_provenance`.
 - **Exit Criteria:** every material statement classified; every `FACT` traced to a verified source; every `ASSUMPTION` in the register with its basis and its owner; every `CALCULATION` traced to inputs and method.
 - **Possible Outcomes:** `COMPLETE`, `COMPLETE_WITH_OPEN_ITEMS`, `BLOCKED`, `REWORK_REQUIRED`, `ESCALATED`.
+- **Open-Item Materiality:** an unclassified material statement, an `ASSUMPTION` with no recorded basis or owner, or a `CALCULATION` whose inputs cannot be traced is `MATERIAL_TO_NEXT_STEP_OR_GATE` toward S4 and S5.
 
 ### Stage `S4` — Traceability and coherence
 - **Objective:** confirm the document does what the decision needs, and surface what it does not establish.
 - **Entry Criteria:** S3 exited.
-- **Participating Roles:** Document Owner Role (`LEAD_ROLE`), `role.knowledge_evidence_steward` (`CONTRIBUTING_ROLE`).
+- **Participating Roles:** the Role bound to `SLOT.document_owner` (`LEAD_ROLE`), `role.knowledge_evidence_steward` (`CONTRIBUTING_ROLE`).
 - **Activities:** requirement traceability — each information need of the decision to the content that addresses it; orphan and gap analysis; internal contradiction check; consolidation of open items and unresolved assumptions.
 - **Artifact Contributions:** traceability record within the document artifact; `artifact.evidence_gap_conflict_report` updated.
-- **Knowledge-State Expectations:** an internal contradiction is `CONFLICT_DETECTED` and blocks or branches. A gate-critical `UNKNOWN` blocks progression to S5 unless it is explicitly carried as a named open item that the decision-maker will see.
+- **Knowledge-State Expectations:** an internal contradiction is `CONFLICT_DETECTED` and blocks or branches. A gate-critical `UNKNOWN` **blocks progression to S5**. Naming it as an open item the decision-maker will see does **not** release it — visibility is not disposal, and under `standard.workflow.common_constraints` §14A a `MATERIAL_TO_NEXT_STEP_OR_GATE` item cannot support a `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` exit. The only route past it is a **named external human Decision Right** that explicitly permits proceeding with it unresolved; that reference is recorded and the item stays open.
 - **Gate / Review References:** `REVIEW_REQUIRED_REFERENCE` → `review.evidence_integrity_provenance`; and the domain review applicable to the document's subject, inherited from the owning Role Card.
 - **Exit Criteria:** every information need traced or its gap named; no unrecorded contradiction; open items and unresolved assumptions consolidated and visible.
 - **Possible Outcomes:** `COMPLETE`, `COMPLETE_WITH_OPEN_ITEMS`, `BLOCKED`, `REWORK_REQUIRED`, `ESCALATED`.
+- **Open-Item Materiality:** a gate-critical `UNKNOWN` and any unresolved `CONFLICT_DETECTED` are `MATERIAL_TO_NEXT_STEP_OR_GATE` and **cannot support a `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` exit**. The outcome is `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED` unless a named external human Decision Right explicitly permits proceeding with the item unresolved.
 
 ### Stage `S5` — Review requirement and approval preparation
 - **Objective:** identify what review the document requires, and present it so the human decision can be taken — including taken negatively.
 - **Entry Criteria:** S4 exited.
-- **Participating Roles:** Document Owner Role (`LEAD_ROLE`), `role.knowledge_evidence_steward` (`CONTRIBUTING_ROLE`), `role.institutional_communications_editorial_specialist` and `role.data_room_disclosure_manager` (`CONSULTED_ROLE`, triggered).
+- **Participating Roles:** the Role bound to `SLOT.document_owner` (`LEAD_ROLE`), `role.knowledge_evidence_steward` (`CONTRIBUTING_ROLE`), `role.institutional_communications_editorial_specialist` (`CONSULTED_ROLE`, `Activation: CONDITIONAL(institutional position or publication)`, advisory only) and `role.data_room_disclosure_manager` (`CONTRIBUTING_ROLE`, `Activation: CONDITIONAL(controlled disclosure process)`).
 - **Activities:** identify the applicable `review.<id>` requirements from the owning and contributing Role Cards and the criticality band; record which are satisfied and which are not; publication-requirements validation where the document will be published; assemble the approval package with open items, unresolved assumptions and scope limitations stated **at the front**.
 - **Artifact Contributions:** the document artifact finalised as `DRAFT` or `REVIEWED`; `artifact.disclosure_log` where controlled disclosure applies.
 - **Knowledge-State Expectations:** the document is `DRAFT`, or `REVIEWED` where a governed review has occurred. **It does not become `APPROVED` or `CANONICAL` by reaching this stage, by any stage outcome, or by completion.**
 - **Gate / Review References:** `HUMAN_GATE_REFERENCE` → the instance's named approval decision right; plus `decision.external_publication`, `decision.disclosure_authorisation`, `decision.external_data_transmission` or `decision.institutional_position_release` where the document is transmitted; plus `decision.canonical_knowledge_promotion` where canonical status is sought. Each is preserved under `standard.workflow.common_constraints` §8.
 - **Exit Criteria:** the approval decision is due, with review status, open items, unresolved assumptions and scope limitations in front of the decision-maker.
 - **Possible Outcomes:** `COMPLETE`, `COMPLETE_WITH_OPEN_ITEMS`, `BLOCKED`, `ESCALATED`, `CANCELLED`.
+- **Open-Item Materiality:** any item bearing on the evidence basis of the named approval decision, or on a transmitting act where the document leaves the organisation, is `MATERIAL_TO_NEXT_STEP_OR_GATE`. A missing required `review.<id>` is material where the gate depends on it; its visibility does not satisfy it.
 
 ## Branches / Exception Paths
 
@@ -168,6 +195,14 @@ No exception path bypasses any gate or review reference on the normal path.
 
 Across every loop, prior document versions, their knowledge states, source verification records, the assumption register history, conflict records and the reason for rework are preserved. **A rework loop may not be used to remove an inconvenient recorded assumption or conflict.**
 
+## Open-Item Materiality
+
+For this Workflow's terminal gate, `MATERIAL_TO_NEXT_STEP_OR_GATE` covers: any gate-critical `UNKNOWN`; any unresolved `CONFLICT_DETECTED`; any `ASSUMPTION` material to the decision that has no recorded basis or owner; any unverified source under a material `FACT`; any specialist conclusion the document relies on but no bound Role supplies; and any missing `review.<id>` the gate or the criticality band depends on.
+
+**A material item cannot support a `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` exit at the progression it is material to.** The outcome is `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED`. Making an item visible to the decision-maker is **not** a route past this rule — that was the specific defect the independent audit found at S4, and it is corrected.
+
+The only exception is a **named external human Decision Right** explicitly permitting progression with that item unresolved. The gate reference is recorded, the item **remains open and unresolved**, and this Workflow neither decides the waiver nor asserts it was granted. Phase 7 owns that semantics.
+
 ## Completion Criteria
 
 `COMPLETION_CRITERION` — S5 exited with the approval decision due; every `FACT` traced to a verified source; every `ASSUMPTION` registered with its basis and owner; every `CALCULATION` traced; every specialist conclusion attributed to its owning Role; every open item, unresolved assumption and scope limitation visible; review requirements identified with their status.
@@ -184,8 +219,8 @@ On cancellation, the draft, sources, verification records, assumption register, 
 
 | Artifact | Owning Role | State at completion |
 |---|---|---|
-| the document artifact (instance-specific) | Document Owner Role | `DRAFT` or `REVIEWED` |
-| specialist sections | respective Specialist Contributing Roles | their own governed states, unchanged by this Workflow |
+| the document artifact (instance-specific) | the Role bound to `SLOT.document_owner` | `DRAFT` or `REVIEWED` |
+| specialist sections | the Roles bound to `SLOT.specialist_contributor` | their own governed states, unchanged by this Workflow |
 | `artifact.evidence_integrity_record` | `role.knowledge_evidence_steward` | `DRAFT` or `REVIEWED` |
 | `artifact.evidence_gap_conflict_report` | `role.knowledge_evidence_steward` | `DRAFT` |
 | `artifact.canonical_promotion_package` where sought | `role.knowledge_evidence_steward` | `DRAFT` |
@@ -196,7 +231,7 @@ On cancellation, the draft, sources, verification records, assumption register, 
 
 - **This Workflow cannot self-approve.** No stage, outcome or completion state approves the document or promotes its knowledge state. `DRAFT -> REVIEWED -> APPROVED -> CANONICAL` occurs only under the governed rule that permits it, and never by stage movement.
 - **AI output does not escape `AI_SUGGESTION` through this Workflow.** Adoption is an act by a named Role, not a consequence of progression.
-- The Document Owner Role owns the document. It does **not** own the specialist conclusions the document cites, and may not restate them as its own.
+- The Role bound to `SLOT.document_owner` owns the document **because its own Role Card already does** — the slot selected it, and conferred nothing. It does **not** own the specialist conclusions the document cites, and may not restate them as its own.
 - `role.knowledge_evidence_steward` owns evidence integrity and **no substantive conclusion**. Verifying a source is not endorsing the claim built on it.
 - No stage performs an independent review. `skill.publication_requirements_validation` is explicitly not independent review, per its own Skill Card.
 - Every transmitting act retains its gate, and every gate referenced above is a **human decision right** held outside this Workflow.

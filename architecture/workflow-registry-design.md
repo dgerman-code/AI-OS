@@ -184,6 +184,7 @@ The composition model is deliberately small and human-readable. It is **not** a 
 | `REWORK_LOOP` | A governed return to an earlier Stage, preserving provenance |
 | `COMPLETION_CRITERION` | What must be true for the Workflow to be complete |
 | `TERMINATION_CONDITION` | What causes the Workflow to stop without completing |
+| `WORKFLOW_REFERENCE` | A declarative pointer to another Workflow used as a reusable child pattern; it names, it does not execute |
 
 ### Every Stage must answer seven questions
 
@@ -196,6 +197,21 @@ The composition model is deliberately small and human-readable. It is **not** a 
 7. **Which gate or review reference may block progression?** — the `decision.<id>` / `review.<id>` pointers on this stage.
 
 A stage that cannot answer all seven is either not a stage or is hiding an authority transfer in the gap.
+
+### `WORKFLOW_REFERENCE` — declarative composition
+
+Some coordination patterns are genuinely reusable inside others. `workflow.decision_grade_document_preparation` is the clearest case: its shape recurs wherever a decision-grade document is produced. Without a way to say so, the registry either duplicates the pattern into every parent — which guarantees drift — or claims a composition it has no means of expressing.
+
+`WORKFLOW_REFERENCE` is that means, and it is **declarative only**:
+
+1. It points at a stable `workflow.<id>`, optionally with a version constraint or reference policy. **It does not execute the child.** There is no call, no scheduling, no retry, no nesting semantics, no call stack, no state-machine representation and no database form.
+2. The parent card states the reference's **bounded purpose**, its **expected inputs**, its **expected outputs**, and **which parent Stage or Stages** it relates to.
+3. Referencing a child transfers nothing: not Role ownership, not Skill compatibility, not review identity, not Decision Rights, not gates, not knowledge-state authority. The child's Roles remain the child's; the parent gains no capability by pointing.
+4. The child's gates and review requirements **cannot be silently dropped**. Where the parent relies on an output the child produces only past a child gate or review, that dependency stays visible in the parent card.
+5. **Acyclicity is an architecture validation rule.** A Workflow must not reference itself directly or transitively. A cycle is a registry defect, detectable by reading the cards, not a runtime problem to be handled at execution.
+6. A reference may be optional or conditional only under a stated objective condition, declared like any other conditional activation.
+
+Composition is **representability, not obligation**. A parent that does not cleanly compose the whole child says so; it does not force a reference to look tidy.
 
 ### Ordering
 
@@ -215,6 +231,30 @@ Five participation types. Three describe Role participation; two are explicitly 
 | `REVIEW_REQUIRED_REFERENCE` | a `review.<id>` | **Not a Role relationship.** Points at a review requirement to be defined by the later Review Profile Registry. |
 | `HUMAN_GATE_REFERENCE` | a `decision.<id>` | **Not a Role relationship.** Points at a human decision right in the Decision Rights Register. |
 
+### Activation is a separate property, not a participation type
+
+Participation type answers **what a Role does** in a Stage. It does not answer **whether the Role is engaged at all** in a given instance. Those are orthogonal questions, and collapsing them is how a triggered specialist who owns an artifact ends up typed as merely "consulted".
+
+Activation is therefore declared as its own qualifier:
+
+```
+Activation: ALWAYS | CONDITIONAL(<objective trigger>)
+```
+
+| | `Activation: ALWAYS` | `Activation: CONDITIONAL(...)` |
+|---|---|---|
+| `CONTRIBUTING_ROLE` | Always produces bounded work or an owned artifact here | Produces an owned artifact **when the trigger applies** — the required treatment for triggered specialists |
+| `CONSULTED_ROLE` | Always gives advisory input here | Gives advisory input when the trigger applies |
+
+The discriminator between `CONTRIBUTING_ROLE` and `CONSULTED_ROLE` is **ownership within the Stage**, never frequency:
+
+- **`CONTRIBUTING_ROLE`** — produces bounded work, artifact content, an owned artifact, or an owned professional conclusion in that Stage.
+- **`CONSULTED_ROLE`** — advisory or input-only; **owns and advances nothing in that Stage**.
+
+A Sector Technical Expert who produces `artifact.sector_technical_opinion` when sector materiality applies is a `CONTRIBUTING_ROLE` with `Activation: CONDITIONAL(sector materiality)`. An architect consulted on a deviation who produces no artifact in that Stage is a `CONSULTED_ROLE` with `Activation: CONDITIONAL(deviation from the design position)`.
+
+No sixth participation type may be added to express conditionality, and the trigger inside `CONDITIONAL(...)` must be an **objective, testable condition** — not a judgement that the Role would be useful. Conditional activation narrows participation; it never widens Phase 4 compatibility or Role scope.
+
 ### Why not RACI
 
 RACI is rejected as a mechanical model because its "A" — Accountable / Approver — is precisely the thing this architecture refuses to let a coordination pattern create. In RACI practice, someone is made Accountable for every activity, and that role then reads as an approver even when no human decision right exists and no Role Card grants the conclusion. The result is a fake approver Role invented by the coordination layer.
@@ -226,6 +266,28 @@ The vocabulary above has no "A". Approval is not a participation type at all: it
 **A Role may be workflow lead without owning all conclusions or artifacts in the workflow.** This is the single most important rule in this section, and the one the exemplars stress-test hardest. `role.project_development_lead` leads `workflow.project_development_readiness` and integrates its workstreams; it does not thereby acquire the feasibility conclusion, the cost estimate, the financial model, the legal analysis or the E&S assessment. Each of those remains owned, and remains reviewable, under its own Role Card.
 
 Lead means: coordinates sequence, convenes participation, integrates contributions, maintains the open-item position, and raises escalations. It does not mean: concludes, approves, overrides or absorbs.
+
+### Parameterized Role slots — the Role Slot Binding Rule
+
+A few coordination patterns are genuinely Role-agnostic: the shape of preparing a decision-grade document is the same whether a legal, financial or technical Role owns the document. Such a pattern may declare a **parameterized Role slot** rather than naming a concrete Role.
+
+A slot is a hole in the pattern, and an unclosed hole is an authority leak. Every slot therefore declares, in the card itself:
+
+1. **slot ID / name**;
+2. **allowed source** — approved `role.<id>` only;
+3. the **required ownership or interface condition** the bound Role must already satisfy;
+4. **permitted participation type(s)**;
+5. any **required artifact-ownership relationship**;
+6. the **capability validation rule** against the approved Phase 4 mappings.
+
+Binding rules:
+
+- At instance binding a slot resolves to **exactly one concrete approved `role.<id>` per slot occurrence**, unless the slot explicitly declares a cardinality greater than one.
+- Wildcards — "any Role", "whichever Role is appropriate" — are **prohibited** unless immediately followed by eligibility constraints testable against the Role Card and the approved registries.
+- **A slot cannot grant ownership.** The bound Role must already own the relevant artifact or conclusion under its own Role Card. Binding selects an owner; it never creates one.
+- Every capability activated for a bound Role must independently pass Phase 4 compatibility. **The Workflow and the slot are never evidence of compatibility.**
+- A slot cannot bind a System Control Profile, a Review Profile, a Decision Right, a model or a runtime identity.
+- Where no approved Role satisfies the constraints, the instance is `BLOCKED` or invalid for that assignment. The slot is not widened to make an assignment fit.
 
 ### Participation is bounded by Phase 4
 
@@ -271,6 +333,31 @@ Every Stage resolves to exactly one of six outcomes. These are **workflow-instan
 | `CANCELLED` | Stopped deliberately; the assignment or Workflow is discontinued |
 
 `COMPLETE_WITH_OPEN_ITEMS` exists deliberately. Without it, coordination pressure forces a binary choice between blocking on every loose end and declaring a clean `COMPLETE` that is not true. The open items must be named, carried and visible at every subsequent stage and at every gate.
+
+### Open-item materiality
+
+Naming an open item is not disposing of it. Without a materiality rule, `COMPLETE_WITH_OPEN_ITEMS` becomes a universal waiver: anything can pass any exit as long as it is written down. **Every open item carried under `COMPLETE_WITH_OPEN_ITEMS` is classified**, at minimum, as one of two values:
+
+| Classification | Meaning |
+|---|---|
+| `NON_MATERIAL_TO_NEXT_STEP` | Resolving it could not change the next Stage's permitted work, any downstream conclusion, any review position, any gate's evidence basis, or the terminal conclusion. |
+| `MATERIAL_TO_NEXT_STEP_OR_GATE` | Any unresolved item that could change the next Stage's permitted work, a specialist conclusion relied on downstream, a required review position, a human gate's evidence basis, a transmitting act, or a terminal readiness conclusion. |
+
+This is **progression materiality only**. It is not a risk-severity taxonomy, it does not rank importance, and it must not be extended into one — risk severity belongs to the risk Roles and their own methodologies.
+
+**A `MATERIAL_TO_NEXT_STEP_OR_GATE` item cannot support `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` for the progression it is material to.** The default outcome is `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED`.
+
+The **only** exception is a **named external human Decision Right** that explicitly permits proceeding with that unresolved material item. Where it applies:
+
+- the Workflow records the `decision.<id>` gate reference;
+- the item **remains unresolved and open** — it is not relabelled resolved, downgraded, or removed from the carry-forward;
+- the Workflow does not decide the waiver, does not define its conditions and does not assert that it was granted.
+
+Who holds that Decision Right and what its approval semantics are is Phase 7. Phase 5 only records that such a right is the sole route past a material item.
+
+A missing required `review.<id>` may be **visible**, but visibility does not satisfy the review. Where the next Stage or a gate requires that review, its absence blocks progression unless an external Decision Right explicitly governs proceeding without it.
+
+`UNKNOWN`, `CONFLICT_DETECTED` and a material `ASSUMPTION` are **never cleared by stage movement** — not by advancing, not by being named, and not by being carried into a later stage's open-item list.
 
 ---
 

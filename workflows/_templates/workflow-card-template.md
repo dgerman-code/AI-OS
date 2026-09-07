@@ -40,12 +40,32 @@ The "Does Not Cover" list is where authority boundaries are made visible. Name t
 
 ## Participating Roles
 
-| Role ID | Participation | Stage(s) | Authority boundary note |
-|---|---|---|---|
+| Role ID | Participation | Activation | Stage(s) | Authority boundary note |
+|---|---|---|---|---|
 
 Participation is one of `LEAD_ROLE`, `CONTRIBUTING_ROLE`, `CONSULTED_ROLE`. The two reference types — `REVIEW_REQUIRED_REFERENCE` and `HUMAN_GATE_REFERENCE` — are **not** Role participation and are recorded against stages, not in this table.
 
+**Activation is a separate column, not a participation type**: `ALWAYS` or `CONDITIONAL(<objective trigger>)`. A Role that produces an owned artifact only when a trigger applies is `CONTRIBUTING_ROLE` with `Activation: CONDITIONAL(...)` — never `CONSULTED_ROLE` on the grounds that it is conditional. `CONSULTED_ROLE` means the Role owns and advances nothing in that Stage.
+
 The authority boundary note states what the Role does **not** gain by participating. A blank note is a defect.
+
+### Parameterized Role Slots
+
+Governed by the **Role Slot Binding Rule** (`architecture/workflow-registry-design.md` §4, `standard.workflow.common_constraints` §14D). Complete only where the pattern declares a slot instead of a concrete Role. Omit the section entirely for Workflows with no slots; do not leave it as an empty placeholder.
+
+| Slot | Allowed source | Required ownership / interface condition | Permitted participation | Required artifact-ownership relationship | Phase 4 capability validation | Cardinality |
+|---|---|---|---|---|---|---|
+
+Wildcards are prohibited. A slot cannot grant ownership — the bound Role must already own the relevant artifact or conclusion. A slot cannot bind a System Control Profile, Review Profile, Decision Right, model or runtime identity. Where no approved Role satisfies the constraints, the instance is `BLOCKED` or invalid; the slot is not widened.
+
+## Composed Workflow References
+
+`WORKFLOW_REFERENCE` entries. Omit the section entirely where the Workflow composes nothing; a Workflow that does not cleanly compose a candidate child says so rather than forcing a reference.
+
+| Referenced Workflow | Version / reference policy | Bounded purpose | Expected inputs | Expected outputs | Parent Stage(s) | Activation |
+|---|---|---|---|---|---|---|
+
+A reference is declarative: it names a child pattern, it does not execute it. It transfers no Role ownership, Skill compatibility, review identity, Decision Right, gate or knowledge-state authority. Where the parent relies on an output the child produces only past a child gate or review, state that dependency here — it may not be silently dropped. Self-reference, direct or transitive, is a registry defect.
 
 ## Activated Skills / Packs
 
@@ -73,6 +93,7 @@ For each Stage, in order (state explicitly where stages may run in parallel):
 - **Gate / Review References:** `GATE_REFERENCE` — `decision.<id>` and `review.<id>` pointers that may block progression
 - **Exit Criteria:** testable conditions for leaving the stage
 - **Possible Outcomes:** the subset of `COMPLETE` / `COMPLETE_WITH_OPEN_ITEMS` / `BLOCKED` / `REWORK_REQUIRED` / `ESCALATED` / `CANCELLED` that can occur here
+- **Open-Item Materiality:** which open items this Stage may carry as `NON_MATERIAL_TO_NEXT_STEP`, and which classes of item are `MATERIAL_TO_NEXT_STEP_OR_GATE` here and therefore cannot support a `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` exit
 
 ## Branches / Exception Paths
 
@@ -84,6 +105,10 @@ State explicitly that no exception path bypasses a gate or review reference carr
 ## Rework Rules
 
 `REWORK_LOOP` — which stages can be returned to, on what condition, and what provenance and prior state history is preserved across the loop.
+
+## Open-Item Materiality
+
+State which open items are `MATERIAL_TO_NEXT_STEP_OR_GATE` for this Workflow's terminal gate, and confirm that a material item cannot support a `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` exit — the outcome is `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED` unless a **named external human Decision Right** explicitly permits progression with that item still unresolved. Where that exception applies, the gate reference is recorded and the item stays open; the Workflow neither decides the waiver nor asserts it was granted.
 
 ## Completion Criteria
 

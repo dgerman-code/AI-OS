@@ -66,6 +66,8 @@ No check was weakened to obtain a pass.
 
 ## 2. Architecture ambiguities
 
+> **Superseded in part.** The independent audit and the remediation recorded in `reviews/phase-5-foundation-audit-remediation.md` have since given all seven questions below an explicit disposition: **1, 4 and 6 are RESOLVED IN FOUNDATION** (declarative `WORKFLOW_REFERENCE`; the open-item materiality rule; the closed Role Slot Binding Rule); **2 and 5 are SAFE TO DEFER WITH AN EXPLICIT RULE** (partial ordering and triggers remain unambiguous, testable prose); **3 and 7 are RUNTIME-PHASE CONCERNS** (version binding, System Control interaction). The text below is retained as the record of what the foundation pass itself could see.
+
 Stated rather than resolved. Each is a real question the foundation leaves open.
 
 1. **How a composed Workflow is expressed.** `workflow.decision_grade_document_preparation` is designed to be composed into other Workflows rather than duplicated by them, but the foundation defines no composition primitive — no `INCLUDES`, no sub-workflow reference. Four exemplars were not enough to know whether composition needs its own primitive or whether stage-level referencing suffices.

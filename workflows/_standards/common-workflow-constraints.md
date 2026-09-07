@@ -101,6 +101,77 @@ No Workflow Card names a model, provider, framework, queue, database or deployme
 
 ---
 
+## 14A. Open-item materiality governs progression
+
+Every open item carried under `COMPLETE_WITH_OPEN_ITEMS` is classified at minimum as `NON_MATERIAL_TO_NEXT_STEP` or `MATERIAL_TO_NEXT_STEP_OR_GATE`. An unclassified open item is a defect.
+
+`MATERIAL_TO_NEXT_STEP_OR_GATE` covers any unresolved item that could change the next Stage's permitted work, a specialist conclusion relied on downstream, a required review position, a human gate's evidence basis, a transmitting act, or a terminal readiness conclusion.
+
+**A material item cannot support `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` for the affected progression.** The outcome is `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED`.
+
+The single exception is a **named external human Decision Right** explicitly permitting progression with that unresolved item. The Workflow records the gate reference; the item stays unresolved and open; the Workflow neither decides the waiver nor asserts it was granted. Phase 7 owns who holds that right and what granting it means.
+
+`COMPLETE_WITH_OPEN_ITEMS` is **not** a generic gate-critical waiver, and recording an item is not disposing of it.
+
+A missing required `review.<id>` may be visible; visibility does not satisfy it. Where the next Stage or gate requires that review, absence blocks progression unless an external Decision Right explicitly governs proceeding without it.
+
+`UNKNOWN`, `CONFLICT_DETECTED` and material `ASSUMPTION` are never cleared by stage movement.
+
+This classification is progression materiality only. It must not be extended into a risk-severity taxonomy.
+
+## 14B. Conditional activation is a property, not a participation type
+
+Participation type answers *what a Role does* in a Stage. Activation answers *whether the Role is engaged in this instance at all*. They are orthogonal and are declared separately:
+
+```
+Activation: ALWAYS | CONDITIONAL(<objective trigger>)
+```
+
+- `CONTRIBUTING_ROLE` — produces bounded work, artifact content, an owned artifact, or an owned professional conclusion in that Stage.
+- `CONSULTED_ROLE` — advisory or input-only participation; it **does not own or advance an artifact or conclusion within that Stage**.
+- A Role may be `CONTRIBUTING_ROLE` with `Activation: CONDITIONAL(...)`. This is the required treatment for a triggered specialist that produces an owned artifact — typing such a Role as `CONSULTED_ROLE` because it is conditional is a defect.
+
+The trigger in `CONDITIONAL(...)` must be an **objective, testable condition**, not a judgement call about usefulness. Conditional activation narrows participation; it never widens Phase 4 compatibility or Role scope.
+
+No sixth participation type may be introduced to express conditionality.
+
+## 14C. Declarative Workflow composition
+
+`WORKFLOW_REFERENCE` points at a stable `workflow.<id>`, optionally with a version constraint or reference policy. It is **declarative**: it does not execute, schedule, retry, nest, maintain a call stack or imply any state-machine or database representation.
+
+A parent card carrying a `WORKFLOW_REFERENCE` states its bounded purpose, expected inputs, expected outputs, and which parent Stage or Stages it relates to.
+
+Referencing a child Workflow transfers **nothing**: not Role ownership, not Skill compatibility, not review identity, not Decision Rights, not gates, not knowledge-state authority.
+
+The child's gates and review requirements **cannot be silently dropped by the parent.** Where the parent relies on an output the child produces only past a child gate or review, that dependency remains visible in the parent card.
+
+**Acyclicity is an architecture validation rule:** a Workflow must not reference itself directly or transitively. A reference cycle is a registry defect, not a runtime concern.
+
+Composition may be optional or conditional only under a stated objective condition, declared the same way as conditional activation.
+
+## 14D. Role Slot Binding Rule
+
+A Workflow may declare a **parameterized Role slot** where the pattern is genuinely Role-agnostic. Every slot declares, in the card:
+
+1. slot ID / name;
+2. allowed source — **approved `role.<id>` only**;
+3. the required ownership or interface condition the bound Role must already satisfy;
+4. permitted participation type(s);
+5. any required artifact-ownership relationship;
+6. the capability validation rule against the approved Phase 4 mappings.
+
+At instance binding, a slot resolves to **exactly one concrete approved `role.<id>` per slot occurrence**, unless the slot explicitly declares a cardinality greater than one.
+
+Wildcards — "any Role", "an appropriate Role" — are **prohibited** unless immediately followed by explicit eligibility constraints that are testable against the Role Card and the approved registries.
+
+**A slot cannot grant ownership.** The bound Role must already own the relevant artifact or conclusion under its own Role Card. Binding is selection, not conferral.
+
+Every Skill, Specialisation or Pack activated for a bound Role must independently pass Phase 4 compatibility. **The Workflow and the slot are never evidence of compatibility.**
+
+A slot cannot bind a System Control Profile, a Review Profile, a Decision Right, a model or a runtime identity.
+
+Where no approved Role satisfies the slot's constraints, the Workflow instance is `BLOCKED` or invalid for that assignment. The slot is not widened to make an assignment fit.
+
 ## 15. Role-vs-Workflow escalation test
 
 A candidate Workflow is actually a Role in disguise if it:

@@ -50,20 +50,24 @@ The deadline is the hazard. Every governance failure this card guards against �
 
 ## Participating Roles
 
-| Role ID | Participation | Stage(s) | Authority boundary note |
-|---|---|---|---|
-| `role.eu_grants_programmes_specialist` | `LEAD_ROLE` | S1–S6 | Owns call fit, application logic and the application package. Leading does **not** grant submission authority, nor the cost-eligibility or legal conclusions. |
-| `role.consortium_partner_coordination_specialist` | `CONTRIBUTING_ROLE` | S2, S3, S5 | Owns consortium coordination status and partner-role allocation analysis. Does not commit partners. |
-| `role.grant_financial_compliance_budget_specialist` | `CONTRIBUTING_ROLE` | S3, S4, S5 | Owns grant budget structure and cost-eligibility assessment. This conclusion is not obtainable through the lead Role. |
-| `role.learning_vet_design_specialist` | `CONSULTED_ROLE` | S3, S4 | Triggered where the call is a vocational-excellence or learning-design action. Owns curriculum and assessment design only. |
-| `role.monitoring_evaluation_learning_specialist` | `CONSULTED_ROLE` | S3 | Triggered where a results framework and indicator set are required. Owns MEL methodology. |
-| `role.sector_technical_expert` | `CONSULTED_ROLE` | S4 | Triggered where the action has material sector technical content. |
-| `role.legal_regulatory_lead` | `CONSULTED_ROLE` | S4 | Triggered by legal-framework, IP or contractual questions in the call. |
-| `role.data_protection_gdpr_specialist` | `CONSULTED_ROLE` | S4 | Triggered where the action processes personal data. Owns lawful-basis analysis; does not adopt the lawful basis. |
-| `role.procurement_state_aid_specialist` | `CONSULTED_ROLE` | S4 | Triggered by State Aid or public-procurement exposure in the action. |
-| `role.institutional_communications_editorial_specialist` | `CONSULTED_ROLE` | S4 | Triggered where dissemination and communication content is required. |
-| `role.deliverables_reporting_specialist` | `CONSULTED_ROLE` | S3 | Triggered where the deliverable and reporting schedule must be designed into the proposal. |
-| `role.knowledge_evidence_steward` | `CONTRIBUTING_ROLE` | S1, S5 | Owns source verification and evidence integrity for the claims made in the application. |
+| Role ID | Participation | Activation | Stage(s) | Authority boundary note |
+|---|---|---|---|---|
+| `role.eu_grants_programmes_specialist` | `LEAD_ROLE` | `ALWAYS` | S1–S6 | Owns call fit, application logic and the application package. Leading does **not** grant submission authority, nor the cost-eligibility or legal conclusions. |
+| `role.consortium_partner_coordination_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the application has more than one participant)` | S2, S3, S5 | Owns consortium coordination status and partner-role allocation analysis. Does not commit partners. |
+| `role.grant_financial_compliance_budget_specialist` | `CONTRIBUTING_ROLE` | `ALWAYS` | S3, S4, S5 | Owns grant budget structure and cost-eligibility assessment. This conclusion is not obtainable through the lead Role. |
+| `role.learning_vet_design_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the call is a vocational-excellence or learning-design action)` | S3, S4 | Owns `artifact.curriculum_design` and `artifact.assessment_design` only. Contributing rather than consulted **because it owns artifacts** when activated. |
+| `role.monitoring_evaluation_learning_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the call requires a results framework or indicator set)` | S3 | Owns the results-framework content and the MEL methodology. Contributing rather than consulted **because it owns content in the package** when activated. |
+| `role.sector_technical_expert` | `CONSULTED_ROLE` | `CONDITIONAL(the action has material sector technical content)` | S4 | **Advisory only in this Workflow** — it informs the lead's narrative and owns no artifact in S4. Where the action requires an owned sector opinion, that is outside this Workflow's scope. |
+| `role.legal_regulatory_lead` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the call raises legal-framework, IP or contractual questions)` | S4 | Owns `artifact.legal_analysis`. Does not issue a formal legal opinion here. Contributing rather than consulted **because it owns an artifact** when activated. |
+| `role.data_protection_gdpr_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the action processes personal data)` | S4 | Owns `artifact.data_protection_impact_assessment` and the lawful-basis analysis; does not adopt the lawful basis. Contributing rather than consulted **because it owns an artifact** when activated. |
+| `role.procurement_state_aid_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the action carries State Aid or public-procurement exposure)` | S4 | Owns `artifact.state_aid_assessment`. Contributing rather than consulted **because it owns an artifact** when activated. |
+| `role.institutional_communications_editorial_specialist` | `CONTRIBUTING_ROLE` | `CONDITIONAL(the call requires dissemination or communication content)` | S4 | Owns `artifact.dissemination_plan`. Contributing rather than consulted **because it owns an artifact** when activated. |
+| `role.deliverables_reporting_specialist` | `CONSULTED_ROLE` | `CONDITIONAL(the deliverable and reporting schedule must be designed into the proposal)` | S3 | **Advisory only in this Workflow** — it informs the schedule the lead writes into the package and owns no artifact in S3. |
+| `role.knowledge_evidence_steward` | `CONTRIBUTING_ROLE` | `ALWAYS` | S1, S5 | Owns source verification and evidence integrity for the claims made in the application. |
+
+## Composed Workflow References
+
+**None.** The application package is a governed submission assembled against a rulebook, not a decision-grade document prepared for an internal approval, so `workflow.decision_grade_document_preparation` is not a clean fit: this Workflow's S5 verification cycle serves a submission gate rather than an approval gate, and its evidence discipline is bound to the call's own compliance matrix. No reference is forced.
 
 ## Activated Skills / Packs
 
@@ -103,6 +107,7 @@ S3 and S4 overlap substantially in practice; the card treats them as partially o
 - **Gate / Review References:** none at this stage.
 - **Exit Criteria:** every call requirement captured and traceable to its rulebook clause; eligibility conditions listed with a satisfied / not-satisfied / `UNKNOWN` status each.
 - **Possible Outcomes:** `COMPLETE`, `COMPLETE_WITH_OPEN_ITEMS`, `BLOCKED`, `CANCELLED`.
+- **Open-Item Materiality:** an eligibility condition whose status is `UNKNOWN` is `MATERIAL_TO_NEXT_STEP_OR_GATE` — the whole application depends on it. It cannot support a `COMPLETE_WITH_OPEN_ITEMS` exit; the outcome is `BLOCKED` or `ESCALATED`.
 
 ### Stage `S2` — Consortium composition
 - **Objective:** establish who is in the consortium and in what role, as a coordination position — not as a commitment.
@@ -114,28 +119,31 @@ S3 and S4 overlap substantially in practice; the card treats them as partially o
 - **Gate / Review References:** `HUMAN_GATE_REFERENCE` → `decision.partnership_composition`, `decision.partner_commitment`, `decision.consortium_decision_confirmation` — all become due; none is satisfied here.
 - **Exit Criteria:** composition proposal meets the call's stated composition requirements or its gap is explicit; every partner's status recorded as confirmed or not.
 - **Possible Outcomes:** `COMPLETE`, `COMPLETE_WITH_OPEN_ITEMS`, `BLOCKED`, `REWORK_REQUIRED`, `ESCALATED`.
+- **Open-Item Materiality:** an unconfirmed partner whose presence is required by the call's composition rules is `MATERIAL_TO_NEXT_STEP_OR_GATE` toward S3 and S6. An unconfirmed partner not required by those rules is `NON_MATERIAL_TO_NEXT_STEP` for S3 but remains carried.
 
 ### Stage `S3` — Work-package, results and budget structure
 - **Objective:** build the structural skeleton — intervention logic, work packages, results framework and budget — that the content will hang from.
 - **Entry Criteria:** S1 exited; S2 at least `COMPLETE_WITH_OPEN_ITEMS`.
-- **Participating Roles:** `role.eu_grants_programmes_specialist` (`LEAD_ROLE`), `role.grant_financial_compliance_budget_specialist` (`CONTRIBUTING_ROLE`), `role.consortium_partner_coordination_specialist` (`CONTRIBUTING_ROLE`), `role.monitoring_evaluation_learning_specialist` and `role.deliverables_reporting_specialist` and `role.learning_vet_design_specialist` (`CONSULTED_ROLE`, triggered).
+- **Participating Roles:** `role.eu_grants_programmes_specialist` (`LEAD_ROLE`), `role.grant_financial_compliance_budget_specialist` (`CONTRIBUTING_ROLE`), `role.consortium_partner_coordination_specialist` (`CONTRIBUTING_ROLE`), `role.monitoring_evaluation_learning_specialist` and `role.learning_vet_design_specialist` (`CONTRIBUTING_ROLE`, `Activation: CONDITIONAL` per the participation table), `role.deliverables_reporting_specialist` (`CONSULTED_ROLE`, `Activation: CONDITIONAL(reporting schedule designed into the proposal)`, advisory only).
 - **Activities:** intervention-logic and work-package design (Pack-internal to the programme Pack); results-framework and indicator design where triggered; budget structure assembly; cost-eligibility assessment against the programme rules; deliverable and reporting schedule design where triggered.
 - **Artifact Contributions:** work-package and intervention-logic content within `artifact.eu_application_package` (owned by `role.eu_grants_programmes_specialist`); `artifact.grant_budget_structure` and `artifact.cost_eligibility_assessment` (owned by `role.grant_financial_compliance_budget_specialist`); results-framework content (owned by `role.monitoring_evaluation_learning_specialist`); `artifact.curriculum_design` and `artifact.assessment_design` where triggered (owned by `role.learning_vet_design_specialist`).
 - **Knowledge-State Expectations:** `DRAFT`. Budget figures are `CALCULATION` on labelled `ASSUMPTION` inputs; an unconfirmed partner cost is not a `FACT`.
 - **Gate / Review References:** `REVIEW_REQUIRED_REFERENCE` → `review.eu_programme_compliance`, `review.mel_methodology` (where triggered), `review.learning_design_quality` (where triggered); `HUMAN_GATE_REFERENCE` → `decision.budget_approval`, `decision.results_framework_approval`.
 - **Exit Criteria:** every work package traced to an intervention-logic element and a budget line; cost eligibility assessed against the bound rulebook version; structural gaps named.
 - **Possible Outcomes:** `COMPLETE`, `COMPLETE_WITH_OPEN_ITEMS`, `BLOCKED`, `REWORK_REQUIRED`, `ESCALATED`.
+- **Open-Item Materiality:** a budget line whose cost eligibility is unassessed against the bound rulebook, or a work package with no intervention-logic basis, is `MATERIAL_TO_NEXT_STEP_OR_GATE`. Formatting and narrative-polish items are `NON_MATERIAL_TO_NEXT_STEP`.
 
 ### Stage `S4` — Content assembly and specialist contribution
 - **Objective:** produce the narrative content, with each specialist section owned by the Role that owns that subject.
 - **Entry Criteria:** S3 structure stable enough that content will not be invalidated by it.
-- **Participating Roles:** `role.eu_grants_programmes_specialist` (`LEAD_ROLE`); triggered `CONSULTED_ROLE` set — `role.sector_technical_expert`, `role.legal_regulatory_lead`, `role.data_protection_gdpr_specialist`, `role.procurement_state_aid_specialist`, `role.institutional_communications_editorial_specialist`, `role.learning_vet_design_specialist`.
+- **Participating Roles:** `role.eu_grants_programmes_specialist` (`LEAD_ROLE`); conditionally activated set — `role.legal_regulatory_lead`, `role.data_protection_gdpr_specialist`, `role.procurement_state_aid_specialist`, `role.institutional_communications_editorial_specialist` and `role.learning_vet_design_specialist` as `CONTRIBUTING_ROLE` (each owns an artifact when activated), and `role.sector_technical_expert` as `CONSULTED_ROLE` (advisory only, owns nothing here). Every activation condition is in the participation table.
 - **Activities:** narrative content production against the compliance matrix; specialist section contribution; dissemination and communication planning where triggered; DPIA-relevant analysis where personal data is processed; State Aid position where triggered.
 - **Artifact Contributions:** narrative content within `artifact.eu_application_package`; `artifact.legal_analysis`, `artifact.data_protection_impact_assessment`, `artifact.state_aid_assessment`, `artifact.dissemination_plan` — each owned by its specialist Role, contributed to the package by reference, not absorbed.
 - **Knowledge-State Expectations:** AI-drafted content enters as `AI_SUGGESTION` and remains so until a named Role adopts it as its own `DRAFT`. Volume of drafting does not change this.
 - **Gate / Review References:** `REVIEW_REQUIRED_REFERENCE` → `review.legal_compliance`, `review.data_protection`, `review.procurement_state_aid` (each where triggered); `HUMAN_GATE_REFERENCE` → `decision.lawful_basis_adoption`, `decision.state_aid_route_adoption` where those questions arise.
 - **Exit Criteria:** every compliance-matrix requirement has content addressing it or an explicit gap; every specialist section attributed to its owning Role; no `AI_SUGGESTION` content left unadopted in the package.
 - **Possible Outcomes:** `COMPLETE`, `COMPLETE_WITH_OPEN_ITEMS`, `BLOCKED`, `REWORK_REQUIRED`, `ESCALATED`.
+- **Open-Item Materiality:** an unaddressed compliance-matrix requirement, or `AI_SUGGESTION` content left unadopted by a named Role, is `MATERIAL_TO_NEXT_STEP_OR_GATE` toward S5 and S6.
 
 ### Stage `S5` — Compliance and quality cycle
 - **Objective:** test the assembled package against the call's own requirements, and verify the claims it makes.
@@ -147,6 +155,7 @@ S3 and S4 overlap substantially in practice; the card treats them as partially o
 - **Gate / Review References:** `REVIEW_REQUIRED_REFERENCE` → `review.eu_programme_compliance`, `review.factual_evidence`, `review.evidence_integrity_provenance`.
 - **Exit Criteria:** compliance matrix fully addressed; every factual claim verified or removed; budget internally consistent and eligibility-assessed; unresolved items listed.
 - **Possible Outcomes:** `COMPLETE`, `COMPLETE_WITH_OPEN_ITEMS`, `BLOCKED`, `REWORK_REQUIRED`, `ESCALATED`.
+- **Open-Item Materiality:** an unverified factual claim remaining in the package, or a missing `review.eu_programme_compliance` where the criticality band requires it, is `MATERIAL_TO_NEXT_STEP_OR_GATE` toward the submission gate. The review's absence is visible but not satisfied by visibility.
 
 ### Stage `S6` — Submission readiness
 - **Objective:** reach the position where a human can decide whether to submit — and can decide not to.
@@ -158,6 +167,7 @@ S3 and S4 overlap substantially in practice; the card treats them as partially o
 - **Gate / Review References:** `HUMAN_GATE_REFERENCE` → **`decision.granting_authority_submission`**. This is a `Transmitting Act` gate under `standard.workflow.common_constraints` §8 and is preserved on every path. Also `decision.consortium_decision_confirmation` where consortium sign-off precedes submission.
 - **Exit Criteria:** the submission decision is due, with the package and its residual risks in front of the decision-maker.
 - **Possible Outcomes:** `COMPLETE`, `COMPLETE_WITH_OPEN_ITEMS`, `BLOCKED`, `ESCALATED`, `CANCELLED`.
+- **Open-Item Materiality:** any item bearing on the evidence basis of `decision.granting_authority_submission` — an unmet eligibility condition, an unverified claim, an unconfirmed required partner, a superseded rulebook version — is `MATERIAL_TO_NEXT_STEP_OR_GATE` and cannot support a `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` exit. The outcome is `BLOCKED` or `ESCALATED` unless a **named external human Decision Right** explicitly permits reaching the gate with it unresolved, in which case the reference is recorded and the item stays open.
 
 ## Branches / Exception Paths
 
@@ -176,6 +186,14 @@ No exception path bypasses any gate or review reference on the normal path.
 `REWORK_LOOP` targets: S5 → S3/S4 on a compliance or verification failure; S4 → S3 where structure changed; S3 → S2 on composition change; any stage → S1 on a rulebook version change.
 
 Prior package versions, the compliance-matrix history, verification records, partner status history and the reason for rework are preserved across every loop.
+
+## Open-Item Materiality
+
+For this Workflow's terminal gate, `MATERIAL_TO_NEXT_STEP_OR_GATE` covers: any unmet or `UNKNOWN` eligibility condition; any unverified factual claim remaining in the package; any unconfirmed partner the call's composition rules require; any budget line with unassessed cost eligibility; any missing `review.<id>` the criticality band requires; and any doubt about the currency of the bound rulebook version.
+
+**A material item cannot support a `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` exit at the progression it is material to.** The outcome is `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED`.
+
+The only exception is a **named external human Decision Right** explicitly permitting progression with that item unresolved. The gate reference is recorded, the item **remains open**, and this Workflow neither decides the waiver nor asserts it was granted. Phase 7 owns that semantics. Deadline pressure is not such a right.
 
 ## Completion Criteria
 

@@ -154,11 +154,36 @@ These were considered and **not** created, with the reason:
 | `workflow.role_assignment` | A System Control Profile concern, not a professional coordination pattern. |
 | `workflow.erasmus_grant_application` and one per programme | Programme identity is a Pack activation inside `workflow.eu_grant_application_development`, not a separate Workflow. |
 
+## 10A. Independent audit status and the carding boundary
+
+The independent Phase 5 foundation audit classified all 49 candidates:
+
+| Classification | Count |
+|---|---:|
+| VALID WORKFLOW | 29 |
+| LIKELY WORKFLOW BUT NEEDS BOUNDARY REFINEMENT | 8 |
+| LIKELY ROLE OR SKILL IN DISGUISE PENDING MULTI-ROLE TEST | 10 |
+| LIKELY SINGLE-GATE PREPARATION PATTERN | 2 |
+| Runtime concerns among active candidates | 0 |
+
+**No candidate is deleted or merged on the strength of this classification.** The universe remains at 49, and the classification is recorded rather than acted on because acting on it would mean resolving boundaries the foundation has not yet tested — the same discipline Phase 4 applied to its own overlap groups.
+
+**Card-generation restriction.** The **20 candidates** in the second, third and fourth rows — those needing boundary refinement, those suspected of being a Role or Skill in disguise, and the two single-gate preparation patterns — **must not be carded** until each has passed all four of the following tests, recorded against the candidate:
+
+1. **Role-vs-Workflow test** (`standard.workflow.common_constraints` §15) — it does not accumulate methodology, produce an unowned conclusion, or need an approver or reviewer that is not an existing `decision.<id>` / `review.<id>`.
+2. **Multi-stage test** (§16) — it spans multiple activities and stages with real progression, branches and rework, rather than a single skill invocation or a two-step action.
+3. **Artifact-ownership test** — every artifact it advances is already owned by a participating approved Role, and it creates no ownership.
+4. **Composition test** (§14C) — it is not a segment of an existing Workflow that should instead be reached through `WORKFLOW_REFERENCE`.
+
+The two single-gate candidates face the sharpest version of test 2: a pattern that exists only to reach one gate is a gate reference, not a Workflow.
+
+This restriction is in addition to, not instead of, the standing rule that card generation for **all** uncarded candidates remains selective and assignment-driven. Four of 49 are carded; the other 45 are unvalidated one-sentence candidates, and the 20 above carry the further prohibition.
+
 ## 11. Overlap groups flagged for later audit
 
 Recorded now so a later audit does not have to rediscover them. **None is resolved in Phase 5** — resolving them requires the exemplar set to be wider than four.
 
-1. **`workflow.decision_grade_document_preparation` versus every document-producing Workflow.** The generic pattern is intended to be *composed into* the others rather than duplicated by them. The audit must confirm that composition is real, and that the generic pattern has not become a universal mega-workflow that swallows the specific ones.
+1. **`workflow.decision_grade_document_preparation` versus every document-producing Workflow.** The generic pattern is a **candidate reusable pattern available through `WORKFLOW_REFERENCE`** where a parent's full preconditions and outputs match it — not a pattern that is automatically composed into the others. No current exemplar references it, and the reason is recorded on both cards: the closest candidate parent satisfies the child's early stages in its own earlier stages, making the fit partial rather than clean. The audit must decide whether the child should be decomposed so its document-production segment can be referenced independently, and must confirm the generic pattern has not become a universal mega-workflow.
 2. **`workflow.business_case_development` / `workflow.strategic_option_appraisal` / `workflow.project_definition_and_scoping`.** Three patterns that all move from question to structured position. Likely distinct — different Roles own the conclusion in each — but the boundary needs testing.
 3. **`workflow.competitive_bid_preparation` / `workflow.eu_grant_application_development` / `workflow.commercial_proposal_development`.** All three assemble a governed submission under a deadline. Candidate for one pattern with a submission-type branch, or three genuinely different gate structures.
 4. **`workflow.software_change_delivery` / `workflow.data_platform_change_delivery`.** Overlapping stage shape with different owning Roles and a different terminal gate (`decision.production_release` versus `decision.production_database_migration`). May be one pattern with a branch.
@@ -169,4 +194,4 @@ Recorded now so a later audit does not have to rediscover them. **None is resolv
 
 ## 12. Status
 
-Every entry is `PROPOSED`. Four are carded as exemplars; the remaining 45 are one-sentence candidates and are explicitly **not** validated. Card generation for the rest is not authorised by this document and should follow the same selective, assignment-driven discipline Phase 4 adopted.
+Every entry is `PROPOSED`. Four are carded as exemplars; the remaining 45 are one-sentence candidates and are explicitly **not** validated, and 20 of those carry the additional card-generation prohibition in section 10A. Card generation for the rest is not authorised by this document and should follow the same selective, assignment-driven discipline Phase 4 adopted.
