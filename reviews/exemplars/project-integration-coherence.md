@@ -42,11 +42,36 @@ The integration artifact at a stated version; every specialist artifact it cites
 
 ## Reviewer Eligibility
 
-- `role.portfolio_programme_manager`, whose Role Card owns interdependency logic and aggregated visibility across constituent work;
-- a second `role.project_development_lead` instance from outside this assignment;
-- `role.knowledge_evidence_steward` for the citation-fidelity and traceability dimension specifically — bounded to that dimension.
+| `role.<id>` | Eligibility class | Scope basis in its Role Card | Dimension covered |
+|---|---|---|---|
+| `role.portfolio_programme_manager` | `FULL_PROFILE_REVIEWER_ELIGIBLE` | Owns interdependency logic and aggregated cross-workstream visibility — the whole of this Profile's satisfaction criteria | All |
+| A second `role.project_development_lead` instance from outside this assignment | `FULL_PROFILE_REVIEWER_ELIGIBLE` | Owns integration of technical, commercial, financial, legal and ESG workstreams into a project case | All |
+| `role.knowledge_evidence_steward` | `BOUNDED_REVIEW_CONTRIBUTOR` | Owns provenance and traceability, **not cross-workstream consistency** | Citation fidelity and traceability only |
 
-Every eligible reviewer holds a cross-domain integrating surface. **None acquires authority in any domain by reviewing across them.**
+Every eligible reviewer holds a cross-domain integrating surface. **None acquires authority in any domain by reviewing across them**, and the bounded contributor cannot satisfy the Profile on citation fidelity alone.
+
+## Reviewer Instance Segregation
+
+**`SEGREGATION_REQUIRED`.**
+
+This is the most conservative declaration in the exemplar set and it is deliberate. This Profile's entire value is that it is a *second* perspective across positions that have each already been checked within their own domain. An instance that also satisfied one of those domain Profiles would carry its reading of that domain into the consistency check — and the contradiction this review exists to find is most likely to sit exactly where that reading is wrong. Concentrating both checks in one instance would defeat the purpose rather than economise on it.
+
+## Review Dependencies
+
+Each prerequisite is a **concrete** `review.<id>`, activated only where the corresponding position is actually cited. There is no category row: a dependency on "the applicable domain review" would not be testable.
+
+| Prerequisite `review.<id>` | Required status | Activation condition | Bounded purpose |
+|---|---|---|---|
+| `review.engineering_technical` | `SATISFIED` | `artifact.feasibility_study` or `artifact.technical_basis_of_design` is cited **and** band is Enhanced Decision-Grade or above | The technical position is sound within its domain before consistency with other positions is assessed |
+| `review.cost_estimate` | `SATISFIED` | `artifact.cost_estimate` is cited **and** band is Enhanced Decision-Grade or above | As above, for the cost basis |
+| `review.financial_model` | `SATISFIED` | `artifact.financial_model` is cited **and** band is Enhanced Decision-Grade or above | As above, for the modelled position |
+| `review.legal_compliance` | `SATISFIED` | `artifact.legal_analysis` is cited **and** band is Enhanced Decision-Grade or above | As above, for the legal position |
+| `review.esg_safeguards` | `SATISFIED` | `artifact.es_impact_assessment` is cited **and** band is Enhanced Decision-Grade or above | As above, for the E&S position |
+| `review.risk_quantification` | `SATISFIED` | `artifact.risk_quantification_analysis` is cited **and** band is Enhanced Decision-Grade or above | As above, for the quantified risk position |
+
+Below Enhanced Decision-Grade the dependency does not activate: consistency checking has value on `DRAFT` positions and blocking it would remove the early warning it exists to give.
+
+Where a required prerequisite is unsatisfied or `STALE`, this review is **`REVIEW_BLOCKED`** — it has found no defect, it cannot yet run. **Satisfaction of every domain review does not satisfy this one**: positions can each be individually sound and mutually contradictory, which is the whole reason this Profile exists.
 
 ## Reviewer Prohibitions
 
@@ -87,15 +112,36 @@ Pairwise consistency comparison across cited positions on shared facts, assumpti
 
 ## Satisfaction Criteria
 
-`SATISFIED` when every claim traces faithfully, no unrecorded contradiction exists between cited positions, and every material assumption and open item is carried.
+`SATISFIED` when every claim traces faithfully, **every material contradiction between cited positions has been resolved by the Roles that own those positions**, and every material assumption and open item is carried.
 
-An unresolved `CRITICAL_FINDING` **can never be satisfied** — an assembly that resolves a specialist contradiction on its own authority is exactly the failure this review exists to catch. An unresolved `MAJOR_FINDING` blocks satisfaction, with **no conditional disposition permitted**: a missing material assumption is not confinable.
+### An unresolved material contradiction is an open finding
+
+This is the load-bearing rule of this Profile, and the one an earlier revision got wrong.
+
+A material contradiction between two cited positions is a `MAJOR_FINDING` or `CRITICAL_FINDING` and **remains an open review finding until the owning Roles resolve it**. While it remains unresolved the review status is `NOT_SATISFIED` or `REVIEW_PERFORMED_WITH_OPEN_FINDINGS`.
+
+**It cannot become `SATISFIED` because the contradiction is recorded, made visible, attributed to its owning Roles, escalated, or carried to a human gate.** Visibility is not resolution. Each of those acts is correct and necessary, and none of them satisfies this review.
+
+A named external human `decision.<id>` may permit **Workflow progression** with the contradiction unresolved. Where it does:
+
+- it does **not** close the finding;
+- it does **not** satisfy this review — the status remains `NOT_SATISFIED` or `REVIEW_PERFORMED_WITH_OPEN_FINDINGS`;
+- it does **not** convert the contradiction into a minor or non-material item;
+- the contradiction **remains open and is carried forward** into every subsequent stage and gate.
+
+An unresolved `CRITICAL_FINDING` **can never be satisfied** — an assembly that resolves a specialist contradiction on its own authority is exactly the failure this review exists to catch. An unresolved `MAJOR_FINDING` blocks satisfaction, with **no conditional disposition permitted**: neither a missing material assumption nor an unreconciled contradiction is confinable.
 
 **Satisfaction is not approval.** It does not make the integration artifact or any cited specialist position `REVIEWED`, `APPROVED` or `CANONICAL`, and it does not assert that the project is ready — only that the positions assembled do not contradict one another.
 
 ## Rework and Closure Requirements
 
-A contradiction routes to **both** owning Roles, not to the assembling Role — the lead may not adjudicate between them, and closure requires that the owning Roles either reconcile their positions or that the contradiction is carried explicitly as an open item to the decision-maker. Citation-fidelity findings route to the assembling Role. **Re-review is mandatory** after any `CRITICAL` closure.
+A contradiction routes to **both** owning Roles, never to the assembling Role.
+
+**Closure requires evidence that the owning domain Roles have actually reconciled or otherwise resolved the contradiction** against this Profile's criteria — a revised position from one or both, or a joint statement recording that the apparent conflict was a difference of scope rather than of substance. Carrying the contradiction to a decision-maker is **not** closure and never was: it is what the Workflow does with an open finding, not what disposes of one. Re-review is **mandatory** after any `CRITICAL` closure and after any `MAJOR` closure that changed a cited position.
+
+**The integration reviewer must not settle the underlying specialist disagreement itself.** It identifies the contradiction, attributes it to the two owning Roles, and stops. A reviewer that adjudicates between two domain positions has taken authority in both domains, which `CROSS_DOMAIN_REVIEW` explicitly denies it — and would reproduce, one level up, precisely the failure this Profile exists to catch in the assembling Role.
+
+Citation-fidelity findings route to the assembling Role and close on a corrected citation.
 
 ## Re-Review Triggers
 

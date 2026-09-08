@@ -39,12 +39,24 @@ The analysis at a stated version; the legal sources relied on with their currenc
 
 ## Reviewer Eligibility
 
-- A second `role.legal_regulatory_lead` instance that did not author this analysis;
-- `role.procurement_state_aid_specialist` for the procurement and State Aid perimeter specifically — bounded to that perimeter;
-- `role.data_protection_gdpr_specialist` for data-protection reasoning specifically — bounded to that reasoning;
-- `role.tax_specialist` for tax-adjacent reasoning specifically — bounded to that reasoning.
+| `role.<id>` | Eligibility class | Scope basis in its Role Card | Dimension covered |
+|---|---|---|---|
+| A second `role.legal_regulatory_lead` instance that did not author this analysis | `FULL_PROFILE_REVIEWER_ELIGIBLE` | Owns legal and regulatory analysis — the whole of this Profile's satisfaction criteria | All |
+| `role.procurement_state_aid_specialist` | `BOUNDED_REVIEW_CONTRIBUTOR` | Owns procurement and State Aid analysis only | The procurement / State Aid perimeter |
+| `role.data_protection_gdpr_specialist` | `BOUNDED_REVIEW_CONTRIBUTOR` | Owns data-protection analysis only | Data-protection reasoning |
+| `role.tax_specialist` | `BOUNDED_REVIEW_CONTRIBUTOR` | Owns tax analysis only | Tax-adjacent reasoning |
 
-The three specialist eligibilities are **scope-bounded**: each may satisfy this review only over the part of the analysis inside its own owned domain, never over the analysis as a whole.
+**Only the first row may satisfy this Profile.** The three specialist contributors check their own perimeter and nothing else, and their contributions **do not aggregate** into full-Profile satisfaction however many perimeters they cover between them.
+
+## Reviewer Instance Segregation
+
+**`ALLOWED_IF_INDEPENDENTLY_ELIGIBLE`.**
+
+The bounded contributors here each carry their own Profile — `review.procurement_state_aid`, `review.data_protection`, `review.tax_analysis` — and the same instance may satisfy one of those and contribute here, because the contribution is bounded to a perimeter and cannot substitute for this Profile's own conclusion. Eligibility and independence must still pass separately for each Profile, and the instance may not review its own output where that output is this review's subject.
+
+## Review Dependencies
+
+**None.** This Profile assesses the legal analysis on its own sources and reasoning. It consumes a factual basis from other Roles, but that basis is checked by `review.factual_evidence` and `review.evidence_integrity_provenance` on their own terms — making either a prerequisite would block a legal check that is perfectly performable on a stated, attributed factual basis.
 
 ## Reviewer Prohibitions
 

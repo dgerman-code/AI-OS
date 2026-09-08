@@ -34,6 +34,35 @@ Neither a Review Profile nor a Workflow makes a Role independent by saying it is
 
 Owning the same class of conclusion on another assignment is normal and is what makes a competent peer reviewer. Owning **this** conclusion, in **this** assignment instance, is disqualifying.
 
+## 7A. Full-Profile eligibility requires full Role scope
+
+Every Reviewer Eligibility entry declares one of two classes:
+
+- **`FULL_PROFILE_REVIEWER_ELIGIBLE`** — the Role's approved scope already covers **every** satisfaction criterion and professional conclusion the Profile requires;
+- **`BOUNDED_REVIEW_CONTRIBUTOR`** — the Role's approved scope covers one dimension; it contributes a bounded check and **cannot satisfy the whole Profile**.
+
+**Partial expertise does not aggregate into full Profile authority.** Two bounded contributors covering the Profile's dimensions between them do not produce a full-Profile satisfaction unless the Profile explicitly declares a multi-reviewer composition with individually governed bounded contributions.
+
+**Phase 6 never widens Role scope**, and Profile wording cannot make a Role eligible by declaration — eligibility is checked against the Role Card. Where no Role is fully eligible, the Profile remains `NOT_SATISFIED`; cross-role authority is never invented by aggregation.
+
+A Role listed in an eligibility table without a class is a defect.
+
+## 7B. Multi-Profile reviewer instances
+
+One reviewer instance may satisfy more than one Profile only where, **for each Profile, subject, artifact version and assignment**, all seven hold: eligibility passes separately; independence passes separately; satisfaction of one grants nothing to another; the reviewer does not review its own output from another Profile where that output is the second review's subject or evidence; **no Profile declares `SEGREGATION_REQUIRED`**; no declared dependency or conflict condition requires separate instances; and combining Profiles creates no cross-domain authority by accumulation.
+
+Every Profile declares `Reviewer Instance Segregation: ALLOWED_IF_INDEPENDENTLY_ELIGIBLE | SEGREGATION_REQUIRED`. **The default for decision-grade or high-criticality work spanning interdependent domains is `SEGREGATION_REQUIRED`**, unless the Profile states defensibly why same-instance review preserves the separation it depends on.
+
+This is architecture eligibility. It defines no staffing, assignment or allocation logic.
+
+## 7C. `REVIEW_DEPENDENCY`
+
+A Profile may declare a dependency on a **concrete prerequisite `review.<id>`**, with a required status (normally `SATISFIED`), an objective activation condition where conditional, and a bounded purpose.
+
+An unsatisfied, `STALE` or missing prerequisite makes the dependent review **`REVIEW_BLOCKED`**, not failed. **Satisfaction is not transitive**, and a dependency transfers no scope, eligibility, authority, findings, conclusion or satisfaction. Direct self-dependency and transitive cycles are prohibited as architecture validation rules. A dependency executes nothing and adds no runtime semantics, and the dependent Profile still evaluates its own evidence and criteria independently.
+
+`None` with a reason is valid; dependencies are not manufactured for symmetry.
+
 ## 8. Review scope must be bounded
 
 Every Profile states what it checks and what it explicitly does not. Universal mega-reviews are prohibited: no Profile may absorb technical, financial, legal, ESG, security and evidence-integrity review. The out-of-scope statement must name the neighbouring review that covers what this one does not.

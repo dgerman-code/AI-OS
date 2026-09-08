@@ -22,7 +22,7 @@ A **diverging** handoff: one implementation goes to two receivers who ask differ
 
 ## Sender Role(s)
 
-`SENDER_ROLE`, each conditionally activated on its layer being in scope:
+`SENDER_ROLE` — a **closed, enumerated set**, each conditionally activated on its layer being in scope. A Role not in this table cannot send on this Handoff; there is no open category.
 
 | Sender | Transfers | Retains |
 |---|---|---|

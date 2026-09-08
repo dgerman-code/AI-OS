@@ -41,15 +41,30 @@ The evidence integrity record; the gap and conflict report; the assumption regis
 
 ## Reviewer Eligibility
 
-- A second `role.knowledge_evidence_steward` instance that did not produce the evidence records under review — the natural peer;
-- `role.accounting_financial_due_diligence_specialist` where the evidence base is predominantly financial and its Role Card evidence-discipline scope applies;
-- `role.data_room_disclosure_manager` where the evidence base is a disclosure set and provenance is its owned surface.
+| `role.<id>` | Eligibility class | Scope basis in its Role Card | Dimension covered |
+|---|---|---|---|
+| A second `role.knowledge_evidence_steward` instance that did not produce the records under review | `FULL_PROFILE_REVIEWER_ELIGIBLE` | Owns provenance, evidence-lineage integrity and knowledge-state metadata — the whole of this Profile's satisfaction criteria | All |
+| `role.accounting_financial_due_diligence_specialist` | `BOUNDED_REVIEW_CONTRIBUTOR` | Owns reconciliation, statement analysis and evidence-gap discipline; **does not own the epistemic and provenance criteria of an arbitrary evidence base** | Reconciliation and financial-evidence consistency only |
+| `role.data_room_disclosure_manager` | `BOUNDED_REVIEW_CONTRIBUTOR` | Owns data-room index, disclosure tracking and package integrity; **does not own the evidential-quality criteria this Profile asserts** | Provenance, disclosure and package integrity of a disclosure set only |
 
-Eligibility is checked against the producing assignment: whoever built the record cannot review it.
+**Only the first row may satisfy this Profile.** The two bounded contributors may check their own dimension and nothing else, and their contributions **do not aggregate** into a full-Profile satisfaction. Where no full-Profile-eligible instance exists, the review is `NOT_SATISFIED` — an earlier revision of this card implied the two bounded Roles were interchangeable with the steward, which would have widened both Role scopes by declaration.
+
+Eligibility is checked against the Role Card and the producing assignment: whoever built the record cannot review it.
+
+## Reviewer Instance Segregation
+
+**`ALLOWED_IF_INDEPENDENTLY_ELIGIBLE`.**
+
+This Profile checks the evidence base *underneath* domain conclusions rather than any domain conclusion itself, so an instance satisfying it and a domain Profile is checking two genuinely separate things and no blind spot propagates between them. The reviewer must still pass eligibility and independence separately for each Profile, and must not review its own output from another Profile where that output is this review's subject or evidence.
+
+## Review Dependencies
+
+**None.** This Profile is a prerequisite for others rather than dependent on any: it checks the foundation, and a foundation check that waited on the conclusions built atop it would be inverted.
 
 ## Reviewer Prohibitions
 
 - The `role.knowledge_evidence_steward` instance that produced the evidence records in this assignment;
+- either `BOUNDED_REVIEW_CONTRIBUTOR` above, as a **satisfier of this Profile** — each is prohibited from full-Profile satisfaction, not from contributing;
 - any Role that authored a conclusion resting on this evidence base — it would be reviewing the foundation of its own claim;
 - the Workflow stage lead where that Role assembled the evidence base;
 - any reviewer whose only claim to independence is a different model or runtime.

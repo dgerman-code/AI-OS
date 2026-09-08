@@ -39,13 +39,33 @@ The model at a stated version; the assumptions register with basis, owner and so
 
 ## Reviewer Eligibility
 
-- A second `role.financial_modelling_specialist` instance that did not build this model — the primary peer;
-- `role.accounting_financial_due_diligence_specialist`, whose Role Card owns reconciliation and financial evidence discipline;
-- `role.funding_bankability_architect` for `CROSS_DOMAIN_REVIEW` of whether outputs support the bankability use they are put to — **this class cannot conclude on model integrity itself.**
+| `role.<id>` | Eligibility class | Scope basis in its Role Card | Dimension covered |
+|---|---|---|---|
+| A second `role.financial_modelling_specialist` instance that did not build this model | `FULL_PROFILE_REVIEWER_ELIGIBLE` | Owns financial modelling methodology — the whole of this Profile's satisfaction criteria | All |
+| `role.accounting_financial_due_diligence_specialist` | `BOUNDED_REVIEW_CONTRIBUTOR` | Owns reconciliation, normalised-earnings analysis and financial evidence discipline; **its Role Card does not cover financial-model integrity or modelling methodology** | Reconciliation, accounting tie-out, evidence consistency and due-diligence dimensions only |
+| `role.funding_bankability_architect` | `BOUNDED_REVIEW_CONTRIBUTOR` (`CROSS_DOMAIN_REVIEW`) | Owns bankability reasoning from model outputs, not model construction | Whether outputs support the bankability use they are put to — **cannot conclude on model integrity** |
+
+**Full Profile satisfaction rests solely with the first row**, whose approved scope includes financial modelling methodology. The two bounded contributors check their own dimension only, and their contributions do not aggregate into full-Profile satisfaction. An earlier revision listed the accounting Role without that bound, which would have given it model-integrity authority its Role Card does not grant.
+
+## Reviewer Instance Segregation
+
+**`SEGREGATION_REQUIRED` at Enhanced Decision-Grade and above**; `ALLOWED_IF_INDEPENDENTLY_ELIGIBLE` below it.
+
+The model's inputs are themselves separately reviewed — `review.cost_estimate` over the cost basis, `review.engineering_technical` over the technical basis — and those domains are interdependent with the model that consumes them. At decision-grade, one instance satisfying both the model Profile and an input Profile would let a single reading of an assumption pass twice as two independent checks. Below that band the concentration risk is proportionate and same-instance satisfaction is permitted where each Profile's eligibility and independence pass separately.
+
+## Review Dependencies
+
+| Prerequisite `review.<id>` | Required status | Activation condition | Bounded purpose |
+|---|---|---|---|
+| `review.cost_estimate` | `SATISFIED` | The model consumes `artifact.cost_estimate` **and** the band is Enhanced Decision-Grade or above | The model's cost inputs are sound before model integrity is assessed against them |
+| `review.evidence_integrity_provenance` | `SATISFIED` | Band is Enhanced Decision-Grade or above | The assumption register's sources are traceable before the register is reconciled to the model |
+
+An unsatisfied or `STALE` prerequisite makes this review `REVIEW_BLOCKED`, not failed — the model may be perfectly sound and simply not yet assessable. **Neither prerequisite contributes to this Profile's satisfaction**: this review still evaluates model integrity entirely on its own criteria, and a satisfied `review.cost_estimate` says nothing about whether the model is correctly built.
 
 ## Reviewer Prohibitions
 
 - The `role.financial_modelling_specialist` instance that built or extended the model in this assignment;
+- either `BOUNDED_REVIEW_CONTRIBUTOR` above, as a **satisfier of this Profile**;
 - any Role that supplied an input assumption under review, over that assumption — it would be reviewing its own input;
 - `role.project_development_lead` where it led the assignment and integrated the model into a readiness position;
 - any reviewer whose independence rests only on model or runtime difference.

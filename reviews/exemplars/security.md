@@ -39,9 +39,13 @@ The threat model at a stated version; the control design; the control implementa
 
 ## Reviewer Eligibility
 
-- A second `role.security_engineer` instance that neither designed nor implemented the controls in this assignment — the primary and usually only fully-qualified peer;
-- `role.solution_architect` for `CROSS_DOMAIN_REVIEW` of whether the controls are consistent with the adopted architecture — **this class cannot conclude on control adequacy**, which is the security domain's own;
-- `role.data_protection_gdpr_specialist` where the controls implement a data-protection obligation, bounded to that obligation.
+| `role.<id>` | Eligibility class | Scope basis in its Role Card | Dimension covered |
+|---|---|---|---|
+| A second `role.security_engineer` instance that neither designed nor implemented the controls in this assignment | `FULL_PROFILE_REVIEWER_ELIGIBLE` | Owns threat modelling, security control design and security control assessment — the whole of this Profile's satisfaction criteria. **The only fully-qualified reviewer.** | All |
+| `role.solution_architect` | `BOUNDED_REVIEW_CONTRIBUTOR` (`CROSS_DOMAIN_REVIEW`) | Owns architecture, not security conclusions | Consistency of controls with the adopted architecture — **cannot conclude on control adequacy** |
+| `role.data_protection_gdpr_specialist` | `BOUNDED_REVIEW_CONTRIBUTOR` | Owns data-protection obligations, not security control adequacy | Controls implementing a data-protection obligation only |
+
+**Only the first row may satisfy this Profile**, and the two bounded contributors do not aggregate into a substitute for it — an architecture consistency check plus a data-protection check is not a security review.
 
 The narrowness of this eligibility list is deliberate and is the finding worth carrying forward: for a single-security-engineer assignment there may be **no eligible reviewer**, in which case the review is `NOT_SATISFIED` and the Workflow blocks, reworks or escalates. **An unavailable reviewer does not lower the requirement.**
 
@@ -50,7 +54,22 @@ The narrowness of this eligibility list is deliberate and is the finding worth c
 - The `role.security_engineer` instance that designed or implemented the controls in this assignment — the central prohibition of this Profile;
 - `role.software_qa_test_automation_specialist` over control adequacy: it executes security testing **within a scope the Security Engineer defines**, which makes its testing an input to this review, never a substitute for it;
 - the implementing engineers (`role.full_stack_software_engineer`, `role.integration_api_engineer`, `role.database_data_engineer`, `role.platform_devops_engineer`) over controls in the code or environments they built;
+- either `BOUNDED_REVIEW_CONTRIBUTOR` above, as a **satisfier of this Profile**;
 - **any reviewer whose claim to independence is a different model or runtime** — this Profile states it explicitly because security is where the substitution is most tempting.
+
+## Reviewer Instance Segregation
+
+**`SEGREGATION_REQUIRED`.**
+
+Security assurance is the case where concentration most defeats the purpose. An instance satisfying this Profile and also `review.architecture`, `review.code` or `review.test_coverage` on the same change would carry one reading of the system into every check meant to catch what that reading missed. Combined with the already narrow eligibility list, this makes the Profile demanding — and that demand is the point: an unavailable second reviewer leaves the review `NOT_SATISFIED`, it does not lower the bar.
+
+## Review Dependencies
+
+| Prerequisite `review.<id>` | Required status | Activation condition | Bounded purpose |
+|---|---|---|---|
+| `review.architecture` | `SATISFIED` | The change alters the architecture position **and** the band is Enhanced Decision-Grade or above | The controls sit on an architecture position that has itself been checked, before control-to-architecture consistency is assessed |
+
+Where the prerequisite is unsatisfied or `STALE`, this review is **`REVIEW_BLOCKED`**. A satisfied `review.architecture` **contributes nothing** to this Profile's satisfaction: an architecturally sound system with no threat model is exactly what this review is for.
 
 ## Review Scope
 ### Checks

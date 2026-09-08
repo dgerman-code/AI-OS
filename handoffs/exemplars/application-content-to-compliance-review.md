@@ -22,9 +22,21 @@ The handoff that most needs the Handoff-vs-Review boundary stated out loud. Its 
 
 ## Sender Role(s)
 
-`SENDER_ROLE` — `role.eu_grants_programmes_specialist`, transferring the assembled package; and each conditionally activated specialist Role transferring its own section by attribution.
+`SENDER_ROLE` — a **closed, enumerated set**. This Handoff governs a known grant-application transfer, so every permitted sender is named with its objective activation trigger and its exact contribution. There is no open category and no "relevant specialist" clause: a Role not in this table cannot send on this Handoff, and content arriving from one makes the package incomplete.
 
-**Retains after transfer:** the grants specialist retains ownership of `artifact.eu_application_package`; each specialist retains ownership of its own contributed conclusion. Attribution is preserved through the transfer — a section does not become the package owner's work by being assembled into the package.
+| Sender `role.<id>` | Activation | Contribution to the package | Retains |
+|---|---|---|---|
+| `role.eu_grants_programmes_specialist` | `ALWAYS` | `artifact.eu_application_package`, the compliance matrix, the eligibility condition list, the bound rulebook reference | Ownership of the package and of call-fit and application logic |
+| `role.legal_regulatory_lead` | `CONDITIONAL(the call raises legal-framework, IP or contractual questions)` | `artifact.legal_analysis` as an attributed section | Ownership of the analysis |
+| `role.data_protection_gdpr_specialist` | `CONDITIONAL(the action processes personal data)` | `artifact.data_protection_impact_assessment` and the lawful-basis analysis as an attributed section | Ownership; the lawful basis remains unadopted |
+| `role.procurement_state_aid_specialist` | `CONDITIONAL(the action carries State Aid or public-procurement exposure)` | `artifact.state_aid_assessment` as an attributed section | Ownership of the assessment |
+| `role.institutional_communications_editorial_specialist` | `CONDITIONAL(the call requires dissemination or communication content)` | `artifact.dissemination_plan` as an attributed section | Ownership of the plan |
+| `role.learning_vet_design_specialist` | `CONDITIONAL(the call is a vocational-excellence or learning-design action)` | `artifact.curriculum_design` and `artifact.assessment_design` as attributed sections | Ownership of both |
+| `role.monitoring_evaluation_learning_specialist` | `CONDITIONAL(the call requires a results framework or indicator set)` | Results-framework and indicator content as an attributed section | Ownership of the MEL methodology |
+
+Every activation trigger above is the same objective condition the approved Phase 5 `workflow.eu_grant_application_development` participation table already declares. This Handoff **narrows** to that set; it introduces no new sender and widens nothing.
+
+**Retains after transfer:** as tabulated. Attribution is preserved through the transfer — a section does not become the package owner's work by being assembled into the package, and no ownership transfers on this handoff.
 
 ## Receiver Role(s)
 
@@ -48,7 +60,7 @@ The handoff that most needs the Handoff-vs-Review boundary stated out loud. Its 
 2. the compliance matrix with each rulebook requirement mapped to the content addressing it;
 3. the eligibility condition list with satisfied / not-satisfied / `UNKNOWN` per condition;
 4. `artifact.grant_budget_structure` and `artifact.cost_eligibility_assessment`;
-5. every specialist section with its owning `role.<id>` attributed;
+5. every specialist section with its owning `role.<id>` attributed, each traceable to a sender in the enumerated table above;
 6. the bound rulebook version with currency confirmed at assembly;
 7. partner confirmation status per participant;
 8. source records for every factual claim in the narrative;
@@ -87,7 +99,7 @@ It does **not** mean the package is compliant; does **not** satisfy `review.eu_p
 
 ## Return-for-Rework Conditions
 
-`RETURN_FOR_REWORK` where: the compliance matrix has unmapped requirements; a specialist section arrives unattributed; the rulebook version is unstated or its currency unconfirmed; `AI_SUGGESTION` content is present without item 9 declaring it; or a factual claim has no source record.
+`RETURN_FOR_REWORK` where: the compliance matrix has unmapped requirements; a specialist section arrives unattributed, or attributed to a Role outside the enumerated sender set; the rulebook version is unstated or its currency unconfirmed; `AI_SUGGESTION` content is present without item 9 declaring it; or a factual claim has no source record.
 
 The return record preserves what was returned, why, and against which package version — and a return under deadline is still a return.
 

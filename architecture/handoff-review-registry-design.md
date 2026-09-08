@@ -176,6 +176,73 @@ Phase 6 defines no human names, no staffing assignment and no model selection.
 
 ---
 
+### 3.3 Reviewer eligibility classes — full-Profile versus bounded
+
+Independence answers *may this Role review this work*. It does not answer *is this Role competent for the whole of what this Profile asserts*. Conflating the two lets a Role with genuine expertise in one dimension acquire authority over a Profile its Role Card does not cover — by aggregation, and without any Role Card ever changing.
+
+Two eligibility classes therefore sit alongside the independence classes:
+
+| Class | Meaning |
+|---|---|
+| `FULL_PROFILE_REVIEWER_ELIGIBLE` | The Role's **approved Role scope already covers every satisfaction criterion and professional conclusion the Profile requires.** It may satisfy the Profile alone. |
+| `BOUNDED_REVIEW_CONTRIBUTOR` | The Role's approved scope covers **one dimension** of the Profile. It may contribute a bounded `CROSS_DOMAIN_REVIEW`, an evidence or reconciliation check, or a domain-specific check — and **cannot satisfy the whole Profile.** |
+
+Normative rules:
+
+1. A Role may satisfy an entire Review Profile **only** if its approved Role scope already covers every satisfaction criterion and professional conclusion that Profile requires.
+2. **Partial expertise does not aggregate into full Profile authority.** Two `BOUNDED_REVIEW_CONTRIBUTOR` Roles between them covering the Profile's dimensions do not thereby produce a full-Profile satisfaction, unless the Profile explicitly declares a multi-reviewer composition whose bounded contributions are themselves individually governed.
+3. **Phase 6 never widens Role scope.** Where a Profile appears to need a Role to conclude outside its card, that is a Role Registry question raised there — never resolved by the Profile.
+4. **Profile wording cannot make a Role eligible by declaration.** Eligibility is checked against the Role Card; a card that says a Role is eligible without that scope is defective.
+5. Where **no** approved Role or assignment instance is fully eligible, the Profile remains `NOT_SATISFIED`. An unavailable full-Profile reviewer does not lower the requirement, and cross-role authority is never invented by aggregation.
+
+Every Reviewer Eligibility table states the class per Role. A Role listed without a class is a defect.
+
+### 3.4 Multi-Profile reviewer instances
+
+A single reviewer instance **may** satisfy more than one Review Profile — but only where all seven of the following are independently true **for each Profile, each subject, each artifact version and each assignment**:
+
+1. reviewer eligibility passes **separately** for each Profile, including the eligibility class in §3.3;
+2. independence passes **separately** for each Profile;
+3. satisfaction of one Profile grants **no** eligibility, authority, scope or satisfaction for another;
+4. the reviewer does not review its own output from another Profile where that output becomes the subject or the evidence of the second review;
+5. **no Profile involved declares `SEGREGATION_REQUIRED`**;
+6. no declared inter-Profile dependency or conflict-of-interest condition requires separate instances;
+7. combining Profiles does not create cross-domain professional authority by accumulation.
+
+Every Review Profile therefore declares:
+
+```
+Reviewer Instance Segregation: ALLOWED_IF_INDEPENDENTLY_ELIGIBLE | SEGREGATION_REQUIRED
+```
+
+**Default for decision-grade and high-criticality work covering interdependent domains is `SEGREGATION_REQUIRED`**, unless the Profile explicitly and defensibly states that same-instance review preserves the separation the Profile depends on. The reasoning is concentration: where two Profiles check different aspects of one interdependent subject, a single reviewer's blind spot propagates into both, and the second review stops being a second look.
+
+This is an **architecture eligibility rule**. It defines no staffing algorithm, no assignment logic and no human allocation.
+
+### 3.5 `REVIEW_DEPENDENCY` — declarative Profile dependency
+
+Some reviews are meaningless before another has run. `review.project_integration_coherence` cannot check consistency between positions that have not themselves been reviewed; `review.security` consumes security testing performed under a scope the Security Engineer defines.
+
+A Profile may therefore declare a `REVIEW_DEPENDENCY`, stating:
+
+- the **concrete prerequisite `review.<id>`** — never a category or a description;
+- the **required prerequisite status**, normally `SATISFIED`;
+- an **objective activation condition** where the dependency is conditional;
+- the **bounded purpose** of the dependency.
+
+Normative rules:
+
+1. An unsatisfied, `STALE` or missing required prerequisite makes the dependent review **`REVIEW_BLOCKED`** — not failed. The dependent review has not found a defect; it cannot yet run.
+2. **Satisfaction is not transitive.** A satisfied prerequisite does not satisfy the dependent Profile, contribute to its satisfaction, or reduce its criteria.
+3. A dependency transfers **nothing**: no scope, no reviewer eligibility, no authority, no findings, no professional conclusion, no satisfaction.
+4. **Direct self-dependency is prohibited.**
+5. **Transitive cycles are prohibited** as an architecture validation rule, detectable by reading the cards.
+6. Conditional dependencies use **objective, testable** triggers only.
+7. A dependency **does not execute** the prerequisite review. It creates no scheduling, no call stack and no runtime semantics of any kind.
+8. A dependent Profile still evaluates **its own** evidence and satisfaction criteria independently, and reaches its own conclusion.
+
+`None` with a stated reason is a valid and common declaration. Dependencies are not to be manufactured for symmetry.
+
 ## 4. Finding taxonomy
 
 ### 4.1 Finding classes

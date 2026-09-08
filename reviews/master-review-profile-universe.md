@@ -116,6 +116,19 @@ Each is an existing approved reference judged **too granular or duplicative** as
 | `review.ppp_structure` | Into `review.commercial_structure`, with a PPP trigger | PPP is a structure variant, not a distinct review purpose; the checks are risk allocation, payment mechanism and value-for-money coherence in both cases. |
 | `review.financial_evidence` | Into `review.factual_evidence`, with a financial-evidence trigger | Both verify that stated figures trace to verified sources. The domain is the trigger; the review method is the same. |
 
+### Constraints recorded by the independent Phase 6 audit
+
+The audit examined all four proposals and **did not accept any of them as safe to apply**. Its constraints are recorded here so a later governed pass starts from them rather than from the proposal alone. **None of the four is applied, and none may be applied without discharging the constraint against it.**
+
+| Proposal | Audit constraint |
+|---|---|
+| `grant_compliance` → `eu_programme_compliance` | **Not safe without proving all grant contexts are EU-programme contexts.** A grant under a national, foundation or bilateral donor rulebook is a grant-compliance subject and not an EU-programme one; merging would leave those contexts with no Profile. |
+| `ifi_appraisal_readiness` → `bankability` | **May lose IFI-specific safeguard, procurement and institutional-compliance scope.** IFI appraisal readiness covers institutional requirements that bankability — a lender-requirement assessment — does not reach. Treating the institution as a Pack trigger assumed the scope was identical; the audit found it is not. |
+| `ppp_structure` → `commercial_structure` | **May collapse public-interest, procurement, legal and value-for-money review into a commercial mega-review.** PPP structure review carries a public-interest dimension with no commercial analogue, and merging would breach the bounded-scope rule the standard imposes. |
+| `financial_evidence` → `factual_evidence` | **Plausible only if financial reconciliation requirements remain explicit.** The generic evidence Profile verifies traceability to a source; financial evidence additionally requires reconciliation and tie-out, which a trigger alone does not carry. |
+
+Three of the four are now materially weaker as proposals than when first recorded, and the fourth is conditional. They remain **proposals under constraint**, not a queue of pending merges.
+
 ## 11. Overlap groups — 6 existing IDs, unresolved
 
 Recorded now so a later audit does not rediscover them. **None is resolved in Phase 6.**

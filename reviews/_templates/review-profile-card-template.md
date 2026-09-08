@@ -43,7 +43,27 @@ One of `PRODUCER_REVIEW`, `PEER_REVIEW`, `CROSS_DOMAIN_REVIEW`, `INDEPENDENT_ASS
 
 ## Reviewer Eligibility
 
-Which approved `role.<id>` may satisfy this review, and the ownership or competence condition each must meet. Eligibility must be checkable against the producing assignment and Workflow participation.
+| `role.<id>` | Eligibility class | Scope basis in its Role Card | Dimension covered |
+|---|---|---|---|
+
+Eligibility class is `FULL_PROFILE_REVIEWER_ELIGIBLE` or `BOUNDED_REVIEW_CONTRIBUTOR`. A Role is full-Profile eligible **only** where its approved Role scope already covers every satisfaction criterion and professional conclusion this Profile requires; otherwise it is bounded, and the dimension it may cover is named. Partial expertise does not aggregate into full authority. A row without a class is a defect.
+
+Eligibility must be checkable against the Role Card, the producing assignment and the Workflow participation record.
+
+## Reviewer Instance Segregation
+
+`ALLOWED_IF_INDEPENDENTLY_ELIGIBLE` or `SEGREGATION_REQUIRED`, with the reason.
+
+Where this Profile covers a domain interdependent with another Profile's at decision-grade or high criticality, the default is `SEGREGATION_REQUIRED`; stating `ALLOWED_IF_INDEPENDENTLY_ELIGIBLE` there requires a defensible statement of why same-instance review preserves the separation this Profile depends on.
+
+## Review Dependencies
+
+`REVIEW_DEPENDENCY` entries, or **None** with a reason. Do not manufacture a dependency for symmetry.
+
+| Prerequisite `review.<id>` | Required status | Activation condition | Bounded purpose |
+|---|---|---|---|
+
+An unsatisfied, `STALE` or missing prerequisite makes this review `REVIEW_BLOCKED`, not failed. Satisfaction is not transitive and the dependency transfers nothing. Self-dependency and cycles are prohibited.
 
 ## Reviewer Prohibitions
 
