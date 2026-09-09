@@ -1,6 +1,8 @@
 # Phase 7 — Decision Rights Foundation Self-Check
 
-Status: PROPOSED — READY FOR INDEPENDENT PHASE 7 FOUNDATION AUDIT
+Status: PROPOSED — READY FOR FINAL INDEPENDENT PHASE 7 FOUNDATION RE-AUDIT
+
+**Updated after the independent Phase 7 audit returned FAIL (1 HIGH, 5 MEDIUM).** The remediation and its 60-check suite are recorded in `reviews/phase-7-foundation-audit-remediation.md`; this document is updated where the audit changed what it says, and the original 50-check results below stand as they were run.
 
 Branch: `architecture/phase-7-decision-rights`
 Baseline: Phase 6 human-approval commit `332750bf19e167d1ae0dd2f6350e9bf84731ddd4`
@@ -11,12 +13,12 @@ This is a **self**-check by the producing pass. Under Phase 6's own vocabulary i
 
 | File | Purpose |
 |---|---|
-| `architecture/decision-rights-registry-design.md` | Identity, 8 decision classes, effect model, holder eligibility, cardinality, delegation, revocation, evidence model, gate satisfaction, exceptional progression, risk/waiver, emergency, cancellation, knowledge-state boundary, dependencies, Human Approval Matrix |
-| `decisions/_standards/common-decision-right-constraints.md` | 25 enforceable rules |
-| `decisions/_templates/decision-right-card-template.md` | Mandatory Decision Right Card structure |
-| `decisions/_templates/decision-record-template.md` | Semantic Decision Record model, 18 provable elements |
-| `decisions/master-decision-right-universe.md` | 9 families, 35 candidates, all 95 upstream references classified |
-| `decisions/exemplars/` × 8 | Decision Right exemplars |
+| `architecture/decision-rights-registry-design.md` | Identity, 8 decision classes, effect model, holder eligibility, cardinality, delegation, revocation, evidence model, gate satisfaction, exceptional progression, risk/waiver, emergency, cancellation boundary, knowledge-state boundary, dependencies, **`DECISION_RIGHT_SEPARATION` (§15A)**, Human Approval Matrix |
+| `decisions/_standards/common-decision-right-constraints.md` | 26 enforceable rules, including cross-Right separation |
+| `decisions/_templates/decision-right-card-template.md` | Mandatory Decision Right Card structure, including the separation relationship table |
+| `decisions/_templates/decision-record-template.md` | Semantic Decision Record model, 19 provable elements |
+| `decisions/master-decision-right-universe.md` | 9 families, 35 candidates, all 95 upstream references classified into seven categories |
+| `decisions/exemplars/` × 8 | Decision Right exemplars, each declaring its `DECISION_RIGHT_SEPARATION` relationships |
 
 ---
 
@@ -35,7 +37,7 @@ This is a **self**-check by the producing pass. Under Phase 6's own vocabulary i
 | The five mandatory boundaries | 21–26 | **PASS** — review status untouched; items stay open; nothing erased; risk retained; law unwaivable; approval ≠ canonical |
 | Canonical and emergency | 27–29 | **PASS** — distinct authority required and no carded Right claims it; four objective emergency triggers, short expiry, retrospective duty |
 | Delegation and history | 30–36 | **PASS** — no widening, no cardinality bypass, re-delegation prohibited by default, history preserved, corrections supersede, cycles prohibited |
-| Universe accounting | 37–39 | **PASS** — 35 candidates, 0 duplicates, **95/95 upstream references classified** |
+| Universe accounting | 37–39 | **PASS as run** — 35 candidates, **95/95 upstream references classified**. The duplicate count this group recorded as 0 was **wrong**: the audit found `decision.canonical_knowledge_status_change` duplicating `decision.canonical_knowledge_promotion`, and it is now classified `DUPLICATE / OVERLAP` (1), leaving 34 boundary-refinement entries. Re-tested in the remediation suite. |
 | Exemplars and matrix | 40–41 | **PASS** — 8 cards; all 8 in the Human Approval Matrix |
 | Scope hygiene | 42–44 | **PASS** — no DB/API/UI/runtime/orchestrator/model/agent; no PR; 0 APPROVED/CANONICAL |
 | Boundary separations | 45–50 | **PASS** — conditional approvals carry conditions and expiry; email/meeting insufficient; release ≠ emergency; risk acceptance ≠ exception; publication ≠ canonical; submission ≠ compliance review |
@@ -65,8 +67,8 @@ No check was weakened.
 | # | Question | Disposition | Reasoning |
 |---:|---|---|---|
 | 1 | Can organisational authority eligibility be fully registry-defined, or is it partly organisation-specific? | **RUNTIME / ORGANISATION-PHASE CONCERN** | The registry defines eligibility **classes** and the authority basis each requires. Which real body or office holds a class is the organisation's governing arrangement, and inventing it here would bind organisations this registry does not know. The explicit rule: a class without a mapped holder in a given organisation means the Right is unexercisable there, not that a lesser class may act. |
-| 2 | May one human exercise multiple Decision Rights in the same chain? | **SAFE TO DEFER WITH EXPLICIT RULE** | Nothing prohibits it where each Right's eligibility is independently met — the Phase 6 multi-Profile rule is the model. The explicit rule now in force: **one person cannot count twice under two labels in the same decision instance**, which covers the dangerous case. Whether a *chain* of Rights needs its own separation rule needs more carded Rights than eight. |
-| 3 | Do some Decision Rights require mandatory separation of duties? | **MUST RESOLVE IN PHASE 7 FOUNDATION — and it is only partly resolved.** | Cardinality covers separation *within* one decision. It does **not** cover separation *across* related decisions — nothing currently prevents the same holder taking `decision.risk_acceptance` on a residual risk and then `decision.production_release` on the change carrying it, which is arguably the exact concentration Phase 6 forbids for reviewers. **Flagged as the primary gap for the independent audit.** |
+| 2 | May one human exercise multiple Decision Rights in the same chain? | **RESOLVED IN FOUNDATION** | Resolved by `DECISION_RIGHT_SEPARATION` (design §15A, constraints §25, card template, and declared relationships in all eight exemplars). One human may exercise multiple Rights in a chain **except** where a `SEPARATION_REQUIRED` relationship is active for the same governed subject — and then may not, regardless of holding both eligibility classes, delegating, or the second Right being multi-holder. The earlier disposition deferred this; the audit was right that the deferral left the hazard open. |
+| 3 | Do some Decision Rights require mandatory separation of duties? | **RESOLVED IN FOUNDATION** | Yes, and they now declare it. Relationship-level separation declarations exist in the design, the constraints, the card template and every exemplar, with `SEPARATION_REQUIRED` as the criticality default across risk acceptance, exceptional progression, emergency authority and the final commitment, release, submission and publication Rights. The specific hazard this self-check flagged — one holder accepting a residual risk and then releasing the change carrying it — is closed from both ends and is stated verbatim in design §15A. |
 | 4 | Do collective decisions need abstention and dissent semantics in the foundation? | **SAFE TO DEFER WITH EXPLICIT RULE** | Element 17 of the record model carries them where a body's constituting rules make them material. Whether the registry should *require* them is a governance-design question that belongs to the body's own constitution. |
 | 5 | Should approval expiry be globally standardised or right-specific? | **SAFE TO DEFER WITH EXPLICIT RULE** | Right-specific, and the eight exemplars show genuinely different clocks — a contract commitment is version-bound, an emergency change is hours. The rule: **every Right states its own expiry or re-decision trigger, and a missing one is a defect.** |
 | 6 | Should risk-acceptance authority use a shared risk-class ceiling model? | **RUNTIME / ORGANISATION-PHASE CONCERN** | The ceiling comes from the organisation's risk-appetite policy, which this universe classifies as executive policy **out of Phase 7 scope**. The registry consumes a ceiling; it does not set one. |
@@ -78,9 +80,9 @@ No check was weakened.
 ## 3. Additional findings surfaced during construction
 
 1. **Four of the eight requested exemplar IDs do not exist upstream.** Upstream IDs are preserved — `decision.stage_gate_progression`, `decision.granting_authority_submission`, `decision.contract_commitment` — and only `decision.exceptional_progression` is genuinely new. Renaming three approved artifacts to match a prompt would have been the silent normalization the universe section exists to prevent.
-2. **95 upstream references reduce to 33 candidate Rights.** The other 62 are classified: 34 need boundary refinement, 10 are review gates in disguise, 8 are Role responsibilities, 4 are Workflow logic, 2 are IAM, 3 are executive policy. **The registry as inherited was roughly three times larger than the authority model needs**, which is the single most useful finding of this pass.
+2. **95 upstream references reduce to 33 candidate Rights.** The other 62 are classified: 34 need boundary refinement, 10 are review gates in disguise, 8 are Role responsibilities, 4 are Workflow logic, 2 are IAM, 3 are executive policy, 1 duplicates another candidate. **The registry as inherited was roughly three times larger than the authority model needs**, which is the single most useful finding of this pass.
 3. **Every commitment Right requires an authority class no Role holds.** Signatory and executive authority appear nowhere in the Role Registry — correctly, and it means there is a hard edge between doing the work and binding the entity that no amount of Role competence crosses.
 
 ## 4. Standing statement
 
-Every Phase 7 artifact is `PROPOSED`. Nothing is APPROVED or CANONICAL. This record does not claim human approval and is not an independent audit. Eight of 35 candidate Decision Rights are carded; 27 remain unvalidated one-line candidates, and the 62 classified references must not be carded until their classification is acted on by a governed pass.
+Every Phase 7 artifact is `PROPOSED`. Nothing is APPROVED or CANONICAL. This record does not claim human approval and is not an independent audit. Eight of 35 candidate Decision Rights are carded; 27 remain unvalidated one-line candidates — one of them, `decision.cancellation_or_termination`, **not cardable at all until bounded** — and the 62 classified references must not be carded until their classification is acted on by a governed pass.

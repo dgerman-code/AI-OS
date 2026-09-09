@@ -53,6 +53,17 @@ Eligibility is authority-based, not competence-based. Role competence, Workflow 
 
 How holder or delegation revocation, decision supersession and — where permitted — decision reversal operate here. State explicitly that revocation does not erase historical decisions and that correction uses a new linked Record.
 
+## Decision Right Separation (`DECISION_RIGHT_SEPARATION`)
+
+Relationship-level separation of duties against **other** Decision Rights. One row per relationship; **None** with a reason where the Right has no separated counterpart.
+
+| Related `decision.<id>` | Objective activation condition | Mode | Bounded subject / context | Reason |
+|---|---|---|---|---|
+
+Mode is `SEPARATION_REQUIRED` or `SAME_HOLDER_PERMITTED`. The related Right must be a **concrete `decision.<id>`** in this registry — a category or description is not a relationship, and an activation condition that is not objectively testable is a defect.
+
+Where the mode is `SEPARATION_REQUIRED`, the same human instance must not exercise both Rights for the same governed subject or context in the same decision chain. Eligibility is evaluated per Right; **two eligibility classes, delegation and within-Right cardinality each fail to bypass this.** `SAME_HOLDER_PERMITTED` requires an explicit reason showing the independent-control purpose survives. This section declares no staffing, assignment or scheduling mechanism.
+
 ## Prerequisites
 
 What must be true before this decision may validly be made, including any prerequisite `decision.<id>` with its required prior outcome, and any `review.<id>` and required status.
@@ -63,7 +74,7 @@ Which Phase 5 Workflow gates, Phase 6 Handoff `DECISION_REFERENCE`s and Review P
 
 ## Required Evidence
 
-What the Decision Record must carry for this Right specifically, beyond the eighteen generic elements in `architecture/decision-rights-registry-design.md` §8.
+What the Decision Record must carry for this Right specifically, beyond the nineteen generic elements in `architecture/decision-rights-registry-design.md` §8.
 
 ## Open Item, Finding and Risk Handling
 

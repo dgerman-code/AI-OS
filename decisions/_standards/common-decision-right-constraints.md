@@ -102,8 +102,20 @@ A later system may record holders, timestamps and delegation instances. It may n
 
 A Decision Right is a **human** authority. No model, agent, orchestrator or automated process becomes a holder by being capable, by being trusted, or by being the thing that reached the gate.
 
+## 25. Cross-Right separation cannot be bypassed
+
+Where a Decision Right declares a `DECISION_RIGHT_SEPARATION` relationship as `SEPARATION_REQUIRED` and its objective activation condition holds, **the same human instance must not exercise both Rights for the same governed subject or context in the same decision chain.**
+
+Eligibility is evaluated independently for each Right, and being eligible for both is not permission to exercise both. **Holding two eligibility classes does not bypass separation. Delegation does not bypass separation** — a delegate is the delegator's side of the pair for this purpose. **Within-Right cardinality does not satisfy cross-Right separation**: a multi-holder release does not cure one of those holders having accepted the risk being released.
+
+Separation is relationship-level governance, declared card to card against a concrete `decision.<id>`. It is never inferred from a job title, a Role identity, a reporting line or seniority. `SAME_HOLDER_PERMITTED` applies only where a card declares it with an explicit defensible reason that preserves the independent-control purpose.
+
+**Scarcity does not relax authority.** Where no separately eligible second holder is available, the second Right is not validly exercisable in that context and the gate stays unsatisfied. A Decision Record must be able to evidence which separation relationships were active and that they were observed.
+
+This rule introduces no staffing algorithm, assignment engine or runtime scheduling of any kind.
+
 ---
 
-## 25. Status discipline
+## 26. Status discipline
 
 All Phase 7 artifacts are `PROPOSED`. No Decision Right Card may set its own status to `APPROVED` or `CANONICAL`.

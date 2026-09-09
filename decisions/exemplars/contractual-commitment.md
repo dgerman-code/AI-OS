@@ -14,7 +14,7 @@ Inherits: `standard.decision.common_constraints@0.1`
 - Inherits: `standard.decision.common_constraints@0.1`
 - Supersedes / Superseded By: none
 
-**Upstream ID preserved** — the prompt named this `decision.contractual_commitment`; upstream uses `decision.contract_commitment` across several Role Cards. The difference is orthographic and renaming would gain nothing.
+**Upstream ID preserved** — the prompt asked for a contractual-commitment exemplar in plain words; upstream uses `decision.contract_commitment` across several Role Cards. The difference is orthographic, renaming would gain nothing, and **no second identifier for this Right exists** — the requested wording is a description, not an alias.
 
 ## Decision Subject
 
@@ -59,6 +59,15 @@ Delegable only within `LEGAL_ENTITY_SIGNATORY_AUTHORITY`, under an instrument th
 
 Revoking signature authority ends future exercise and **does not unbind an executed contract**. A variation or novation is a **new commitment decision**; it supersedes the earlier commitment's operative terms without erasing the record of what was originally committed. Termination of a contract is a further separate decision under the contract's own terms.
 
+## Decision Right Separation (`DECISION_RIGHT_SEPARATION`)
+
+| Related `decision.<id>` | Objective activation condition | Mode | Bounded subject / context | Reason |
+|---|---|---|---|---|
+| `decision.risk_acceptance` | The obligation set binds the entity to a residual risk accepted under that Right | **`SEPARATION_REQUIRED`** | That document version and that risk | The card already refuses to let "we signed it" double as "we accepted the risk". This refuses to let one human do both, which is the same boundary at the holder level. |
+| `decision.exceptional_progression` | An exception was taken over an item material to this commitment — typically an unsatisfied `review.legal_compliance` | **`SEPARATION_REQUIRED`** | That document version and that item | The least reversible act in the registry does not accept a self-granted exception over the review that guards it. |
+
+Neither relationship is satisfied by dual signature: **`MULTI_HOLDER_ALL_REQUIRED` is within-Right cardinality and does not cure cross-Right concentration**, so the separated holder may not be either signatory. This card has no emergency mode, so an unavailable second holder delays the commitment; the answer to genuine urgency remains a delegation instrument set up in advance, and delegation does not bypass separation either.
+
 ## Prerequisites
 
 The document exists at a stated version; `review.legal_compliance` is `SATISFIED` over the analysis, or `decision.exceptional_progression` has been exercised over each named unsatisfied element; risk allocation is analysed; `decision.risk_acceptance` is taken where residual risk exceeds the acceptance ceiling; tax and State Aid positions are taken where triggered; and counterparty screening is complete where integrity exposure exists.
@@ -69,7 +78,7 @@ The document exists at a stated version; `review.legal_compliance` is `SATISFIED
 
 ## Required Evidence
 
-Beyond the generic eighteen: the document version committed; the counterparty and its screening status; the legal review status at decision time; the risk allocation position and any separate risk acceptance; the value and duration; and the authority instrument relied on.
+Beyond the generic nineteen: the document version committed; the counterparty and its screening status; the legal review status at decision time; the risk allocation position and any separate risk acceptance; the value and duration; and the authority instrument relied on.
 
 ## Open Item, Finding and Risk Handling
 

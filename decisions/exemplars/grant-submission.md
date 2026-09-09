@@ -14,7 +14,7 @@ Inherits: `standard.decision.common_constraints@0.1`
 - Inherits: `standard.decision.common_constraints@0.1`
 - Supersedes / Superseded By: none
 
-**Upstream ID preserved.** The prompt named this exemplar `decision.grant_submission`; upstream uses `decision.granting_authority_submission`, at `workflow.eu_grant_application_development` S6 and in three Role Cards. The longer name is also the more accurate one — it names the recipient, which is what makes the act a transmitting one.
+**Upstream ID preserved.** The prompt asked for a grant-submission exemplar in plain words; the identifier in force upstream is `decision.granting_authority_submission`, at `workflow.eu_grant_application_development` S6 and in three Role Cards. The longer name is also the more accurate one — it names the recipient, which is what makes the act a transmitting one. **No alias identifier exists for this Right**, and the requested wording is a description rather than a registry reference.
 
 ## Decision Subject
 
@@ -58,6 +58,15 @@ Delegable only within `LEGAL_ENTITY_SIGNATORY_AUTHORITY`, for a named call, for 
 
 Revocation ends future exercise. **It cannot recall a submitted package** — the external act stands. A later submission of a revised package supersedes the earlier one *as the operative submission* only where the authority's own rules permit resubmission; the original remains in the record either way. Withdrawal, where the authority permits it, is a separate external act requiring its own exercise of this Right.
 
+## Decision Right Separation (`DECISION_RIGHT_SEPARATION`)
+
+| Related `decision.<id>` | Objective activation condition | Mode | Bounded subject / context | Reason |
+|---|---|---|---|---|
+| `decision.risk_acceptance` | The package relies on, or is exposed to, a residual risk accepted under that Right | **`SEPARATION_REQUIRED`** | That package version and that risk | A submission cannot be unsubmitted; the acceptance it rests on must be an independent judgement. |
+| `decision.exceptional_progression` | An exception was taken over an item material to this package — an unsatisfied `review.eu_programme_compliance`, an unverified claim, an open eligibility condition | **`SEPARATION_REQUIRED`** | That package version and that item | Otherwise the holder excepts the compliance blocker and then submits past it, which is exactly the deadline-driven collapse this Right's prerequisites are written against. |
+
+Where the cardinality is `MULTI_HOLDER_ALL_REQUIRED`, **that does not satisfy these relationships**: the separated holder may not be one of the required signatories either. A missing separately eligible holder means the submission is not validly authorisable, and a call deadline does not change that — the Phase 5 card already holds that a missed deadline is an acceptable outcome where the alternative is an ungated submission.
+
 ## Prerequisites
 
 The package exists at a stated version; the rulebook version relied on is **current at decision time**; `review.eu_programme_compliance` is `SATISFIED`, or `decision.exceptional_progression` has been exercised over each named unsatisfied element; every eligibility condition has an evidenced status; required partners are confirmed under `decision.partner_commitment`; and `decision.consortium_decision_confirmation` is taken where the consortium's arrangement requires it.
@@ -68,7 +77,7 @@ The package exists at a stated version; the rulebook version relied on is **curr
 
 ## Required Evidence
 
-Beyond the generic eighteen: the package version submitted; the rulebook version and its currency confirmation date; the compliance matrix status; the eligibility condition status list; partner confirmation status; every unverified claim remaining in the package; and the review status at decision time.
+Beyond the generic nineteen: the package version submitted; the rulebook version and its currency confirmation date; the compliance matrix status; the eligibility condition status list; partner confirmation status; every unverified claim remaining in the package; and the review status at decision time.
 
 ## Open Item, Finding and Risk Handling
 

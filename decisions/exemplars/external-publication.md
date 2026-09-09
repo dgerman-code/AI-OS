@@ -55,6 +55,15 @@ Conditions here are **pre-release** only. A condition that would have to be sati
 
 Revocation ends future exercise; it retracts nothing already published. A later publication decision may supersede an earlier one **as the current position**; the earlier publication remains a historical fact and its record stands. Retraction is a **new decision**, not an undoing of the old one.
 
+## Decision Right Separation (`DECISION_RIGHT_SEPARATION`)
+
+| Related `decision.<id>` | Objective activation condition | Mode | Bounded subject / context | Reason |
+|---|---|---|---|---|
+| `decision.risk_acceptance` | The content carries a claim exposed to a residual risk accepted under that Right | **`SEPARATION_REQUIRED`** | That content version and that risk | Retraction removes availability, not the fact of having published. The acceptance must be someone else's judgement before it becomes the entity's public position. |
+| `decision.exceptional_progression` | An exception was taken over an item material to this content — an unsatisfied `review.factual_evidence` or `review.commercial_claims`, or an unsubstantiated material claim | **`SEPARATION_REQUIRED`** | That content version and that item | An unverified claim excepted by the person who then publishes it has had no control applied to it at all; it has only been published more widely. |
+
+Publication has no emergency path and no expedited holder, so scarcity of a separately eligible holder delays publication rather than relaxing the requirement.
+
 ## Prerequisites
 
 Content exists at a stated version; every material claim is substantiated; `review.factual_evidence` is `SATISFIED` where the content makes factual assertions, and `review.commercial_claims` where it makes commercial ones; publication-requirements validation is complete — **which is explicitly not independent review**; and third-party information carries `decision.disclosure_authorisation` separately.
@@ -65,7 +74,7 @@ Content exists at a stated version; every material claim is substantiated; `revi
 
 ## Required Evidence
 
-Beyond the generic eighteen: the content version published; substantiation for each material claim; the review statuses at decision time; the audience and channel; and any third-party information with its separate disclosure authorisation.
+Beyond the generic nineteen: the content version published; substantiation for each material claim; the review statuses at decision time; the audience and channel; and any third-party information with its separate disclosure authorisation.
 
 ## Open Item, Finding and Risk Handling
 

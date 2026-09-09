@@ -189,7 +189,7 @@ Rules:
 
 ## 8. Decision evidence model
 
-A Decision Record must later be able to prove eighteen things. This is a **semantic record model**, not a database schema: it says what must be provable, not how it is stored.
+A Decision Record must later be able to prove nineteen things. This is a **semantic record model**, not a database schema: it says what must be provable, not how it is stored.
 
 | # | Element |
 |---:|---|
@@ -211,6 +211,9 @@ A Decision Record must later be able to prove eighteen things. This is a **seman
 | 16 | Supersedes / superseded-by linkage |
 | 17 | Dissent or abstention, where collective authority uses it |
 | 18 | Emergency basis and retrospective obligations, where relevant |
+| 19 | Applicable `DECISION_RIGHT_SEPARATION` relationships and compliance with them |
+
+Element 19 is what makes cross-Right separation provable rather than merely declared: where a `SEPARATION_REQUIRED` relationship was active, the record shows which one and that this decision's holder was not the separated decision's holder.
 
 Element 11 is the one that makes exceptional progression auditable: a record that shows a gate satisfied while its prerequisite review stood `NOT_SATISFIED` is not a defect in the record — it is the record doing its job.
 
@@ -297,6 +300,22 @@ Cancellation authority is a Decision Right question, not a Workflow ownership qu
 
 A Right states whether it may: cancel before commitment; terminate after commitment; pause or suspend; reject and return to rework; abandon with open items retained; or reverse a prior progression decision. These are different powers and a Right holds only those it declares.
 
+### There is no universal cancellation authority in this registry
+
+**Cancellation and termination are not one authority and this architecture does not define one.** The placeholder candidate `decision.cancellation_or_termination` names an architectural need Phase 5 left open; it is **NOT CARDABLE UNTIL BOUNDED**, confers no authority on anyone, and must not be referenced as though it were an exercisable Right.
+
+They are almost certainly two bounded authority patterns, because they differ in every dimension that decides eligibility:
+
+| | Pre-commitment cancellation | Post-commitment termination |
+|---|---|---|
+| What it stops | An internal governed path — a Workflow, a stage, a preparation effort | An obligation already given to a third party |
+| Whose interests are engaged | The entity's own | Counterparty, funder, regulator, employee or lender interests |
+| Consequence class | Sunk effort and open items retained | Legal, contractual, regulatory, financial and reputational exposure |
+| Likely eligibility | Sponsor or executive authority over the path | Signatory or governance-body authority, on the instrument's own terms |
+| Evidence | State at cancellation, open items, reason | The above, plus the instrument, its termination provisions and the liabilities crystallised |
+
+A Right that spanned both would be a universal kill-switch: bounded by nothing, eligible to whoever holds the weaker of the two bases, and able to end an external obligation on the evidence standard of an internal one. **A future governed pass may split it** — plausibly into a governed-path cancellation Right and an external-commitment termination Right — but no final ID is created here, and none is created by implication.
+
 Cancellation preserves: the reason; the state at cancellation; open findings and risks; artifacts and evidence; prior decisions; and external commitments already made. **No destructive history erasure**, and in particular cancelling a path does not undo commitments already given to third parties.
 
 ---
@@ -324,6 +343,55 @@ Rules: satisfaction is **not transitive**; **authority does not transfer**; dire
 
 ---
 
+## 15A. Cross-Right separation of duties — `DECISION_RIGHT_SEPARATION`
+
+Cardinality (§5) governs separation **inside one decision**. It says nothing about the same human taking two *different* decisions along the same chain, which is where concentration of authority actually occurs: the person who accepts a residual risk and then authorises the release that carries it has satisfied every within-Right rule in this document and defeated the control anyway.
+
+`DECISION_RIGHT_SEPARATION` closes that. It is a **relationship-level declaration**, made by a Decision Right Card about a concrete other Right — not a property inferred from a job title, a Role identity or an organisation chart.
+
+### Declaration shape
+
+Each relationship row declares five things:
+
+| Element | Content |
+|---|---|
+| Related Right | A **concrete `decision.<id>`** that exists in this registry. A category, family or description is not a relationship. |
+| Activation condition | An **objective, testable** condition — same change set, same governed subject, same unresolved item, same decision chain. Not "where appropriate". |
+| Separation mode | `SEPARATION_REQUIRED` or `SAME_HOLDER_PERMITTED` |
+| Bounded subject / context | The subject and context the relation applies to. A relationship that applies to everything is not bounded. |
+| Reason | Why separation is required, or why sharing a holder preserves the control purpose. |
+
+### Normative rules
+
+1. Where a relationship is `SEPARATION_REQUIRED` and its activation condition holds, **the same human instance must not exercise both Decision Rights for the same governed subject or context within the same decision chain.**
+2. **Eligibility is evaluated independently for each Right.** Being eligible for both is the ordinary case; it is not permission to exercise both.
+3. **Holding two eligibility classes does not bypass separation.** The two-labels rule of §5 applies across Rights as well as within one.
+4. **Delegation does not bypass separation.** A delegate of the first Right is, for this purpose, the first holder; delegating in order to hold both ends of a separated pair is the bypass the rule exists to prevent.
+5. **Within-Right cardinality does not satisfy cross-Right separation.** A `MULTI_HOLDER_ALL_REQUIRED` release does not cure the fact that one of those holders accepted the risk being released.
+6. Separation is **relationship-level governance**. It is never inferred from a job title, a Role identity, a reporting line or seniority, and never asserted by an organisation chart.
+7. `SAME_HOLDER_PERMITTED` is available **only where the card declares it explicitly with a defensible reason** and where sharing the holder does not undermine the independent-control purpose. Silence is not permission and not prohibition: an **undeclared** relationship creates no separation obligation, and its absence is not evidence that separation was considered and rejected.
+8. This model introduces **no staffing algorithm, no assignment engine, no rota and no runtime scheduling semantics.** It states when two decisions may not share a human; it does not say who the humans are or how they are found.
+9. **If no separately eligible second holder is available, the second Decision Right is not validly exercisable in that context.** The gate is unsatisfied. Authority is not relaxed, the requirement is not waived by scarcity, and unavailability is not an emergency.
+10. A Decision Record must be able to **evidence compliance with every applicable separation relationship** — which relationships were active, and that the holder of this decision was not the holder of the separated one.
+
+### Criticality default
+
+For **decision-grade and high-criticality external-commitment chains**, `SEPARATION_REQUIRED` is the default between:
+
+- `decision.risk_acceptance` and a final release, submission, publication or contractual-commitment Right, where both concern the same unresolved risk or subject;
+- `decision.exceptional_progression` and the downstream final commitment, release, submission or publication Right, where the exceptional progression concerns an unresolved item material to that final act;
+- emergency exception authority and the ordinary ratification or release authority that normalises it, where independence of the retrospective control would otherwise be defeated.
+
+A card may override the default to `SAME_HOLDER_PERMITTED` **only** with an explicit defensible reason, and only where the control purpose survives the sharing. Criticality changes the depth of the control, never the identity of the Rights.
+
+### The hazard this closes, stated exactly
+
+> The same human must not both accept the residual risk under `decision.risk_acceptance` and authorise `decision.production_release` for the same change carrying that risk, where the separation relationship is active.
+
+Both cards declare that relationship, from both ends.
+
+---
+
 ## 16. Relationship to the other registries
 
 | Registry | Direction | What Phase 7 may do |
@@ -341,21 +409,24 @@ Architecture guidance for the eight carded Rights. **This is not runtime assignm
 
 | Decision Right | Class | Subject | Holder eligibility | Cardinality | Delegation | Primary upstream trigger | Required review state | External commitment? | Exceptional progression? | Accepts risk? | Knowledge-state effect |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| `decision.exceptional_progression` | `EXCEPTION_DECISION` | One named unresolved item at one progression point | Sponsor; Governance body; Functional (single-domain only) | Single, or all-required across domains | **`NON_DELEGABLE`** | Phase 5 §14A material items; Phase 6 satisfaction rules | Records the review's status; **never changes it** | **No** | **Yes — this is the Right** | **No** | **None** |
-| `decision.stage_gate_progression` | `PROGRESSION_DECISION` | One named stage gate | Sponsor; Governance body | Single → body at Enhanced Decision-Grade | With constraints; no re-delegation | `workflow.project_development_readiness` S7 | All band reviews `SATISFIED`, or exception taken separately | No | No | No | **None** |
-| `decision.granting_authority_submission` | `COMMITMENT_DECISION` | One package to one authority | Signatory; Executive; Sponsor jointly only | Single → all-required on exposure | With constraints; no re-delegation | `workflow.eu_grant_application_development` S6 | `review.eu_programme_compliance` `SATISFIED` | **Yes** | No | No | **None** |
-| `decision.external_publication` | `COMMITMENT_DECISION` | One content item to an external audience | Signatory; Executive; Communications functional (approved positions only) | Single → all-required for new positions or claims | Within eligibility; no re-delegation | `workflow.decision_grade_document_preparation` S5 | `review.factual_evidence` / `review.commercial_claims` `SATISFIED` | **Yes** | No | No | **None — publication is not canonical promotion** |
-| `decision.contract_commitment` | `COMMITMENT_DECISION` | One obligation set with one counterparty | **Signatory only**; Governance body above threshold | Single → dual → body by value | With constraints; no re-delegation | `workflow.contract_review_cycle`, `workflow.transaction_execution_preparation` | `review.legal_compliance` `SATISFIED` | **Yes** | No | **No** — separate `decision.risk_acceptance` | **None** |
-| `decision.risk_acceptance` | `RISK_ACCEPTANCE_DECISION` | One characterised residual risk | Executive; Governance body above ceiling; Functional in-domain | Single → body above ceiling | With constraints; no re-delegation | `workflow.project_development_readiness` S5; risk cycle | Informed by `review.risk_quantification` | No | **No — permits no progression** | **Yes — this is the Right** | **None** |
-| `decision.production_release` | `COMMITMENT_DECISION` | One change set into production | Release functional; Executive; Governance body for accreditation | Single → all-required at Enhanced Decision-Grade | Within eligibility, change-class bound | `workflow.software_change_delivery` S6 | `review.security`, `review.test_coverage` `SATISFIED` | **Yes** | No | No | **None** |
-| `decision.emergency_production_change` | `EMERGENCY_DECISION` | One time-critical change for one declared incident | **Pre-designated** emergency functional; Executive on regulatory exposure | **Single** — scrutiny sits in the retrospective step | **`NON_DELEGABLE`** | `workflow.software_change_delivery` emergency path | Reviews **bypassed remain `NOT_SATISFIED` and open** | **Yes** | Contains its own exception | No — separate | **None** |
+| `decision.exceptional_progression` | `EXCEPTION_DECISION` | One named unresolved item at one progression point | Sponsor; Governance body; Functional (single-domain only) | `SINGLE_HOLDER` single-domain items only; **`MULTI_HOLDER_ALL_REQUIRED`** where the item spans domains **or the progression point is a terminal gate** | **`NON_DELEGABLE`** | Phase 5 §14A material items; Phase 6 satisfaction rules | Records the review's status; **never changes it** | **No** | **Yes — this is the Right** | **No** | **None** |
+| `decision.stage_gate_progression` | `PROGRESSION_DECISION` | One named stage gate | Sponsor; Governance body | `SINGLE_HOLDER` at Routine and Enhanced Review Candidate; **`GOVERNANCE_BODY_DECISION`** at Enhanced Decision-Grade and above | With constraints; no re-delegation | `workflow.project_development_readiness` S7 | All band reviews `SATISFIED`, or exception taken separately | No | No | No | **None** |
+| `decision.granting_authority_submission` | `COMMITMENT_DECISION` | One package to one authority | Signatory; Executive; Sponsor jointly only | `SINGLE_HOLDER` where signatory authority alone suffices; **`MULTI_HOLDER_ALL_REQUIRED`** on co-financing exposure, consortium coordination or a value threshold | With constraints; no re-delegation | `workflow.eu_grant_application_development` S6 | `review.eu_programme_compliance` `SATISFIED` | **Yes** | No | No | **None** |
+| `decision.external_publication` | `COMMITMENT_DECISION` | One content item to an external audience | Signatory; Executive; Communications functional (approved positions only) | `SINGLE_HOLDER` for routine content within an approved position; **`MULTI_HOLDER_ALL_REQUIRED`** for a new institutional position, a commercial claim **or third-party disclosure** | Within eligibility; no re-delegation | `workflow.decision_grade_document_preparation` S5 | `review.factual_evidence` / `review.commercial_claims` `SATISFIED` | **Yes** | No | No | **None — publication is not canonical promotion** |
+| `decision.contract_commitment` | `COMMITMENT_DECISION` | One obligation set with one counterparty | **Signatory only**; Governance body above threshold | `SINGLE_HOLDER` at permitted individual-signature value; **`MULTI_HOLDER_ALL_REQUIRED`** where dual signature is required; **`GOVERNANCE_BODY_DECISION`** above the body threshold | With constraints; no re-delegation | `workflow.contract_review_cycle`, `workflow.transaction_execution_preparation` | `review.legal_compliance` `SATISFIED` | **Yes** | No | **No** — separate `decision.risk_acceptance` | **None** |
+| `decision.risk_acceptance` | `RISK_ACCEPTANCE_DECISION` | One characterised residual risk | Executive; Governance body above ceiling; Functional in-domain | `SINGLE_HOLDER` within an executive or functional ceiling; **`GOVERNANCE_BODY_DECISION`** above it | With constraints; no re-delegation | `workflow.project_development_readiness` S5; risk cycle | Informed by `review.risk_quantification` | No | **No — permits no progression** | **Yes — this is the Right** | **None** |
+| `decision.production_release` | `COMMITMENT_DECISION` | One change set into production | Release functional; Executive; Governance body for accreditation | `SINGLE_HOLDER` at Routine and Enhanced Review Candidate; **`MULTI_HOLDER_ALL_REQUIRED`** at Enhanced Decision-Grade; **`GOVERNANCE_BODY_DECISION`** where accreditation applies | Within eligibility, change-class bound | `workflow.software_change_delivery` S6 | `review.security`, `review.test_coverage` `SATISFIED` | **Yes** | No | No | **None** |
+| `decision.emergency_production_change` | `EMERGENCY_DECISION` | One time-critical change for one declared incident | **Pre-designated** emergency functional; Executive on regulatory exposure | **`SINGLE_HOLDER`** — scrutiny sits in the retrospective step | **`NON_DELEGABLE`** | `workflow.software_change_delivery` emergency path | Reviews **bypassed remain `NOT_SATISFIED` and open** | **Yes** | Contains its own exception | No — separate | **None** |
+
+Each row's cardinality restates the corresponding card's rule in the card's own vocabulary; where the two ever diverge, **the card governs and the matrix is defective.**
 
 ### Authority gaps this matrix makes visible
 
 1. **No Right in the eight changes a knowledge state.** `CANONICAL` promotion is a candidate in the universe and is deliberately uncarded pending open question 7.
 2. **Two Rights are `NON_DELEGABLE`** — exceptional progression and emergency change — and both are the Rights an organisation under pressure will most want to delegate. That is why they are not delegable.
 3. **No Right accepts risk except the risk-acceptance Right**, and it permits no progression. Every other card states the separation explicitly, because in practice the two acts are taken in one breath.
-4. **Every commitment Right requires an authority class no Role holds.** Signatory and executive authority appear nowhere in the Role Registry, which is correct — and it means the matrix has a hard edge at the boundary between doing the work and binding the entity.
+4. **Separation is now declared, not assumed.** Every commitment and release Right in the eight carries at least one `SEPARATION_REQUIRED` relationship, and the concentration the matrix would otherwise permit — one holder accepting a risk and then releasing against it — is closed from both ends.
+5. **Every commitment Right requires an authority class no Role holds.** Signatory and executive authority appear nowhere in the Role Registry, which is correct — and it means the matrix has a hard edge at the boundary between doing the work and binding the entity.
 
 ## 18. Non-runtime statement
 

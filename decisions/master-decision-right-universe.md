@@ -14,11 +14,13 @@ A bounded candidate universe of Decision Rights, built from evidence rather than
 
 - **9 families**
 - **35 candidate Decision Rights** — 33 preserving an upstream ID, 2 filling an architecture gap with no upstream equivalent
-- **62 upstream references classified into the other six categories**
+- **62 upstream references classified into the other seven categories**
 - **8 carded exemplars** (marked ✎)
-- **95 upstream references, 100%% accounted for**
+- **95 upstream references, 100% accounted for**
 
-The two new Rights are `decision.exceptional_progression` and `decision.cancellation_or_termination`. Both are architecture gaps Phase 5 and Phase 6 pointed at without naming: Phase 5 and Phase 6 both wrote *"a named external human `decision.<id>` may permit progression"* with no such ID existing anywhere, and Phase 5 defined cancellation criteria while explicitly leaving cancellation **authority** undefined.
+The two architecture-gap entries are `decision.exceptional_progression` and `decision.cancellation_or_termination`. Both are gaps Phase 5 and Phase 6 pointed at without naming: both wrote *"a named external human `decision.<id>` may permit progression"* with no such ID existing anywhere, and Phase 5 defined cancellation criteria while explicitly leaving cancellation **authority** undefined.
+
+They are not in the same condition. `decision.exceptional_progression` is bounded and carded. **`decision.cancellation_or_termination` is a placeholder marked `NOT CARDABLE UNTIL BOUNDED`**: it names a real architectural need, confers no authority, and is not an exercisable Right — see §9.
 
 ---
 
@@ -100,7 +102,18 @@ The two new Rights are `decision.exceptional_progression` and `decision.cancella
 
 | ID | Decision subject |
 |---|---|
-| `decision.cancellation_or_termination` NEW | Cancel a governed path before commitment, or terminate it after. |
+| `decision.cancellation_or_termination` NEW — **NOT CARDABLE UNTIL BOUNDED** | Placeholder for the cancellation/termination authority Phase 5 left undefined. **Confers no authority, is not an exercisable Right, and must not be referenced as one.** |
+
+**This candidate is not a valid bounded Right and is not ready for carding.** As written it spans pre-commitment cancellation of an internal governed path and post-commitment termination of an obligation already given to a third party — a universal kill-switch bounded by nothing, eligible to whoever holds the weaker of the two authority bases.
+
+| | Pre-commitment cancellation | Post-commitment termination |
+|---|---|---|
+| What it stops | An internal governed path — a Workflow, a stage, a preparation effort | An obligation already owed to a counterparty, funder, regulator or lender |
+| Consequence class | Sunk effort; open items retained | Legal, contractual, regulatory, financial and reputational exposure |
+| Likely eligibility | Sponsor or executive authority over the path | Signatory or governance-body authority, on the instrument's own terms |
+| Evidence | State at cancellation, open items, reason | The above, plus the instrument, its termination provisions and the liabilities crystallised |
+
+Holder eligibility and evidence differ materially, which is what makes this two authority patterns rather than one. **A future governed pass may split it** — plausibly into a governed-path cancellation Right and an external-commitment termination Right — and this document deliberately creates **no final ID for either**, because inventing one now would be exactly the silent normalization §12 exists to prevent. The upstream architectural need is preserved by recording it here; nothing is carded, and `architecture/decision-rights-registry-design.md` §13 states the same boundary.
 
 ---
 
@@ -108,7 +121,7 @@ The two new Rights are `decision.exceptional_progression` and `decision.cancella
 
 Per the required taxonomy. **No reference is renamed, merged or removed by this classification** — each remains valid and in force in the Role Card or architecture that carries it. A classification is a finding about what the reference *is*, recorded for a later governed pass to act on.
 
-### LIKELY DECISION RIGHT — NEEDS BOUNDARY REFINEMENT — 35
+### LIKELY DECISION RIGHT — NEEDS BOUNDARY REFINEMENT — 34
 
 Real authority, insufficiently bounded to card. Most are overlaps whose boundary has not been drawn, or selections whose status as authority rather than professional recommendation is unsettled.
 
@@ -148,7 +161,14 @@ Real authority, insufficiently bounded to card. Most are overlaps whose boundary
 | `decision.breach_notification` | Regulatory act under a deadline; may be an obligation rather than a discretionary Right. |
 | `decision.regulatory_reporting` | Same question — obligation versus authority. |
 | `decision.workflow_scope_approval` | Scope approval sits between Workflow logic and a genuine approval authority. |
-| `decision.canonical_knowledge_status_change` | Held pending open question 7: whether canonical governance belongs to Phase 7 or Phase 8. Carding it now would presuppose the answer. |
+
+### DUPLICATE / OVERLAP — 1
+
+One upstream reference duplicates the substance of a candidate already in this universe. **Neither identifier is merged, renamed or removed** — both remain accounted for, and consolidation is deferred to the phase that owns the subject.
+
+| Upstream `decision.<id>` | Duplicates | Finding |
+|---|---|---|
+| `decision.canonical_knowledge_status_change` | `decision.canonical_knowledge_promotion` | Both are canonical-governance concepts over the same subject — the governed status of a knowledge artifact — differing only in whether the transition is framed as promotion or as status change. Distinguishing them requires the canonical state model itself, which **Phase 8 owns**. Carding or merging either now would presuppose the answer to open question 7, so both identifiers stay recorded, both stay uncarded, and **consolidation or normalization is deferred to Phase 8 canonical governance.** |
 
 ### REVIEW / QUALITY GATE IN DISGUISE — 10
 
@@ -220,25 +240,41 @@ Standing policy-setting rather than a bounded case decision. `risk_appetite_sett
 |---|---:|
 | Standalone candidate Decision Right (upstream ID preserved) | 33 |
 | Standalone candidate filling an architecture gap (no upstream ID) | 2 |
-| Classified into the six non-candidate categories | 62 |
+| **Total candidate Decision Rights** | **35** |
+| Classified into the seven non-candidate categories | 62 |
 | **Total upstream `decision.<id>` references** | **95** |
+
+The 62 classified references, by category:
+
+| Category | Count |
+|---|---:|
+| LIKELY DECISION RIGHT — NEEDS BOUNDARY REFINEMENT | 34 |
+| REVIEW / QUALITY GATE IN DISGUISE | 10 |
+| ROLE RESPONSIBILITY IN DISGUISE | 8 |
+| WORKFLOW PROGRESSION LOGIC IN DISGUISE | 4 |
+| RUNTIME PERMISSION / IAM IN DISGUISE | 2 |
+| EXECUTIVE POLICY — OUT OF PHASE 7 SCOPE | 3 |
+| DUPLICATE / OVERLAP | 1 |
+| **Total** | **62** |
+
+Of the 35 candidates, **34 are bounded enough to be carded by a governed pass** and one — `decision.cancellation_or_termination` — is **not cardable until bounded**. Carding readiness and candidacy are different things, and the count reflects that.
 
 Every one of the 45 `decision.<id>` references load-bearing in the approved Phase 5 and Phase 6 cards resolves either to a standalone candidate here or to a classified reference whose gate remains valid. **No Phase 5 or Phase 6 card requires amendment and none was amended.**
 
 ## 12. Naming normalizations proposed, not applied
 
-The Phase 7 prompt named four exemplars whose IDs do not exist upstream. Upstream IDs are **preserved** and the divergence is recorded rather than resolved by silent renaming:
+The Phase 7 prompt described four exemplars using wording that is not a registry identifier. Upstream IDs are **preserved**, and the divergence is recorded rather than resolved by silent renaming. **None of the requested wordings is an alias**: no second `decision.<id>` exists for any of these Rights, and the plain-language column below is description, not reference.
 
-| Prompt name | Upstream ID preserved | Disposition |
+| Requested in plain words | Actual registry ID | Disposition |
 |---|---|---|
-| `decision.project_readiness_progression` | **`decision.stage_gate_progression`** | The upstream ID is used in `workflow.project_development_readiness` S7 and in the Portfolio Role Card. Renaming would break two approved artifacts to gain nothing. |
-| `decision.grant_submission` | **`decision.granting_authority_submission`** | Used in `workflow.eu_grant_application_development` S6 and three Role Cards. The longer name is also the more accurate one — it names the recipient, which is what makes the act a transmitting one. |
-| `decision.contractual_commitment` | **`decision.contract_commitment`** | Used across several Role Cards. Purely orthographic difference. |
-| `decision.exceptional_progression` | **created as new** | No upstream equivalent exists. This is a genuine architecture gap, not a rename. |
+| project readiness progression | **`decision.stage_gate_progression`** | The upstream ID is used in `workflow.project_development_readiness` S7 and in the Portfolio Role Card. Renaming would break two approved artifacts to gain nothing. |
+| grant submission | **`decision.granting_authority_submission`** | Used in `workflow.eu_grant_application_development` S6 and three Role Cards. The longer name is also the more accurate one — it names the recipient, which is what makes the act a transmitting one. |
+| contractual commitment | **`decision.contract_commitment`** | Used across several Role Cards. Purely orthographic difference. |
+| exceptional progression | **`decision.exceptional_progression`** — created as new | No upstream equivalent exists. This is a genuine architecture gap, not a rename. |
 
 ## 13. Carding discipline
 
-**8 of 35 are carded** as exemplars. The other 27 are one-line candidates and are explicitly **not** validated. The 62 classified references must not be carded at all until their classification is acted on by a governed pass.
+**8 of 35 are carded** as exemplars. The other 27 are one-line candidates and are explicitly **not** validated — and one of those 27, `decision.cancellation_or_termination`, is **not cardable at all until it is bounded and probably split**. The 62 classified references must not be carded until their classification is acted on by a governed pass, and the two canonical-governance identifiers are held for Phase 8 in either direction.
 
 Card generation for the remaining candidates follows the same selective, assignment-driven discipline Phases 4, 5 and 6 adopted. Mass generation is not authorised by this document.
 

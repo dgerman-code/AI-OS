@@ -79,6 +79,15 @@ Emergency authority is already an exception. Delegating it would produce an exce
 
 Revocation ends future exercise and reverses nothing already done. The emergency change is superseded when the permanent fix is released under `decision.production_release`; the emergency record stands. **Retrospective review does not amend this decision** — it produces its own record assessing it.
 
+## Decision Right Separation (`DECISION_RIGHT_SEPARATION`)
+
+| Related `decision.<id>` | Objective activation condition | Mode | Bounded subject / context | Reason |
+|---|---|---|---|---|
+| `decision.production_release` | The ordinary release normalises, replaces or ratifies this emergency change for the same incident | **`SEPARATION_REQUIRED`** | That incident and that change | This Right is deliberately `SINGLE_HOLDER` because a second decider during an active incident produces delay or theatre. The compensating control is entirely retrospective — and it is worth nothing if the emergency holder also authorises the release that closes the loop. |
+| `decision.security_risk_acceptance` | Residual risk arising from this emergency change is accepted in the retrospective step | **`SEPARATION_REQUIRED`** | That change and that residual risk | Same reason. The person who decided under pressure does not also decide, afterwards, that what they left behind is acceptable. |
+
+These two rows are where this card's `SINGLE_HOLDER` cardinality is paid for. Neither is relaxed by the incident: **urgency is not authority and it is not an exemption from separation either.** Where no separately eligible holder exists for the downstream act, that act waits — the emergency change stays live under its short expiry, which escalates rather than lapsing quietly.
+
 ## Prerequisites
 
 Reduced but not absent: the incident is **declared**; the trigger conditions are stated; the change is confined to the incident; the rollback position is stated or its absence explicitly recorded; and the eligible authority was designated before the incident.
@@ -89,7 +98,7 @@ Reduced but not absent: the incident is **declared**; the trigger conditions are
 
 ## Required Evidence
 
-Beyond the generic eighteen, all mandatory at exercise time: the incident identifier and declaration; each of the four trigger conditions and how it was met; **every prerequisite bypassed, enumerated** — an unenumerated bypass is unauthorised; the change scope and its confinement to the incident; the rollback position; the time limit claimed; and the retrospective obligation with its due point.
+Beyond the generic nineteen, all mandatory at exercise time: the incident identifier and declaration; each of the four trigger conditions and how it was met; **every prerequisite bypassed, enumerated** — an unenumerated bypass is unauthorised; the change scope and its confinement to the incident; the rollback position; the time limit claimed; and the retrospective obligation with its due point.
 
 ## Open Item, Finding and Risk Handling
 

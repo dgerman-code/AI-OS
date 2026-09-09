@@ -14,7 +14,7 @@ Inherits: `standard.decision.common_constraints@0.1`
 - Inherits: `standard.decision.common_constraints@0.1`
 - Supersedes / Superseded By: none
 
-**Upstream ID preserved.** The Phase 7 prompt named this exemplar `decision.project_readiness_progression`; the ID actually in force upstream is `decision.stage_gate_progression`, used at `workflow.project_development_readiness` S7 and in `role.portfolio_programme_manager`. The upstream ID is kept and the divergence recorded in the universe rather than resolved by silently renaming two approved artifacts.
+**Upstream ID preserved.** The Phase 7 prompt asked for a project-readiness progression exemplar under a name that is not a registry identifier; the ID actually in force upstream is `decision.stage_gate_progression`, used at `workflow.project_development_readiness` S7 and in `role.portfolio_programme_manager`. The upstream ID is kept and the divergence recorded in the universe rather than resolved by silently renaming two approved artifacts. **The requested wording is a description, not an alias**, and no second identifier for this Right exists.
 
 ## Decision Subject
 
@@ -55,7 +55,16 @@ Delegable from sponsor authority to another holder of sponsor authority, for a n
 
 ## Revocation and Supersession
 
-Revocation ends future exercise and reverses no gate already passed. A later decision at the same gate — after rework — supersedes the earlier one, and both remain visible. **Reversal of a passed gate is not within this Right**; withdrawing a project already past a gate requires `decision.cancellation_or_termination`.
+Revocation ends future exercise and reverses no gate already passed. A later decision at the same gate — after rework — supersedes the earlier one, and both remain visible. **Reversal of a passed gate is not within this Right.** Withdrawing a project already past a gate requires a cancellation or termination authority, and **no such Right is bounded in this registry yet** — the placeholder candidate is explicitly not cardable and confers nothing, so today that withdrawal has no valid authority to be exercised under. The gap is recorded rather than papered over with a reference that would not resolve to an exercisable Right.
+
+## Decision Right Separation (`DECISION_RIGHT_SEPARATION`)
+
+| Related `decision.<id>` | Objective activation condition | Mode | Bounded subject / context | Reason |
+|---|---|---|---|---|
+| `decision.exceptional_progression` | An exception was taken over an unresolved item material to **this** named stage gate | **`SEPARATION_REQUIRED`** | That gate and that item | This card already refuses to absorb exceptions into a single gate approval, so that the number of exceptions taken is visible as a count of decisions. If one holder takes both decisions, the count is visible and the independence is not. |
+| `decision.risk_acceptance` | A risk accepted under that Right is material to the readiness position this gate is decided on | **`SEPARATION_REQUIRED`** | That gate and that risk | A gate passed with known risk is a gate passed with known risk. Whoever decided the entity carries it should not also be the one who decides it is no obstacle. |
+
+`GOVERNANCE_BODY_DECISION` at Enhanced Decision-Grade does **not** satisfy these: a body whose deciding membership includes the holder of the separated decision has not separated anything. Where the arrangement provides no separately eligible holder, the gate is unsatisfied rather than relaxed.
 
 ## Prerequisites
 
@@ -67,7 +76,7 @@ Revocation ends future exercise and reverses no gate already passed. A later dec
 
 ## Required Evidence
 
-Beyond the generic eighteen: the readiness assessment version; every cited specialist artifact and its version; the status of each required review; the open-item register with classification; the gate criteria the position is assessed against; and what the position explicitly does not establish.
+Beyond the generic nineteen: the readiness assessment version; every cited specialist artifact and its version; the status of each required review; the open-item register with classification; the gate criteria the position is assessed against; and what the position explicitly does not establish.
 
 ## Open Item, Finding and Risk Handling
 

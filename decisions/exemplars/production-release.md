@@ -27,11 +27,30 @@ The change becomes live. Reversibility depends on the change: a code deployment 
 | Outcome | Workflow progression | Handoff eligibility | External action | Review status | Knowledge state | Conditions / open items | Expiry |
 |---|---|---|---|---|---|---|---|
 | `APPROVE` | S6 exits; release proceeds | n/a — terminal | **Change live in production** | Unchanged | None | Open defects retained with their deferral status | Version-bound |
-| `APPROVE_WITH_CONDITIONS` | Release proceeds on stated conditions | n/a | Live once conditions met | Unchanged | None | Conditions open and owned; **monitoring conditions may be post-release** | **Mandatory** |
+| `APPROVE_WITH_CONDITIONS` | Release proceeds **only once every pre-release condition is met** | n/a | Live once every **pre-release condition** is met; **post-release obligations do not gate going live** | Unchanged | None | Pre-release conditions **must be closed before the gate is satisfied**; post-release obligations remain open, owned and carried | **Mandatory** |
 | `REJECT` | Blocked | n/a | None | Unchanged | None | Retained | n/a |
 | `DEFER` | Not permitted; gate unsatisfied | n/a | None | Unchanged | None | Retained | n/a |
 
-This is the one Right where a **post-release condition** is legitimate — a monitoring window, a staged rollout percentage — because the condition governs the live change rather than qualifying the decision. Such conditions carry an owner and a review point.
+### Pre-release conditions and post-release obligations are different things
+
+`APPROVE_WITH_CONDITIONS` may carry both classes, and **it may carry them only if the decision names each one as one or the other.** An unclassified condition is a defect in the decision, not a matter of interpretation.
+
+| | **Pre-release condition** | **Post-release obligation** |
+|---|---|---|
+| What it is | Something that must be true **for the release to be authorised** — a re-run test, a fix to a blocking defect, a sign-off the readiness position depends on | Something owed **about a change that is already live** — a monitoring window, a staged rollout step-up, a follow-up measurement |
+| Effect on the gate | **The gate is not satisfied and the change does not go live until it is met.** | None. The gate was satisfied without it. |
+| Where it may be open | Only before deployment | Only after deployment |
+| If it fails | The release is not authorised; the decision is re-taken | The declared re-decision, escalation or rollback path is triggered |
+
+Rules this card holds itself to:
+
+1. **Any pre-release condition material to release authorisation is met before the gate is satisfied and before the change is live.** There is no state in which the change is live and a material pre-release condition is still open.
+2. A post-release obligation may remain open after release **only** where it does not invalidate release readiness; is explicitly classified as post-release in the decision; is carried into the Decision Record; and has a named owner and an expiry or revisit trigger.
+3. **Failure of a post-release obligation triggers the declared re-decision, escalation or rollback path.** It does not retroactively invalidate the release, and the original decision is not treated as never having existed — the record stands and a new one supersedes it.
+4. **"Conditions are met" is not used here to mean anything other than pre-release conditions.** Where the phrase would be ambiguous, this card names the class.
+5. **`APPROVE_WITH_CONDITIONS` cannot be used to move a material pre-release blocker past the gate.** Doing that is exceptional progression, and it requires `decision.exceptional_progression` — a separate Right, held by someone else under the separation relationship below.
+
+This is the one Right where a post-release obligation is legitimate at all, because a live change is a thing that can still be watched. That legitimacy does not extend backwards into the authorisation.
 
 ## Holder Eligibility
 
@@ -57,6 +76,18 @@ None of `role.product_manager_business_analyst`, `role.solution_architect`, `rol
 
 Revocation ends future exercise. **It does not un-release a live change**; withdrawing one is a new release decision on the reverting change, or an emergency decision where the situation warrants. A later release supersedes an earlier one as the live version; both records stand.
 
+## Decision Right Separation (`DECISION_RIGHT_SEPARATION`)
+
+| Related `decision.<id>` | Objective activation condition | Mode | Bounded subject / context | Reason |
+|---|---|---|---|---|
+| `decision.risk_acceptance` | This release carries a residual risk accepted under that Right, on the same change set | **`SEPARATION_REQUIRED`** | This change set and that risk | The declared counterpart of the risk-acceptance card's first row. The person who decided the entity can live with the exposure is not the person who decides to create it. |
+| `decision.security_risk_acceptance` | This release carries an accepted residual **security** risk on the same change set | **`SEPARATION_REQUIRED`** | This change set and that security risk | Same control, at the point it is most often collapsed: release authority and security acceptance land in the same escalation path under deadline pressure. |
+| `decision.exceptional_progression` | An exception was taken over an unresolved item material to **this** release — an unsatisfied `review.security` or `review.test_coverage`, or an open `MAJOR_FINDING` | **`SEPARATION_REQUIRED`** | This change set and that named item | Otherwise one holder excepts the blocker and then releases past it, which is a single unchecked act wearing two records. |
+| `decision.emergency_production_change` | This release normalises, replaces or ratifies a change made earlier under emergency authority for the same incident | **`SEPARATION_REQUIRED`** | That incident and its emergency change | The emergency Right's only compensating control is retrospective scrutiny. If the emergency holder also authorises the normalising release, that scrutiny is self-assessment. |
+| `decision.defect_deferral` | A defect deferred under that Right is at or above this band's severity in this change set | **`SEPARATION_REQUIRED`** | This change set and that defect | Same pattern as risk acceptance: deciding a defect can wait and deciding to ship with it are separate judgements. |
+
+**Within-Right cardinality does not satisfy any of these.** A `MULTI_HOLDER_ALL_REQUIRED` release at Enhanced Decision-Grade is still defective if one of its required holders accepted the risk being released. Where no separately eligible release holder exists, the release is not validly authorisable and the gate stays unsatisfied — an unavailable second holder is not an emergency and does not reach `decision.emergency_production_change`.
+
 ## Prerequisites
 
 Every acceptance criterion is tested; `review.security` and `review.test_coverage` are `SATISFIED` for the criticality band, or `decision.exceptional_progression` has been exercised over each named unsatisfied one; open defects at or above the band's severity carry `decision.defect_deferral`; residual security risk carries `decision.security_risk_acceptance`; the rollback position is stated; and where the release includes them, `decision.production_database_migration` and `decision.production_infrastructure_change` are separately taken.
@@ -67,7 +98,7 @@ Every acceptance criterion is tested; `review.security` and `review.test_coverag
 
 ## Required Evidence
 
-Beyond the generic eighteen: the change set version; test evidence against each acceptance criterion; the security position and residual risk; open defects with severity and deferral status; the rollback position and its limits; the review statuses at decision time; and the environments the change touches.
+Beyond the generic nineteen: the change set version; test evidence against each acceptance criterion; the security position and residual risk; open defects with severity and deferral status; the rollback position and its limits; the review statuses at decision time; and the environments the change touches.
 
 ## Open Item, Finding and Risk Handling
 

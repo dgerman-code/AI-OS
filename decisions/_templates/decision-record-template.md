@@ -4,7 +4,7 @@ Status: PROPOSED — Phase 7 standard candidate
 Template Version: 0.1
 Inherits: `standard.decision.common_constraints@0.1`
 
-A **Decision Record** is evidence that one concrete human decision was made under a Decision Right in a specific context. It is an instance; the Decision Right is the type.
+A **Decision Record** is evidence that one concrete human decision was made under a Decision Right in a specific context. It is an instance; the Decision Right is the type. Nineteen things must be provable.
 
 This is a **semantic record model**. It states what a record must be able to prove, not how it is stored. No database schema, field type, identifier format or storage mechanism is specified or implied.
 
@@ -83,6 +83,16 @@ Recorded per participating holder. Where a body's constituting rules make dissen
 | 18 | Emergency basis and retrospective obligations |
 
 The record states the objective trigger relied on, what was bypassed, what was not, the time validity claimed, and the retrospective step owed. **A retrospective review later produces its own record; it does not amend this one.**
+
+## 9. Separation of duties
+
+| # | Element |
+|---:|---|
+| 19 | Applicable `DECISION_RIGHT_SEPARATION` relationships and compliance with them |
+
+Where the Right declares a `SEPARATION_REQUIRED` relationship whose activation condition held, the record states **which relationships were active** and that the holder of this decision was **not** the holder of the separated one — identifying the separated decision by its own record. Where a separation was active and no separately eligible holder existed, the decision was not validly made and there is nothing to record: scarcity does not relax authority.
+
+Where the relationship is `SAME_HOLDER_PERMITTED` and one human held both, the record says so explicitly rather than leaving it to be inferred from silence.
 
 ---
 

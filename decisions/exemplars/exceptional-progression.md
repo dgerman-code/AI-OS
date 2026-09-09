@@ -60,6 +60,19 @@ This Right exists to be exercised deliberately by someone who carries the conseq
 
 Revoking a holder ends future exercise and reverses nothing. A later valid decision may supersede this one — typically when the item is actually resolved, at which point the exception becomes moot rather than retrospectively unnecessary. **This Right cannot reverse itself**; reversing a progression already taken requires a Right whose scope permits reversal.
 
+## Decision Right Separation (`DECISION_RIGHT_SEPARATION`)
+
+| Related `decision.<id>` | Objective activation condition | Mode | Bounded subject / context | Reason |
+|---|---|---|---|---|
+| `decision.production_release` | The excepted item is material to a release of the same change set | **`SEPARATION_REQUIRED`** | That change set and that item | An exception granted by the person who then releases against it is not an exception; it is a single decision recorded twice. |
+| `decision.granting_authority_submission` | The excepted item is material to the package being submitted | **`SEPARATION_REQUIRED`** | That package version and that item | The submission is irreversible in substance; the exception must be an independent judgement before the package leaves. |
+| `decision.external_publication` | The excepted item is material to the content being published | **`SEPARATION_REQUIRED`** | That content version and that item | Same reason. Publication cannot be unpublished, and an unverified claim excepted by its own publisher has had no control applied to it. |
+| `decision.contract_commitment` | The excepted item is material to the obligation set being committed | **`SEPARATION_REQUIRED`** | That obligation set and that item | The least reversible act in the registry does not accept a self-granted exception. |
+| `decision.stage_gate_progression` | The excepted item is material to the same named stage gate | **`SEPARATION_REQUIRED`** | That gate and that item | The exception exists to make the gate's blockers visible as separate decisions. One holder taking both makes them invisible again inside a single gate approval. |
+| `decision.risk_acceptance` | The same unresolved item is also the subject of a risk acceptance | **`SAME_HOLDER_PERMITTED`** | That one item | These are two aspects of one accountability — who carries the consequence of proceeding with a known problem — rather than an independent control pair. Splitting them fragments accountability without adding a check, and the independent control is preserved downstream, where separation from the final commitment Right **is** required. Stated explicitly, as §15A requires, rather than left to silence. |
+
+This is the Right most likely to be concentrated under deadline pressure, and its `NON_DELEGABLE` policy and these relationships are the same control from two directions: delegation cannot move the exception to whoever is nearest the deadline, and separation cannot be bypassed by that holder then taking the downstream act.
+
 ## Prerequisites
 
 The item must be **named and classified** under Phase 5 §14A; the applicable review's status must be recorded as it stands; the consequence of progressing must be stated; and the Workflow must have reached the progression point by its normal path. **An exception cannot be granted in advance of the situation it excepts.**
@@ -70,7 +83,7 @@ Every Phase 5 stage carrying `COMPLETE_WITH_OPEN_ITEMS` restricted to non-materi
 
 ## Required Evidence
 
-Beyond the eighteen generic elements: the item's own identifier and classification; the review's status **at decision time**; the specific consequence accepted; why waiting is worse than proceeding; and the revisit trigger.
+Beyond the nineteen generic elements: the item's own identifier and classification; the review's status **at decision time**; the specific consequence accepted; why waiting is worse than proceeding; and the revisit trigger.
 
 ## Open Item, Finding and Risk Handling
 
