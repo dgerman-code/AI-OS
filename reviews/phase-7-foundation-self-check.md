@@ -18,7 +18,7 @@ This is a **self**-check by the producing pass. Under Phase 6's own vocabulary i
 | `decisions/_templates/decision-right-card-template.md` | Mandatory Decision Right Card structure, including the separation relationship table |
 | `decisions/_templates/decision-record-template.md` | Semantic Decision Record model, 19 provable elements |
 | `decisions/master-decision-right-universe.md` | 9 families, 35 candidates, all 95 upstream references classified into seven categories |
-| `decisions/exemplars/` × 8 | Decision Right exemplars, each declaring its `DECISION_RIGHT_SEPARATION` relationships |
+| `decisions/exemplars/` × 8 | Decision Right exemplars, each declaring its `DECISION_RIGHT_SEPARATION` relationships; every carded-to-carded relationship is declared from both ends |
 
 ---
 

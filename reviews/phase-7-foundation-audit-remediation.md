@@ -52,7 +52,7 @@ Each relationship row declares five things: a **concrete `decision.<id>`**; an *
 
 | Card | `SEPARATION_REQUIRED` against | `SAME_HOLDER_PERMITTED` against |
 |---|---|---|
-| `decision.risk_acceptance` | `production_release`, `contract_commitment`, `granting_authority_submission`, `external_publication` | `security_risk_acceptance`, `exceptional_progression` |
+| `decision.risk_acceptance` | `production_release`, `contract_commitment`, `granting_authority_submission`, `external_publication`, `stage_gate_progression` | `security_risk_acceptance`, `exceptional_progression` |
 | `decision.production_release` | `risk_acceptance`, `security_risk_acceptance`, `exceptional_progression`, `emergency_production_change`, `defect_deferral` | — |
 | `decision.exceptional_progression` | `production_release`, `granting_authority_submission`, `external_publication`, `contract_commitment`, `stage_gate_progression` | `risk_acceptance` |
 | `decision.granting_authority_submission` | `risk_acceptance`, `exceptional_progression` | — |
@@ -61,7 +61,7 @@ Each relationship row declares five things: a **concrete `decision.<id>`**; an *
 | `decision.emergency_production_change` | `production_release`, `security_risk_acceptance` | — |
 | `decision.stage_gate_progression` | `exceptional_progression`, `risk_acceptance` | — |
 
-Every relationship is declared **from both ends** where both Rights are carded, so a reader of either card sees it. Relationships were kept conservative: none was manufactured to fill a matrix cell.
+Every relationship is declared **from both ends** where both Rights are carded, so a reader of either card sees it. One pair — `stage_gate_progression` → `risk_acceptance` — was declared from one end only in the remediation commit `e084113` and was reciprocated in `decisions/exemplars/risk-acceptance.md` under the final symmetry fix; the final independent re-audit found it and it was the sole remaining asymmetry. Relationships were kept conservative: none was manufactured to fill a matrix cell.
 
 The one `SAME_HOLDER_PERMITTED` pair with a substantive argument is `risk_acceptance` ↔ `exceptional_progression`: these are two aspects of one accountability for proceeding with a known problem rather than an independent control pair, and splitting them would fragment accountability without adding a check. The independent control is preserved downstream, where separation from the final commitment Right **is** required. Stated explicitly, as §15A rule 7 requires, rather than left to silence.
 
