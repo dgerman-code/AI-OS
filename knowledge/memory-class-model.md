@@ -8,7 +8,7 @@ Inherits: `standard.knowledge.common_constraints@0.1`
 
 The six classes below are **architecture classes**, not first-class registry types. They classify what a knowledge item is *for*; they are not a registry of cards, they have no IDs, nothing is "registered as" a memory class, and no Role, Workflow, Handoff, Review or Decision Right references one.
 
-The reason is deliberate. A registry type would invite runtime to implement seven stores, and the classes are not stores — they are governance postures over material that may sit anywhere. canonical status is not a place; it is a governance state a record holds.
+The reason is deliberate. A registry type would invite runtime to implement **one store per class**, and the classes are not stores — they are governance postures over material that may sit anywhere. canonical status is not a place; it is a governance state a record holds.
 
 ## 2. The classes — six, after removing a duplicate
 
@@ -45,7 +45,7 @@ The first Phase 8 draft listed a seventh class, `CANONICAL_MEMORY`, defined as "
 | Superseded by v2 | `SEMANTIC_MEMORY` — **unchanged** | `SUPERSEDED` |
 | Retracted | `SEMANTIC_MEMORY` — **unchanged** | `RETRACTED` |
 
-The count went from seven classes to six. It was not preserved at seven to protect a number.
+The count went from seven to six, and every reference was updated. It was not held at seven to protect a number.
 
 ## 3. Class rules
 

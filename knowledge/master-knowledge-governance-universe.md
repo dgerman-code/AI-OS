@@ -25,20 +25,20 @@ The inventory of what Phase 8 governs, what it inherits, what it deliberately le
 | Applicability modes | 4 | `knowledge/scope-isolation-and-transfer.md` §2 |
 | Canonical acts | 7, across 2 authorities (1 + 4 effect subtypes) | `knowledge/canonical-promotion-governance.md` §1 |
 | Cross-scope mechanisms | 2 permitted, 1 prohibited | `knowledge/scope-isolation-and-transfer.md` §4 |
-| Enforceable constraints | 29 | `knowledge/_standards/common-knowledge-governance-constraints.md` |
+| Enforceable constraints | 30 | `knowledge/_standards/common-knowledge-governance-constraints.md` |
 
 ## 2. Artifacts
 
 | File | Purpose |
 |---|---|
 | `architecture/memory-canonical-governance.md` | Master architecture; identity separation; artifact, retrieval and AI boundaries; criticality |
-| `knowledge/knowledge-state-model.md` | The three axes and the transition rules |
+| `knowledge/knowledge-state-model.md` | The four axes, the transition rules and the withdrawal semantics |
 | `knowledge/scope-isolation-and-transfer.md` | Scope, applicability, isolation, governed transfer |
 | `knowledge/memory-class-model.md` | The six memory classes |
 | `knowledge/conflict-and-provenance-model.md` | Conflict taxonomy and resolution; provenance and lineage |
 | `knowledge/canonical-promotion-governance.md` | The canonical acts and the two bounded authorities |
 | `knowledge/sensitivity-and-retention-model.md` | Sensitivity, freshness, end states, retention |
-| `knowledge/_standards/common-knowledge-governance-constraints.md` | 28 inherited rules |
+| `knowledge/_standards/common-knowledge-governance-constraints.md` | 30 inherited rules |
 | `knowledge/_templates/knowledge-record-template.md` | Semantic Knowledge Record model |
 | `knowledge/_templates/canonical-record-template.md` | Semantic Canonical Record model |
 | `knowledge/exemplars/` × 8 | Worked cases, each proving one boundary |
@@ -47,7 +47,7 @@ The inventory of what Phase 8 governs, what it inherits, what it deliberately le
 
 ## 3. Registry-type decision: memory classes are architecture classes
 
-The **six** memory classes are **not** first-class registry types. They have no IDs, nothing is registered as one, and no Role, Skill, Workflow, Handoff, Review Profile or Decision Right references one. Reasoning is in `knowledge/memory-class-model.md` §1; the short form is that a registry type would invite a runtime to build seven stores, and the classes are governance postures, not stores.
+The **six** memory classes are **not** first-class registry types. They have no IDs, nothing is registered as one, and no Role, Skill, Workflow, Handoff, Review Profile or Decision Right references one. Reasoning is in `knowledge/memory-class-model.md` §1; the short form is that a registry type would invite a runtime to build **one store per class**, and the classes are governance postures over material that may sit anywhere, not stores.
 
 **Reconsider this if and only if** a later phase needs to reference a memory class from a card — at which point it becomes a registry type by evidence rather than by anticipation.
 

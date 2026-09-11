@@ -69,7 +69,7 @@ Traceability for both upstream identifiers is preserved and neither is renamed. 
 | Correct a canonical statement | Promotion | A corrected version, promoted |
 | Widen scope | Promotion | A distinct scope, its own promotion |
 | Renew at a review point | Promotion | Same or refreshed version, new effective period |
-| **Downgrade `APPROVED` material** | **Status downgrade** — `APPROVED_STATUS_WITHDRAWAL` | **The approved Steward route.** Reliance for the declared purpose ends; the record stays at `REVIEWED` or `DRAFT` as the finding warrants |
+| **Downgrade `APPROVED` material** | **Status downgrade** — `APPROVED_STATUS_WITHDRAWAL` | **The approved Steward route.** Reliance for the declared purpose ends and the item becomes **`RETRACTED` with withdrawn level `APPROVED`**. It is **not** returned to `REVIEWED` or `DRAFT`: the approval happened, work relied on it, and the record must keep saying so. A revised claim is a **new linked item starting at `DRAFT`** |
 | **Retract `CANONICAL` with no successor** | **Status downgrade** — `CANONICAL_RETRACTION` | Leaves a gap, which must be named, with ancestor fallback determined per `knowledge/scope-isolation-and-transfer.md` §2 |
 | Narrow scope or applicability | **Status downgrade** — `SCOPE_OR_APPLICABILITY_NARROWING` | Withdrawal from scopes where it governed; widening is promotion |
 | Expire early | **Status downgrade** — `EARLY_EXPIRY` | Ends currency ahead of the declared point |
@@ -108,7 +108,8 @@ All eight must hold. They are cumulative, and each is checkable against the reco
 
 ## 6. What status-downgrade authority cannot do
 
-1. **It cannot delete, hide or erase.** `RETRACTED` is visible, with its reason, permanently.
+1. **It cannot delete, hide or erase.** `RETRACTED` is visible, with its reason and its withdrawn level, permanently.
+1a. **It cannot rewind a governance state.** There is no `APPROVED` → `REVIEWED` and no `CANONICAL` → `APPROVED`; the only destination is `RETRACTED` (`knowledge/knowledge-state-model.md` §6). Relabelling an item to an earlier state would assert that an event which happened did not, and the two effect subtypes are distinguished by **metadata on one terminal state**, not by separate state names.
 2. **It cannot rewrite history.** Work performed in reliance on the statement while it was canonical was performed in reliance on a then-canonical statement, and remains so described.
 3. **It cannot leave the gap unstated.** A retraction records what the scope now has no position on, and what depends on it — an unnoticed gap is the specific harm this authority carries.
 4. **It cannot be used where a successor exists.** That is promotion — at either status level.

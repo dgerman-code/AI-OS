@@ -33,6 +33,8 @@ The claim itself, in one determinate sentence where possible. A statement that c
 
 `DRAFT` / `REVIEWED` / `APPROVED` / `CANONICAL` / `SUPERSEDED` / `RETRACTED` / `REJECTED`, with what act put it here.
 
+Where `RETRACTED`, also record the **withdrawn level** (`APPROVED` or `CANONICAL`) and the effect subtype. **No state is ever rewound** — an item is never relabelled to an earlier state, and a revised claim is a new linked item starting at `DRAFT`.
+
 ## Conflict Flags
 
 Each `CONFLICT_DETECTED` flag: its class, the items in tension, and whether it is material to this claim. **None** where there are none.

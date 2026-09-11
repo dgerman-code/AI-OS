@@ -64,7 +64,7 @@ Supersedes / superseded-by, with the reason. Supersession is the automatic effec
 
 ## Retraction
 
-Where retracted: the reason, the finding that established it, **the gap this leaves** — what the scope now has no position on — and what depended on it.
+Where retracted: the **withdrawn level** — `CANONICAL` here, `APPROVED` on the underlying Knowledge Record where an approval was withdrawn — the effect subtype, the reason, the finding that established it, **the gap this leaves** — what the scope now has no position on — and what depended on it.
 
 **Ancestor-fallback determination, mandatory.** State which applies to any wider statement on the same subject: it **resumes automatically** (a `MANDATORY_WIDER_CONSTRAINT`, which never stopped binding); it **requires explicit revalidation** (`INHERITABLE_TO_DESCENDANTS`); its **conditions must be re-checked** (`CONDITIONALLY_APPLICABLE`); or **there is none**, and the scope has no position. **No wider statement resumes silently.**
 

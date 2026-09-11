@@ -12,11 +12,20 @@ Inherits: `standard.knowledge.common_constraints@0.1`
 - Scope: `PROJECT/<alpha>`
 - Memory class: `SEMANTIC_MEMORY` — **unchanged by promotion**
 - Governance state: `CANONICAL` for the project scope
+- Applicability mode: `NON_INHERITABLE`
 - Origin: `HUMAN_ORIGIN`
 - Sensitivity: `CONFIDENTIAL`
 
 ## Epistemic type / governance state
 `CALCULATION` + `CANONICAL`. A promoted calculation is still a calculation: as good as its inputs, its method, and nothing else.
+
+## Why `NON_INHERITABLE` is the right mode
+
+A DSCR is **this project's** figure, derived from **this project's** inputs at the versions named below. There is no sense in which it governs a workstream's own analysis, a sibling project, or anything else — a descendant scope needing a cover ratio needs one derived from its own inputs, not this one inherited.
+
+The alternatives are wrong in instructive ways. `INHERITABLE_TO_DESCENDANTS` would make this number the default answer in every workstream and task beneath the project, so a workstream running its own sensitivity would find the base-case figure already applicable and would have to declare an override to disagree with **its own analysis**. `CONDITIONALLY_APPLICABLE` would imply there are conditions under which a figure derived from one input set governs somewhere else, and there are none. `MANDATORY_WIDER_CONSTRAINT` would be a category error: a derived value is not an obligation.
+
+So **nothing propagates from this record**, which is the correct behaviour for every derived value in the registry — and it is why the refresh cascade below moves through explicit input bindings rather than through inheritance.
 
 ## Bound inputs — the load-bearing part
 | Input | Bound at | Type |

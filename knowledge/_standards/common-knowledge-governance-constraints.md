@@ -57,41 +57,44 @@ Preference memory is never canonical. Personal-scope content reaches an organisa
 ## 17. Same name is not same entity
 Cross-scope entity resolution is an identity conflict to be governed, never an inference the system makes for itself.
 
-## 18. An artifact is not a knowledge object
+## 18. Withdrawal is terminal and never rewinds a state
+A withdrawn approval or a retracted canonical statement becomes **`RETRACTED`, with the withdrawn level — `APPROVED` or `CANONICAL` — recorded as metadata**. There is no `APPROVED` → `REVIEWED`, no `CANONICAL` → `APPROVED`, and no other reverse transition on the governance axis: the approval or promotion **happened**, work relied on it while it stood, and relabelling the item to an earlier state would assert otherwise. A revised claim is a **new linked item starting at `DRAFT`**.
+
+## 19. An artifact is not a knowledge object
 A document contains claims in several states. Approving a document promotes nothing, replacing a document rewrites no canonical history, and deleting one deletes no canonical or audit record.
 
-## 19. `AI_SUGGESTION` converts to no other epistemic type, and origin is permanent
+## 20. `AI_SUGGESTION` converts to no other epistemic type, and origin is permanent
 No model, agent or automated process moves its own output along the governance axis. **And no actor of any kind — human, reviewer, approver or authority — converts `AI_SUGGESTION` into another epistemic type.** Adoption creates a **new linked item** whose type is justified by its own evidence or reasoning: **human acceptance is not an evidential basis**. The proposal remains historically as what it was. **Origin** — `HUMAN_ORIGIN`, `AI_ASSISTED`, `AI_GENERATED`, `EXTERNAL_ORIGIN` — is a permanent provenance fact on a separate axis; nothing changes it, and it survives every version, transfer, promotion and rewrite.
 
-## 20. Retrieval is not authority
+## 21. Retrieval is not authority
 Stored, retrievable, selected, authoritative and canonical are five different properties. Selection mechanisms carry no governance meaning, and an item's absence from context is not evidence about the item.
 
-## 21. Canonical status implies no visibility, and sensitivity implies no status
+## 22. Canonical status implies no visibility, and sensitivity implies no status
 Sensitivity is an orthogonal axis, is carried through the whole lineage, and is not a scope. Declassification is a governed act, never a side effect of quotation, summary or aggregation.
 
-## 22. stale ≠ false; expired ≠ deleted; superseded ≠ erased; retracted ≠ forgotten
+## 23. stale ≠ false; expired ≠ deleted; superseded ≠ erased; retracted ≠ forgotten
 Four distinct end conditions, each preserving content, each with a different meaning for reliance.
 
-## 23. A retention hold outranks every other lifecycle control
+## 24. A retention hold outranks every other lifecycle control
 Deletion eligibility is a conclusion, never a default. Audit memory and the provenance of canonical statements are not ordinary deletion candidates.
 
-## 24. Promotion authority creates no expertise
+## 25. Promotion authority creates no expertise
 The professional conclusion behind a canonical statement is Role-owned and review-checked. Adopting a conclusion is not reaching one.
 
-## 25. Phase 8 grants no authority and changes no upstream status
+## 26. Phase 8 grants no authority and changes no upstream status
 It cards no Decision Right, gives no Role a power, satisfies no review, changes no review status, and leaves approved Phase 3–7 semantics as they are.
 
-## 26. No override path exists
+## 27. No override path exists
 Administrator, owner or user override does not bypass evidence, review or authority requirements. A requirement with a privileged exception is not a requirement.
 
-## 27. Runtime validates against this architecture; it does not mutate it
+## 28. Runtime validates against this architecture; it does not mutate it
 A later system may store, index, retrieve and enforce. It may not redefine what knowledge is, what makes it canonical, or what a state means.
 
-## 28. Item age is not a use verdict
+## 29. Item age is not a use verdict
 
 Item-level temporal facts — as-of date, last verified, refresh interval, review-by, expiry — are properties of the record. **Usability is a property of the use**: the same item may be `CURRENT_FOR_USE` for one task and `STALE_AND_BLOCKING` for another at the same moment. A use verdict is never stored as a permanent label on the record.
 
 ---
 
-## 29. Status discipline
+## 30. Status discipline
 All Phase 8 artifacts are `PROPOSED`. No Phase 8 record may set its own status to `APPROVED` or `CANONICAL`, and no exemplar is a live knowledge record.

@@ -115,7 +115,7 @@ The retraction record states which of these applies and what was determined. **N
 
 **Nothing flows upward, ever.** A project's canonical statement is not the organisation's position, and a workstream cannot canonicalise for its project. The most common real failure this prevents: a parameter agreed inside one project quietly becoming "what the organisation assumes" because nobody said otherwise.
 
-**Nothing flows sideways.** Sibling projects, sibling programmes, an organisation and an independent venture, and two organisations share nothing by default.
+**Nothing flows sideways.** Sibling projects, sibling programmes, an organisation and an independent venture, two organisations, and **an organisation and any personal scope** share nothing by default. The sideways rule is not weakened by a mandatory wider constraint: a `MANDATORY_WIDER_CONSTRAINT` binds **descendants**, and a sibling family has none of its ancestors.
 
 ## 3. Visibility is not authority, and neither is either one applicability
 
@@ -165,21 +165,44 @@ Rules:
 
 | Contamination | Example | Prevented by |
 |---|---|---|
-| **Personal → organisational** | A human's working convention, note or preference becoming an organisational position | §7 below; preference memory is never canonical |
+| **Personal → organisational** | A human's working convention, note or preference becoming an organisational position | §7; preference memory is never canonical; `PERSONAL` is a sibling family, so §2's sideways rule applies |
 | **Project → project** | A parameter from one client's project applied to another's because the subject looked the same | §4 — no silent copy; §2 — nothing flows sideways |
 | **Project → organisation** | A project-specific figure becoming "the company's number" by reuse | §2 — nothing flows upward |
 | **Organisation → organisation** | Anything at all crossing between two client organisations | §4 — reference or governed transfer only, and confidentiality classes may forbid even that |
 
 Two same-named subjects in different scopes are **different subjects until a governed act says otherwise.** Entity resolution across scopes is an identity conflict (`conflict-and-provenance-model.md` §2), not an inference the system may make on its own.
 
-## 7. `PERSONAL` scope
+## 7. `PERSONAL` is a separate scope family, not a branch of the organisation
 
-`PERSONAL` is separated from the organisational tree because its content is a different kind of thing: how a person prefers to work, what they are drafting, what they have not yet shared.
+In the approved graph `PERSONAL / AD-HOC INITIATIVE` is a **third top-level branch under `GLOBAL`**, a sibling of `ORGANISATION` and of `INDEPENDENT BUSINESS / VENTURE`. It is not below the organisation, so **the sideways rule governs the whole boundary**: nothing propagates between a personal scope and an organisational one, in either direction, by any mechanism.
 
-- **Personal-scope knowledge is never canonical for any organisational scope**, at any level, by any route short of a governed transfer that produces a new organisationally-owned record with its own evidence and review.
-- **Preference memory is never canonical anywhere** — see `knowledge/memory-class-model.md` §4.
-- **Personal scope does not inherit downward into organisational scopes**, and organisational canonical statements are applicable to work done in personal scope without becoming personal property.
-- A personal item that ought to be organisational is **transferred, with attribution**, not adopted by absorption.
+Version 0.2 of this document said organisational canonical statements were "applicable to work done in personal scope". **That was wrong, and it was the re-audit's finding.** It contradicted the approved graph, the no-sideways rule, the transfer rule and the isolation rule in one sentence — and it did so by describing a real and useful practice (a person consulting their employer's policy) in the one vocabulary that must not be used for it.
+
+### The rule
+
+1. **`PERSONAL` is never a descendant of `ORGANISATION`.** No ancestry relation exists between the two families in either direction.
+2. **No organisational canonical statement is applicable inside a personal scope** — not by inheritance, not by propagation, not by any applicability mode, and **not because the human is associated with the organisation.** Association is not ancestry.
+3. **No personal item is applicable inside an organisational scope**, and none becomes organisational by absorption, reuse, repetition or seniority.
+4. **Nothing crosses automatically:** not canonical status, not Review satisfaction, not authority, and **not the applicability mode itself.** A mode is a statement about a record's own scope family and says nothing about the other.
+5. **Deliberate cross-family use is `SCOPE_REFERENCE` or `GOVERNED_TRANSFER`** (§4), selected by task governance — never inherited applicability and never canonical propagation.
+6. **Preference memory is never canonical anywhere**, in either family (`knowledge/memory-class-model.md` §4).
+
+### Reference and use are permitted; applicability is not
+
+A person's work may **use** an organisational statement, and a deliverable may **cite** one. The architecture permits this and always did. What it refuses is the word: **using a statement is not the statement governing the scope.**
+
+The difference is not pedantic. Under applicability, the organisational rule governs by default, follows the person everywhere, and needs someone to notice in order to stop. Under reference, it applies because a task deliberately selected it, at a named version, with the selection recorded — so when the policy changes, the reference is what shows who relied on which version.
+
+### Four stress tests
+
+| Case | Correct handling | What is refused |
+|---|---|---|
+| **Organisational travel policy, visible in an employee's personal task** | Visibility is a sensitivity question, not an applicability one. The person may `SCOPE_REFERENCE` the policy at a version. It governs the **organisation's** scopes, where the travel actually happens | Saying the policy is "applicable in `PERSONAL`" because the person works there |
+| **A person's preferred writing style used in an organisational deliverable** | The deliverable's authors may follow it as a convention. It remains `PREFERENCE_MEMORY` in `PERSONAL`, canonical nowhere. To bind, it goes through `GOVERNED_TRANSFER` and becomes a **new organisationally-owned method record** with its own adoption | A house style acquired by repetition, with nobody able to say who adopted it |
+| **An organisational legal constraint relevant to a personal workflow** | Where the person is acting for the organisation, **the work is in an organisational scope** and the constraint binds there as a `MANDATORY_WIDER_CONSTRAINT`. Where they are genuinely acting personally, the organisation's record does not reach them; the law does, on its own terms | Treating a `MANDATORY_WIDER_CONSTRAINT` as crossing the family boundary. **Not even mandatory constraints propagate sideways** — the obligation is real, and this record is not how it arrives |
+| **A personal preference used as organisational house style** | `GOVERNED_TRANSFER`: a new organisational record, its own evidence, its own review, its own promotion, with attribution to where the idea came from | Absorption — the case §6 of this document names as the first contamination direction |
+
+The third case carries the load: it is where "surely this one propagates" is most tempting, and the answer is that **the obligation binds because the work is organisational, not because the record travelled.** Scope is decided by what the work is, not by who is doing it.
 
 ## 8. Context switching
 
@@ -188,6 +211,7 @@ When work moves between scopes, the applicable canonical set changes with it. Th
 1. **Applicability is recomputed at the new scope**, never inherited from the previous task's context.
 2. **Working memory does not travel.** What was in context for the previous task is not in context for the next one by default (`memory-class-model.md` §2).
 3. **An item carried across deliberately is carried as a reference or a transfer**, with the scope change recorded — never as an unmarked residue of the previous context.
+4. **Crossing between scope families is always a family crossing**, never a context switch within one tree. Moving between a personal task and organisational work changes the applicable set to that family's own, and carries nothing across on its own.
 
 ## 9. What this document does not do
 

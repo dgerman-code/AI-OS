@@ -287,9 +287,16 @@ def no_short_class_aliases():
 check("memory-classes", "no shortened class aliases in any template, exemplar or inventory",
       no_short_class_aliases)
 
+# Scans normative text only: a remediation record must be able to report what it removed.
+# Stricter than the previous version, which scanned every document including the records and
+# so could be satisfied only by a hand-written exemption for one sentence.
 check("memory-classes", "counts normalised to six across model, architecture and inventory",
-      lambda: (not re.search(r"seven (memory )?classes", plain(ALL8).replace("went from seven classes to six", ""))
-               and "six memory classes" in plain(A) and "| Memory classes | 6 |" in plain(UNIV), ""))
+      lambda: (lambda stale: (not stale and "six memory classes" in plain(A)
+                              and ("| Memory classes | %d |" % len(declared_classes())) in plain(UNIV),
+                              str(stale) if stale else "no stale count in normative text"))(
+          [rel for rel, doc in NORMATIVE.items()
+           for m in re.finditer(r"seven (?:memory )?classes", doc, re.I)
+           if not REMEDIATION_CONTEXT.search(doc[max(0, m.start() - 200):m.end() + 200])]))
 
 # =========================================================== 4. AI origin / epistemic type
 
@@ -473,9 +480,72 @@ check("invariants", "transfer carries neither canonical status nor review satisf
                and "never carries review satisfaction with it" in plain(SCOPE)
                and "not transitive" in plain(SCOPE), ""))
 
-check("invariants", "personal-to-organisational absorption prohibited",
-      lambda: ("never canonical for any organisational scope" in plain(SCOPE)
+# --- 5.1 semantic PERSONAL / scope-family checks -------------------------------------------
+# The previous check was presence-oriented and passed while the document still declared
+# organisational canonical statements applicable inside PERSONAL. These inspect the rule.
+
+PERSONAL_SECTION = SCOPE.split("## 7.")[1].split("## 8.")[0] if "## 7." in SCOPE else ""
+
+LEAKAGE_PATTERNS = [
+    # any wording that makes an organisational statement govern inside PERSONAL
+    r"organisational canonical statements are applicable (?:to|in|inside)[^.]*personal",
+    r"applicable (?:to|in|inside) (?:work done in )?personal scope",
+    r"personal scope inherits",
+    r"inherit(?:s|ed)? (?:downward |down )?into personal",
+    r"personal[^.]{0,40}descendant of[^.]{0,20}organisation",
+]
+
+
+def personal_applicability_leakage():
+    hits = []
+    for rel, doc in NORMATIVE.items():
+        flat = plain(doc).lower().replace("\n", " ")
+        for pat in LEAKAGE_PATTERNS:
+            for m in re.finditer(pat, flat, re.I):
+                window = flat[max(0, m.start() - 160):m.end() + 160]
+                # a sentence that denies the proposition is not a leak
+                if re.search(r"\bnot\b|\bnever\b|\bno \b|refus|wrong|contradict", window):
+                    continue
+                hits.append("%s: %s" % (rel, m.group(0)[:60]))
+    return (not hits, str(hits) if hits else "0 leaks across %d normative documents" % len(NORMATIVE))
+
+
+check("personal-isolation", "applicability leakage from ORGANISATION into PERSONAL = 0",
+      personal_applicability_leakage)
+
+check("personal-isolation", "PERSONAL is declared a separate scope family, not a descendant",
+      lambda: ("separate scope family" in plain(PERSONAL_SECTION)
+               and "never a descendant of" in plain(PERSONAL_SECTION).lower()
+               and "sibling of" in plain(PERSONAL_SECTION), ""))
+
+check("personal-isolation", "association with an organisation is explicitly not ancestry",
+      lambda: ("not because the human is associated with the organisation" in plain(PERSONAL_SECTION)
+               and "Association is not ancestry" in plain(PERSONAL_SECTION), ""))
+
+check("personal-isolation", "nothing crosses the family boundary automatically",
+      lambda: (all(t in plain(PERSONAL_SECTION) for t in
+                   ["not canonical status", "not Review satisfaction", "not authority",
+                    "not the applicability mode itself"]), ""))
+
+check("personal-isolation", "cross-family use is reference or governed transfer only",
+      lambda: ("SCOPE_REFERENCE" in PERSONAL_SECTION and "GOVERNED_TRANSFER" in PERSONAL_SECTION
+               and "never inherited applicability and never canonical propagation" in plain(PERSONAL_SECTION), ""))
+
+check("personal-isolation", "mandatory wider constraints do not cross sideways either",
+      lambda: ("Not even mandatory constraints propagate sideways" in plain(SCOPE)
+               and "a sibling family has none of its ancestors" in plain(SCOPE), ""))
+
+check("personal-isolation", "all four stress tests are answered",
+      lambda: (all(w in plain(PERSONAL_SECTION).lower() for w in
+                   ["travel policy", "writing style", "legal constraint", "house style"])
+               and plain(PERSONAL_SECTION).count("|") > 20, "4 cases in the stress-test table"))
+
+check("personal-isolation", "personal-to-organisational absorption prohibited",
+      lambda: ("No personal item is applicable inside an organisational scope" in plain(PERSONAL_SECTION)
                and "never becomes organisational knowledge by absorption" in plain(STD), ""))
+
+check("personal-isolation", "the corrected rule is recorded as a correction, not silently swapped",
+      lambda: ("was wrong" in plain(PERSONAL_SECTION) and "re-audit" in plain(PERSONAL_SECTION).lower(), ""))
 
 check("invariants", "silent copy across scopes prohibited",
       lambda: ("silent copy" in SCOPE and "Prohibited" in SCOPE, ""))
@@ -549,8 +619,8 @@ check("regression", "every knowledge file inherits the common standard",
                and "Standard ID: `standard.knowledge.common_constraints`" in STD,
                "%d files" % (len(KNOWLEDGE_FILES) - 1)))
 
-RUNTIME = re.compile(r"\b(CREATE TABLE|REST API|endpoint|POST /|SELECT \*|pgvector|"
-                     r"cosine similarity|chunk size|top-k|OAuth|LDAP|SAML|CREATE INDEX)\b", re.I)
+RUNTIME = re.compile(r"\b(CREATE TABLE|REST API|endpoint|POST /|SELECT \*|pgvector|"  # self-literal
+                     r"cosine similarity|chunk size|top-k|OAuth|LDAP|SAML|CREATE INDEX)\b", re.I)  # self-literal
 check("regression", "no runtime, DB, API, embedding, retrieval or IAM implementation",
       lambda: (not any(RUNTIME.search(d) for d in DOCS.values())
                and "## 8. Non-runtime statement" in A, ""))
@@ -559,12 +629,199 @@ check("regression", "no named human or organisation bound",
       lambda: (not re.search(r"\b(Mr|Ms|Mrs|Dr)\.? [A-Z][a-z]+", ALL8)
                and "never a named person" in KREC, ""))
 
-check("regression", "no pull request artifact present",
-      lambda: (not os.path.exists(os.path.join(REPO, ".git", "PULL_REQUEST")), ""))
+# 5.6 — scope stated honestly. This harness is offline: it can prove that no PR artifact or
+# PR-creating action exists LOCALLY. It cannot and does not claim anything about remote open-PR
+# count, which must be checked by audit tooling against the GitHub API and reported separately.
 
-check("regression", "this harness implements nothing: it only reads and asserts",
-      lambda: (not RUNTIME.search(read("validation/phase_8_validation.py").split('"""', 2)[2])
-               or True, "read-only, stdlib only"))
+SELF_START = "# --- self-inspection region (excluded from its own scans) ---"
+SELF_END = "# --- end self-inspection region ---"
+
+
+def harness_body_excluding_self_inspection():
+    """The harness source minus the two self-inspecting checks, which necessarily contain the
+    literals they search for. Scanning them would make both checks match themselves."""
+    src = read("validation/phase_8_validation.py")
+    body = src.split('"""', 2)[2]
+    kept, skipping = [], False
+    for line in body.splitlines():
+        # Match the marker only as a standalone line, so the constants that hold the marker
+        # text are not themselves mistaken for the marker.
+        if line.strip() == SELF_START:
+            skipping = True
+            continue
+        if line.strip() == SELF_END:
+            skipping = False
+            continue
+        if skipping or line.rstrip().endswith("# self-literal"):
+            continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
+# --- self-inspection region (excluded from its own scans) ---
+def harness_is_read_only():
+    """The harness must not itself be runtime, and must not contain vacuous checks.
+
+    The previous version of this check ended in `or True`, which made it unconditionally
+    pass — a check that cannot fail is not a check. This one can fail, and it is the check
+    that enforces that property on the rest of the file.
+    """
+    body = harness_body_excluding_self_inspection()
+    problems = []
+    if RUNTIME.search(body):
+        problems.append("runtime construct in harness")
+    # No write, network or subprocess beyond the read-only git commands used for baselines.
+    for banned in ("open(", "urllib", "socket", "requests"):
+        for hit in re.finditer(re.escape(banned), body):
+            window = body[max(0, hit.start() - 120):hit.end() + 60]
+            if banned == "open(" and "encoding=\"utf-8\"" in window and '"r"' not in window:
+                continue  # the read() helper only
+            if banned == "open(":
+                problems.append("non-read open()")
+            else:
+                problems.append(banned)
+    for cmd in re.findall(r'subprocess\.run\(\[([^\]]*)\]', body):
+        if '"git"' not in cmd:
+            problems.append("non-git subprocess")
+        for w in ("commit", "push", "add", "checkout", "reset"):
+            if '"%s"' % w in cmd:
+                problems.append("mutating git: %s" % w)
+    return (not problems, str(sorted(set(problems))) if problems else "read-only, stdlib only, git read-only")
+
+
+def no_vacuous_checks():
+    """No unconditional-pass construct anywhere in the harness."""
+    body = harness_body_excluding_self_inspection().split("RESULTS = []", 1)[-1]
+    # Patterns are assembled from fragments so that a plain grep of this file for a vacuous
+    # construct finds no literal occurrence outside the explanatory docstring above.
+    t = "Tr" + "ue"
+    patterns = {
+        "or-true": r"\bor %s\b" % t,
+        "or-not-false": r"\bor not Fa" + r"lse\b",
+        "lambda-true": r"lambda:\s*\(?%s\)?\s*[,)]" % t,
+        "assert-true": r"\bassert %s\b" % t,
+        "hard-coded pass count": r"passed\s*=\s*\d+",
+    }
+    found = [name for name, pat in patterns.items() if re.search(pat, body)]
+    return (not found, str(found) if found else "none found")
+
+
+check("regression", "harness is read-only and implements nothing", harness_is_read_only)
+def no_local_pr_action():
+    """Offline scope: prove no PR artifact and no PR-creating call exist locally."""
+    if os.path.exists(os.path.join(REPO, ".git", "PULL_REQUEST")):
+        return (False, "local PR artifact present")
+    if os.path.exists(os.path.join(REPO, ".git", "PULL_REQUEST_EDITMSG")):
+        return (False, "local PR edit message present")
+    pattern = "create" + "_pull_" + "request"
+    cli = "gh pr " + "create"
+    for rel in discover("validation", ".py"):
+        body = (harness_body_excluding_self_inspection() if rel.endswith("phase_8_validation.py")
+                else read(rel))
+        if pattern in body or cli in body:
+            return (False, "PR-creating call in %s" % rel)
+    return (True, "LOCAL ONLY — remote open-PR count is NOT provable offline and is not claimed")
+
+
+# --- end self-inspection region ---
+
+check("regression", "harness contains no vacuous or unconditional-pass checks", no_vacuous_checks)
+check("regression", "no local PR artifact or PR-creating action in the tree (local scope only)",
+      no_local_pr_action)
+
+
+# --- 5.2 cross-file governance-state transition consistency ---------------------------------
+
+def parse_transitions():
+    """Parse the permitted-transition table out of the state model."""
+    block = STATE.split("## 6. Permitted transitions")[1].split("### Withdrawal is terminal")[0]
+    rows = []
+    for line in block.splitlines():
+        cells = [c.strip() for c in line.split("|")[1:-1]]
+        if len(cells) == 3 and cells[0].startswith("`") or (len(cells) == 3 and "/" in cells[0]):
+            rows.append((plain(cells[0]), plain(cells[1])))
+    return rows
+
+
+def withdrawal_targets_agree():
+    """Every file that describes withdrawal must agree with the state model's only target."""
+    rows = parse_transitions()
+    from_approved = [t.strip() for f, t in rows if f.strip() == "APPROVED"]
+    # Promotion forward is legitimate; the defect is a rewind to an earlier state.
+    rewinds = [t for t in from_approved if t in ("REVIEWED", "DRAFT")]
+    if rewinds:
+        return (False, "state model permits APPROVED -> %s" % rewinds)
+    if "RETRACTED" not in from_approved:
+        return (False, "state model gives APPROVED no withdrawal target: %s" % from_approved)
+    from_canonical = [t.strip() for f, t in rows if f.strip() == "CANONICAL"]
+    if [t for t in from_canonical if t in ("APPROVED", "REVIEWED", "DRAFT")]:
+        return (False, "state model permits CANONICAL rewind: %s" % from_canonical)
+    # no document may say an approval returns to an earlier state
+    bad = []
+    for rel, doc in NORMATIVE.items():
+        flat = plain(doc).replace("\n", " ")
+        for m in re.finditer(r"(?:stays|returns?|revert(?:s|ed)?|back) (?:at|to) (?:REVIEWED|DRAFT)", flat, re.I):
+            window = flat[max(0, m.start() - 200):m.end() + 200]
+            if re.search(r"\bnot\b|\bnever\b|no reverse|new linked item", window, re.I):
+                continue
+            bad.append("%s: %s" % (rel, m.group(0)))
+    return (not bad, str(bad) if bad else "APPROVED -> RETRACTED only, in %d documents" % len(NORMATIVE))
+
+
+check("state-transitions", "state model permits withdrawal only to RETRACTED",
+      withdrawal_targets_agree)
+
+check("state-transitions", "withdrawn level is carried as metadata on one terminal state",
+      lambda: (all("withdrawn level" in plain(d).lower() for d in (STATE, PROMO, STD, CREC, KREC)), ""))
+
+check("state-transitions", "no reverse transition exists on the governance axis",
+      lambda: ("no reverse transition" in plain(STATE).lower()
+               and "rewind a governance state" in plain(PROMO).lower()
+               and "There is no APPROVED \u2192 REVIEWED" in plain(STD), ""))
+
+check("state-transitions", "a revised claim is a new linked item starting at DRAFT",
+      lambda: (all("new linked item starting at" in plain(d) for d in (STATE, PROMO, STD)), ""))
+
+check("state-transitions", "APPROVED withdrawal in promotion governance matches the state model",
+      lambda: ("RETRACTED with withdrawn level" in plain(PROMO)
+               and "not** returned to `REVIEWED` or `DRAFT`" in PROMO, ""))
+
+check("state-transitions", "forbidden-shortcut list names the reverse transitions",
+      lambda: ("`APPROVED` \u2192 `REVIEWED` or `DRAFT`, and `CANONICAL` \u2192 `APPROVED`" in STATE, ""))
+
+
+# --- 5.3 inventory consistency, derived rather than hand-maintained -------------------------
+
+def constraint_numbers():
+    return [int(n) for n in re.findall(r"^## (\d+)\. ", STD, re.M)]
+
+
+check("inventory", "constraint numbering is contiguous from 1",
+      lambda: (constraint_numbers() == list(range(1, len(constraint_numbers()) + 1)),
+               "%d constraints" % len(constraint_numbers())))
+
+check("inventory", "universe states the actual constraint count",
+      lambda: (("| Enforceable constraints | %d |" % len(constraint_numbers())) in plain(UNIV)
+               and ("%d inherited rules" % len(constraint_numbers())) in UNIV,
+               "%d" % len(constraint_numbers())))
+
+check("inventory", "universe states the actual memory-class count",
+      lambda: (("| Memory classes | %d |" % len(declared_classes())) in plain(UNIV)
+               and "six memory classes" in plain(A), "%d" % len(declared_classes())))
+
+check("inventory", "four-axis wording is normative everywhere; no three-axis claim survives",
+      lambda: (lambda stale: (not stale, str(stale) if stale else "0 stale axis claims"))(
+          [rel for rel, doc in NORMATIVE.items()
+           if re.search(r"three[- ]ax", doc, re.I)]))
+
+check("inventory", "no stale 'seven classes' or 'seven stores' claim in normative text",
+      lambda: (lambda stale: (not stale, str(stale) if stale else "0 stale class claims"))(
+          [rel for rel, doc in NORMATIVE.items()
+           for m in re.finditer(r"seven (classes|stores|memory)", doc, re.I)
+           if not REMEDIATION_CONTEXT.search(doc[max(0, m.start() - 200):m.end() + 200])]))
+
+check("inventory", "universe names the four axes and the withdrawal semantics",
+      lambda: ("four axes" in plain(UNIV).lower() and "withdrawal semantics" in plain(UNIV).lower(), ""))
 
 # =========================================================== 10. exemplars
 
@@ -577,9 +834,59 @@ check("exemplars", "every exemplar uses full memory class names only",
 check("exemplars", "no exemplar shows a memory class mutating into a governance state",
       lambda: (not any(re.search(r"Memory class:.*→", DOCS[e]) for e in EXEMPLARS), ""))
 
-check("exemplars", "canonical exemplars declare an applicability mode",
-      lambda: (all(any(m in DOCS[e] for m in MODES) for e in EXEMPLARS
-                   if "CANONICAL" in DOCS[e] and "Canonical ID" in DOCS[e]), ""))
+def canonical_exemplars():
+    """Any exemplar whose own Identity block declares a canonical governance status —
+    `CANONICAL`, or `SUPERSEDED`/`RETRACTED`, which only a once-canonical record holds.
+
+    Selection is never by the presence of a metadata field: the previous selector required a
+    `Canonical ID` line, so an exemplar missing its metadata escaped validation instead of
+    failing it. Identity blocks are parsed, so a record cannot opt out by omission.
+    """
+    out = []
+    for rel in EXEMPLARS:
+        doc = DOCS[rel]
+        block = doc.split("## Identity", 1)[-1].split("\n## ", 1)[0] if "## Identity" in doc \
+            else doc.split("\n## ", 1)[0]
+        if re.search(r"`(CANONICAL|SUPERSEDED|RETRACTED)`", block) or "Canonical ID" in block:
+            out.append(rel)
+    return out
+
+
+def declared_mode(doc):
+    """The declared field only. Prose discussing why other modes are wrong is not a declaration."""
+    m = re.search(r"^- Applicability mode:\s*`([A-Z_]+)`", doc, re.M)
+    return m.group(1) if m else None
+
+
+def canonical_exemplar_modes():
+    bad = []
+    for rel in canonical_exemplars():
+        mode = declared_mode(DOCS[rel])
+        if mode is None:
+            bad.append("%s: no declared mode" % os.path.basename(rel))
+        elif mode not in MODES:
+            bad.append("%s: illegal mode %s" % (os.path.basename(rel), mode))
+    return (not bad and len(canonical_exemplars()) >= 5,
+            str(bad) if bad else "%d canonical exemplars, exactly one mode each"
+            % len(canonical_exemplars()))
+
+
+check("exemplars", "every CANONICAL exemplar declares exactly one allowed applicability mode",
+      canonical_exemplar_modes)
+
+check("exemplars", "canonical-exemplar discovery is by state, not by field presence",
+      lambda: (len(canonical_exemplars()) >= len([e for e in EXEMPLARS if "Canonical ID" in DOCS[e]]),
+               "%d by state vs %d by Canonical ID field"
+               % (len(canonical_exemplars()), len([e for e in EXEMPLARS if "Canonical ID" in DOCS[e]]))))
+
+check("exemplars", "exemplar 2 uses the four-axis model",
+      lambda: ("four axes" in plain(DOCS["knowledge/exemplars/project-assumption-non-canonical.md"]).lower()
+               and "three-ax" not in DOCS["knowledge/exemplars/project-assumption-non-canonical.md"].lower(), ""))
+
+check("exemplars", "exemplar 3 declares and justifies its applicability mode",
+      lambda: ("NON_INHERITABLE" in DOCS["knowledge/exemplars/financial-calculation-lineage.md"]
+               and "Why `NON_INHERITABLE` is the right mode"
+               in DOCS["knowledge/exemplars/financial-calculation-lineage.md"], ""))
 
 check("exemplars", "stale exemplar separates item facts from use verdicts",
       lambda: (("PAST_REFRESH_INTERVAL" in DOCS["knowledge/exemplars/stale-canonical-refresh.md"]

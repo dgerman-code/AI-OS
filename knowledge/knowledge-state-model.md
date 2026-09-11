@@ -80,7 +80,7 @@ Phase 2's approved list carries `AI_SUGGESTION` as a knowledge class, and Phase 
 | `APPROVED` | A bounded Phase 7 approval Decision Right was exercised **for a declared purpose**. Reliance extends to that purpose and no further. |
 | `CANONICAL` | The organisation's governed position on a subject, **for a named scope, at a named version, from an effective date**. See §5. |
 | `SUPERSEDED` | A later governed version replaced this one's operative effect. The content remains intact and readable. |
-| `RETRACTED` | The item is withdrawn from reliance **and remains visible**, with the reason recorded. Not deletion, not erasure, not forgetting. |
+| `RETRACTED` | The item is withdrawn from reliance **and remains visible**, with the reason and the **level withdrawn from** recorded. The single terminal state for every withdrawal; the level is carried as metadata rather than as a state name. Not deletion, not erasure, not forgetting. |
 | `REJECTED` | Considered and refused — the claim was not adopted. Distinct from `RETRACTED`, which withdraws something previously adopted. |
 
 **`APPROVED` does not automatically mean `CANONICAL`.** Approval authorises reliance for a purpose; canonical promotion adopts a statement as the organisation's position for a scope. Every phase since Phase 3 asserted this boundary; Phase 8 is where it becomes a transition rule rather than a sentence.
@@ -115,9 +115,29 @@ Governance-state transitions, with what each requires:
 | `REVIEWED` | `REJECTED` | As above |
 | `APPROVED` | `CANONICAL` | Canonical promotion authority **plus** the evidence, review, scope, version and conflict prerequisites of `knowledge/canonical-promotion-governance.md` |
 | `CANONICAL` | `SUPERSEDED` | Promotion of a successor version for the **same subject and scope** — automatic, and never a free-standing decision |
-| `CANONICAL` | `RETRACTED` | Canonical status-withdrawal authority, with a recorded reason and the resulting gap declared |
-| `APPROVED` / `REVIEWED` / `DRAFT` | `RETRACTED` | Withdrawal of an adopted item at its own level of adoption |
+| `CANONICAL` | `RETRACTED` | Canonical status-withdrawal authority, with a recorded reason, the **withdrawn level `CANONICAL`** recorded, and the resulting gap and ancestor-fallback determination declared |
+| `APPROVED` | `RETRACTED` | Approval-withdrawal authority, with a recorded reason and the **withdrawn level `APPROVED`** recorded. Reliance for the declared purpose ends |
+| `REVIEWED` / `DRAFT` | `RETRACTED` | Withdrawal of an adopted item at its own level of adoption, level recorded |
 | any | `CONFLICT_DETECTED` flag raised | Evidence of conflict. **Raising a flag needs no authority; clearing one does.** |
+
+### Withdrawal is terminal and never rewinds
+
+**There is no reverse transition on the governance axis.** A withdrawn approval does not become `REVIEWED` again, and a retracted canonical statement does not become `APPROVED` again. Both go to `RETRACTED`, and `RETRACTED` is terminal for that item.
+
+The reason is that approval and promotion are **events that happened**. Returning an item to `REVIEWED` would assert that the approval never occurred — and work was done in reliance on it while it stood, so the record must continue to show it. A reverse transition is a small, quiet act of history rewriting, and this model has no state for it.
+
+**`RETRACTED` is one state for both cases, and the distinction lives in metadata, not in the state name:**
+
+| Metadata | Content |
+|---|---|
+| **Withdrawn level** | `APPROVED` or `CANONICAL` — what the item held when withdrawal occurred |
+| **Effect subtype** | `APPROVED_STATUS_WITHDRAWAL` or `CANONICAL_RETRACTION` (`knowledge/canonical-promotion-governance.md` §3) |
+| **What ends** | Reliance for the declared purpose, or the scope's governed position |
+| **Gap declared** | Required for `CANONICAL`, with the ancestor-fallback determination; for `APPROVED`, what relied on it and for which purpose |
+
+Inventing separate state names — `UNAPPROVED`, `DEPROMOTED` — was considered and refused: two names for one transition shape multiply the vocabulary without adding a distinction the metadata does not already carry.
+
+**A revised claim is a new linked item.** It begins at `DRAFT` and runs its own lifecycle, linked to the retracted one. It does not inherit the withdrawn item's history, and the withdrawn item is not relabelled to make room for it.
 
 ### Forbidden shortcuts
 
@@ -131,6 +151,7 @@ Each of these is a defect wherever it appears, not a policy choice:
 6. `CONFLICT_DETECTED` → cleared without a recorded resolution.
 7. `CANONICAL` → `CANONICAL` for the same scope by **editing in place**. A correction is a new version, promoted, superseding the old.
 8. `SUPERSEDED` or `RETRACTED` → deleted, hidden, or overwritten.
+8a. **`APPROVED` → `REVIEWED` or `DRAFT`, and `CANONICAL` → `APPROVED`.** No reverse transition exists on this axis. Withdrawal goes to `RETRACTED` with the withdrawn level recorded; a revised claim is a **new linked item starting at `DRAFT`**.
 9. `REJECTED` → `APPROVED` without a new governed act on new grounds.
 10. Any transition **caused by retrieval, ranking, relevance, confidence, repetition or absence of objection.**
 

@@ -281,3 +281,128 @@ Five of the six the audit flagged are resolved by rules that **did not exist bef
 **Post-remediation audit baseline commit:** the commit carrying this record — the single commit `docs: remediate Phase 8 foundation after independent audit` on `architecture/phase-8-memory-canonical`.
 
 A commit cannot contain its own SHA, so it is not written here rather than written wrongly. Resolve it with `git rev-parse HEAD` on this branch, or `git log -1 --format=%H --grep='remediate Phase 8 foundation'`. The re-audit baseline is that commit's tree, and the harness reproduces its result from it: `python3 validation/phase_8_validation.py` → `95/95 PASS`.
+
+---
+---
+
+# Second Re-Audit Remediation
+
+Baseline audited: `4a20429c94e4c881a303a58b7fd62289a4131c26`
+Verdict re-audited: **FAIL** — four remaining blockers plus validation weaknesses rated MEDIUM credibility.
+
+Everything above this line is the **first** remediation and is preserved unaltered. This section records the second pass.
+
+## R1 — Organisational applicability leaking into `PERSONAL`
+
+**Finding.** `scope-isolation-and-transfer.md` §7 still said organisational canonical statements were "applicable to work done in personal scope", contradicting the approved graph, the no-sideways rule, the transfer rule and the isolation rule — in one sentence.
+
+**Status: RESOLVED. Leakage count after fix: 0.**
+
+The sentence was wrong in the way that is hardest to see: it described a **real and useful practice** — a person consulting their employer's policy — in the one vocabulary that must not be used for it. The practice stays; the word goes.
+
+`PERSONAL / AD-HOC INITIATIVE` is a **third top-level branch under `GLOBAL`**, a sibling of `ORGANISATION` and of `INDEPENDENT BUSINESS / VENTURE`. The sideways rule therefore governs the whole boundary. Six rules now state it: `PERSONAL` is never a descendant; no organisational canonical statement is applicable inside it, and **association with the organisation is not ancestry**; no personal item is applicable inside an organisational scope; nothing crosses automatically — **not canonical status, not Review satisfaction, not authority, not the applicability mode itself**; deliberate cross-family use is `SCOPE_REFERENCE` or `GOVERNED_TRANSFER`; preference memory is canonical nowhere.
+
+**Reference and use are permitted; applicability is not.** Under applicability an organisational rule governs by default, follows the person everywhere and needs someone to notice in order to stop. Under reference it applies because a task selected it, at a named version, with the selection recorded.
+
+All four stress tests are answered in the document. The third carries the load: **not even a `MANDATORY_WIDER_CONSTRAINT` propagates sideways** — where a person acts for the organisation, the work is *in* an organisational scope and the constraint binds there; where they act personally, the obligation may still reach them, but through law on its own terms and not because the record travelled. **Scope is decided by what the work is, not by who is doing it.**
+
+## R2 — `APPROVED_STATUS_WITHDRAWAL` contradicted the state model
+
+**Finding.** Promotion governance said withdrawal returned an item to `REVIEWED` or `DRAFT`; the state model permitted withdrawal only to `RETRACTED`.
+
+**Status: RESOLVED. Contradictory permitted transitions remaining: 0.**
+
+**There is no reverse transition on the governance axis.** Returning an item to `REVIEWED` would assert that an approval which happened did not — and work was done in reliance on it while it stood. That is history rewriting in miniature, and the model now has no state for it.
+
+Both withdrawals land on **`RETRACTED`**, and the distinction is carried as **metadata, not as a state name**:
+
+| Metadata | Content |
+|---|---|
+| Withdrawn level | `APPROVED` or `CANONICAL` — what the item held at withdrawal |
+| Effect subtype | `APPROVED_STATUS_WITHDRAWAL` or `CANONICAL_RETRACTION` |
+| What ends | Reliance for the declared purpose, or the scope's governed position |
+| Gap declared | Required for `CANONICAL`, with ancestor fallback; for `APPROVED`, what relied on it and for which purpose |
+
+Separate state names (`UNAPPROVED`, `DEPROMOTED`) were considered and refused: two names for one transition shape multiply the vocabulary without adding a distinction the metadata does not already carry. **A revised claim is a new linked item starting at `DRAFT`**, linked to the retracted one and not inheriting its history.
+
+Carried into the state model (§3, §6, new subsection, forbidden shortcut 8a), promotion governance (§3 table, §6.1a), the standard (**new §18**, with all later constraints renumbered so numbering stays contiguous at 1–30), and both templates.
+
+## R3 — Live inventory inconsistencies
+
+**Finding.** The universe still said **three-axis**, **28 constraints**, and retained **"seven stores"** reasoning.
+
+**Status: RESOLVED.** The universe now says four axes and withdrawal semantics; the constraint count is **30** and is asserted against the file's own contiguous numbering rather than maintained by hand; the "seven stores" rationale is restated as "one store per class", which is the argument that was actually being made and does not carry a stale count.
+
+Stale-reference scan across all normative Phase 8 files: **0** occurrences of `three-axis`/`three axes`, **0** normative `seven classes`/`seven stores`, **0** old memory-class aliases, **0** old freshness wording, **0** old AI-conversion wording. Historical change is described in this remediation record; the active inventory states only what is true now.
+
+## R4 — Exemplars 2 and 3
+
+**Status: RESOLVED. All eight pass.**
+
+**Exemplar 2** described itself as proving a three-axis model. It now shows **all four axes on one item** in a table — `ASSUMPTION` + `APPROVED` + `HUMAN_ORIGIN` + no conflict — and explains why a single-label model would have to drop half the meaning either way. Its substantive lesson is unchanged and its non-canonical status is untouched. Origin is added with the point it makes: had the date been a model's suggestion, **no one's acceptance could have made it an `ASSUMPTION`**.
+
+**Exemplar 3** declared `CALCULATION` + `CANONICAL` with no applicability mode. It now declares **`NON_INHERITABLE`** and justifies it: a DSCR is this project's figure from this project's inputs, and nothing about it should govern a descendant scope. The three rejected alternatives are stated with why each is wrong — `INHERITABLE_TO_DESCENDANTS` would make a workstream declare an override to disagree with **its own analysis**; `CONDITIONALLY_APPLICABLE` implies conditions that do not exist; `MANDATORY_WIDER_CONSTRAINT` is a category error, since a derived value is not an obligation. Input versioning and re-derivation semantics are untouched.
+
+## R5 — Validation harness strengthened
+
+**Status: RESOLVED. 95 checks → 119 deterministic checks, 119/119 PASS.**
+
+| Weakness | Fix |
+|---|---|
+| **5.1** presence-oriented sideways check missed the live leak | New `personal-isolation` group of **9 semantic checks**. One scans every normative document for five leakage phrasings and fails on any assertion not in a denying context; the others verify family separation, association-is-not-ancestry, the four not-crossing items, reference-or-transfer-only, the sideways rule covering mandatory constraints, all four stress tests, and that the correction is recorded rather than silently swapped |
+| **5.2** no cross-file transition consistency | New `state-transitions` group of **6 checks**. One **parses the transition table** and fails on any `APPROVED` → `REVIEWED`/`DRAFT` or `CANONICAL` → earlier state, then scans every normative document for rewind phrasing outside a denial. Others require the withdrawn-level metadata in five documents and the new-linked-item rule in three |
+| **5.3** hand-maintained inventory counts | New `inventory` group of **6 checks**. Constraint numbering must be contiguous from 1; the universe's stated counts are compared against **counts derived from the files**; stale axis and class claims are scanned for in normative text only |
+| **5.4** canonical selector excluded records missing the very field whose absence is the defect | Discovery now **parses each exemplar's Identity block** for a canonical status token, so a record cannot opt out by omission. Mode validation reads the **declared field only** — prose discussing why other modes are wrong is not a declaration. Five canonical exemplars found, each with exactly one legal mode |
+| **5.5** a check ending in `or True` | Removed. The replacement **can fail**, and a further check now enforces the property on the whole file: no tautology, no unreachable failure branch, no hard-coded pass counter. The two self-inspecting checks exclude their own source region so they cannot match their own literals, and their detector patterns are assembled from fragments so a plain grep finds no literal occurrence outside one explanatory docstring |
+| **5.6** local `.git/PULL_REQUEST` presented as a PR test | Scope stated honestly. The check is renamed to **"local scope only"** and its evidence line says the remote open-PR count **is not provable offline and is not claimed**. `validation/README.md` gains a provable/not-provable table. See **External checks** below — where the honest scoping immediately proved its worth |
+| **5.7** count preserved for cosmetics | **119** reported, derived from the suite. Normal, `--verbose` and `--json` modes all report 119/119; exit code 0 on pass, non-zero on any failure |
+
+### What the strengthened harness caught during this pass
+
+Three of its own new checks were wrong and were **replaced with stricter, correct ones**, not relaxed: the transition check initially treated `APPROVED` → `CANONICAL` as a defect, when that is legitimate promotion and only a **rewind** is the defect; the canonical-mode check counted modes mentioned anywhere in prose, so exemplar 3's discussion of rejected alternatives read as four declarations, and it now parses the declared field; and canonical discovery by regex missed three exemplars that express canonicality in different phrasings, so it now parses Identity blocks.
+
+## External repository checks — performed separately, not folded into the count
+
+Run against the GitHub API, outside the offline harness:
+
+- **Open pull requests on `dgerman-code/AI-OS`: 1** — PR #1, `architecture/phase-1-2` → `main`, pre-existing and unrelated to this branch.
+- **Open pull requests for `architecture/phase-8-memory-canonical`: 0.**
+- **Pull requests created by this pass or the previous one: 0.**
+
+This is exactly why 5.6 mattered. The local check would have been read as proving "no open PRs"; the repository has one. It is not this branch's, it was not created here, and **the honest scoping is what makes the distinction visible** instead of asserting a falsehood that happened to be convenient.
+
+## Open questions re-adjudicated — #2, #3, #4
+
+The re-audit still marked these MUST RESOLVE. Each is now answered by a rule that changed in this pass:
+
+| # | Now | The rule, and what changed |
+|---:|---|---|
+| **2** | **RESOLVED IN FOUNDATION** | Multiple simultaneously valid scoped statements exist **within one scope family**, under declared applicability modes, with any overlap requiring a reasoned override naming the wider record. **Across scope families there is no simultaneity question at all**, because no statement is applicable in another family — the case the previous answer left open, and the one the leak had silently answered wrongly |
+| **3** | **RESOLVED IN FOUNDATION** | Canonical status **never inherits**. Applicability propagates downward only by declared mode, **within one family**; mandatory wider constraints bind descendants and **do not cross sideways**, since a sibling family has none of the ancestors; no upward propagation; no silent ancestor resumption after retraction |
+| **4** | **RESOLVED IN FOUNDATION** | The successor / no-successor boundary stands, and it is now **state-transition consistent**: `APPROVED_STATUS_WITHDRAWAL` and `CANONICAL_RETRACTION` both land on `RETRACTED` with the withdrawn level as metadata, and no path rewinds a state. The contradiction that blocked this question is gone, and the harness fails if it returns |
+
+Questions 1, 5, 6, 8, 11 are unchanged and unaffected. Questions 7, 9, 12 remain resolved as recorded in the first remediation. Question 10 remains `PHASE 9+ / RUNTIME CONCERN`.
+
+## Files changed in this pass
+
+| File | Purpose |
+|---|---|
+| `knowledge/scope-isolation-and-transfer.md` | §7 rewritten: separate scope family, six rules, reference-vs-applicability, four stress tests (R1); sideways rule extended to mandatory constraints; context-switching rule 4 added |
+| `knowledge/knowledge-state-model.md` | Withdrawal-is-terminal subsection, withdrawn-level metadata, forbidden shortcut 8a, transition table rows (R2) |
+| `knowledge/canonical-promotion-governance.md` | `APPROVED_STATUS_WITHDRAWAL` target corrected; §6.1a no-rewind rule (R2) |
+| `knowledge/_standards/common-knowledge-governance-constraints.md` | **New §18**, later constraints renumbered to stay contiguous at 1–30 (R2) |
+| `knowledge/_templates/knowledge-record-template.md` | Withdrawn level and no-rewind note (R2) |
+| `knowledge/_templates/canonical-record-template.md` | Withdrawn level and effect subtype in the retraction section (R2) |
+| `knowledge/memory-class-model.md` | "Seven stores" rationale restated without a stale count (R3) |
+| `knowledge/master-knowledge-governance-universe.md` | Four axes, 30 constraints, stores rationale (R3) |
+| `knowledge/exemplars/project-assumption-non-canonical.md` | Four-axis table and origin (R4) |
+| `knowledge/exemplars/financial-calculation-lineage.md` | `NON_INHERITABLE` declared and justified (R4) |
+| `validation/phase_8_validation.py` | 95 → 119 checks; three new semantic groups; vacuous check removed and its absence enforced; honest PR scope (R5) |
+| `validation/README.md` | Provable/not-provable scope table; no-vacuous-checks convention (R5) |
+| `reviews/phase-8-foundation-audit-remediation.md` | This section |
+
+## Status after the second pass
+
+**Phase 8 remains `PROPOSED`.** Nothing is APPROVED or CANONICAL. No Decision Right was created, no Role gained authority, no review status was set or changed, and no approved Phase 3–7 artifact was modified in either pass. This record is `PRODUCER_REVIEW` and is not an independent audit.
+
+**Deterministic validation:** `python3 validation/phase_8_validation.py` → `119/119 PASS`, exit 0. **External repository state** is checked separately and reported above; it is deliberately **not** part of that count.

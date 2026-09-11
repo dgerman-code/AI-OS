@@ -17,8 +17,18 @@ Inherits: `standard.knowledge.common_constraints@0.1`
 ## Statement
 Grid connection is **assumed** available from the stated date, for programme and financial-model purposes.
 
-## Epistemic type / governance state
-`ASSUMPTION` + `APPROVED`. Both axes, simultaneously — this is the case the three-axis model exists for.
+## The four axes, on one item
+
+| Axis | Value |
+|---|---|
+| Epistemic type | `ASSUMPTION` |
+| Governance state | `APPROVED` |
+| Origin | `HUMAN_ORIGIN` — the date came from the programme team's judgement, not from a model |
+| Conflict flags | None |
+
+`ASSUMPTION` + `APPROVED`, held simultaneously — **this is the case the four-axis model exists for.** A single-label model would force the item to choose, and whichever it chose would lose the other half: "approved" hides that it is an assumption, "assumption" hides that reliance was authorised.
+
+Origin matters here even though nothing in this item came from a model. Had the date been a model's suggestion, it would have been `AI_SUGGESTION` and **could not have become an `ASSUMPTION` by anyone accepting it** — adoption would have created a new linked item carrying `ORIGIN: AI_GENERATED` permanently (`knowledge/knowledge-state-model.md` §2a).
 
 ## What happened, exactly
 The operator has issued no dated commitment. The date is adopted so that the programme and the model can proceed, which is a legitimate governed act. A review examined the basis and was `SATISFIED` — meaning **the assumption is well-characterised**, its sensitivity is quantified, and its failure consequence is stated. It does not mean the date is right.
