@@ -10,7 +10,8 @@ Inherits: `standard.knowledge.common_constraints@0.1`
 - Version: 1 — **candidate, not promoted**
 - Subject: the regional demand baseline for the appraisal period
 - Scope: `PROJECT/<alpha>`
-- Memory class: `SEMANTIC`
+- Memory class: `SEMANTIC_MEMORY`
+- Origin: `HUMAN_ORIGIN`
 - Sensitivity: `INTERNAL`
 
 ## Epistemic type / governance state
@@ -23,7 +24,9 @@ Two external sources give materially different baselines: a national statistical
 - **Taking the later one.** Recency bears on currency, not correctness — and the later source is the one with the unexplained definitional change.
 - **Taking the more authoritative publisher.** Authority is not evidence. The statistical office is not automatically right about a sector definition it does not use.
 - **Averaging them.** Two incompatible definitions do not average into a third; the result is a number with no basis at all, which is worse than either input because it can no longer be traced.
-- **Promoting with the conflict noted.** The conflict is **material** — the claim is the number — and a material unresolved conflict blocks promotion outright (`standard.knowledge.common_constraints` §9). Noting it is not resolving it.
+- **Promoting with the conflict noted.** The conflict is **material** — the claim *is* the number, so the statement depends entirely on the contested point — and a material unresolved conflict blocks promotion outright (`standard.knowledge.common_constraints` §9). Noting it is not resolving it.
+
+**Materiality here is a determination, not an impression**, and it is attributable: the Role that owns the demand position assessed it and the assessment is reviewable. Had the two sources disagreed about something the appraisal does not rest on, the conflict would stay visible and block nothing — at any criticality band.
 
 ## What the conflict actually is
 On examination it is close to an `IDENTITY_CONFLICT`: the two series may not be measuring the same thing. That question is prior to which number is right, and answering "which is correct" first would merge two different quantities.

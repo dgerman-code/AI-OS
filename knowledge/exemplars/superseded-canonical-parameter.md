@@ -10,6 +10,9 @@ Inherits: `standard.knowledge.common_constraints@0.1`
 - Versions: 1 `SUPERSEDED` → 2 `CANONICAL`
 - Subject: the project's design capacity
 - Scope: `PROJECT/<alpha>`
+- Memory class: `SEMANTIC_MEMORY` — **unchanged across both versions and the supersession**
+- Applicability mode: `NON_INHERITABLE` — a design capacity governs this project and propagates to nothing
+- Origin: `HUMAN_ORIGIN`
 - Sensitivity: `CONFIDENTIAL`
 
 ## What happened

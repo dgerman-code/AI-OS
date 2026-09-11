@@ -8,40 +8,114 @@ Inherits: `standard.knowledge.common_constraints@0.1`
 
 `architecture/context-hierarchy.md` (Phase 2, approved) states the hierarchy. It does not say what a scope *does* to knowledge. This document does, and it does so without implementing identity, permission or access control.
 
-## 1. Scope hierarchy
+## 1. Scope graph — the approved hierarchy, restored verbatim
 
-```
+The authoritative graph is `architecture/context-hierarchy.md`, approved at Phase 2 and unchanged through the Phase 7 approval baseline `c72ef03`. It is reproduced here **exactly as approved**, not summarised or reinterpreted:
+
+```text
 GLOBAL
- └── ORGANISATION
-      ├── PERMANENT FUNCTION / BUSINESS AREA
-      ├── PROGRAMME / PORTFOLIO   ──┐
-      ├── PRODUCT / PLATFORM      ──┤
-      └── PROJECT                 ──┴── WORKSTREAM ── TASK
+│
+├── ORGANISATION
+│   ├── PERMANENT FUNCTION / BUSINESS AREA
+│   ├── PROGRAMME / PORTFOLIO
+│   │   └── PROJECT
+│   │       └── WORKSTREAM
+│   │           └── TASK
+│   ├── PROJECT
+│   │   └── WORKSTREAM
+│   │       └── TASK
+│   ├── PRODUCT / PLATFORM
+│   │   └── WORKSTREAM
+│   │       └── TASK
+│   └── OPERATIONAL WORKSTREAM
+│       └── TASK
+│
+├── INDEPENDENT BUSINESS / VENTURE
+│   └── PROJECT / PRODUCT / WORKSTREAM / TASK
+│
+└── PERSONAL / AD-HOC INITIATIVE
+    └── WORKSTREAM / TASK
 ```
 
-`PERSONAL` is a **separate scope family**, not a level of this tree:
+The first Phase 8 draft compressed this into a single organisational chain and **lost four things**: `INDEPENDENT BUSINESS / VENTURE`, `OPERATIONAL WORKSTREAM`, the fact that `PROJECT` may sit **either** under a programme/portfolio **or** directly under the organisation, and `PERMANENT FUNCTION / BUSINESS AREA`. The independent audit was right, and it was right about the consequence as well as the omission: a project reachable by two different paths has two different sets of ancestors, so a compressed graph silently changes which statements are applicable to it.
 
-```
-PERSONAL (per human)
- └── WORKSTREAM / TASK
-```
+### Distinct semantics of each node
 
-Scope identity is a path — `ORGANISATION/acme`, `PROJECT/alpha`, `PERSONAL/<human>` — and is **structural, never a name match**: two projects called "Phase 2" in different programmes are two scopes, and the registry never resolves them to each other by string similarity. Same-name disambiguation is by path, always.
+| Node | What it is | Not to be conflated with |
+|---|---|---|
+| `GLOBAL` | Above any organisation — knowledge true of the world, not of an entity | `ORGANISATION` |
+| `ORGANISATION` | One legal or operating entity | `GLOBAL`, and any other organisation |
+| `PERMANENT FUNCTION / BUSINESS AREA` | A durable internal function — finance, legal, security. Persists across projects | `OPERATIONAL WORKSTREAM`, which is work, not a function |
+| `PROGRAMME / PORTFOLIO` | A governed grouping of projects | A project; and a programme is **not** always present above one |
+| `PROJECT` | A bounded endeavour — **reachable under a programme/portfolio, directly under the organisation, or under an independent business** | A workstream |
+| `PRODUCT / PLATFORM` | A durable product line | A project, which ends |
+| `OPERATIONAL WORKSTREAM` | Continuing operational work directly under the organisation, **ending at `TASK` with no project above it** | A project workstream |
+| `WORKSTREAM` | A strand of work inside a project, product or venture | `OPERATIONAL WORKSTREAM` |
+| `TASK` | One unit of work | Everything above it |
+| `INDEPENDENT BUSINESS / VENTURE` | A venture **at the same level as `ORGANISATION`, not inside it** | A programme or product of the organisation |
+| `PERSONAL / AD-HOC INITIATIVE` | A person's own scope, a **third top-level branch** | Any organisational node |
 
-## 2. Inheritance: applicability flows down, authority does not
+**`INDEPENDENT BUSINESS / VENTURE` and `ORGANISATION` are siblings under `GLOBAL`.** Nothing flows between them, in either direction, by any mechanism short of governed transfer — and the sibling rule of §2 is what makes that structural rather than a matter of care.
 
-Two things are routinely conflated and are kept apart here.
+**Scope identity is a path, and the path is the whole ancestry.** `ORGANISATION/acme/PROGRAMME/north/PROJECT/alpha` and `ORGANISATION/acme/PROJECT/alpha` are two different scopes even where the project name matches, because their ancestor sets differ. Same-name disambiguation is by path, always, and never by string similarity.
+
+## 2. Applicability, not inheritance
+
+**Canonical status never inherits.** A statement canonical in one scope is canonical in that scope and nowhere else, ever. What may reach a descendant scope is **applicability** — whether the statement governs work done there — and applicability propagates **only according to the statement's own declared applicability mode**.
+
+The first Phase 8 draft said every wider canonical statement was applicable to every descendant and that any nearer statement overrode it. The audit was right that this is two defects: it propagates by default rather than by declaration, and it lets a local statement override a binding obligation it has no power to touch.
+
+### The four applicability modes
+
+Every Canonical Record declares exactly one. They are non-overlapping.
+
+| Mode | Propagates to descendants? | May a descendant scope hold a contrary statement? |
+|---|---|---|
+| `INHERITABLE_TO_DESCENDANTS` | **Yes**, to every descendant, unless a nearer statement declares an override | **Yes** — with a declared, reasoned override |
+| `CONDITIONALLY_APPLICABLE` | **Only where the declared conditions are satisfied** in the descendant scope. Where they are not, it simply does not apply — which is not an override and needs no one's permission | Yes, and outside the conditions the question does not arise |
+| `NON_INHERITABLE` | **No.** It governs its own scope only. A descendant needing a position on the subject must establish its own | Not applicable — there is nothing to override |
+| `MANDATORY_WIDER_CONSTRAINT` | **Yes, and it binds.** Law, regulation, a contractual obligation, a safety rule, a binding governance standard, a funder condition | **No.** A descendant may **narrow it or add local detail**; it may not contradict, relax or override it |
+
+**A mode is declared, never inferred.** A record whose mode is absent is defective, and the safe reading of a defective record is `NON_INHERITABLE` — it governs nothing beyond its own scope until the mode is stated.
+
+### Override rules
+
+Where a descendant scope holds a statement contrary to an applicable wider one, the descendant record must state:
+
+1. **what it overrides** — the wider record, by identity and version;
+2. **the wider statement's applicability mode** — and an override of `MANDATORY_WIDER_CONSTRAINT` is **not available at all**;
+3. **why the override is permissible** — in governance or legal terms, not merely as a local preference;
+4. **the authority path relied on**, where the upstream architecture provides one.
+
+An undeclared contrary statement is a `SCOPE_CONFLICT`, not an override. **An override that names nothing has overridden nothing.**
+
+### Mandatory wider constraints
+
+A `MANDATORY_WIDER_CONSTRAINT` is not overridden by proximity, by seniority, by local circumstance, or by a local canonical statement. **A local exception requires a separately valid authority path** — one that upstream architecture actually provides — and where none exists, there is no exception, only a scope conflict and an unresolved obligation. A project cannot canonicalise its way out of a regulation, and this architecture does not offer it a mechanism that looks like one.
+
+### Ancestor fallback after local retraction — no silent fallback
+
+When a narrower canonical statement is retracted with no successor, what happens to an otherwise-applicable wider statement is **determined and recorded**, never assumed:
+
+| Wider statement's mode | On local retraction |
+|---|---|
+| `MANDATORY_WIDER_CONSTRAINT` | **Resumes automatically** — it never stopped binding; the local statement was only narrowing it, and removing the narrowing leaves the obligation |
+| `INHERITABLE_TO_DESCENDANTS` | **Requires explicit revalidation** before the scope may rely on it. It was displaced by a statement now withdrawn on a finding, and that finding may bear on the wider statement too |
+| `CONDITIONALLY_APPLICABLE` | Applies **only if its conditions are re-checked and hold** in the scope as it now stands |
+| `NON_INHERITABLE`, or no wider statement | **The scope has no position.** The retraction record names the gap |
+
+The retraction record states which of these applies and what was determined. **No wider statement resumes silently.** **A wider statement quietly resuming, unexamined, is exactly the silent fallback this rule forbids** — the local statement was retracted for a reason, and a reason strong enough to withdraw a position is strong enough to be checked against the position beneath it.
+
+### Authority still never flows
 
 | | Direction | Rule |
 |---|---|---|
-| **Applicability** | Downward only | A canonical statement at `ORGANISATION` is **applicable** in every descendant scope unless a nearer scope holds its own canonical statement on the same subject |
-| **Authority** | Never flows | Being inside a scope confers no authority over it. Authority is Phase 7's, is held by eligibility class, and is not derived from scope membership |
+| **Applicability** | Downward only, by declared mode | Per the table above |
+| **Authority** | **Never flows** | Being inside a scope confers no authority over it. Authority is Phase 7's, held by eligibility class, never derived from scope membership |
 
-**Nearest-scope-wins.** Where an ancestor and a descendant both hold a canonical statement on the same subject, the descendant's governs *inside* the descendant, and the ancestor's continues to govern everywhere else. This is an override, not a contradiction, and the descendant record **must name the ancestor statement it overrides** — an unnamed override is a scope conflict (see `knowledge/conflict-and-provenance-model.md`).
+**Nothing flows upward, ever.** A project's canonical statement is not the organisation's position, and a workstream cannot canonicalise for its project. The most common real failure this prevents: a parameter agreed inside one project quietly becoming "what the organisation assumes" because nobody said otherwise.
 
-**Nothing flows upward, ever.** A project's canonical statement is not the organisation's position. A workstream cannot canonicalise for its project. The most common real failure this prevents: a parameter agreed inside one project quietly becoming "what the organisation assumes" because nobody said otherwise.
-
-**Nothing flows sideways.** Sibling projects, sibling programmes and two organisations share nothing by default.
+**Nothing flows sideways.** Sibling projects, sibling programmes, an organisation and an independent venture, and two organisations share nothing by default.
 
 ## 3. Visibility is not authority, and neither is either one applicability
 

@@ -6,21 +6,46 @@ Inherits: `standard.knowledge.common_constraints@0.1`
 
 ## 1. Architecture classes, not registry types
 
-The seven classes below are **architecture classes**, not first-class registry types. They classify what a knowledge item is *for*; they are not a registry of cards, they have no IDs, nothing is "registered as" a memory class, and no Role, Workflow, Handoff, Review or Decision Right references one.
+The six classes below are **architecture classes**, not first-class registry types. They classify what a knowledge item is *for*; they are not a registry of cards, they have no IDs, nothing is "registered as" a memory class, and no Role, Workflow, Handoff, Review or Decision Right references one.
 
-The reason is deliberate. A registry type would invite runtime to implement seven stores, and the classes are not stores — they are governance postures over material that may sit anywhere. `CANONICAL_MEMORY` is not a place; it is the set of records holding canonical status for a scope.
+The reason is deliberate. A registry type would invite runtime to implement seven stores, and the classes are not stores — they are governance postures over material that may sit anywhere. canonical status is not a place; it is a governance state a record holds.
 
-## 2. The classes
+## 2. The classes — six, after removing a duplicate
 
-| Class | Holds | Lifetime | May be canonical? |
+A memory class describes **retention and use character**: how long an item is kept, what it is for, and how it behaves over time. It says nothing about governance status.
+
+| Class | Holds | Retention character | May hold canonical status? |
 |---|---|---|---|
-| `WORKING_MEMORY` | Short-lived task or workflow context — what is currently in hand | The task | **No** |
-| `EPISODIC_MEMORY` | What happened: actions, events, exchanges, decisions taken | Retained | **No** — see §3 |
-| `SEMANTIC_MEMORY` | Reusable claims, definitions, parameters, facts about the world | Retained, versioned | **Yes** |
-| `PREFERENCE_MEMORY` | How a person or organisation prefers to work — conventions, formats, tone, defaults | Retained | **Never** — see §4 |
-| `PROCEDURAL_MEMORY` | Governed methods, playbooks, instructions — how something is to be done | Retained, versioned | **Yes**, as method — see §5 |
-| `CANONICAL_MEMORY` | The records currently holding canonical status for a scope | Versioned, superseded, never overwritten | **Is** canonical |
-| `AUDIT_MEMORY` | The historical trail: evidence considered, reviews performed, decisions made, transitions taken | Append-oriented, permanent | **No** — it records, it does not assert |
+| `WORKING_MEMORY` | Short-lived task or workflow context — what is currently in hand | Ends with the task | **No** |
+| `EPISODIC_MEMORY` | What happened: actions, events, exchanges, decisions taken | Retained; never re-opened | **No** — see §3 |
+| `SEMANTIC_MEMORY` | Reusable claims, definitions, parameters, facts about the world | Retained, versioned | **Yes**, via governance state |
+| `PREFERENCE_MEMORY` | How a person or organisation prefers to work — conventions, formats, defaults | Retained | **Never** — see §4 |
+| `PROCEDURAL_MEMORY` | Governed methods, playbooks, instructions | Retained, versioned | **Yes**, as method — see §5 |
+| `AUDIT_MEMORY` | The historical trail: evidence considered, reviews performed, decisions made, transitions taken | Append-only, permanent | **No** — it records, it does not assert |
+
+**Class names are used in full, everywhere.** No shortened alias — `SEMANTIC`, `CANONICAL`, `AUDIT` on its own — appears in any model, template, exemplar or inventory, because a shortened name is one a runtime would have to guess at.
+
+### `CANONICAL_MEMORY` was removed
+
+The first Phase 8 draft listed a seventh class, `CANONICAL_MEMORY`, defined as "the records currently holding canonical status for a scope". The independent audit was right that this duplicates identity rather than adding a class:
+
+1. **It restated the governance state.** Membership was exactly "governance state is `CANONICAL`", so the class carried no information the state did not.
+2. **It duplicated Canonical Record identity.** The Canonical Record already *is* the object holding canonical status.
+3. **It became undefined at the moment it mattered most.** When a record is superseded or retracted it leaves the class — and the model never said what it becomes, so a runtime would have to invent the answer for precisely the records whose history must not move.
+4. **It made exemplars appear to mutate.** Records were written as `SEMANTIC` → `CANONICAL`, which reads as a class change where nothing about the item's retention character changed at all.
+
+**The correction:** canonicality is a **governance state**, carried by a Canonical Record, and nothing else. A canonical claim is `SEMANTIC_MEMORY` with governance state `CANONICAL`; a canonical method is `PROCEDURAL_MEMORY` with governance state `CANONICAL`.
+
+**The class does not change when the state does.** Promotion, supersession and retraction leave the memory class exactly where it was — which is the property the removed class lacked, and the reason historical identity now stays put:
+
+| Event | Memory class | Governance state |
+|---|---|---|
+| Claim drafted | `SEMANTIC_MEMORY` | `DRAFT` |
+| Promoted | `SEMANTIC_MEMORY` — **unchanged** | `CANONICAL` |
+| Superseded by v2 | `SEMANTIC_MEMORY` — **unchanged** | `SUPERSEDED` |
+| Retracted | `SEMANTIC_MEMORY` — **unchanged** | `RETRACTED` |
+
+The count went from seven classes to six. It was not preserved at seven to protect a number.
 
 ## 3. Class rules
 
@@ -29,8 +54,9 @@ The reason is deliberate. A registry type would invite runtime to implement seve
 3. **Episodic memory does not imply ongoing validity.** That something was decided, said, or done is a durable fact *about the past*. It is not evidence that it still holds — and treating "we agreed this in March" as a current position is the most common way stale knowledge re-enters live work.
 4. **Preference memory never overrides law, fact, evidence or canonical knowledge.** A preference governs presentation and convention. Where a preference and an evidenced claim disagree, the preference loses without a contest, and where a preference and a legal requirement disagree, the preference is void.
 5. **Procedural memory grants no authority.** A playbook describing who approves something is a description of the governed arrangement, not a grant of the approval. Following a procedure does not make its follower a holder of any Decision Right.
-6. **Canonical memory is not a cache.** It is not a fast copy of something authoritative elsewhere, it is not invalidated by a source refresh, and it is never repopulated from a fetch. Its contents change only by governed promotion, supersession or retraction.
+6. **Canonical status is not a cache.** A canonical record is not a fast copy of something authoritative elsewhere, is not invalidated by a source refresh, and is never repopulated from a fetch. Canonical status changes only by governed promotion, supersession or retraction.
 7. **Audit memory is append-oriented and history-preserving.** Corrections are appended and linked. Nothing in it is edited, and nothing in it is removed to make a record tidier.
+8. **A memory class is not a governance status.** The class describes retention and use character; the status describes how far governance has taken the item. Neither is derivable from the other, and a governance act never changes the class.
 
 ## 4. Why preference memory is never canonical
 
@@ -48,7 +74,16 @@ It is **not** canonical as a claim about the world, and canonicality of a method
 
 ## 6. Interaction with the state model
 
-A memory class does not replace an epistemic type or a governance state. Every item carries all three: an item in `SEMANTIC_MEMORY` may be `ASSUMPTION` + `APPROVED`, and an item in `CANONICAL_MEMORY` is by definition `CANONICAL` but may still be `INFERENCE` rather than `FACT_CLAIM`. The class says what the item is for; the type says what it is; the state says how far governance has taken it.
+A memory class does not replace an epistemic type or a governance state, and does not overlap either. Every item carries all three plus an origin:
+
+| Axis | Answers | Changed by |
+|---|---|---|
+| **Memory class** | What is it for, and how is it retained? | Rarely — and never by a governance act |
+| **Epistemic type** | What kind of knowledge is it? | **Nothing.** A different type is a different, linked item |
+| **Governance state** | How far has governance taken it? | Governed acts only |
+| **Origin** (provenance) | Where did it come from — human, AI-assisted, AI-generated, external? | **Nothing. Permanent** |
+
+An item in `SEMANTIC_MEMORY` may be `ASSUMPTION` + `APPROVED`; a `CANONICAL` record may be `INFERENCE` rather than `FACT_CLAIM`; and a canonical claim adopted from a model proposal carries `ORIGIN: AI_GENERATED` in its provenance forever. **No axis is derivable from another**, which is what makes each of them worth recording.
 
 ## 7. Status
 

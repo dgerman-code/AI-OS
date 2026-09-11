@@ -10,7 +10,8 @@ Inherits: `standard.knowledge.common_constraints@0.1`
 - Version: 1
 - Subject: the date grid connection is assumed available for the project's programme
 - Scope: `PROJECT/<alpha>`
-- Memory class: `SEMANTIC`
+- Memory class: `SEMANTIC_MEMORY`
+- Origin: `HUMAN_ORIGIN`
 - Sensitivity: `CONFIDENTIAL`
 
 ## Statement

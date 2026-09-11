@@ -10,7 +10,8 @@ Inherits: `standard.knowledge.common_constraints@0.1`
 - Version: 3
 - Subject: an individual's preferred presentation conventions for draft financial output
 - Scope: `PERSONAL/<human>` — a separate scope family, not a level of the organisational tree
-- Memory class: `PREFERENCE`
+- Memory class: `PREFERENCE_MEMORY`
+- Origin: `HUMAN_ORIGIN`
 - Sensitivity: `INTERNAL`
 
 ## Statement

@@ -39,18 +39,18 @@ Each clause names a real collapse. The last is the one an AI-native system is un
 | Document | Owns |
 |---|---|
 | `knowledge/knowledge-state-model.md` | Epistemic types, governance states, conflict flag, permitted transitions |
-| `knowledge/scope-isolation-and-transfer.md` | Scope hierarchy, applicability, isolation, governed transfer |
-| `knowledge/memory-class-model.md` | The seven memory classes and their boundaries |
+| `knowledge/scope-isolation-and-transfer.md` | The approved scope graph, the four applicability modes, isolation, governed transfer, ancestor fallback |
+| `knowledge/memory-class-model.md` | The six memory classes and their boundaries |
 | `knowledge/conflict-and-provenance-model.md` | Conflict taxonomy and resolution; provenance and lineage |
 | `knowledge/canonical-promotion-governance.md` | The seven canonical acts; the two bounded authorities; Phase 7 integration |
-| `knowledge/sensitivity-and-retention-model.md` | Sensitivity classes; freshness, staleness, expiry, retention |
+| `knowledge/sensitivity-and-retention-model.md` | Sensitivity classes; item temporal facts versus use-context verdicts; end states; retention |
 | `knowledge/_templates/` | Knowledge Record and Canonical Record semantic models |
 | `knowledge/_standards/common-knowledge-governance-constraints.md` | The enforceable rules every record inherits |
 | `knowledge/master-knowledge-governance-universe.md` | Inventory, upstream reference accounting, deferred work |
 
-## 2. Three axes, held at once
+## 2. Four axes, held at once
 
-A knowledge item is not one label. It carries an **epistemic type** (what it is), a **governance state** (how far governance has taken it), and **zero or more conflict flags** — plus a scope, a memory class and a sensitivity classification. An approved assumption is `ASSUMPTION` + `APPROVED` and stays an assumption; that is the structural reason authority cannot quietly convert one kind of knowledge into another. Full model: `knowledge/knowledge-state-model.md`.
+A knowledge item is not one label. It carries an **epistemic type** (what it is), a **governance state** (how far governance has taken it), an **origin** (where it came from — permanent), and **zero or more conflict flags** — plus a scope, a memory class and a sensitivity classification. An approved assumption is `ASSUMPTION` + `APPROVED` and stays an assumption; that is the structural reason authority cannot quietly convert one kind of knowledge into another. Full model: `knowledge/knowledge-state-model.md`.
 
 ## 3. Canonical status, precisely
 
@@ -72,9 +72,9 @@ Phase 8 resolves exactly one forward reference — the canonical-promotion autho
 
 ## 5. Human correction and AI contribution
 
-1. **`AI_SUGGESTION` is an epistemic type and stays one** until a governed human act moves it. Nothing a model produces changes its own governance state.
+1. **`AI_SUGGESTION` never becomes another epistemic type.** Not by acceptance, approval, review, editing or promotion. Where evidence or reasoning supports adoption, a **new linked knowledge item** is created with the type its own basis supports, and the proposal remains historically as what it was (`knowledge/knowledge-state-model.md` §2a). **Human acceptance is not an evidential basis.**
 2. **A model may detect a conflict and propose an update.** Both are useful and neither is a promotion — raising a flag needs no authority, and clearing one does.
-3. **Human edits retain provenance.** The AI contribution stays visible in the lineage after any amount of human rewriting; it is never absorbed into the editor's authorship.
+3. **Origin is permanent provenance, not a knowledge state.** Every item carries `HUMAN_ORIGIN`, `AI_ASSISTED`, `AI_GENERATED` or `EXTERNAL_ORIGIN`, and **nothing changes it** — not adoption, not editing, not promotion. An adopted claim carries its AI origin forever, and it is never absorbed into the editor's authorship.
 4. **Correcting a canonical item creates a new linked version**, promoted, superseding the old. There is no in-place edit anywhere in this architecture.
 5. **Rollback restores applicability through a new governed act.** It re-promotes the earlier content as a new version; it does not erase what happened in between, and the intervening versions remain readable.
 6. **Administrator or user override does not bypass evidence, review or authority requirements.** There is no privileged path, and a system that has one has the requirements as decoration.
@@ -123,9 +123,11 @@ Criticality bands are Phase 3's (`architecture/project-criticality-policy.md`) a
 | Review independence | Producer review may suffice | Peer or cross-domain review | **Independent assurance review**, per Phase 6's classes |
 | Provenance completeness | Gaps stated | Gaps stated and justified | **Chain complete or the omission explicitly justified per step** |
 | Freshness | `STALE_BUT_USABLE` with disclosure | Disclosure plus a refresh plan | **Stale is blocking — refresh before use** |
-| Conflict tolerance | Non-material conflicts may remain open | Material conflicts block | **Any conflict bearing on the claim blocks** |
+| Conflict tolerance | Unresolved **material** conflict blocks; immaterial conflicts stay visible | Same rule; materiality assessed on the record | Same rule, **with a recorded, attributable materiality assessment required for every open conflict** — silence is not a finding of immateriality |
 | Promotion gate | Promotion authority | Promotion authority | Promotion authority, with Phase 7 separation from any exception taken to reach it |
 | Multi-authority | Not required | Not required | Where Phase 7 cardinality requires it — a Phase 7 determination, not one made here |
+
+**Materiality, not count, is what blocks.** A conflict blocks canonical promotion or decision-grade use where **the claim or the decision depends on the contested point**. An immaterial conflict — a disagreement about something the statement does not rest on — stays visible and documented and blocks nothing, at any band. What criticality changes is the **tolerance and the burden**: at Enhanced Decision-Grade, every open conflict needs an explicit materiality assessment that is **attributable to a named eligible Role and reviewable**, and an unassessed conflict is treated as material until someone assesses it. Materiality is never inferred from retrieval ranking, model confidence, or nobody having raised it.
 
 **Criticality changes depth, never identity or truth** — the same rule Phase 3 set for Roles, applied to knowledge.
 

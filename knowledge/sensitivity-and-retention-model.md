@@ -39,21 +39,50 @@ Sensitivity is **not** a scope. Two projects' confidential material is not one p
 
 Classification is **carried through the whole lineage**. Evidence extracted from a `PERSONAL_DATA` source is `PERSONAL_DATA`; a summary of privileged material is privileged; and an aggregate can be more sensitive than its parts. Declassification is a governed act with a reason, never a side effect of quotation, summarisation, aggregation or reuse.
 
-## 3. Freshness and staleness
+## 3. Freshness: item facts and use verdicts are two different things
 
-| Control | Meaning |
+The first Phase 8 draft said staleness is decided by the use — correctly — and then required the record to carry a single "current freshness" value, which is a record-level label. The independent audit was right that these cannot both be true, and right that the bare token `STALE` was never defined. Both are fixed by splitting the axis.
+
+### Item-level temporal facts — properties of the record
+
+| Field | What it records |
 |---|---|
-| **Freshness expectation** | How long this kind of item is expected to remain current — declared on the record, not inferred |
-| `FRESH` | Within the expectation |
-| `STALE_BUT_USABLE` | Past it, still usable, **with the staleness disclosed at the point of use** |
-| `STALE_AND_BLOCKING` | Past it, and not usable for the current purpose until refreshed |
-| **Review-by** | A date at which the item must be re-examined |
+| **As-of date** | The date the knowledge is *about* — the observation, measurement or position date |
+| **Last verified / refreshed** | When someone last checked it, which is not the same as when it was written |
+| **Expected refresh interval** | How long this kind of item is expected to remain current |
+| **Review-by** | A date at which it must be re-examined |
 | **Expiry** | A date after which it no longer carries its status |
-| **Refresh trigger** | An event that fires staleness before any date — a bound input superseded, a source reissued, a conflict raised, a scope condition changed |
+| **Supersession / withdrawal state** | Whether a successor exists, or the status was downgraded |
+| **Refresh triggers** | Events that fire before any date — a bound input superseded, a source reissued, a material conflict raised, a scope condition changed |
 
-**What makes staleness blocking is the use, not the item.** The same canonical figure may be `STALE_BUT_USABLE` for internal orientation and `STALE_AND_BLOCKING` for a decision-grade external submission. The band decides (`architecture/memory-canonical-governance.md` §9), and a decision-grade use of a stale canonical item requires refresh first.
+These are facts about the item. They are stable, they are stored, and **none of them is a usability judgement.**
 
-**Stale is not false.** A stale item is one whose currency is unverified; it has not been contradicted, and treating staleness as falsity discards correct knowledge as reliably as treating it as currency accepts wrong knowledge.
+One derived item-level condition is defined, to replace the undefined token:
+
+- **`PAST_REFRESH_INTERVAL`** — the item is older than its expected refresh interval, or its review-by has passed. This is an **age condition and nothing more**: it says the currency is unverified, not that the item is unusable and not that it is wrong.
+
+**The bare token `STALE` is not part of this model.** It conflated an age fact with a usability verdict, which is exactly the confusion this section removes.
+
+**Phase 6 is unaffected.** `STALE` remains an approved **review status** in `architecture/handoff-review-registry-design.md`, meaning a previously satisfied review invalidated by material change to its subject. That is a different vocabulary about a different object, it is untouched here, and Phase 8 removes the token only from its own freshness model.
+
+### Use-context verdicts — properties of the use
+
+Assessed **per use**, at the moment of use, against the item's temporal facts and the task's criticality band:
+
+| Verdict | Meaning |
+|---|---|
+| `CURRENT_FOR_USE` | Adequate for this use |
+| `STALE_BUT_USABLE` | Past its refresh interval, usable for this use, **with the staleness disclosed at the point of use** |
+| `STALE_AND_BLOCKING` | Past its refresh interval and not usable for this use until refreshed |
+| `EXPIRED_FOR_USE` | Past expiry; not usable for this use at all, whatever the band |
+
+**A use verdict is never stored as a permanent label on the record.** It is a judgement about a pairing of an item with a task, and the same item carries different verdicts for different tasks **at the same moment** — `STALE_BUT_USABLE` for internal orientation and `STALE_AND_BLOCKING` for a decision-grade external submission, simultaneously, with nothing about the item having changed. What changed is the use (`architecture/memory-canonical-governance.md` §9).
+
+**Review-by, expiry, refresh trigger and use verdict remain four distinct things.** Review-by schedules an examination; expiry ends a status; a refresh trigger fires on an event; a use verdict answers one question about one use. Collapsing any two of them is how "we reviewed it last year" comes to mean "it is fine to submit".
+
+### Stale is not false
+
+An item past its refresh interval has **unverified currency**. Nothing has contradicted it. Treating that as falsity discards correct knowledge as reliably as treating it as currency accepts wrong knowledge, and an organisation doing the former loses its institutional memory a little at a time.
 
 ## 4. End states, four different things
 

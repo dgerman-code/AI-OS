@@ -30,8 +30,8 @@ Not from model confidence, retrieval relevance, similarity, recency, agreement a
 ## 8. `UNKNOWN` cannot be closed by authority
 Authority may decide what to do about not knowing. It cannot decide the answer.
 
-## 9. An unresolved material conflict blocks canonical promotion
-Materiality is stated, not assumed. Promotion is not available as an override of an outstanding conflict.
+## 9. An unresolved material conflict blocks canonical promotion and decision-grade use
+A conflict blocks where **the claim or the decision depends on the contested point**; an immaterial conflict stays visible and documented and **blocks nothing, at any criticality band**. Materiality is **stated, attributable to a named eligible Role, and reviewable** — never assumed, and never inferred from retrieval ranking, model confidence or the absence of objection. At Enhanced Decision-Grade every open conflict requires an explicit materiality assessment, and an unassessed open conflict is treated as material until one is made. Promotion is never available as an override of an outstanding material conflict.
 
 ## 10. Conflict is preserved and is cleared only by recorded resolution
 Never by time, re-assertion, a newer source, model agreement, promotion, or nobody objecting. The losing evidence is retained and remains readable.
@@ -48,8 +48,8 @@ Corrections create new linked versions. Canonical records, resolutions, decision
 ## 14. Nothing crosses a scope boundary without a governed act
 Reference or governed transfer only. A transfer carries neither canonical status nor review satisfaction, is never transitive, and states what was revalidated and what was not.
 
-## 15. Applicability flows down; authority never flows, and nothing flows up or sideways
-A nearer scope's canonical statement overrides a wider one inside that scope, and must name what it overrides. Scope membership confers no authority.
+## 15. Applicability propagates only by declared mode; authority never flows; nothing goes up or sideways
+**Canonical status never inherits.** Applicability propagates downward only according to the record's declared mode — `INHERITABLE_TO_DESCENDANTS`, `CONDITIONALLY_APPLICABLE`, `NON_INHERITABLE` or `MANDATORY_WIDER_CONSTRAINT` — and a record with no declared mode governs nothing beyond its own scope. A `MANDATORY_WIDER_CONSTRAINT` **cannot be overridden by a nearer scope**: law, regulation, contract, safety rules and binding governance standards may be narrowed or detailed locally, never contradicted or relaxed, and a local exception requires a **separately valid authority path** — where none exists there is no exception. Any other override must name what it overrides, at which version, and why it is governance-permissible. After a local retraction **no wider statement resumes silently**: a mandatory constraint resumes automatically because it never stopped binding; everything else requires explicit revalidation or re-checked conditions. Scope membership confers no authority.
 
 ## 16. Personal scope never becomes organisational knowledge by absorption
 Preference memory is never canonical. Personal-scope content reaches an organisational scope only by governed transfer producing a new organisationally-owned record.
@@ -60,8 +60,8 @@ Cross-scope entity resolution is an identity conflict to be governed, never an i
 ## 18. An artifact is not a knowledge object
 A document contains claims in several states. Approving a document promotes nothing, replacing a document rewrites no canonical history, and deleting one deletes no canonical or audit record.
 
-## 19. `AI_SUGGESTION` cannot self-promote
-No model, agent or automated process moves its own output along the governance axis, and its contribution stays visible in the lineage after any amount of human editing.
+## 19. `AI_SUGGESTION` converts to no other epistemic type, and origin is permanent
+No model, agent or automated process moves its own output along the governance axis. **And no actor of any kind — human, reviewer, approver or authority — converts `AI_SUGGESTION` into another epistemic type.** Adoption creates a **new linked item** whose type is justified by its own evidence or reasoning: **human acceptance is not an evidential basis**. The proposal remains historically as what it was. **Origin** — `HUMAN_ORIGIN`, `AI_ASSISTED`, `AI_GENERATED`, `EXTERNAL_ORIGIN` — is a permanent provenance fact on a separate axis; nothing changes it, and it survives every version, transfer, promotion and rewrite.
 
 ## 20. Retrieval is not authority
 Stored, retrievable, selected, authoritative and canonical are five different properties. Selection mechanisms carry no governance meaning, and an item's absence from context is not evidence about the item.
@@ -87,7 +87,11 @@ Administrator, owner or user override does not bypass evidence, review or author
 ## 27. Runtime validates against this architecture; it does not mutate it
 A later system may store, index, retrieve and enforce. It may not redefine what knowledge is, what makes it canonical, or what a state means.
 
+## 28. Item age is not a use verdict
+
+Item-level temporal facts — as-of date, last verified, refresh interval, review-by, expiry — are properties of the record. **Usability is a property of the use**: the same item may be `CURRENT_FOR_USE` for one task and `STALE_AND_BLOCKING` for another at the same moment. A use verdict is never stored as a permanent label on the record.
+
 ---
 
-## 28. Status discipline
+## 29. Status discipline
 All Phase 8 artifacts are `PROPOSED`. No Phase 8 record may set its own status to `APPROVED` or `CANONICAL`, and no exemplar is a live knowledge record.

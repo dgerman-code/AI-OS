@@ -10,7 +10,9 @@ Inherits: `standard.knowledge.common_constraints@0.1`
 - Version: 4
 - Subject: minimum DSCR over the loan tenor under the base case
 - Scope: `PROJECT/<alpha>`
-- Memory class: `SEMANTIC` → `CANONICAL` for the project
+- Memory class: `SEMANTIC_MEMORY` — **unchanged by promotion**
+- Governance state: `CANONICAL` for the project scope
+- Origin: `HUMAN_ORIGIN`
 - Sensitivity: `CONFIDENTIAL`
 
 ## Epistemic type / governance state

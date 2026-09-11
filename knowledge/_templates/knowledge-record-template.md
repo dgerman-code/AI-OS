@@ -15,7 +15,8 @@ Sections are mandatory. One that does not apply is filled with an explicit "None
 - Version:
 - Subject / entity identity: *what this is about, named so that it cannot be confused with a same-named subject in another scope*
 - Scope: *full path — `ORGANISATION/<x>`, `PROJECT/<x>`, `PERSONAL/<human>`*
-- Memory class: `WORKING` / `EPISODIC` / `SEMANTIC` / `PREFERENCE` / `PROCEDURAL` / `CANONICAL` / `AUDIT`
+- Memory class: `WORKING_MEMORY` / `EPISODIC_MEMORY` / `SEMANTIC_MEMORY` / `PREFERENCE_MEMORY` / `PROCEDURAL_MEMORY` / `AUDIT_MEMORY` — **full names only**; the class does not change when the governance state does
+- Origin: `HUMAN_ORIGIN` / `AI_ASSISTED` / `AI_GENERATED` / `EXTERNAL_ORIGIN` — **permanent; nothing changes it**
 - Sensitivity classification: one or more of `PUBLIC` / `INTERNAL` / `CONFIDENTIAL` / `RESTRICTED` / `PERSONAL_DATA` / `PRIVILEGED` / `TRADE_SECRET` / `SECURITY_SENSITIVE` / `THIRD_PARTY_RESTRICTED`
 
 ## Statement
@@ -25,6 +26,8 @@ The claim itself, in one determinate sentence where possible. A statement that c
 ## Epistemic Type
 
 `SOURCE` / `EVIDENCE` / `FACT_CLAIM` / `ASSUMPTION` / `CALCULATION` / `INFERENCE` / `AI_SUGGESTION` / `UNKNOWN` — with, for `ASSUMPTION`, what evidence would be needed to replace it, and for `UNKNOWN`, the determinate question that is unanswered.
+
+**The type never changes.** A different type is a **different, linked item** with its own evidential basis. Where this item was adopted from an `AI_SUGGESTION`, record the link — and note that human acceptance is not the basis; the evidence or reasoning stated below is.
 
 ## Governance State
 
@@ -42,7 +45,7 @@ The chain to the depth the criticality band requires, per `knowledge/conflict-an
 - derivation, calculation or reasoning, with inputs bound **by version**;
 - transformations applied — unit, currency, basis, aggregation, rounding;
 - human edit lineage;
-- **AI contribution, and which governed human act moved it out of `AI_SUGGESTION`**;
+- **origin, permanently** — and where this item was adopted from a proposal, the link to that `AI_SUGGESTION` and the evidence or reasoning that justified **this** item's type;
 - **every omitted step, with the reason it is omitted.**
 
 ## Review
@@ -61,9 +64,20 @@ Where and when this holds: scope, period, conditions, and what falls outside it.
 
 What is not established, the range where there is one, what the claim is sensitive to, and what would change it.
 
-## Freshness
+## Temporal Facts
 
-Freshness expectation; current freshness; review-by; expiry; refresh triggers — including **every bound input whose supersession makes this stale**.
+**Item-level facts only. No use verdict is stored here.**
+
+- As-of date — the date the knowledge is about;
+- Last verified / refreshed;
+- Expected refresh interval;
+- Review-by;
+- Expiry, where applicable;
+- Supersession / withdrawal state;
+- Refresh triggers — including **every bound input whose supersession fires one**;
+- Derived condition: `PAST_REFRESH_INTERVAL`, where the interval or review-by has passed. An age condition, not a usability judgement.
+
+**Usability is assessed per use**, at the moment of use — `CURRENT_FOR_USE`, `STALE_BUT_USABLE`, `STALE_AND_BLOCKING`, `EXPIRED_FOR_USE` — against these facts and the task's criticality band. The same item may carry different verdicts for different tasks at the same moment, and **no verdict is written back here as a record-level label**.
 
 ## Lineage of Status
 

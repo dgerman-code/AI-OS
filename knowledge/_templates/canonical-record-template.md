@@ -19,6 +19,19 @@ It is a **semantic model**, not a schema. **It is never edited in place** — a 
 ## Canonical Status
 `CANONICAL` / `SUPERSEDED` / `RETRACTED`, with the act that produced it.
 
+Canonical status is a **governance state**, not a memory class. The record's memory class — `SEMANTIC_MEMORY` for a claim, `PROCEDURAL_MEMORY` for a method — is stated on the underlying Knowledge Record and **does not change** when this status does.
+
+## Applicability Mode
+
+Exactly one, declared — never inferred:
+
+- `INHERITABLE_TO_DESCENDANTS` — applies to descendant scopes unless a nearer record declares a reasoned override;
+- `CONDITIONALLY_APPLICABLE` — applies only where the stated conditions hold; state them;
+- `NON_INHERITABLE` — governs this scope only;
+- `MANDATORY_WIDER_CONSTRAINT` — binds descendants, who **may narrow or detail it and may not contradict, relax or override it**. State the obligation's source — law, regulation, contract, safety rule, binding standard, funder condition.
+
+**A record with no declared mode governs nothing beyond its own scope.**
+
 ## Effective Period
 - Effective from:
 - Review-by:
@@ -28,7 +41,9 @@ A canonical statement with no effective-from has not said when it began governin
 
 ## Scope Relationships
 
-Any canonical statement on the same subject in a **wider** scope that this **overrides**, named explicitly; and any narrower-scope statements known to override this. An override that names nothing it overrides creates a scope conflict.
+Any canonical statement on the same subject in a **wider** scope that this **overrides** — named by identity and version, with **that record's applicability mode** and **why the override is governance-permissible**, plus the authority path relied on where upstream architecture provides one. **An override of a `MANDATORY_WIDER_CONSTRAINT` is not available**; a contrary statement against one is a scope conflict and an unresolved obligation, not an override.
+
+Also: any narrower-scope statements known to override this. An override that names nothing it overrides creates a scope conflict.
 
 ## Promotion Basis
 
@@ -49,11 +64,15 @@ Supersedes / superseded-by, with the reason. Supersession is the automatic effec
 
 ## Retraction
 
-Where retracted: the reason, the finding that established it, **the gap this leaves** — what the scope now has no position on — and what depended on it. **None** where not retracted.
+Where retracted: the reason, the finding that established it, **the gap this leaves** — what the scope now has no position on — and what depended on it.
+
+**Ancestor-fallback determination, mandatory.** State which applies to any wider statement on the same subject: it **resumes automatically** (a `MANDATORY_WIDER_CONSTRAINT`, which never stopped binding); it **requires explicit revalidation** (`INHERITABLE_TO_DESCENDANTS`); its **conditions must be re-checked** (`CONDITIONALLY_APPLICABLE`); or **there is none**, and the scope has no position. **No wider statement resumes silently.**
+
+**None** where not retracted.
 
 ## Conflict Links
 
-Conflicts raised against this record, before or after promotion, with class and materiality and resolution status. **A canonical record may be simultaneously canonical and in conflict**, and showing both is the point.
+Conflicts raised against this record, before or after promotion, with class, **materiality assessment — attributable to a named eligible Role and reviewable** — and resolution status. An unassessed open conflict counts as material at Enhanced Decision-Grade until assessed. **A canonical record may be simultaneously canonical and in conflict**, and showing both is the point.
 
 ## Uncertainty Carried Into Canonical Status
 

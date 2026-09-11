@@ -10,7 +10,10 @@ Inherits: `standard.knowledge.common_constraints@0.1`
 - Version: 2
 - Subject: the registered legal form and registration number of the operating entity
 - Scope: `ORGANISATION/<entity>` — the widest scope any exemplar here reaches
-- Memory class: `SEMANTIC` → `CANONICAL`
+- Memory class: `SEMANTIC_MEMORY` — **unchanged by promotion, supersession or retraction**
+- Governance state: `CANONICAL`
+- Origin: `EXTERNAL_ORIGIN` — the register is outside the entity
+- Applicability mode: `INHERITABLE_TO_DESCENDANTS`
 - Sensitivity: `PUBLIC`
 
 ## Statement
@@ -28,7 +31,7 @@ The register is the authoritative source for its own contents, the claim is dete
 No step omitted. No transformation applied: the statement uses the register's own wording, because paraphrasing a legal form is a transformation and this record does not need one.
 
 ## Scope note
-Canonical at `ORGANISATION` and therefore **applicable** in every project and workstream beneath it. It is not canonical *in* those scopes — they hold no record — and a project restating it in its own words creates a second claim to keep in step, which is why the discipline is to reference rather than restate.
+Canonical at `ORGANISATION`, with applicability mode `INHERITABLE_TO_DESCENDANTS`, and therefore **applicable** in every descendant scope — every programme, project, product, operational workstream and task beneath it — **because the mode says so**, not by default. Had the mode been `NON_INHERITABLE`, the identical record would govern at `ORGANISATION` alone. It is **not** applicable in an `INDEPENDENT BUSINESS / VENTURE`, which is a sibling of `ORGANISATION` under `GLOBAL` rather than a descendant of it — a venture with its own registration has its own answer, and nothing propagates sideways to tell it otherwise. It is not canonical *in* those scopes — they hold no record — and a project restating it in its own words creates a second claim to keep in step, which is why the discipline is to reference rather than restate.
 
 ## What promotion did not do
 It did not make the entity's legal form true; the register did that. It did not authorise disclosure of anything else about the entity. It did not make the register extract canonical — a source is cited, never promoted.

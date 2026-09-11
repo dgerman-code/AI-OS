@@ -10,13 +10,14 @@ Phases 2 through 7 wrote a flat list of knowledge labels — `FACT`, `SOURCE`, `
 
 Phase 8 resolves this **without renaming anything upstream**. Every label above keeps its spelling and its meaning; this document says which axis it belongs to.
 
-## 1. Three axes, held simultaneously
+## 1. Four axes, held simultaneously
 
-Every knowledge item carries **exactly one epistemic type**, **exactly one governance state**, and **zero or more conflict flags**.
+Every knowledge item carries **exactly one epistemic type**, **exactly one governance state**, **exactly one origin**, and **zero or more conflict flags**.
 
 ```
-EPISTEMIC TYPE   what this knowledge is        (never changed by authority)
+EPISTEMIC TYPE   what this knowledge is        (never changed by anything — see §2a)
 GOVERNANCE STATE how far governance has come   (changed only by governed acts)
+ORIGIN           where it came from            (permanent provenance fact)
 CONFLICT FLAG    what is unresolved about it   (cleared only by resolution)
 ```
 
@@ -32,12 +33,43 @@ An approved assumption is `ASSUMPTION` + `APPROVED`, and remains an assumption. 
 | `ASSUMPTION` | A position adopted **without sufficient evidence**, deliberately and visibly, so downstream work can proceed | **No** |
 | `CALCULATION` | A value derived by a stated method from stated inputs at stated versions | **Yes**, with input bindings |
 | `INFERENCE` | A conclusion drawn from evidence by reasoning rather than observation, where the reasoning is the load-bearing part | **Yes**, where the reasoning is Role-owned and reviewed |
-| `AI_SUGGESTION` | Content originating from a model or automated process, of any of the above shapes, **before** any governed human act | **No** — see §6 |
+| `AI_SUGGESTION` | **An unadopted proposal.** Something a model has put forward that the organisation has not adopted as knowledge of any kind. Retained for upstream compatibility, and narrowed: it names the item's *unadopted proposal* character, not its origin — which lives on the origin axis | **No** — and it never becomes another type; see §2a |
 | `UNKNOWN` | A determinate, named gap: the question is asked, the answer is not held | **No** |
 
 Upstream `FACT` maps to `FACT_CLAIM`. No upstream artifact is edited; the mapping is recorded in `knowledge/master-knowledge-governance-universe.md` §5.
 
 **`AI_SUGGESTION` is a type, not a confidence level.** A model's confidence, score, ranking, or repetition across outputs is **not a knowledge state, not an epistemic type, and not evidence**. It has no representation in this model at all.
+
+## 2a. Origin is provenance, not epistemic type — and no type ever converts
+
+The first Phase 8 draft said a governed human act "moves" content **out of** `AI_SUGGESTION`. The independent audit was right that this contradicts the rule one section above it: if authority cannot change an epistemic type, it cannot change this one either. A rule with an exception for the case it most needs to cover is not a rule.
+
+### The origin axis
+
+| Origin | Meaning |
+|---|---|
+| `HUMAN_ORIGIN` | Produced by a person |
+| `AI_ASSISTED` | Produced by a person with model assistance |
+| `AI_GENERATED` | Produced by a model or automated process |
+| `EXTERNAL_ORIGIN` | Received from outside the entity |
+
+**Origin is a permanent provenance fact.** Nothing changes it — not adoption, not editing, not promotion, not the passage of time, and not any amount of human rewriting. It is recorded once and survives every version, transfer and status change.
+
+### Adoption creates a new linked item; it converts nothing
+
+Where evidence or reasoning supports adopting what a model proposed:
+
+1. A **new knowledge item** is created, with the epistemic type its own basis supports — `FACT_CLAIM` if evidence supports a claim, `INFERENCE` if reasoning does, `ASSUMPTION` if neither does but the position is adopted anyway, `CALCULATION` if it is derived.
+2. The new item's type is justified by **that evidence or reasoning**, never by the fact that a human accepted it. **Acceptance is not a basis**; a human agreeing with an unevidenced proposition produces an unevidenced proposition with an agreeing human attached.
+3. The new item carries `ORIGIN: AI_GENERATED` (or `AI_ASSISTED`) **permanently**, and links to the proposal it came from.
+4. The original `AI_SUGGESTION` **remains, historically, as what it was.** It is not rewritten, relabelled or deleted. Its governance state may become `SUPERSEDED` — a later item took over its role — or `REJECTED` if nothing was adopted.
+5. The new item then enters governance at `DRAFT` and travels the ordinary route. **Epistemic classification and governance approval are separate acts**, and neither performs the other.
+
+> **No human, model, reviewer, editor or authority converts `AI_SUGGESTION` into `FACT_CLAIM` by status change, acceptance or approval.** There is no transition. There is only a new item with its own basis, and a permanent record of where the idea came from.
+
+### Upstream compatibility
+
+Phase 2's approved list carries `AI_SUGGESTION` as a knowledge class, and Phase 3 Role Cards refer to unlabelled AI output as an insufficient source class. Both remain exactly as written: `AI_SUGGESTION` still exists, still names the same thing an upstream reader meant by it, and still may never become canonical automatically. Phase 8 adds the origin axis **alongside** it rather than replacing it, so that the origin of an adopted claim stays recorded once the proposal itself is no longer the live item — which is the case the single label could not express.
 
 ## 3. Governance states
 
@@ -93,7 +125,7 @@ Each of these is a defect wherever it appears, not a policy choice:
 
 1. `DRAFT` → `CANONICAL` — skipping review and approval.
 2. `REVIEWED` → `CANONICAL` — review satisfaction is not adoption.
-3. `AI_SUGGESTION` → any governance state **without a governed human act**. A model cannot move its own output along this axis.
+3. `AI_SUGGESTION` → **any other epistemic type, by any actor, by any act.** Not by acceptance, approval, review, editing, promotion or seniority. Adoption creates a **new linked item** with its own evidential basis (§2a). A model equally cannot move its own output along the governance axis.
 4. `UNKNOWN` → `FACT_CLAIM` **by authority**. Authority may decide what to do about not knowing; it cannot decide the answer. Closing an `UNKNOWN` requires evidence.
 5. `ASSUMPTION` → `FACT_CLAIM` **by authority, approval, promotion, age, or reuse**. It requires evidence sufficient to support the claim — and then it is a *new* `FACT_CLAIM` linked to the assumption it replaces, not a relabelling.
 6. `CONFLICT_DETECTED` → cleared without a recorded resolution.

@@ -33,8 +33,10 @@ A conflict is raised as a **flag on the items it concerns**, carries its own rec
 3. **A resolution records why the prevailing interpretation prevailed** — on the evidence, in terms someone who disagrees can examine. "Resolved" with no reasoning is not a resolution.
 4. **The losing evidence is retained**, linked to the resolution, readable afterwards. Resolution is a decision about what to rely on, never a deletion of what was set aside.
 5. **Minority and dissenting evidence may remain attached** after resolution, and its continued presence is not a reopening of the conflict.
-6. **An unresolved conflict that is material to a claim blocks that claim's canonical promotion.** Materiality is stated, not assumed: a conflict about a figure a statement does not depend on does not block it.
-7. **A conflict discovered after promotion does not un-promote anything.** The canonical record stays canonical **and visibly in conflict**; it becomes blocking for decision-grade use until resolved (`knowledge/sensitivity-and-retention-model.md` §3). Whether it is superseded or retracted is a governed decision taken on the resolution's findings.
+6. **An unresolved conflict that is material to a claim blocks that claim's canonical promotion and its decision-grade use.** A conflict is material where **the claim or the decision depends on the contested point**; a conflict about a figure the statement does not rest on stays visible and blocks nothing, at any criticality band.
+
+   **Materiality is a determination, not an impression.** It is stated on the record, **attributable to a named eligible Role, and reviewable** — never inferred from retrieval ranking, model confidence, source count, or nobody having raised it. Criticality changes the tolerance and the burden, not the test: at Enhanced Decision-Grade every open conflict requires an explicit materiality assessment, and **an unassessed open conflict is treated as material until one is made.** That is a stronger default, not a different rule, and it does not make an irrelevant disagreement blocking.
+7. **A conflict discovered after promotion does not un-promote anything.** The canonical record stays canonical **and visibly in conflict**; where material it becomes blocking for decision-grade use until resolved (`knowledge/sensitivity-and-retention-model.md` §3). Whether it is superseded or retracted is a governed decision taken on the resolution's findings.
 8. **A conflict is never cleared by time, by re-assertion, by repetition across sources, by a model's agreement, or by nobody objecting.**
 
 ## 4. What a resolution record carries
@@ -63,7 +65,7 @@ SOURCE -> EVIDENCE -> CLAIM / CALCULATION / INFERENCE -> REVIEW -> DECISION (whe
 | **Transformation** | Format, unit, currency, basis or aggregation changes — each one a step where a value silently becomes a different value |
 | **Citation / reference** | What is cited, at what version, and whether the citation is load-bearing or contextual |
 | **Human edit** | Who edited (runtime identity), what changed, and why — never an unattributed change |
-| **AI-generated contribution** | That a model contributed, to which part, and **which governed human act moved it out of `AI_SUGGESTION`**. The contribution is never anonymised into the human's authorship |
+| **AI-generated contribution** | The item's **origin** — `AI_GENERATED` or `AI_ASSISTED` — which part a model contributed, and, where this item was adopted from a proposal, the **link to that `AI_SUGGESTION` and the evidence or reasoning that justified this item's own type**. Origin is permanent: no act changes it, and the contribution is never anonymised into the human's authorship |
 | **External source** | Publisher, date, accessed-at, version or edition, and whether the entity controls it — normally it does not |
 | **Artifact linkage** | Which artifacts express this knowledge, and at which of their versions |
 
@@ -74,7 +76,7 @@ SOURCE -> EVIDENCE -> CLAIM / CALCULATION / INFERENCE -> REVIEW -> DECISION (whe
 3. **Provenance is not authorship.** Attribution of contribution is not attribution of responsibility, and neither is authority.
 4. **Reformatting is a transformation.** So are unit conversion, rounding, currency conversion, re-basing and aggregation. Each is a lineage step, because each is a place where a number becomes a different number and the change is invisible in the result.
 5. **A calculation binds its inputs by version.** When any bound input is superseded, the calculation's refresh trigger fires: it becomes stale, **not false**, and re-derivation — not re-approval — is what resolves it.
-6. **AI contribution is always visible in the lineage**, however heavily edited afterwards.
+6. **AI contribution is always visible in the lineage**, however heavily edited afterwards. **Nothing in the lineage moves an item out of `AI_SUGGESTION`** — adoption is a new linked item with its own basis (`knowledge/knowledge-state-model.md` §2a), and the lineage records both it and the proposal.
 7. **Citing an artifact is not citing evidence.** An artifact expresses claims; the evidence is what those claims rest on. A chain that stops at "the report says so" has stopped one step early, and the step it skipped is the one that mattered.
 
 ## 8. Criticality and provenance depth
