@@ -18,7 +18,7 @@ Routing Decision `rd.2026.model_build.0412` — the producing task used `model.f
 |---|---|---|
 | `model.frontier_reasoning_b` v5 | **No** | Same family as the producer. Excluded at **stage 4** |
 | `model.frontier_reasoning_b` v6 | **No** | Different *version*, same family. Version diversity is the weakest form and **is not what was required** |
-| `model.midsize_analyst_d` | **Yes** | Family `family.analyst_d`; `STRONG` on `capability.review_detection` equivalents, on current internal evaluation |
+| `model.midsize_analyst_d` | **Yes** | Family `family.analyst_d`; `STRONG` on `capability.code_review`, on current internal evaluation — the dimension this task actually turns on, which is not the same as the dimension that produced the artifact |
 | `model.compact_general_a` | **No** | Reasoning class below the band minimum |
 
 ## Selection

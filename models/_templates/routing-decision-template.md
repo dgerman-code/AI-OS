@@ -54,34 +54,48 @@ Element 17 is what makes the decision reviewable rather than merely reported: a 
 ## 5. Selection
 | # | Element |
 |---:|---|
-| 20 | Selected `model.<id>` **and registry profile version** — which is not the underlying model version |
-| 21 | The **provider offering mapping** used: `provider.<id>` and `deployment.<id>`, **with versions** |
-| 22 | `routing_policy.<id>` **and policy version**, and the **declared preference order** applied |
-| 23 | Reason for selection — which preference or tie-break decided it |
+| 20 | Selected **Model Profile stable ID** — `model.<id>` |
+| 21 | **Registry Profile Version** — the version of the AI-OS record |
+| 22 | **Underlying Model Release identity** — the originator's release identity that profile described **at that version** |
+| 23 | **Provider Offering Mapping** reference and version |
+| 24 | **Provider Profile version** |
+| 25 | **Deployment Profile version** |
+| 26 | `routing_policy.<id>` **and policy version**, and the **declared preference order** applied |
+| 27 | Reason for selection — which preference or tie-break decided it |
 
-Elements 20–22 are what make the selection reproducible after the model behind the name has changed or gone. **A profile version alone under-determines what ran**, and so does a mapping alone: both are recorded.
+Elements 20–25 are the **six-part reproducibility set**, and each is load-bearing. A stable ID names a lineage of records; a registry version names a record; **only the underlying release identity names the thing that actually ran.** Recording the first two without the third leaves the question open precisely when it matters — after a provider has changed something and the profile has moved on.
+
+The mapping, provider and deployment versions complete it: the same release reached through a different mapping or a re-termed deployment is a different set of governance facts, even where the model is identical.
 
 ## 6. Acts, exceptions and outcomes
 | # | Element |
 |---:|---|
-| 24 | **Act requirements** that applied, and the acts performed: human selection, acknowledgement, governance review |
-| 25 | Fallback kind where this was a fallback: `EQUIVALENT_FALLBACK` / `DEGRADED_FALLBACK` / `HUMAN_SELECTION_FALLBACK` |
-| 26 | **Where degraded on a preference or permitted band: the dimension on which it is weaker, and the acknowledgement** |
-| 27 | **Where an eligibility constraint failed and was adjusted — the full case-B chain**: the original constraint; **the original ineligibility result**; the constraint's exceptionability class; the Phase 7 `decision.<id>` and Decision Record reference; the exact adjusted constraint and its bounded effect; the **expiry**; and the **re-evaluated** eligibility result |
-| 28 | Outcome where nothing was eligible: `NO_ELIGIBLE_MODEL` / `BLOCKED_FOR_ROUTING`, with the unsatisfiable constraint and its exceptionability class named |
+| 28 | **Act requirements** that applied, and the acts performed: human selection, acknowledgement, governance review |
+| 29 | Fallback kind where this was a fallback: `EQUIVALENT_FALLBACK` / `DEGRADED_FALLBACK` / `HUMAN_SELECTION_FALLBACK` |
+| 30 | **Where degraded on a preference or permitted band: the dimension on which it is weaker, and the acknowledgement** |
+| 31 | **Where an eligibility constraint failed and was adjusted — the full case-B chain**: the original constraint; **the original ineligibility result**; the constraint's exceptionability class; the Phase 7 `decision.<id>` and Decision Record reference; the exact adjusted constraint and its bounded effect; the **expiry**; and the **re-evaluated** eligibility result |
+| 32 | Outcome where nothing was eligible: `NO_ELIGIBLE_MODEL` / `BLOCKED_FOR_ROUTING`, with the unsatisfiable constraint and its exceptionability class named |
 
-Element 26 is the anti-silent-degradation element. **A degraded fallback recorded as an ordinary selection is a defect in the record**, not a routing style.
+Element 30 is the anti-silent-degradation element. **A degraded fallback recorded as an ordinary selection is a defect in the record**, not a routing style.
 
-Element 27 is the anti-retrospective-justification element. **A candidate that failed an eligibility constraint is never recorded as eligible under the original policy** (`models/routing-precedence-and-fallback.md` §5): the original result stands, the governed act is recorded, and eligibility is re-evaluated **against the adjusted context only**. Reversing that order turns a governance record into a justification written afterwards.
+Element 31 is the anti-retrospective-justification element. **A candidate that failed an eligibility constraint is never recorded as eligible under the original policy** (`models/routing-precedence-and-fallback.md` §5): the original result stands, the governed act is recorded, and eligibility is re-evaluated **against the adjusted context only**. Reversing that order turns a governance record into a justification written afterwards.
 
-**Act requirements change no eligibility.** They withhold finalisation, and element 24 records whether they were met.
+**Act requirements change no eligibility.** They withhold finalisation, and element 28 records whether they were met.
 
 ## 7. Time and lineage
 | # | Element |
 |---:|---|
-| 29 | Timestamp and effective context (runtime) |
-| 30 | Provenance and audit history — append-only |
-| 31 | Supersedes / superseded-by, where a later decision replaced this one |
+| 33 | Timestamp and effective context (runtime) |
+| 34 | Provenance and audit history — append-only |
+| 35 | Supersedes / superseded-by, where a later decision replaced this one |
+
+## Cross-Registry Governance References
+
+Every `decision.<id>` and `review.<id>` appearing in a Routing Decision must **resolve to an approved Phase 7 or Phase 6 registry object**, or be explicitly marked **`FUTURE_GOVERNANCE_REFERENCE`** — unresolved, **non-executable**, and incapable of supporting any act recorded here.
+
+**An unresolved governance ID must never appear as though already exercisable.** A decision citing a Right that does not exist has recorded no authority at all, and reads as though it had.
+
+Where a review is conceptually required and no approved Profile matches, record **`REVIEW_PROFILE_NOT_BOUND_IN_PHASE_9`** and keep the path non-executable. Phase 9 binds to Phase 6 and Phase 7; it does not extend them.
 
 ## What a Routing Decision is not
 

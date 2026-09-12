@@ -52,11 +52,19 @@ The approved Phase 7 registry carries **eight** carded Decision Rights: `decisio
 
 Under `models/routing-constraint-model.md` §5.3, **"a Decision Right exists" is not a basis**: *this* Right must cover *this* constraint class, and **unknown or unrecognised exceptionability defaults to `ABSOLUTELY_NON_WAIVABLE`.** No such Right exists, so no adjustment is available.
 
-## Step 3 — outcome
+## Step 3 — the governance boundary, reached and recorded
 
-**`BLOCKED_FOR_ROUTING`.** This is **case C** of `models/routing-precedence-and-fallback.md` §5, for all four candidates.
+The search of §2 has an outcome, and it is a recorded one rather than an absence:
 
-The Routing Decision records: the four ineligibility results; each failed constraint's exceptionability class; that **no approved Decision Right covers the two adjustable classes**; and that routing therefore blocks pending the suspension resolving, a stronger diverse-family candidate entering the registry, or a Phase 7 pass carding a Right for this constraint class.
+> **`NO_APPLICABLE_DECISION_RIGHT`** — no approved Phase 7 Right covers either adjustable constraint class.
+
+Routing outcome: **`BLOCKED_FOR_ROUTING`**, with **`ESCALATED_FOR_GOVERNANCE_DESIGN`** attached — the block is not merely a refusal, it is a referral of a specific gap to the phase that owns it. This is **case C** of `models/routing-precedence-and-fallback.md` §5, for all four candidates.
+
+**Both review references resolve.** `review.security` and `review.code` are approved Phase 6 Profiles, checked against the registry rather than assumed; no `REVIEW_PROFILE_NOT_BOUND_IN_PHASE_9` marker is needed here, and none is used. Had no approved Profile matched, that marker — not a plausible-sounding name — is what this exemplar would carry.
+
+The Routing Decision records: the four ineligibility results; each failed constraint's exceptionability class; **`NO_APPLICABLE_DECISION_RIGHT`**; **`BLOCKED_FOR_ROUTING` / `ESCALATED_FOR_GOVERNANCE_DESIGN`**; and the three things that could change the answer — the suspension resolving, a stronger diverse-family profile entering the registry, or **a Phase 7 pass carding a Right for this constraint class**.
+
+The third is explicitly **a Phase 7 governance extension**. Phase 9 identifies the gap and has no power to fill it; a Right comes into existence through Phase 7's own carding governance or not at all.
 
 ## What case B would have required, and why it was not reached
 

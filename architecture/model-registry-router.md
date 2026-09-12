@@ -138,6 +138,20 @@ A human may **not**:
 - **Acknowledgement** — recording that someone knows a declared degradation on a **preference** or a permitted band. **Adjusts no requirement.**
 - **Governed exception** — where an **eligibility constraint** fails and its class is `GOVERNED_EXCEPTION_POSSIBLE`: a named Phase 7 Right whose scope covers that class is exercised, producing a bounded, expiring **adjusted requirement context**, and eligibility is **re-evaluated against it**. The candidate is never called eligible under the original policy.
 
+## 6a. Cross-registry governance references
+
+Phase 9 **binds to** Phase 6 and Phase 7. It does not extend them, and it may not imply an object either registry does not contain.
+
+> **Every `decision.<id>` and `review.<id>` appearing anywhere in Phase 9 — architecture, standard, template, policy, exemplar or Routing Decision — must resolve to an approved Phase 7 or Phase 6 registry object, or be explicitly marked `FUTURE_GOVERNANCE_REFERENCE`: unresolved, non-executable, and incapable of supporting any act.**
+
+Three rules follow:
+
+1. **An unresolved governance ID never appears as though exercisable.** A record citing a Right that does not exist has recorded **no authority at all**, and reads as though it had — which is worse than recording nothing, because it survives review as evidence of governance.
+2. **A conceptually-needed review with no approved Profile is recorded as `REVIEW_PROFILE_NOT_BOUND_IN_PHASE_9`** and the path stays non-executable. Naming a plausible Profile is the same defect in a different registry.
+3. **Where no approved Right covers a failed adjustable constraint, the outcome is `NO_APPLICABLE_DECISION_RIGHT`**, and routing **blocks** or **escalates for governance design** (`models/routing-precedence-and-fallback.md` §5). Carding a Right is a **Phase 7 governance act**, never something Phase 9 performs, implies or assumes.
+
+This rule exists because the failure it prevents is invisible in the artifact that commits it: a Routing Decision naming a fictitious Decision Right looks exactly like a governed one until someone resolves the ID.
+
 ## 7. Reproducibility
 
 Three different things, and Phase 9 owns exactly one:

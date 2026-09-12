@@ -608,10 +608,12 @@ check("identity-stack", "one profile may map to several provider/deployment comb
       lambda: ("may map to several provider/deployment combinations" in plain(LIFE)
                and "the same underlying release" in plain(LIFE), ""))
 
-check("identity-stack", "a routing decision preserves both profile version and mapping",
-      lambda: ("preserves both the exact Model Profile version and the provider/deployment mapping"
-               in plain(LIFE)
-               and "under-determines what ran" in plain(TMPL["routing-decision-template.md"]), ""))
+SIX_PART = ["Model Profile stable ID", "Registry Profile Version",
+            "Underlying Model Release identity", "Provider Offering Mapping",
+            "Provider Profile version", "Deployment Profile version"]
+check("identity-stack", "routing decision preserves the full six-part reproducibility set",
+      lambda: (lambda missing: (not missing, str(missing) if missing else "6 elements"))(
+          [e for e in SIX_PART if e not in TMPL["routing-decision-template.md"]]))
 
 check("identity-stack", "a silent provider backend change triggers review",
       lambda: ("silent provider backend change" in plain(LIFE).lower()
@@ -928,7 +930,7 @@ check("decision-record", "routing decision template enumerates its required elem
                                               TMPL["routing-decision-template.md"], re.M))))
 
 for label, needle in [("policy version", "routing_policy.<id>` **and policy version**"),
-                      ("model profile version", "profile version**"),
+                      ("model profile stable id and registry version", "Registry Profile Version"),
                       ("candidate set", "Enumerated candidate set"),
                       ("per-candidate eligibility", "Eligibility result per enumerated candidate"),
                       ("selection reason", "Reason for selection"),
@@ -1364,6 +1366,196 @@ check("inventory", "no removed capability token is referenced outside its remova
           [rel for rel, doc in NORMATIVE.items()
            for m in re.finditer(r"capability\.privacy_sensitive_suitability", doc)
            if not REMEDIATION_CONTEXT.search(doc[max(0, m.start() - 400):m.end() + 400])]))
+
+
+# =========================================================== §1.2 provider-side cases
+
+PROVIDER_CASES = ["Provider marketing alias rename",
+                  "Provider contractual or data-handling change",
+                  "Provider backend behaviour materially changes",
+                  "Deployment configuration or residency change",
+                  "AI-OS metadata or evidence correction"]
+check("identity-stack", "all five provider-side change cases distinguished",
+      lambda: (lambda missing: (not missing, str(missing) if missing
+                                else "%d cases" % len(PROVIDER_CASES)))(
+          [c for c in PROVIDER_CASES if c not in LIFE]))
+
+check("identity-stack", "unprovable sameness yields a new identity or a recorded conflict",
+      lambda: ("identity conflict" in plain(LIFE).lower()
+               and "Never silently a registry-profile-version bump" in plain(LIFE)
+               and "Unprovable sameness is not sameness" in plain(LIFE), ""))
+
+check("identity-stack", "the identity rule is in the standard, not only the model doc",
+      lambda: ("A Model Profile identity is bound to one underlying release" in plain(STD)
+               and "never a version increment" in plain(STD), ""))
+
+# =========================================================== §2.4 cross-registry integrity rule
+
+check("cross-registry", "the cross-registry integrity rule is normative in architecture and standard",
+      lambda: ("Cross-registry governance references" in A
+               and "FUTURE_GOVERNANCE_REFERENCE" in A and "FUTURE_GOVERNANCE_REFERENCE" in STD
+               and "never appears as though exercisable" in plain(A), ""))
+
+check("cross-registry", "the rule reaches templates and Routing Decision records",
+      lambda: ("Cross-Registry Governance References" in TMPL["routing-decision-template.md"]
+               and "REVIEW_PROFILE_NOT_BOUND_IN_PHASE_9"
+               in TMPL["routing-decision-template.md"], ""))
+
+check("cross-registry", "carding a Right is stated to be a Phase 7 act, never a Phase 9 one",
+      lambda: ("carding a right is a phase 7 act" in plain(STD).lower()
+               and "never something phase 9 performs, implies or assumes" in plain(A).lower(), ""))
+
+# =========================================================== §5.6 exemplar 9 governance integrity
+
+EX9 = "models/exemplars/degraded-fallback-governed-exception.md"
+
+
+def exemplar9_governance_integrity():
+    doc = DOCS[EX9]
+    flat = plain(doc)
+    problems = []
+    # 1. no unresolved Right or Profile presented as exercisable
+    for token in set(re.findall(r"`(decision\.[a-z_]+|review\.[a-z_]+)`", doc)):
+        if token.startswith("decision.") and token not in APPROVED_DECISIONS:
+            problems.append("unresolved %s" % token)
+        if token.startswith("review.") and token not in APPROVED_REVIEWS:
+            problems.append("unresolved %s" % token)
+    # 2. reaches the governance boundary and records it
+    if "NO_APPLICABLE_DECISION_RIGHT" not in doc:
+        problems.append("no NO_APPLICABLE_DECISION_RIGHT outcome")
+    if "BLOCKED_FOR_ROUTING" not in doc:
+        problems.append("no blocking outcome")
+    # 3. never marks a candidate eligible
+    if re.search(r"^\| `model\.[a-z_]+`[^|]*\| \*\*Yes\*\*", doc, re.M):
+        problems.append("a candidate is marked eligible")
+    # 4. creates no adjusted requirement context
+    if re.search(r"adjusted (routing )?context (is|was) creat", doc, re.I):
+        problems.append("creates an adjusted context without an approved Right")
+    # 5. does not confuse diversity with reviewer independence
+    if not re.search(r"two controls", flat, re.I):
+        problems.append("does not separate diversity from reviewer independence")
+    if re.search(r"(waiv|drop|reduc)[a-z]* .{0,40}diversity .{0,40}waiv.{0,20}independence", flat, re.I):
+        problems.append("conflates diversity with reviewer independence")
+    # 6. future carding is a Phase 7 act
+    if "Phase 7 governance extension" not in doc:
+        problems.append("does not state that carding is a Phase 7 extension")
+    return (not problems, str(problems) if problems
+            else "all six governance-integrity properties hold")
+
+
+check("cross-registry", "exemplar 9 governance integrity", exemplar9_governance_integrity)
+
+# =========================================================== §5.3 undeclared capability references
+
+def undeclared_capability_refs():
+    """Derive declared capability IDs from the taxonomy; fail on any active undeclared use."""
+    declared = set(declared_capabilities())
+    bad = []
+    for rel, doc in NORMATIVE.items():
+        for m in re.finditer(r"`(capability\.[a-z_]+)`", doc):
+            token = m.group(1)
+            if token in declared:
+                continue
+            window = doc[max(0, m.start() - 400):m.end() + 400]
+            if REMEDIATION_CONTEXT.search(window):
+                continue
+            bad.append("%s: %s" % (rel, token))
+    return (not bad and len(declared) == 23,
+            str(sorted(set(bad))) if bad
+            else "0 undeclared active refs against %d declared families" % len(declared))
+
+
+check("inventory", "no undeclared capability.<id> is actively referenced",
+      undeclared_capability_refs)
+
+# =========================================================== §5.4 derived count cross-checks
+
+def act_requirement_count():
+    block_ = CONS.split("## 7. Act requirements")[1].split("## 8.")[0]
+    return len(re.findall(r"^\| `([A-Z_]+)` \|", block_, re.M))
+
+
+def evidence_class_count():
+    block_ = EVID.split("## 2. Evidence classes")[1].split("### Rules")[0]
+    return len(re.findall(r"^\| `([A-Z_]+)` \|", block_, re.M))
+
+
+def routing_decision_elements():
+    return len(re.findall(r"^\| \d+ \|", TMPL["routing-decision-template.md"], re.M))
+
+
+DERIVED = {
+    "capability families": (len(declared_capabilities()), 23),
+    "primary lifecycle states": (len(declared_lifecycle_states()), 6),
+    "eligibility constraints": (len({t for r in eligibility_table_rows()
+                                     for t in r[0].split(", ") if t}), 27),
+    "preferences": (len(re.findall(r"^\| `PREFER_[A-Z_]+` \|",
+                                   CONS.split("## 6. Preferences")[1].split("### When cost")[0],
+                                   re.M)), 9),
+    "act requirements": (act_requirement_count(), 3),
+    "common constraints": (len(re.findall(r"^## (\d+)\. ", STD, re.M)), 45),
+    "evidence classes": (evidence_class_count(), 6),
+    "templates": (len(TEMPLATES), 5),
+    "exemplars": (len(EXEMPLARS), 9),
+    "routing decision elements": (routing_decision_elements(), 35),
+}
+for _label, (_actual, _expected) in DERIVED.items():
+    check("inventory", "derived count matches expectation: %s" % _label,
+          (lambda a=_actual, e=_expected, l=_label: (a == e, "%s = %d (expected %d)" % (l, a, e))))
+
+
+def stale_numbers_in_active_prose():
+    """Any stated count contradicting a derived one, in active normative prose."""
+    patterns = {
+        r"(\d+)[- ]capability famil": DERIVED["capability families"][0],
+        r"(\d+)[- ]famil(?:y|ies) taxonomy": DERIVED["capability families"][0],
+        r"(\d+) inherited rules": DERIVED["common constraints"][0],
+        r"(\d+) eligibility constraints": DERIVED["eligibility constraints"][0],
+        r"(\d+) preferences": DERIVED["preferences"][0],
+        r"(\d+) act requirements": DERIVED["act requirements"][0],
+        r"(\d+) lifecycle states": DERIVED["primary lifecycle states"][0],
+        r"(\d+) evidence classes": DERIVED["evidence classes"][0],
+    }
+    bad = []
+    for rel, doc in NORMATIVE.items():
+        for pat, actual in patterns.items():
+            for m in re.finditer(pat, doc):
+                if int(m.group(1)) != actual:
+                    window = doc[max(0, m.start() - 250):m.end() + 250]
+                    if REMEDIATION_CONTEXT.search(window):
+                        continue
+                    bad.append("%s: %s (actual %d)" % (rel, m.group(0), actual))
+    return (not bad, str(sorted(set(bad))) if bad else "0 stale counts in active prose")
+
+
+check("inventory", "no stale count contradicts a derived one in active prose",
+      stale_numbers_in_active_prose)
+
+
+def heading_list_cardinality():
+    """A heading claiming N items must govern a list of N."""
+    words = {"One": 1, "Two": 2, "Three": 3, "Four": 4, "Five": 5, "Six": 6,
+             "Seven": 7, "Eight": 8, "Nine": 9, "Ten": 10}
+    bad = []
+    for rel, doc in NORMATIVE.items():
+        for m in re.finditer(r"^#{2,3} (?:\d+\.?\w?\. )?(%s) ([a-z][^\n]*)$"
+                             % "|".join(words), doc, re.M):
+            claimed = words[m.group(1)]
+            body = doc[m.end():]
+            body = body.split("\n## ")[0].split("\n### ")[0]
+            numbered = len(re.findall(r"^\d+\. ", body, re.M))
+            # Table rows only: skip the header row and the |---| separator, which are not items.
+            rows = [ln for ln in body.splitlines()
+                    if ln.startswith("| ") and not re.match(r"^\|[\s:-]+\|", ln)]
+            table_items = max(0, len(rows) - 1) if rows else 0
+            items = numbered or table_items
+            if items and items != claimed:
+                bad.append("%s: '%s %s' governs %d" % (rel, m.group(1), m.group(2)[:40], items))
+    return (not bad, str(bad) if bad else "headings match their lists")
+
+
+check("inventory", "a heading claiming N items governs a list of N",
+      heading_list_cardinality)
 
 
 def main():

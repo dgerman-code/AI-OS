@@ -123,6 +123,18 @@ Three versioned things, and confusing them is how reproducibility is lost:
 
 The last row is the operative one. Provider version changes are often opaque from outside, and the safe reading is the one that does not quietly leave historical Routing Decisions pointing at a profile whose subject has moved underneath them. A version bump in that situation would make every prior decision naming `model.x v3` ambiguous about what actually ran — which is the precise failure versioning exists to prevent.
 
+### Provider-side changes, case by case
+
+| What changed | Consequence | Model Profile identity |
+|---|---|---|
+| **Provider marketing alias rename** | Alias and Provider Offering Mapping update | **Unchanged**, where the underlying release is proven unchanged |
+| **Provider contractual or data-handling change** | Provider and/or Deployment Profile version change | **Unchanged** — unless model behaviour or release itself changed |
+| **Provider backend behaviour materially changes and the exact release cannot be proven unchanged** | **New Model Profile identity**, or an explicit recorded **identity conflict** pending evidence | **Changed, or unresolved.** **Never silently a registry-profile-version bump** |
+| **Deployment configuration or residency change** | Deployment Profile version, or a new Deployment Profile | **Unchanged** — this is not a release change |
+| **AI-OS metadata or evidence correction** | **Registry Profile Version change only** | **Unchanged** |
+
+The third row is the one the first draft got wrong. Unprovable sameness is not sameness, and the safe reading is the one that does not leave historical decisions pointing at a profile whose subject moved underneath them.
+
 **`PROVIDER_VERSION_CHANGE` therefore fires an identity review, not a version bump.** The review's outcome is one of the three rows above; it is never assumed to be the first.
 
 ## 5. Provider independence and anti-lock-in

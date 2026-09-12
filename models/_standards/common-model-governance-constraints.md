@@ -132,7 +132,13 @@ They are two controls. Reviewer independence is Phase 6's, organisational, and *
 ## 42. The identity stack has six layers and no overlap
 Model Family · Underlying Model Release · Model Profile · Registry Profile Version · Provider Offering Mapping · Deployment Profile. **Registry profile version is not the underlying model version**; a marketing alias never defines identity; and where provider-specific behaviour cannot be evidenced as the same release, it is a **distinct Model Profile**, never an ambiguous mapping.
 
+## 43. Every governance reference resolves, or is marked non-executable
+Every `decision.<id>` and `review.<id>` in any Phase 9 artifact **resolves to an approved Phase 7 or Phase 6 registry object**, or carries `FUTURE_GOVERNANCE_REFERENCE` and is **non-executable**. **An unresolved governance ID never appears as though exercisable.** Where no approved Right covers a failed adjustable constraint, the outcome is `NO_APPLICABLE_DECISION_RIGHT` and routing blocks or escalates — **carding a Right is a Phase 7 act, never one Phase 9 performs or implies.**
+
+## 44. A Model Profile identity is bound to one underlying release
+A Registry Profile Version may change only the governed record **about the same underlying release**. A materially changed release requires a **new Model Profile identity**, linked by supersedes / superseded-by; where sameness cannot be proven, the result is a new identity or a recorded identity conflict, **never a version increment**. A Routing Decision preserves all six: stable ID, registry profile version, **underlying release identity**, provider offering mapping, provider profile version, deployment profile version.
+
 ---
 
-## 43. Status discipline
+## 45. Status discipline
 All Phase 9 artifacts are `PROPOSED`. No Phase 9 artifact may set its own status to `APPROVED` or `CANONICAL`, no exemplar is a live profile or decision, and no provider or product is endorsed by appearing in one.

@@ -284,7 +284,7 @@ The local validator states its scope honestly and makes no remote claim.
 ---
 ---
 
-# Second Re-Audit Remediation
+# Second Re-Audit Remediation — first pass
 
 Re-audited baseline: `69a119f59c8fc1687944ed27df594dc809aadf78`
 Verdict: **FAIL** — 9 of 13 prior findings resolved; **H1, H5, M1 and M7 not resolved**, plus 10 inventory inconsistencies.
@@ -383,3 +383,65 @@ The remaining 15 dispositions are unchanged from the first remediation.
 **Phase 9 remains `PROPOSED`.** Nothing is APPROVED or CANONICAL. No Decision Right was created, no Role gained authority, no review status was set or changed, no Model, Provider or Deployment Profile exists, and no real vendor is named anywhere.
 
 **External checks, separate from the 219:** open PRs on the repository **1** (PR #1, unrelated, pre-existing); for this branch **0**; created by this pass **0**.
+
+---
+
+## Second Re-Audit Remediation — completion against the remediation prompt
+
+`prompts/phase-9-claude-final-remediation-after-re-audit.md` was issued after the pass above and specifies requirements beyond it. Three were genuinely missing and are now implemented; the rest confirmed complete.
+
+### Blockers, final status
+
+| Blocker | Status |
+|---|---|
+| **1. Underlying release vs Registry Profile Version** | **RESOLVED** — plus the five provider-side cases (§1.2) and the six-part reproducibility set (§1.3) the prompt requires, neither of which the earlier pass had |
+| **2. Invented Phase 6 / Phase 7 references in Exemplar 9** | **RESOLVED** — plus the general cross-registry integrity rule (§2.4) and the explicit `NO_APPLICABLE_DECISION_RIGHT` / `ESCALATED_FOR_GOVERNANCE_DESIGN` outcomes (§2.3) |
+| **3. Stale privacy-capability reference** | **RESOLVED** — active undeclared-capability references: **0**, now enforced generically rather than by naming one token |
+| **4. Stale inventory counts** | **RESOLVED** — every count derived; active inconsistencies: **0** |
+| **5. Validation gaps** | **RESOLVED** — 219 → **239** checks |
+
+### What this pass added
+
+**§1.2 — five provider-side cases, distinguished:** alias rename → mapping update, identity unchanged where sameness is proven; contractual or data-handling change → Provider/Deployment version, identity unchanged; **backend behaviour materially changes and sameness cannot be proven → new Model Profile identity or a recorded identity conflict, never a version bump**; deployment configuration or residency change → Deployment Profile, not a release change; AI-OS metadata or evidence correction → Registry Profile Version only.
+
+**§1.3 — the six-part reproducibility set** on the Routing Decision: stable ID · registry profile version · **underlying model release identity** · provider offering mapping · provider profile version · deployment profile version. The third was missing, and it is the one that matters: a stable ID names a lineage of records, a registry version names a record, and **only the release identity names the thing that ran.**
+
+**§2.4 — the cross-registry integrity rule**, now normative in the architecture (§6a), the standard (§43) and the Routing Decision template: every `decision.<id>` and `review.<id>` resolves to an approved Phase 7 or Phase 6 object, or carries `FUTURE_GOVERNANCE_REFERENCE` and is **non-executable**. Where a review is conceptually needed and no Profile matches, `REVIEW_PROFILE_NOT_BOUND_IN_PHASE_9`. **Carding a Right is a Phase 7 act, never one Phase 9 performs, implies or assumes.**
+
+**§2.3 — Exemplar 9's governance boundary is now a recorded outcome**, not an absence: `NO_APPLICABLE_DECISION_RIGHT`, with `BLOCKED_FOR_ROUTING` / `ESCALATED_FOR_GOVERNANCE_DESIGN`. Both its review references were checked against the registry and resolve, so no not-bound marker is used — and the exemplar says what it would carry if none had.
+
+**Standard grows to 45 rules** (§43 cross-registry integrity, §44 identity bound to one release).
+
+### What the new checks caught
+
+Rebuilding the harness against the prompt's requirements surfaced **two more real content defects**, neither previously visible:
+
+1. **`capability.review_detection` in exemplar 3** — an **undeclared capability ID**, invented in the first foundation pass and never noticed. The generic undeclared-capability check found it where the token-specific check could not. Corrected to `capability.code_review`, with the point it was reaching for made explicit: the dimension a review task turns on is not the dimension that produced the artifact.
+2. **The constraint count in the universe** was 43 while the standard had grown to 45 — stale within minutes of being corrected, which is precisely why counts are now **derived and cross-checked** rather than maintained.
+
+Two further failures were check defects, each replaced with a **stricter** correct test: the heading/list counter was counting table header and separator rows as items, and the Phase-7-act check matched case-sensitively against text that `plain()` had already normalised.
+
+### Validation
+
+**`python3 validation/phase_9_validation.py` → `=== 239/239 PASS ===`**, exit 0. `--verbose` exit 0; `--json` reports total 239, passed 239, **239 result entries**. **Injected failure → `239/240`, exit 1** — the harness is demonstrably able to fail.
+
+**`python3 validation/phase_8_validation.py` → `119/119 PASS`**, untouched across all three Phase 9 passes.
+
+New this pass: `cross-registry` grows to 8 (integrity rule in three layers, Phase-7-act boundary, **six-property exemplar-9 governance integrity**); `identity-stack` grows to 14 (five provider cases, unprovable-sameness rule, six-part set, standard-level rule); `inventory` grows to 21 (**ten derived counts cross-checked**, undeclared-capability scan, stale-number scan across active prose, heading/list cardinality).
+
+### Open questions
+
+| # | Now | Why |
+|---:|---|---|
+| **1** | **RESOLVED IN FOUNDATION** | The release/version rule is globally consistent — one normative statement, five enumerated provider cases, a standard-level rule, and a harness check that fails on contradictory wording anywhere. **No runtime guess remains**: every provider-side case has a stated consequence, and the unprovable case resolves to the safe reading |
+| **10** | **RESOLVED IN FOUNDATION** | Ordinary fallback is executable under policy; the governed-exception path requires an **actually applicable approved Phase 7 Right**; its absence **blocks and escalates** rather than inventing governance; and future carding is stated as a **Phase 7 governance extension**, never something Phase 9 creates |
+
+The other 15 are unchanged from the earlier passes.
+
+### Regression
+
+Verified in-harness against `00fb92e`: **Phase 3–8 all 0**, inherited Phase 2/3 architecture 0. **The Phase 8 validator was not modified in this pass**, and the only Phase 8 tooling change in the whole Phase 9 sequence remains the approval-record exemption made during the Phase 8 remediation, before Phase 9 began. No runtime, SDK, API, credential, endpoint, storage, UI or orchestration. **No Model, Provider or Deployment Profile exists**; no real vendor named.
+
+**External checks, separate from the 239:** open PRs on the repository **1** (PR #1, unrelated, pre-existing); for this branch **0**; created by this pass **0**.
+
+**Phase 9 remains `PROPOSED`.**

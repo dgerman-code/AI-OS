@@ -40,7 +40,7 @@ The nine exemplars are **Routing Decisions over synthetic identifiers**. They de
 | Region / residency classes | 5 | `models/_templates/deployment-profile-template.md` |
 | Cost / latency bands | 4 + 4 | `models/_templates/model-profile-template.md` |
 | Routing Decision elements | **31** | `models/_templates/routing-decision-template.md` |
-| Enforceable constraints | **43** | `models/_standards/common-model-governance-constraints.md` |
+| Enforceable constraints | **45** | `models/_standards/common-model-governance-constraints.md` |
 
 ## 3. Artifacts
 
@@ -53,7 +53,7 @@ The nine exemplars are **Routing Decisions over synthetic identifiers**. They de
 | `models/routing-precedence-and-fallback.md` | Precedence, tie-break, availability, fallback, blocking |
 | `models/review-diversity-and-criticality.md` | Model diversity against Phase 6 independence; criticality bands |
 | `models/evaluation-evidence-model.md` | Evidence classes, dimensions, confidence, freshness |
-| `models/_standards/common-model-governance-constraints.md` | 43 inherited rules |
+| `models/_standards/common-model-governance-constraints.md` | 45 inherited rules |
 | `models/_templates/` × 5 | Model, Provider, Deployment, Routing Policy, Routing Decision |
 | `models/exemplars/` × 9 | Worked Routing Decisions, each proving one boundary |
 | `models/master-model-routing-universe.md` | This inventory |
