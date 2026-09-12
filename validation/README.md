@@ -11,6 +11,7 @@ They are **not runtime implementation**. They implement no part of AI-OS, define
 ```
 python3 validation/phase_8_validation.py
 python3 validation/phase_9_validation.py
+python3 validation/phase_10_validation.py
 ```
 
 Each harness validates one phase's architecture against the approval baseline of the phase before it. Requires Python 3 and `git` on PATH. No third-party packages, no network. Exit code 0 when every check passes, 1 otherwise. Output is deterministic: one `PASS`/`FAIL` line per check, then a total.
@@ -24,13 +25,14 @@ python3 validation/phase_8_validation.py --json      # machine-readable results
 
 ## Scope boundary — what a local harness can and cannot prove
 
-This harness is **offline and read-only**. It runs no network call, writes no file, and runs `git` only for read commands.
+Each harness is **offline and read-only**. It runs no network call, writes no file, and runs `git` only for read commands.
 
 | Provable here | Not provable here |
 |---|---|
 | Every property of the repository's committed content | The remote repository's open pull-request count |
 | Diffs against an approved baseline commit | Branch protection, review state, or anything held only by the forge |
 | That no PR artifact or PR-creating call exists **locally** | That no PR exists **remotely** |
+| That the architecture says infrastructure must be configured a certain way | That any database, bucket, secret store or forge **is** configured that way |
 
 The PR check states this in its own evidence line. **A local Python script cannot prove a remote open-PR count, and this one does not claim to** — that is an external check, performed against the GitHub API by audit tooling and reported separately from the deterministic count.
 
