@@ -608,10 +608,34 @@ for label, paths in UPSTREAM_PATHS.items():
     check("regression", "%s unchanged since Phase 7 baseline" % label,
           (lambda p=paths: (lambda r: (r[0], ", ".join(r[1]) or "clean"))(git_unchanged(p))))
 
-check("regression", "every Phase 8 artifact is PROPOSED",
-      lambda: (all(re.search(r"^Status: PROPOSED", d, re.M) for d in DOCS.values())
-               and not any(re.search(r"^Status:.*\b(APPROVED|CANONICAL)\b", d, re.M) for d in DOCS.values()),
-               "%d files" % len(DOCS)))
+def artifacts_remain_proposed(docs, phase_label):
+    """Every architecture artifact must be PROPOSED.
+
+    A human approval record is a different kind of object: it records a human decision and is
+    *supposed* to say APPROVED. The previous version of this check scooped it up with the
+    artifacts and failed the moment the phase was approved. This one separates the two and is
+    stricter for it: an approval record must identify itself as a human decision, and no
+    architecture artifact may declare its own approval.
+    """
+    approval, artifacts, bad = [], [], []
+    for rel, doc in docs.items():
+        if re.search(r"(?:^|/)phase-\d+-final-approval\.md$", rel):
+            approval.append(rel)
+            if not re.search(r"^Status:.*HUMAN DECISION", doc, re.M):
+                bad.append("%s: approval record does not identify a human decision" % rel)
+            continue
+        artifacts.append(rel)
+        if not re.search(r"^Status: PROPOSED", doc, re.M):
+            bad.append("%s: not PROPOSED" % rel)
+        if re.search(r"^Status:.*\b(APPROVED|CANONICAL)\b", doc, re.M):
+            bad.append("%s: artifact declares its own approval" % rel)
+    return (not bad, str(bad) if bad else
+            "%d %s artifacts PROPOSED; %d human approval record(s) excluded"
+            % (len(artifacts), phase_label, len(approval)))
+
+
+check("regression", "every Phase 8 artifact is PROPOSED (approval records excluded)",
+      lambda: artifacts_remain_proposed(DOCS, "Phase 8"))
 
 check("regression", "every knowledge file inherits the common standard",
       lambda: (all("standard.knowledge.common_constraints@0.1" in DOCS[f]

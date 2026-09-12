@@ -10,9 +10,10 @@ They are **not runtime implementation**. They implement no part of AI-OS, define
 
 ```
 python3 validation/phase_8_validation.py
+python3 validation/phase_9_validation.py
 ```
 
-Requires Python 3 and `git` on PATH. No third-party packages, no network. Exit code 0 when every check passes, 1 otherwise. Output is deterministic: one `PASS`/`FAIL` line per check, then a total.
+Each harness validates one phase's architecture against the approval baseline of the phase before it. Requires Python 3 and `git` on PATH. No third-party packages, no network. Exit code 0 when every check passes, 1 otherwise. Output is deterministic: one `PASS`/`FAIL` line per check, then a total.
 
 Options:
 
