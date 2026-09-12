@@ -280,3 +280,106 @@ The local validator states its scope honestly and makes no remote claim.
 **Phase 9 remains `PROPOSED`.** Nothing is APPROVED or CANONICAL. No Decision Right was created, no Role gained authority, no review status was set or changed, no profile was created, and no approved Phase 3–8 artifact was modified. Under Phase 6's vocabulary this record is `PRODUCER_REVIEW` and is not an independent audit.
 
 **Post-remediation architecture baseline:** the commit carrying this record — `docs: remediate Phase 9 foundation after independent audit` on this branch. A commit cannot contain its own SHA, so it is not written here rather than written wrongly; resolve it with `git rev-parse HEAD`, and reproduce the result from that tree with `python3 validation/phase_9_validation.py` → `204/204 PASS`.
+
+---
+---
+
+# Second Re-Audit Remediation
+
+Re-audited baseline: `69a119f59c8fc1687944ed27df594dc809aadf78`
+Verdict: **FAIL** — 9 of 13 prior findings resolved; **H1, H5, M1 and M7 not resolved**, plus 10 inventory inconsistencies.
+
+Everything above this line is the first remediation and is preserved unaltered.
+
+**The re-audit was right on every count**, and two of its findings are the same defect at different scales: an architecture that says one thing in one section and its opposite in another, and an exemplar that demonstrated a governed mechanism over **objects that do not exist**.
+
+## R1 — H1: the versioning rule contradicted the identity rule
+
+**Finding.** §0 says a Model Profile describes **one underlying release**; §4 said a provider/model change becomes a **Registry Profile Version** change. Both cannot hold.
+
+**Status: RESOLVED.** §4 now derives from §0 rather than qualifying it:
+
+> **A registry profile version never absorbs a change of the underlying release.** Bumping the version records that *the record* changed. It cannot record that *the thing* changed, because the profile's identity is the release it describes.
+
+| What changed | Consequence |
+|---|---|
+| A claim, evidence, a limitation, a field, a mapping | **New Registry Profile Version** — same profile, same release |
+| **The underlying release**, by any route | **A different Model Profile**, linked to its predecessor. **Never a version bump** |
+| **Uncertainty about which happened** | **Treated as a changed release** until evidence says otherwise, and the profile is `SUSPENDED` pending it |
+
+The third row is the operative one. Provider version changes are opaque from outside, and a version bump in that situation makes every prior decision naming `model.x v3` ambiguous about what actually ran — the precise failure versioning exists to prevent. **`PROVIDER_VERSION_CHANGE` therefore fires an identity review, not a version bump**, and the review's outcome is never assumed to be the first row.
+
+## R2 — H5 and M1: exemplar 9 exercised registry objects that do not exist
+
+**Finding.** The A/B/C sequence was correct, and the exemplar ran it over `decision.model_capability_threshold_exception` and `review.software_security_change` — **neither of which exists in any approved registry**. Semantically correct and legally inoperable.
+
+**Status: RESOLVED — by following the architecture to its actual conclusion rather than inventing a way past it.**
+
+The approved Phase 7 registry carries **eight carded Rights**, and **none covers a model-capability threshold or a model-diversity requirement.** The nearest candidate is instructive: `decision.exceptional_progression` governs *one named unresolved work item at one progression point* — an open finding, an unsatisfied review — **not a routing requirement**, and reading it otherwise would widen a declared subject its own card forbids widening.
+
+The constraint model already answers this: **"a Decision Right exists" is not a basis** — *this* Right must cover *this* class — and **unknown or unrecognised exceptionability defaults to `ABSOLUTELY_NON_WAIVABLE`.**
+
+So exemplar 9 is rewritten as **"The governed exception that is not available"**. Four candidates, all ineligible, each exceptionability class named, **no approved Right covering the two adjustable classes**, and the outcome **`BLOCKED_FOR_ROUTING`** — case C. It then sets out, in order, exactly what case B would have required and where the chain stops: at the third step, for want of a carded Right.
+
+**Every `review.<id>` and `decision.<id>` in it is now a real approved object** — `review.security` and `review.code` for the two controls, `decision.production_release` for the gate, and the eight carded Rights enumerated where the exemplar explains why none of them fits. The two invented names survive only in the note recording that they were invented, **deliberately not in code form**, because a `decision.<id>` string that resolves to nothing is the defect itself.
+
+**This is the better exemplar.** The first version contradicted itself; the second illustrated a mechanism over fiction; this one demonstrates the mechanism **and** what the architecture does when the mechanism is unavailable — which is the case that actually obtains today, and the one an organisation will meet first.
+
+## R3 — M7: the removed capability was still actively referenced
+
+**Status: RESOLVED.** `capability.privacy_sensitive_suitability` was removed from the taxonomy and left in a worked rule in §4, where it read as live vocabulary. The rule now uses `capability.structured_generation` and adds the point the removal establishes: **a deployment-governed requirement is not a capability at all**, so confidence in a capability claim reaches none of them.
+
+## R4 — Inventory inconsistencies
+
+**Status: RESOLVED, and the class of defect is now mechanically prevented.** Ten corrections: capability families 24 → **23** in the architecture, the taxonomy's prose and the universe; eligibility constraints → **27**; preferences → **9**; inherited rules 33 → **43**; "22 hard and 8 soft" replaced; "Two things this architecture cannot express" → **Three**, matching its own list; component-table descriptions updated to current counts.
+
+**Every one of these is now derived rather than maintained.** Seven new `inventory` checks parse the capability table, the eligibility table, the preference table and the constraint numbering, and **fail if any stated number disagrees with the count derived from the file** — including the heading-versus-list mismatch that produced "two things" above a list of three.
+
+## R5 — Validation extended to the three gaps the re-audit named
+
+**Status: RESOLVED. 204 → 219 checks.**
+
+| Gap named | Added |
+|---|---|
+| Does not validate referenced Review/Decision IDs against approved registries | **`cross-registry` group (4)** — every `review.<id>` and `decision.<id>` in every Phase 9 file must resolve against the approved `reviews/` and `decisions/` trees; exception paths must cite only **carded** Rights or block; and one check asserts the registries were actually discovered (≥20 reviews, exactly 8 carded Rights) **so the scan cannot pass vacuously on an empty set** |
+| Does not detect the residual profile-version contradiction | **3 `identity-stack` checks** — no document may assert that a provider version change is a profile version change outside a remediation note; the distinct-profile rule must be present; the uncertainty default must be stated |
+| Does not scan active inventory prose for stale counts or removed capability references | **7 `inventory` checks** — all counts derived; stale word-form counts scanned; removed capability tokens permitted only inside their removal note |
+
+**The cross-registry check would have caught the exemplar-9 defect on the first run**, which is the honest measure of the gap: 204 checks passed over two references to objects that do not exist.
+
+## Validation
+
+**`python3 validation/phase_9_validation.py` → `=== 219/219 PASS ===`**, exit 0. Normal, `--verbose` and `--json` all report 219.
+**`python3 validation/phase_8_validation.py` → `119/119 PASS`**, unchanged and untouched in both passes.
+
+## Open questions
+
+The re-audit left **#1** and **#10** as MUST RESOLVE. Both are now resolved by concrete rules:
+
+| # | Now | Rule |
+|---:|---|---|
+| **1** | **RESOLVED IN FOUNDATION** | A registry profile version never absorbs a release change; a changed release is a distinct profile; uncertainty is treated as a changed release and suspends the profile |
+| **10** | **RESOLVED IN FOUNDATION** | Cases A/B/C stand, and case B additionally requires a **carded** Right covering the constraint class. **None exists today**, so every case-B path currently resolves to case C — stated in the architecture and demonstrated in exemplar 9 rather than assumed away |
+
+The remaining 15 dispositions are unchanged from the first remediation.
+
+## Files changed in this pass
+
+| File | Purpose |
+|---|---|
+| `models/model-lifecycle-and-versioning.md` | §4 derived from §0; release change ≠ version bump; uncertainty default; identity review (H1) |
+| `models/exemplars/degraded-fallback-governed-exception.md` | Rewritten — real registry objects only; no carded Right exists; outcome is `BLOCKED_FOR_ROUTING` (H5, M1) |
+| `models/model-capability-taxonomy.md` | §4 rule no longer cites the removed capability; prose count corrected (M7) |
+| `models/master-model-routing-universe.md` | Six count corrections; heading matched to its list |
+| `architecture/model-registry-router.md` | Component-table counts corrected |
+| `validation/phase_9_validation.py` | 204 → **219**; `cross-registry` (4), `identity-stack` (+3), `inventory` (7) |
+| `reviews/phase-9-foundation-self-check.md` | Counts, two new groups, invented-ID reference removed |
+| `reviews/phase-9-foundation-audit-remediation.md` | This section |
+
+**No approved Phase 3–8 file was modified in either pass**, and the Phase 8 validator was not touched in either.
+
+## Status after the second pass
+
+**Phase 9 remains `PROPOSED`.** Nothing is APPROVED or CANONICAL. No Decision Right was created, no Role gained authority, no review status was set or changed, no Model, Provider or Deployment Profile exists, and no real vendor is named anywhere.
+
+**External checks, separate from the 219:** open PRs on the repository **1** (PR #1, unrelated, pre-existing); for this branch **0**; created by this pass **0**.

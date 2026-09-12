@@ -1198,6 +1198,174 @@ check("regression", "no local PR artifact or PR-creating action (local scope onl
       no_local_pr_action)
 
 
+# =========================================================== cross-registry references
+# The re-audit found the harness did not validate referenced Review/Decision IDs against the
+# approved registries. Exemplar 9 cited two objects that do not exist and passed 204 checks.
+
+def approved_ids(pattern, *paths):
+    found = set()
+    for rel in paths:
+        for root, _d, files in os.walk(os.path.join(REPO, rel)):
+            for name in sorted(files):
+                if name.endswith(".md"):
+                    found |= set(re.findall(pattern,
+                                            read(os.path.relpath(os.path.join(root, name), REPO))))
+    return found
+
+
+APPROVED_REVIEWS = approved_ids(r"`(review\.[a-z_]+)`", "reviews")
+APPROVED_DECISIONS = approved_ids(r"`(decision\.[a-z_]+)`", "decisions")
+# Decision Rights that are actually CARDED, which is what "a valid Right" means.
+CARDED_DECISIONS = set()
+for _rel in discover("decisions/exemplars"):
+    _m = re.search(r"^- Decision ID: \*?\*?`(decision\.[a-z_]+)`", read(_rel), re.M)
+    if _m:
+        CARDED_DECISIONS.add(_m.group(1))
+
+
+def unresolved_cross_registry_refs():
+    """Every review.<id> and decision.<id> in Phase 9 must exist in the approved registries."""
+    bad = []
+    for rel, doc in DOCS.items():
+        for token in set(re.findall(r"`(review\.[a-z_]+)`", doc)):
+            if token not in APPROVED_REVIEWS:
+                bad.append("%s: %s" % (rel, token))
+        for token in set(re.findall(r"`(decision\.[a-z_]+)`", doc)):
+            if token not in APPROVED_DECISIONS:
+                bad.append("%s: %s" % (rel, token))
+    return (not bad, str(sorted(set(bad))) if bad
+            else "0 unresolved across %d files (%d approved reviews, %d approved decisions)"
+            % (len(DOCS), len(APPROVED_REVIEWS), len(APPROVED_DECISIONS)))
+
+
+check("cross-registry", "every review.<id> and decision.<id> resolves to an approved registry object",
+      unresolved_cross_registry_refs)
+
+check("cross-registry", "approved registries were actually found, so the check is not vacuous",
+      lambda: (len(APPROVED_REVIEWS) >= 20 and len(CARDED_DECISIONS) == 8,
+               "%d review IDs, %d carded Decision Rights" % (len(APPROVED_REVIEWS),
+                                                             len(CARDED_DECISIONS))))
+
+
+def exception_paths_cite_carded_rights():
+    """A governed exception must name a CARDED Right, or state that none exists and block."""
+    problems = []
+    for rel in EXEMPLARS:
+        doc = DOCS[rel]
+        if "GOVERNED_EXCEPTION_POSSIBLE" not in doc and "governed exception" not in doc.lower():
+            continue
+        cited = set(re.findall(r"`(decision\.[a-z_]+)`", doc))
+        uncarded = cited - CARDED_DECISIONS
+        claims_exception_taken = re.search(r"adjusted (routing )?context (was )?creat|"
+                                           r"eligible under the adjusted context", doc, re.I)
+        if uncarded:
+            problems.append("%s cites uncarded %s" % (os.path.basename(rel), sorted(uncarded)))
+        if claims_exception_taken and not re.search(r"BLOCKED_FOR_ROUTING", doc):
+            problems.append("%s exercises an exception without a blocking alternative recorded"
+                            % os.path.basename(rel))
+    return (not problems, str(problems) if problems
+            else "exception paths cite only carded Rights or block")
+
+
+check("cross-registry", "exception paths cite only carded Decision Rights",
+      exception_paths_cite_carded_rights)
+
+check("cross-registry", "no approved Phase 7 Right covers a routing constraint class, and that is stated",
+      lambda: ("None of them covers a model-capability threshold"
+               in plain(DOCS["models/exemplars/degraded-fallback-governed-exception.md"])
+               and "BLOCKED_FOR_ROUTING"
+               in DOCS["models/exemplars/degraded-fallback-governed-exception.md"], ""))
+
+# =========================================================== identity / version consistency
+
+def no_release_change_as_version_bump():
+    """A changed underlying release must never be absorbed into a registry profile version."""
+    bad = []
+    for rel, doc in NORMATIVE.items():
+        for m in re.finditer(r"provider version change is a profile version change", doc, re.I):
+            window = doc[max(0, m.start() - 300):m.end() + 300]
+            if REMEDIATION_CONTEXT.search(window):
+                continue
+            bad.append(rel)
+    return (not bad and "never absorbs a change of the underlying release" in plain(LIFE)
+            and "A different Model Profile" in LIFE.split("### A changed underlying release")[1],
+            str(sorted(set(bad))) if bad else "release change yields a distinct profile")
+
+
+check("identity-stack", "a changed underlying release is a distinct profile, never a version bump",
+      no_release_change_as_version_bump)
+
+check("identity-stack", "uncertainty about a release change defaults to the safe reading",
+      lambda: ("Treated as a changed release" in LIFE
+               and "SUSPENDED` pending that evidence" in LIFE, ""))
+
+check("identity-stack", "PROVIDER_VERSION_CHANGE fires an identity review, not a version bump",
+      lambda: ("fires an identity review, not a version bump" in plain(LIFE), ""))
+
+# =========================================================== derived inventory counts
+# The re-audit found stale counts in active prose. These derive every count from the files.
+
+
+def declared_capabilities():
+    return sorted(set(re.findall(r"^\| `(capability\.[a-z_]+)` \|", CAP, re.M)))
+
+
+def counted(label, actual, *docs):
+    """The stated number must equal the derived one, wherever it is stated."""
+    stale = []
+    for name, doc in docs:
+        for m in re.finditer(r"(\d+)[- ]%s" % label, doc):
+            if int(m.group(1)) != actual:
+                stale.append("%s: %s-%s (actual %d)" % (name, m.group(1), label, actual))
+    return stale
+
+
+check("inventory", "capability count consistent everywhere it is stated",
+      lambda: (lambda stale: (not stale and len(declared_capabilities()) == 23,
+                              str(stale) if stale else "%d families" % len(declared_capabilities())))(
+          counted("family", len(declared_capabilities()), ("arch", A), ("uni", UNIV), ("cap", CAP))
+          + counted("capability families", len(declared_capabilities()),
+                    ("arch", A), ("uni", UNIV), ("cap", CAP))))
+
+check("inventory", "no stale twenty-four-dimension prose survives",
+      lambda: (lambda stale: (not stale, str(stale) if stale else "0 stale word-form counts"))(
+          [rel for rel, doc in NORMATIVE.items()
+           if re.search(r"twenty-four dimensions|twenty-four families", doc, re.I)]))
+
+check("inventory", "eligibility-constraint count in the universe matches the parsed table",
+      lambda: (lambda n: (("| Eligibility constraints | **%d** |" % n) in UNIV,
+                          "%d parsed" % n))(len({t for r in eligibility_table_rows()
+                                                 for t in r[0].split(", ") if t})))
+
+check("inventory", "preference count in the universe matches the parsed table",
+      lambda: (lambda n: (("| Preferences | **%d**" % n) in UNIV, "%d parsed" % n))(
+          len(re.findall(r"^\| `PREFER_[A-Z_]+` \|",
+                         CONS.split("## 6. Preferences")[1].split("### When cost")[0], re.M))))
+
+check("inventory", "constraint count in the artifact table matches the standard",
+      lambda: (lambda n: (("| %d inherited rules |" % n) in UNIV, "%d rules" % n))(
+          len(re.findall(r"^## (\d+)\. ", STD, re.M))))
+
+check("inventory", "no stale 'hard and soft' constraint summary survives",
+      lambda: (lambda stale: (not stale, str(stale) if stale else "0 stale summaries"))(
+          [rel for rel, doc in NORMATIVE.items()
+           if re.search(r"\d+ hard and \d+ soft", doc)]))
+
+check("inventory", "the inexpressible list matches its own heading count",
+      lambda: (lambda heading, items: (heading == items,
+                                       "heading says %d, lists %d" % (heading, items)))(
+          {"Two": 2, "Three": 3, "Four": 4}[
+              re.search(r"## 4\. (\w+) things this architecture cannot express", UNIV).group(1)],
+          len(re.findall(r"^\d+\. \*\*",
+                         UNIV.split("cannot express")[1].split("## 5.")[0], re.M))))
+
+check("inventory", "no removed capability token is referenced outside its removal note",
+      lambda: (lambda bad: (not bad, str(bad) if bad else "0 live references"))(
+          [rel for rel, doc in NORMATIVE.items()
+           for m in re.finditer(r"capability\.privacy_sensitive_suitability", doc)
+           if not REMEDIATION_CONTEXT.search(doc[max(0, m.start() - 400):m.end() + 400])]))
+
+
 def main():
     verbose = "--verbose" in sys.argv
     as_json = "--json" in sys.argv

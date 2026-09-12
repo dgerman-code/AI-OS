@@ -18,9 +18,9 @@ python3 validation/phase_9_validation.py
 
 Python 3 standard library and `git` only. No network, no third-party packages, no writes. Deterministic; exit code 0 on pass, non-zero on any failure. `--verbose` prints each check's evidence; `--json` emits machine-readable results. Conventions are in `validation/README.md`.
 
-**Current result: `=== 204/204 PASS ===`.** Normal, `--verbose` and `--json` modes all report the same total.
+**Current result: `=== 219/219 PASS ===`.** Normal, `--verbose` and `--json` modes all report the same total.
 
-**The count is derived from the suite, not chosen.** It rose from 141 after the audit; nothing was preserved cosmetically, and no number was targeted.
+**The count is derived from the suite, not chosen.** 141 → 204 after the first audit, → 219 after the re-audit; nothing was preserved cosmetically, and no number was targeted.
 
 **Scope boundary.** These 141 are **offline, deterministic checks over committed content**. Remote repository state — open pull requests, branch protection, review state — is **not provable offline and is not claimed**; it is checked separately against the GitHub API and reported alongside this foundation.
 
@@ -46,6 +46,8 @@ Python 3 standard library and `git` only. No network, no third-party packages, n
 | `decision-record` | 17 | 31 elements; universe binding; per-candidate results; case-B chain; routing reproducibility only |
 | `templates` | 8 | Five templates; non-runtime statements; no URLs or credentials; bands not prices; 43 contiguous constraints |
 | `exemplars` | 14 | Nine on disk; each states what it proves; block, outage and history exemplars checked specifically |
+| `cross-registry` | 4 | **Every `review.<id>` and `decision.<id>` in Phase 9 resolves to an approved registry object**; exception paths cite only carded Rights; the check proves the registries were found, so it cannot pass vacuously |
+| `inventory` | 7 | Counts derived from the files and compared to every statement of them; stale word-form counts; heading-versus-list consistency; no live reference to a removed capability |
 | `regression` | 14 | Phases 3–8 unchanged; all `PROPOSED`; no runtime; no profile instances; harness read-only; no vacuous checks |
 
 ## Producer self-check threshold
@@ -98,7 +100,7 @@ Recorded for the re-audit rather than left to be discovered. The first version o
 
 1. **The exceptionability derivation table is a judgement about sources.** Classifying "an explicit security prohibition adopted as policy" as non-waivable-unless-the-policy-names-a-Right is defensible and arguable, and an organisation whose security policy is written loosely will find the classification doing more work than its authors intended.
 2. **The candidate universe assumes a registry snapshot mechanism that does not exist.** The architecture requires a deterministic registry state reference and says storage is Phase 10's. Until Phase 10 provides one, the requirement is satisfiable only by convention, and a convention is not a snapshot.
-3. **Case B depends on Phase 7 Rights nobody has carded.** `decision.model_capability_threshold_exception` is named in exemplar 9 as a synthetic identifier. No such Right exists, so today every case-B path is in fact case C.
+3. **Case B depends on Phase 7 Rights nobody has carded.** No approved Decision Right covers a routing constraint class, so **today every case-B path is in fact case C**. Exemplar 9 now demonstrates exactly that rather than illustrating the mechanism over an invented Right — writing a `decision.<id>` that resolves to nothing is the defect, not a shortcut past it.
 4. **23 capability families is still a judgement**, and the boundaries between `general_reasoning` / `advanced_reasoning` and `coding` / `code_review` will be argued. The architecture depends on requirements and claims sharing a vocabulary, not on this vocabulary being right.
 5. **The multi-label sensitivity model makes eligibility harder to satisfy than the ceiling model did**, deliberately. Organisations will meet `BLOCKED_FOR_ROUTING` more often, and will read the control as an obstruction. Exemplar 7 exists to show it working.
 

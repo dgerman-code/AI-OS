@@ -52,12 +52,12 @@ ROLE != SKILL != WORKFLOW != HANDOFF != REVIEW PROFILE != DECISION RIGHT != KNOW
 
 | Document | Owns |
 |---|---|
-| `models/model-capability-taxonomy.md` | 24 capability families, 4 claim classes, limitations |
-| `models/model-lifecycle-and-versioning.md` | 8 lifecycle states, versioning, aliases, anti-lock-in, incidents |
-| `models/routing-constraint-model.md` | Hard constraints, soft preferences, and the rule between them |
-| `models/routing-precedence-and-fallback.md` | 8-stage precedence, availability, fallback, blocking |
+| `models/model-capability-taxonomy.md` | 23 capability families, 4 claim classes, limitations |
+| `models/model-lifecycle-and-versioning.md` | 6-layer identity stack, 6 lifecycle states, versioning, aliases, anti-lock-in, incidents |
+| `models/routing-constraint-model.md` | 27 eligibility constraints, 9 preferences, 3 act requirements, exceptionability, sensitivity and residency |
+| `models/routing-precedence-and-fallback.md` | Candidate universe, 9-stage precedence, availability, fallback cases A/B/C, blocking |
 | `models/review-diversity-and-criticality.md` | Model diversity vs Phase 6 independence; criticality bands |
-| `models/evaluation-evidence-model.md` | 6 evidence classes, 11 dimensions, confidence, freshness |
+| `models/evaluation-evidence-model.md` | 6 evidence classes, 8 applicability dimensions, 11 evaluation dimensions, confidence, freshness |
 | `models/_standards/` | The rules every model artifact inherits |
 | `models/_templates/` | Model, Provider, Deployment, Routing Policy, Routing Decision |
 | `models/master-model-routing-universe.md` | Inventory, forward reference resolution, deferred work |

@@ -75,7 +75,7 @@ Four rules hold everywhere:
 
 1. **A provider's assertion is evidence of a provider's assertion.** It is admissible and it is not proof.
 2. **A benchmark score is not authority.** It is evidence about a benchmark, whose relationship to the work is itself a claim.
-3. **Confidence does not create eligibility.** High confidence in a claim about `capability.coding` does not make a model eligible for work that also requires `capability.privacy_sensitive_suitability`.
+3. **Confidence does not create eligibility.** High confidence in a claim about `capability.coding` does not make a model eligible for work that also requires `capability.structured_generation` — and it reaches no deployment-governed requirement at all, since those are not capabilities (§2).
 4. **A capability claim never becomes canonical knowledge** and is never evidence about the world. It is evidence about a tool.
 
 ## 5. Limitations and prohibited contexts
@@ -89,7 +89,7 @@ A limitation **narrows** a claim; a prohibited context **overrides** it. A profi
 
 ## 6. What the taxonomy deliberately does not do
 
-It produces **no composite score, no ranking and no ordering of models.** There is no "best model" expressible in this vocabulary, by construction: a profile is a vector of claims across twenty-four dimensions with evidence of differing classes and ages, and collapsing that to one number would discard exactly the information a routing decision needs.
+It produces **no composite score, no ranking and no ordering of models.** There is no "best model" expressible in this vocabulary, by construction: a profile is a vector of claims across twenty-three dimensions with evidence of differing classes and ages, and collapsing that to one number would discard exactly the information a routing decision needs.
 
 It also defines no benchmark, no test, no evaluation procedure and no threshold. Thresholds belong to Routing Policies, which state what they require; evidence semantics belong to `models/evaluation-evidence-model.md`.
 

@@ -26,7 +26,7 @@ The nine exemplars are **Routing Decisions over synthetic identifiers**. They de
 | Identity-stack layers | 6 | `models/model-lifecycle-and-versioning.md` §0 |
 | Primary lifecycle states | **6**, mutually exclusive | `models/model-lifecycle-and-versioning.md` §1 |
 | Lifecycle annotations | 2 kinds — `PREFERRED` designation, restriction annotations | `models/model-lifecycle-and-versioning.md` §1 |
-| Eligibility constraints | **24** | `models/routing-constraint-model.md` §2 |
+| Eligibility constraints | **27** | `models/routing-constraint-model.md` §2 |
 | Act requirements | **3** | `models/routing-constraint-model.md` §7 |
 | Exceptionability classes | **3** | `models/routing-constraint-model.md` §5 |
 | Preferences | **9**, lexicographically ordered by the policy | `models/routing-constraint-model.md` §6 |
@@ -47,20 +47,20 @@ The nine exemplars are **Routing Decisions over synthetic identifiers**. They de
 | File | Purpose |
 |---|---|
 | `architecture/model-registry-router.md` | Master architecture: identity separation, routing chain, eligibility, upstream integration, privacy, human control, reproducibility |
-| `models/model-capability-taxonomy.md` | Capability families, claim classes, limitations and prohibited contexts |
-| `models/model-lifecycle-and-versioning.md` | Lifecycle, versioning, aliases, anti-lock-in, pinning, incidents |
-| `models/routing-constraint-model.md` | Hard constraints, soft preferences, sources, conflicts |
+| `models/model-capability-taxonomy.md` | 23 capability families, 4 claim classes, limitations and prohibited contexts |
+| `models/model-lifecycle-and-versioning.md` | 6-layer identity stack, 6 lifecycle states, versioning, aliases, anti-lock-in, pinning, incidents |
+| `models/routing-constraint-model.md` | 27 eligibility constraints, 9 preferences, 3 act requirements, exceptionability, sensitivity, residency |
 | `models/routing-precedence-and-fallback.md` | Precedence, tie-break, availability, fallback, blocking |
 | `models/review-diversity-and-criticality.md` | Model diversity against Phase 6 independence; criticality bands |
 | `models/evaluation-evidence-model.md` | Evidence classes, dimensions, confidence, freshness |
-| `models/_standards/common-model-governance-constraints.md` | 33 inherited rules |
+| `models/_standards/common-model-governance-constraints.md` | 43 inherited rules |
 | `models/_templates/` × 5 | Model, Provider, Deployment, Routing Policy, Routing Decision |
 | `models/exemplars/` × 9 | Worked Routing Decisions, each proving one boundary |
 | `models/master-model-routing-universe.md` | This inventory |
 | `reviews/phase-9-foundation-self-check.md` | Self-check pointing at the harness |
 | `validation/phase_9_validation.py` | Deterministic validation harness |
 
-## 4. Two things this architecture cannot express
+## 4. Three things this architecture cannot express
 
 Stated as inventory, because their absence is a design output rather than an omission:
 
@@ -85,7 +85,7 @@ The first is why `models/evaluation-evidence-model.md` refuses a composite score
 
 `architecture/registry-separation.md` §8 (approved, Phase 2) promised a Model Registry describing "available runtime models and their capabilities, constraints, cost and routing suitability", and stated that "models are replaceable execution runtimes and do not define the roles themselves".
 
-Phase 9 delivers each clause: **capabilities** as a 24-family taxonomy with evidence classes; **constraints** as 22 hard and 8 soft, with precedence; **cost** as semantic bands, never prices; **routing suitability** as eligibility rather than ranking; and **replaceability** through stable IDs, aliases, and the deployment-carries-sensitivity rule that lets a provider be substituted without touching anything above the registry.
+Phase 9 delivers each clause: **capabilities** as a 23-family taxonomy with evidence classes; **constraints** as 27 eligibility constraints, 9 preferences and 3 act requirements, with precedence; **cost** as semantic bands, never prices; **routing suitability** as eligibility rather than ranking; and **replaceability** through stable IDs, aliases, and the deployment-carries-sensitivity rule that lets a provider be substituted without touching anything above the registry.
 
 Also relevant and unchanged: Phase 2 lists **Model Router** as a System Control Profile (§1). Phase 9 defines what that profile would route against; it does not implement the profile, and `ROUTER != ORCHESTRATOR` keeps the two apart.
 

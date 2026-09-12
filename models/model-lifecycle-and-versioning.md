@@ -103,13 +103,27 @@ Three versioned things, and confusing them is how reproducibility is lost:
 
 | Versioned object | Changes when |
 |---|---|
-| **Model Profile version** | The registry's description of the model changes — new claims, new evidence, new limitations, a provider version change |
+| **Registry Profile Version** | **The AI-OS record changes** — a new claim, new evidence, a new limitation, a corrected field, a new mapping. **The underlying release is the same one** |
 | **Provider / Deployment Profile version** | Terms, posture, residency, availability commitments or deployment class change |
 | **Routing Policy version** | The rules change — constraints, preferences, accepted evidence classes, tie-break |
 
-**A Routing Decision names all three, by version.** Naming a profile without its version reproduces nothing, because the thing behind the name has moved.
+**A Routing Decision names all three, by version, plus the provider offering mapping used.** Naming a profile without its version reproduces nothing.
 
-**A provider version change is a profile version change**, even where nothing else moves — the underlying thing is different and every claim about it is now evidence about the previous one until re-verified.
+### A changed underlying release is a different Model Profile, not a new version of this one
+
+§0 rule 2 says a Model Profile describes **one underlying model release**. That rule is exact, and the versioning rule follows from it rather than qualifying it:
+
+> **A registry profile version never absorbs a change of the underlying release.** Bumping the version records that *the record* changed. It cannot record that *the thing* changed, because the profile's identity is the release it describes.
+
+| What changed | Consequence |
+|---|---|
+| A claim, a piece of evidence, a limitation, a field, a mapping | **New Registry Profile Version.** Same profile, same release |
+| **The underlying release**, by any route — a new provider version, a silent backend change, any exposure that can no longer be evidenced as the same release | **A different Model Profile**, with its own stable ID, linked to its predecessor. **Never a version bump on the existing one** |
+| Uncertainty about which of the two happened | **Treated as a changed release** until evidence establishes otherwise, and the existing profile is `SUSPENDED` pending that evidence |
+
+The last row is the operative one. Provider version changes are often opaque from outside, and the safe reading is the one that does not quietly leave historical Routing Decisions pointing at a profile whose subject has moved underneath them. A version bump in that situation would make every prior decision naming `model.x v3` ambiguous about what actually ran — which is the precise failure versioning exists to prevent.
+
+**`PROVIDER_VERSION_CHANGE` therefore fires an identity review, not a version bump.** The review's outcome is one of the three rows above; it is never assumed to be the first.
 
 ## 5. Provider independence and anti-lock-in
 
