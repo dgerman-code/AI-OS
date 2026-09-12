@@ -106,3 +106,53 @@ A third check feeds the matcher its own cases — twelve of them, each asserted 
 The twelve foundation probes were re-run and all still exit 1.
 
 Suite **151 → 153**; `concurrency` 9 → 11. **Phase 11 remains `PROPOSED`; human approval is pending.**
+
+---
+
+# Negation-scope remediation — a negation may only speak for its own predicate
+
+Approval re-audit of `7b61d1125485b49f9d9f05282506f698b76367a4`: **FAIL**, one remaining HIGH validator defect.
+
+**One defect, and it was mine again.** The previous pass replaced a forbidden-word list with predications — correct — and then added a **proximity-based** negation suppressor: any `not`, `never`, `no longer`, `neither` or `nor` within forty characters cancelled the match. The re-audit wrote `The Decision Record stands and is not optional but is stale`.
+
+The negation belongs to `optional`. The staleness is asserted anyway, and both checks passed. The Phase-11-wide check had the same shape of hole from a different direction: a line-wide denial exemption, where a denial anywhere on the line suppressed a positive stale predicate later in it.
+
+Three versions of this rule, three bypasses, and the same root cause each time: **the check tested something near the rule instead of the rule.** First a word, then a distance, and only now the grammar.
+
+## The rule
+
+> **A negation suppresses a stale characterisation only when it is attached to the stale predicate itself.**
+
+There is no lookback window and no line-wide denial exemption; both were ways for a negation elsewhere in a sentence to speak for a predicate it does not govern.
+
+| Passes | Fails |
+|---|---|
+| `The Decision Record is not stale` | `...stands and is not optional but is stale` |
+| `The Decision Record was not stale` | `...is not optional and is stale` |
+| `The Decision Record is never stale` | `...is not ignored but is stale` |
+| `This is not a stale Decision Record` | `...is neither optional nor revocable but is stale` |
+| Stale **evidence**, unrelated to a Decision Record | `...is no longer pending but is stale` |
+| Late review `IGNORE_AS_STALE`, recorded against its Review Instance | `...is never discarded, but is stale` |
+
+## Implementation
+
+The negator slot sits **inside** each pattern, immediately before `stale`: a negative lookahead after the copula, and fixed-width lookbehinds for the adjectival and participle forms. A negation in that slot suppresses; a negation anywhere else does not reach. Standard library only, deterministic, four regex branches.
+
+Where the phase-wide scan previously exempted a whole line on a denial marker, it now reads **prose only**: a wording quoted as a code span is a specimen someone is rejecting rather than an assertion, and the authoritative row is deliberately **not** given that latitude — there, a specimen has no business appearing at all.
+
+## The guard against reverting
+
+The grammar self-check now carries **22 cases**, each asserted against both scopes, including all six contrastive forms. Proximity-based suppression passes every contrastive case; predicate-attached suppression fails every one. **Reinstating proximity suppression therefore fails the harness with no document edited** — verified by doing it: the check failed and nothing else did.
+
+## Probes
+
+| Group | Result |
+|---|---|
+| Six contrastive forms in the authoritative row | exit 1 each — row check **and** phase-wide check |
+| Two contrastive forms inserted as prose elsewhere in Phase 11 | exit 1 each — phase-wide check |
+| Four positive controls — `is not stale`, retained + `RECONCILE`/`ESCALATE`, unrelated stale evidence, late review `IGNORE_AS_STALE` still recorded | **exit 0 each** |
+| Twelve prior stale-wording probes | exit 1 each |
+| Twelve foundation probes | exit 1 each |
+| Negation logic reverted to proximity | exit 1 — the grammar guard |
+
+**No architecture content changed.** The committed row was correct before this pass and is byte-identical after it. Suite total unchanged at **153**. **Phase 11 remains `PROPOSED`; human approval is pending.**
