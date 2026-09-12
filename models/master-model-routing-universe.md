@@ -39,7 +39,7 @@ The nine exemplars are **Routing Decisions over synthetic identifiers**. They de
 | Residency / jurisdiction fields | 6 | `models/_templates/deployment-profile-template.md` |
 | Region / residency classes | 5 | `models/_templates/deployment-profile-template.md` |
 | Cost / latency bands | 4 + 4 | `models/_templates/model-profile-template.md` |
-| Routing Decision elements | **31** | `models/_templates/routing-decision-template.md` |
+| Routing Decision elements | **35** | `models/_templates/routing-decision-template.md` |
 | Enforceable constraints | **45** | `models/_standards/common-model-governance-constraints.md` |
 
 ## 3. Artifacts
@@ -64,7 +64,7 @@ The nine exemplars are **Routing Decisions over synthetic identifiers**. They de
 
 Stated as inventory, because their absence is a design output rather than an omission:
 
-1. **A ranking of models.** A profile is a vector of claims across 24 dimensions, with evidence of differing classes and ages. No composite exists, no ordering is derivable, and **"the best model" is not a sentence this vocabulary can form.**
+1. **A ranking of models.** A profile is a vector of claims across 23 capability families, with evidence of differing classes and ages. No composite exists, no ordering is derivable, and **"the best model" is not a sentence this vocabulary can form.**
 2. **Partial eligibility.** A candidate meets every eligibility constraint or is not a candidate. "Closest fit", "fewest violations" and "best available" have no representation — **and neither does "eligible pending an exception"**, which is why a governed act changes the requirement *before* re-evaluation rather than justifying a selection afterwards.
 3. **An ordering of sensitivity classes.** Phase 8 defines none and Phase 9 imposes none, so "maximum sensitivity" and "at or above" cannot be expressed. Eligibility is a subset test with obligations.
 

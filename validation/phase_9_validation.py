@@ -1558,6 +1558,270 @@ check("inventory", "a heading claiming N items governs a list of N",
       heading_list_cardinality)
 
 
+# =========================================================== final conformance cleanup
+# The approval re-audit found defects that a 239/239 PASS had not caught: exemplars carrying
+# a prose approximation of the Candidate Universe Definition rather than its mandatory
+# elements, a declared candidate count disagreeing with the candidates actually assessed,
+# stage-6 preferences described as stage 7, and stale counts in the producer self-check —
+# which the count scans had excluded from their own scope. These close each of those.
+
+SELF_CHECK = "reviews/phase-9-foundation-self-check.md"
+SELF = DOCS[SELF_CHECK]
+
+# The current producer self-check is an *active* description of the architecture, not a
+# historical record, so it is scanned with the normative files rather than exempted.
+ACTIVE = dict(NORMATIVE)
+ACTIVE[SELF_CHECK] = SELF
+
+CUD_ELEMENTS = ["Registry state reference", "Universe definition version", "Inclusion rule",
+                "Routing scope", "Pre-filter exclusions", "Enumerated candidate set",
+                "Omission reasons", "Completeness result", "Behaviour if incomplete"]
+
+
+def universe_block(doc):
+    """The exemplar's bound Candidate Universe Definition, or None if it has none."""
+    m = re.search(r"^## Candidate universe\s*$", doc, re.M)
+    if m is None:
+        return None
+    return doc[m.end():].split("\n## ")[0]
+
+
+def assessed_candidates(doc):
+    """Rows of every candidate-assessment table: a table whose header carries 'Eligible?'."""
+    rows, in_table = 0, False
+    for line in doc.splitlines():
+        if line.startswith("|") and "Eligible?" in line:
+            in_table = True
+            continue
+        if not in_table:
+            continue
+        if re.match(r"^\|[\s:|-]+\|\s*$", line):     # the |---|---| separator is not a row
+            continue
+        if line.startswith("|"):
+            rows += 1
+        else:
+            in_table = False
+    return rows
+
+
+def declared_candidates(block):
+    m = re.search(r"Enumerated candidate set \| (\d+)", plain(block))
+    return int(m.group(1)) if m else None
+
+
+def exemplar_universe_conformance(rel):
+    doc = DOCS[rel]
+    block = universe_block(doc)
+    if block is None:
+        return (False, "no '## Candidate universe' section: the definition is not bound at all")
+    flat = plain(block)
+    missing = [e for e in CUD_ELEMENTS if e not in flat]
+    if not re.search(r"CANDIDATE_UNIVERSE_(COMPLETE|INCOMPLETE)", block):
+        missing.append("completeness verdict token")
+    if not re.search(r"(?i)\b(BLOCK|ESCALATE)", flat):
+        missing.append("declared behaviour on an incomplete universe")
+    return (not missing,
+            "missing: %s" % missing if missing else "all %d mandatory elements bound"
+            % len(CUD_ELEMENTS))
+
+
+def exemplar_candidate_cardinality(rel):
+    doc = DOCS[rel]
+    block = universe_block(doc)
+    if block is None:
+        return (False, "no candidate universe to declare a cardinality")
+    declared = declared_candidates(block)
+    assessed = assessed_candidates(doc)
+    if declared is None:
+        return (False, "no declared enumerated cardinality")
+    return (declared == assessed,
+            "declared %d, assessed %d" % (declared, assessed))
+
+
+for _rel in EXEMPLARS:
+    _name = os.path.basename(_rel).replace(".md", "")
+    check("candidate-universe", "exemplar %s binds every mandatory universe element" % _name,
+          (lambda r=_rel: exemplar_universe_conformance(r)))
+    check("candidate-universe", "exemplar %s enumerates exactly what it assesses" % _name,
+          (lambda r=_rel: exemplar_candidate_cardinality(r)))
+
+check("candidate-universe", "no exemplar drops an unavailable candidate from its universe",
+      lambda: (lambda bad: (not bad, str(bad) if bad else "availability is evaluated, never pre-filtered"))(
+          [os.path.basename(e) for e in EXEMPLARS
+           if "UNAVAILABLE" in DOCS[e]
+           and "Availability pre-enumeration: no" not in plain(universe_block(DOCS[e]) or "")]))
+
+# --------------------------------------------------------- stage numbering
+
+STAGE_MAP = {
+    1: "Legality and governance",
+    2: "Sensitivity, handling and residency",
+    3: "Required capability, modality, context and tooling",
+    4: "Independence and diversity",
+    5: "Lifecycle and availability",
+    6: "Preferences, in the policy's declared order",
+    7: "Deterministic tie-break",
+    8: "Act requirements",
+}
+
+
+def normative_stage_map():
+    found = {}
+    for m in re.finditer(r"^\| *(\d+) \| \*\*([^*]+)\*\*", PREC, re.M):
+        found[int(m.group(1))] = m.group(2).strip()
+    wrong = ["stage %d is '%s', expected '%s'" % (n, found.get(n), t)
+             for n, t in STAGE_MAP.items()
+             if not (found.get(n) or "").startswith(t)]
+    return (not wrong, str(wrong) if wrong
+            else "stages 1-5 fixed filtering, 6 preferences, 7 tie-break, 8 act requirements")
+
+
+check("precedence", "normative stage map is 1-5 filtering, 6 preferences, 7 tie-break",
+      normative_stage_map)
+
+
+def no_preference_claimed_at_stage_seven():
+    """Stage 7 is the deterministic tie-break. A sentence placing a preference there is the
+    defect the re-audit found; a sentence that says stage 7 *is* the tie-break is not."""
+    bad = []
+    for rel, doc in ACTIVE.items():
+        flat = plain(doc)
+        for m in re.finditer(r"(?i)stage 7", flat):
+            # Bound the sentence to its own line: a markdown table row is not prose that
+            # continues into the row above it.
+            line_start = flat.rfind("\n", 0, m.start()) + 1
+            line_end = flat.find("\n", m.end())
+            line = flat[line_start:line_end if line_end != -1 else len(flat)]
+            rel_start = max(0, line.rfind(".", 0, m.start() - line_start) + 1)
+            rel_end = line.find(".", m.end() - line_start)
+            sentence = line[rel_start:rel_end if rel_end != -1 else len(line)]
+            if re.search(r"(?i)tie-break", sentence):
+                continue
+            if re.search(r"(?i)\b(cost|latency|preference|PREFER_[A-Z_]+)\b", sentence):
+                bad.append("%s: %s" % (rel, sentence.strip()[:110]))
+    return (not bad, str(bad) if bad else "no preference is placed at stage 7")
+
+
+check("precedence", "no active text places a cost or latency preference at stage 7",
+      no_preference_claimed_at_stage_seven)
+
+# --------------------------------------------------------- derived counts, self-check included
+
+
+def negative_evidence_dimensions():
+    block_ = EVID.split("## 2a. Applicability of negative evidence")[1].split("### Rules")[0]
+    rows = [ln for ln in block_.splitlines()
+            if ln.startswith("| ") and not re.match(r"^\|[\s:|-]+\|\s*$", ln)]
+    return max(0, len(rows) - 1)
+
+
+DERIVED["negative-evidence applicability dimensions"] = (negative_evidence_dimensions(), 8)
+check("inventory", "derived count matches expectation: negative-evidence dimensions",
+      lambda: (negative_evidence_dimensions() == 8,
+               "%d dimensions parsed from the authoritative table" % negative_evidence_dimensions()))
+
+WORD_NUM = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
+            "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+            "twenty-three": 23, "twenty-four": 24, "twenty-five": 25,
+            "thirty-one": 31, "thirty-five": 35, "forty-three": 43, "forty-five": 45}
+
+
+def claims_against(pattern, actual, label):
+    """Every active digit-or-word claim matching `pattern` must equal the derived value."""
+    bad = []
+    for rel, doc in ACTIVE.items():
+        for m in re.finditer(pattern, doc, re.I):
+            token = m.group(1).lower()
+            stated = int(token) if token.isdigit() else WORD_NUM.get(token)
+            if stated is None or stated == actual:
+                continue
+            window = doc[max(0, m.start() - 250):m.end() + 250]
+            if REMEDIATION_CONTEXT.search(window):
+                continue
+            bad.append("%s: '%s' (actual %d)" % (rel, m.group(0).strip(), actual))
+    return (not bad, str(sorted(set(bad))) if bad
+            else "%d: every active claim agrees" % actual)
+
+
+NUM = r"(\d+|[a-z]+(?:-[a-z]+)?)"
+
+check("inventory", "every active Routing Decision element claim matches the template",
+      lambda: (lambda bad: (not bad, str(bad) if bad
+                            else "%d elements: every active claim agrees"
+                            % routing_decision_elements()))(
+          [("%s: %s" % (rel, ln.strip()[:90]))
+           for rel, doc in ACTIVE.items() for ln in doc.splitlines()
+           if re.search(r"(?i)routing decision element|decision-record", ln)
+           for mm in re.finditer(r"(\d+) elements", ln)
+           if int(mm.group(1)) != routing_decision_elements()]))
+
+check("inventory", "every active capability-family claim matches the taxonomy",
+      lambda: claims_against(NUM + r"[- ]capability famil", len(declared_capabilities()),
+                             "capability families"))
+
+check("inventory", "every active negative-evidence dimension claim matches its table",
+      lambda: claims_against(NUM + r" dimensions, each recorded", negative_evidence_dimensions(),
+                             "negative-evidence dimensions"))
+
+check("inventory", "every active common-constraint claim matches the standard",
+      lambda: claims_against(
+          NUM + r" (?:inherited rules|contiguous constraints|enforceable constraints)",
+          DERIVED["common constraints"][0], "common constraints"))
+
+check("inventory", "every active exemplar-count claim matches the files on disk",
+      lambda: claims_against(NUM + r"(?: worked)? exemplars?\b", len(EXEMPLARS), "exemplars"))
+
+check("inventory", "the self-check carries no scalar sensitivity ceiling language",
+      lambda: (lambda hits: (not hits, str(hits) if hits else "0 scalar constructs"))(
+          [m.group(0) for m in re.finditer(
+              r"(?i)maximum (approved )?(data )?sensitivity|highest[^.]{0,30}sensitivity class|"
+              r"sensitivity[^.]{0,40}at or above", SELF)]))
+
+# --------------------------------------------------------- historical reproducibility identity
+
+REPRO_PARTS = ["Model Profile stable ID", "Registry Profile Version",
+               "Underlying Model Release identity", "Provider Offering Mapping",
+               "Provider Profile version", "Deployment Profile version"]
+
+
+def historical_decision_identity(rel):
+    """An exemplar recording a decision made in the past must carry the six-part set for it."""
+    flat = plain(DOCS[rel])
+    missing = [p for p in REPRO_PARTS if p not in flat]
+    return (not missing, "missing: %s" % missing if missing
+            else "all %d reproducibility parts recorded" % len(REPRO_PARTS))
+
+
+HISTORICAL_EXEMPLARS = [e for e in EXEMPLARS
+                        if re.search(r"(?i)the historical decision", DOCS[e])]
+check("decision-record", "a historical exemplar decision exists to check",
+      lambda: (len(HISTORICAL_EXEMPLARS) >= 1,
+               str([os.path.basename(e) for e in HISTORICAL_EXEMPLARS])))
+for _rel in HISTORICAL_EXEMPLARS:
+    check("decision-record",
+          "historical decision in %s keeps the six-part identity set"
+          % os.path.basename(_rel).replace(".md", ""),
+          (lambda r=_rel: historical_decision_identity(r)))
+
+
+# --- this check must stay last: it counts the suite, itself included ---
+def self_check_total_is_current():
+    """The producer self-check may not state a total the suite does not actually produce.
+    Prior-pass totals (141, 204, 219, 239) are history and belong in the history sentence,
+    never in a fraction presented as a result."""
+    expected = len(RESULTS) + 1  # self-literal
+    stated = [(int(m.group(1)), int(m.group(2)))
+              for m in re.finditer(r"\b(\d{2,4})/(\d{2,4})\b", SELF)]
+    bad = ["%d/%d" % f for f in stated if f != (expected, expected)]
+    return (not bad and bool(stated),
+            "stale or absent totals: %s (suite is %d/%d)" % (bad, expected, expected)
+            if bad or not stated else "self-check states %d/%d and nothing else" % (expected, expected))
+
+
+check("inventory", "the producer self-check states the suite's actual current total",
+      self_check_total_is_current)
+
+
 def main():
     verbose = "--verbose" in sys.argv
     as_json = "--json" in sys.argv

@@ -22,7 +22,20 @@ Two **separate** controls apply:
 `review.code` and `review.security` both inform the gate; the release gate itself is `decision.production_release` (approved, Phase 7).
 
 ## Candidate universe
-Registry state `reg.snapshot.2026-09-12T08:00Z#4491`; universe definition `cud.decision_grade_code_review` v2. Enumerated: 4. **`CANDIDATE_UNIVERSE_COMPLETE`.**
+
+Bound before any filtering or ranking, per `models/routing-precedence-and-fallback.md` §1.
+
+| Element | Value |
+|---|---|
+| **Registry state reference** | `reg.snapshot.2026-09-12T08:00Z#4491` |
+| **Universe definition version** | `cud.decision_grade_code_review` v2 |
+| **Inclusion rule** | Every registered Model Profile in **any** primary lifecycle state, paired with the internally-approved deployment classes. Neither lifecycle state nor the producing family pre-filters: both are eligibility constraints, evaluated at stages 5 and 4 respectively, so each exclusion appears in the record with its constraint named. **Availability pre-enumeration: no** |
+| **Routing scope** | All registered profiles × internally-approved deployment classes × the internal provider allowlist |
+| **Pre-filter exclusions** | `NONE` |
+| **Enumerated candidate set** | **4**: `model.reviewer_h` @ `deployment.tenant_internal_h`; `model.midsize_analyst_d` @ `deployment.tenant_internal_d`; `model.frontier_reasoning_b` @ `deployment.tenant_internal_b`; `model.compact_general_a` @ `deployment.tenant_internal_a` |
+| **Omission reasons** | `NONE` — every registered candidate inside the scope is enumerated |
+| **Completeness result** | **`CANDIDATE_UNIVERSE_COMPLETE`** |
+| **Behaviour if incomplete** | Policy `rp.decision_grade_code_review` v4 declares **`BLOCK`** on `CANDIDATE_UNIVERSE_INCOMPLETE`, reported separately from `NO_ELIGIBLE_MODEL`. The distinction carries the whole weight of this exemplar: a governance gap found over a complete set is a referral, and the same words over a partial set would be a guess |
 
 ## Step 1 — evaluation under the current policy
 

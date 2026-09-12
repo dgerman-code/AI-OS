@@ -10,6 +10,22 @@ Inherits: `standard.model.common_constraints@0.1`
 ## Task context
 Covenant analysis feeding a financing recommendation. Criticality **Enhanced Decision-Grade**. Material sensitivity `CONFIDENTIAL`.
 
+## Candidate universe
+
+Bound before any filtering or ranking, per `models/routing-precedence-and-fallback.md` §1.
+
+| Element | Value |
+|---|---|
+| **Registry state reference** | `reg.snapshot.2026-09-11T03:00Z#4474` |
+| **Universe definition version** | `cud.decision_grade_analysis` v3 |
+| **Inclusion rule** | Every `ROUTABLE` Model Profile, **at every registered profile version**, paired with the deployment classes approved for `CONFIDENTIAL` material. Version-level enumeration is deliberate: evidence is version-specific, so a lineage is not a candidate. **Availability pre-enumeration: no** |
+| **Routing scope** | Routable profile versions × `CONFIDENTIAL`-approved deployment classes × the internal provider allowlist |
+| **Pre-filter exclusions** | Deployment classes not approved for `CONFIDENTIAL` material, by the inclusion rule. They are outside the universe, not ineligible inside it |
+| **Enumerated candidate set** | **4**: `model.frontier_reasoning_b` v4; `model.frontier_reasoning_b` v5; `model.midsize_analyst_d`; `model.compact_general_a` |
+| **Omission reasons** | `NONE` — every registered candidate inside the scope is enumerated |
+| **Completeness result** | **`CANDIDATE_UNIVERSE_COMPLETE`** |
+| **Behaviour if incomplete** | Policy `rp.decision_grade_analysis` v2 declares **`BLOCK`** on `CANDIDATE_UNIVERSE_INCOMPLETE`. At this band an unreconstructable set is itself disqualifying |
+
 ## Requirements
 `capability.advanced_reasoning` `STRONG`; `capability.instruction_fidelity` `STRONG`; `capability.citation_evidence_handling` `STRONG`; `MINIMUM_RELIABILITY_CLASS` raised. Accepted evidence at this band: `INTERNAL_EVALUATION` only, verdict `CURRENT_FOR_USE`.
 

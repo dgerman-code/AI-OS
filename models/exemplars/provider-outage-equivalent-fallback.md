@@ -11,7 +11,20 @@ Inherits: `standard.model.common_constraints@0.1`
 Scheduled batch summarisation of meeting records. Criticality **Routine / Standard**. **Material sensitivity labels: `CONFIDENTIAL` + `PERSONAL_DATA`** (the records name attendees). Preferred candidate: `model.compact_general_a` @ `deployment.tenant_internal_a`.
 
 ## Candidate universe
-Registry state `reg.snapshot.2026-09-11T06:00Z#4479`; universe definition `cud.batch_summarisation` v1. **Availability pre-enumeration: no** — unavailable candidates are enumerated and evaluated, so an outage is visible in the record rather than absent from it. Enumerated: 3. **`CANDIDATE_UNIVERSE_COMPLETE`.**
+
+Bound before any filtering or ranking, per `models/routing-precedence-and-fallback.md` §1.
+
+| Element | Value |
+|---|---|
+| **Registry state reference** | `reg.snapshot.2026-09-11T06:00Z#4479` |
+| **Universe definition version** | `cud.batch_summarisation` v1 |
+| **Inclusion rule** | Every `ROUTABLE` Model Profile paired with every registered deployment of that profile. **Availability pre-enumeration: no** — unavailable candidates are enumerated and evaluated, so an outage is visible in the record rather than absent from it |
+| **Routing scope** | Routable profiles × all registered deployments × the internal provider allowlist |
+| **Pre-filter exclusions** | `NONE` |
+| **Enumerated candidate set** | **3**: `model.compact_general_a` @ `deployment.tenant_internal_a` (**`UNAVAILABLE`**, and enumerated anyway); `model.summariser_f` @ `deployment.tenant_internal_f`; `model.compact_general_a` @ `deployment.public_hosted_a` |
+| **Omission reasons** | `NONE`. In particular, **no candidate was omitted for being unavailable** — availability is a candidate property evaluated at stage 5, never a reason to disappear from the universe (`models/routing-precedence-and-fallback.md` §1.3) |
+| **Completeness result** | **`CANDIDATE_UNIVERSE_COMPLETE`** |
+| **Behaviour if incomplete** | Policy `rp.batch_summarisation` v2 declares **`BLOCK`** on `CANDIDATE_UNIVERSE_INCOMPLETE`. An outage and a failed registry read look alike from inside the router, and one of them must never be routed through |
 
 ## What happened
 At routing time the preferred deployment's availability class was **`UNAVAILABLE`**.

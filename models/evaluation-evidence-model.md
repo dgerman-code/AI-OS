@@ -33,7 +33,7 @@ Kept distinct because they fail in different ways.
 
 The first draft said negative evidence always outranks positive evidence. The audit was right that this is unbounded: it would let a stale, anecdotal, already-remediated report about a superseded release permanently dominate current verified evidence about a different context.
 
-**Negative evidence restricts a capability claim only where it applies to it.** Applicability is assessed on seven dimensions, each recorded:
+**Negative evidence restricts a capability claim only where it applies to it.** Applicability is assessed on **eight** dimensions, each recorded:
 
 | Dimension | The question |
 |---|---|

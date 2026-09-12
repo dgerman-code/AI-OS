@@ -445,3 +445,69 @@ Verified in-harness against `00fb92e`: **Phase 3–8 all 0**, inherited Phase 2/
 **External checks, separate from the 239:** open PRs on the repository **1** (PR #1, unrelated, pre-existing); for this branch **0**; created by this pass **0**.
 
 **Phase 9 remains `PROPOSED`.**
+
+---
+
+# Final conformance cleanup after the approval re-audit
+
+**Scope of this pass: conformance, counts, exemplar completeness and validation strength only.** No governance semantics were introduced, changed or removed. No approved Phase 3–8 artifact was touched. Every Phase 9 artifact remains `PROPOSED`, and **human approval is still pending the final re-audit** — nothing here claims it.
+
+The approval re-audit returned FAIL with every deep architecture blocker resolved. What remained was the uncomfortable kind of finding: a suite reporting `239/239 PASS` over conformance it did not actually check. Each fix below is therefore written twice — once in the content, once as a check that fails on exactly that defect.
+
+## The blockers, and what was done
+
+| # | Blocker | Fix |
+|---:|---|---|
+| 1 | Inventory claimed **31** Routing Decision elements; the template has **35** | Corrected in `models/master-model-routing-universe.md`; a line-scoped check now compares every active element claim against the count parsed from the template's numbered rows |
+| 2 | Active prose said a profile is a vector across **24** dimensions; **23** families are declared | Corrected to name the 23 capability families; the existing derived-count scan now also covers this document |
+| 3 | Negative-evidence applicability prose said **seven** dimensions; the table lists **eight** | Corrected in `models/evaluation-evidence-model.md`; the count is now derived from the authoritative table and compared to the prose |
+| 4 | Exemplars **2, 3 and 8** carried no Candidate Universe Definition; **1, 4, 5, 6, 7 and 9** carried a prose approximation missing mandatory elements | All nine now bind the definition as an explicit nine-row table. A per-exemplar check requires every mandatory element and fails on a missing one |
+| 5 | Exemplar 4 declared **4** enumerated candidates and assessed **5** | Declared count corrected to 5 and the candidate set enumerated by name. A per-exemplar check now requires declared cardinality to equal the rows actually assessed |
+| 6 | Exemplar 1 placed a cost preference at **stage 7** | Corrected to stage 6, with stage 7 named as the tie-break that was not reached. A check parses the normative stage map from the precedence table and fails on any active sentence placing a preference at stage 7 |
+| 7 | The producer self-check carried stale totals, stale group counts and scalar-ceiling sensitivity wording | Rewritten to describe only the current architecture. It is no longer exempt from the count scans, and a final check asserts the total it states is the total the suite actually produces |
+| 8 | Exemplar 8's historical decision did not carry the six-part reproducibility identity set | The 2025 decision now records all six parts, unaltered by the later deprecation. A check derives which exemplars record a historical decision and requires the set in each |
+
+Two further defects were found by the new checks rather than by the audit, and are recorded here because they are the point of writing checks at all: exemplar 4's heading said "three deployments" over four, and two self-check rows repeated the same miscount.
+
+## Counts, all derived
+
+| Quantity | Derived | Source of truth |
+|---|---:|---|
+| Capability families | 23 | `models/model-capability-taxonomy.md` §2 |
+| Eligibility constraints | 27 | `models/routing-constraint-model.md` §2 |
+| Preferences | 9 | `models/routing-constraint-model.md` §6 |
+| Routing act requirements | 3 | `models/routing-constraint-model.md` §7 |
+| Primary lifecycle states | 6 | `models/model-lifecycle-and-versioning.md` §1 |
+| Evidence classes | 6 | `models/evaluation-evidence-model.md` §2 |
+| Negative-evidence applicability dimensions | 8 | `models/evaluation-evidence-model.md` §2a |
+| Common constraints | 45 | `models/_standards/common-model-governance-constraints.md` |
+| Templates | 5 | `models/_templates/` |
+| Exemplars | 9 | `models/exemplars/` |
+| Routing Decision elements | 35 | `models/_templates/routing-decision-template.md` |
+
+**Remaining inconsistencies: 0**, by the harness rather than by inspection.
+
+## Validation
+
+`validation/phase_9_validation.py` grows from **239** to **270** checks — `candidate-universe` 10 → 29, `inventory` 21 → 29, `precedence` 9 → 11, `decision-record` 16 → 18. The number was not targeted; it is what the new per-exemplar checks come to.
+
+Eight controlled failure injections, each reverted, each failing exactly the intended check and nothing else:
+
+| Injection | Result |
+|---|---|
+| Exemplar 2 loses its universe block | `268/270`, exit 1 — the two `high-criticality-reasoning` universe checks |
+| Exemplar 4 declares 4 where it assesses 5 | `269/270` — the cardinality check |
+| A cost preference placed at stage 7 | `269/270` — the stage-7 preference check |
+| Self-check restates 31 Routing Decision elements | `269/270` — the element-claim check |
+| Self-check restates a prior-pass total | `269/270` — the current-total check |
+| Negative-evidence prose reverted to seven | `269/270` — the dimension-claim check |
+| Precedence table renumbers the tie-break as stage 6 | `269/270` — the stage-map check |
+| A vacuous `or True` check added to the harness | `269/271` — the vacuous-check scan |
+
+`python3 validation/phase_8_validation.py` → **`119/119 PASS`**, and `validation/phase_8_validation.py` is **byte-identical** to its committed state: this pass did not touch it.
+
+**Credibility.** Higher than the previous pass on exactly the dimension the re-audit attacked, and no higher elsewhere. The new checks are per-exemplar and derived, so a tenth exemplar added tomorrow is checked automatically and cannot pass by being absent from a list. What the harness still cannot do is judge whether the architecture is *right*; it checks that the documents agree with each other and with their own tables. It is also, still, a **producer** artifact: it cannot satisfy an independent review requirement, and the 270 prove consistency, not approval.
+
+## Standing statement
+
+Every Phase 9 artifact is `PROPOSED`. Nothing is APPROVED or CANONICAL. No Decision Right was created, no Review Profile bound, no review status set or changed, no Model, Provider or Deployment Profile created, no real model or provider named, no runtime, SDK, API, credential, storage, UI or orchestration written, and no approved Phase 3–8 artifact modified. No pull request was created. **Human approval remains pending the final re-audit.**

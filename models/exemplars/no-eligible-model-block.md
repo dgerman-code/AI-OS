@@ -13,7 +13,20 @@ Structured extraction from privileged legal correspondence for a Decision-Grade 
 **Material sensitivity labels: `PRIVILEGED` + `PERSONAL_DATA`.** Two labels, **both required simultaneously**, neither above the other. Privilege can be lost by handling — which no other Phase 8 class can be — and personal data carries obligations independent of every other class.
 
 ## Candidate universe
-Registry state `reg.snapshot.2026-09-11T09:00Z#4482`; universe definition `cud.decision_grade_restricted` v2. Enumerated: 4. **`CANDIDATE_UNIVERSE_COMPLETE`** — so the block below is a fact about the registry, not about what happened to load.
+
+Bound before any filtering or ranking, per `models/routing-precedence-and-fallback.md` §1. It is bound **first** here for a reason: a block is only meaningful over a set someone can reconstruct.
+
+| Element | Value |
+|---|---|
+| **Registry state reference** | `reg.snapshot.2026-09-11T09:00Z#4482` |
+| **Universe definition version** | `cud.decision_grade_restricted` v2 |
+| **Inclusion rule** | Every `ROUTABLE` Model Profile paired with every registered deployment of that profile, with **no label pre-filtering**: a deployment's approved label set is tested at stage 2, on the record, and never assumed at enumeration. **Availability pre-enumeration: no** |
+| **Routing scope** | Routable profiles × all registered deployments × the internal provider allowlist |
+| **Pre-filter exclusions** | `NONE` |
+| **Enumerated candidate set** | **4**: `model.extractor_e` @ `deployment.sovereign_region_e`; `model.extractor_e` @ `deployment.local_inference_e`; `model.midsize_analyst_d` @ `deployment.private_cloud_d`; `model.frontier_reasoning_b` @ `deployment.public_hosted_b` |
+| **Omission reasons** | `NONE` — every registered candidate inside the scope is enumerated |
+| **Completeness result** | **`CANDIDATE_UNIVERSE_COMPLETE`** — so the block below is a fact about the registry, not about what happened to load |
+| **Behaviour if incomplete** | Policy `rp.decision_grade_restricted` v3 declares **`BLOCK`** on `CANDIDATE_UNIVERSE_INCOMPLETE`, **reported as a distinct outcome from `NO_ELIGIBLE_MODEL`**. "Nothing qualifies" and "we could not read the registry" are different facts and must not arrive as the same message |
 
 ## Requirements
 **`SUPPORTED_SENSITIVITY_CLASSES` ⊇ {`PRIVILEGED`, `PERSONAL_DATA`}** — both, explicitly; `REQUIRED_HANDLING_CONTROLS` per label; `REQUIRED_JURISDICTION`; `REQUIRED_DATA_HANDLING_POSTURE` = no training, no retention beyond the task; `capability.structured_extraction` `STRONG` on `INTERNAL_EVALUATION`, verdict `CURRENT_FOR_USE`; `MINIMUM_RELIABILITY_CLASS` raised.

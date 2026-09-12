@@ -13,14 +13,27 @@ Structured extraction from HR case files held under a works-council agreement. C
 **Material sensitivity labels: `PERSONAL_DATA` + `CONFIDENTIAL` + `THIRD_PARTY_RESTRICTED`.** Three labels, three independent obligation sets. Phase 8 orders none of them.
 
 ## Candidate universe
-Registry state `reg.snapshot.2026-09-11T00:00Z#4471`; universe definition `cud.restricted_processing` v1. Enumerated: 4. **`CANDIDATE_UNIVERSE_COMPLETE`.**
+
+Bound before any filtering or ranking, per `models/routing-precedence-and-fallback.md` §1.
+
+| Element | Value |
+|---|---|
+| **Registry state reference** | `reg.snapshot.2026-09-11T00:00Z#4471` |
+| **Universe definition version** | `cud.restricted_processing` v1 |
+| **Inclusion rule** | Every `ROUTABLE` Model Profile paired with **every** registered deployment of that profile — including deployments whose approved label sets obviously will not satisfy this task, because sensitivity eligibility is decided at stage 2 on the record and not assumed at enumeration. **Availability pre-enumeration: no** |
+| **Routing scope** | Routable profiles × all registered deployments × the internal provider allowlist |
+| **Pre-filter exclusions** | `NONE` — deliberately. Pre-excluding "obviously non-compliant" deployments would remove from the record the very rows that show what the subset test rejects |
+| **Enumerated candidate set** | **5**: `model.extractor_e` @ `deployment.public_hosted_e`; `model.extractor_e` @ `deployment.sovereign_region_e`; `model.extractor_e` @ `deployment.public_hosted_e2`; `model.extractor_e` @ `deployment.private_cloud_e3`; `model.frontier_reasoning_b` @ `deployment.tenant_internal_a` |
+| **Omission reasons** | `NONE` — every registered candidate inside the scope is enumerated, and all five are assessed below |
+| **Completeness result** | **`CANDIDATE_UNIVERSE_COMPLETE`** |
+| **Behaviour if incomplete** | Policy `rp.restricted_processing` v2 declares **`BLOCK`** on `CANDIDATE_UNIVERSE_INCOMPLETE`. On material under a works-council agreement, a set nobody can reconstruct is not a set anyone may route over |
 
 ## Requirements
 `capability.structured_extraction` `STRONG`; `capability.document_analysis` `BASELINE`; `REQUIRED_DEPLOYMENT_CLASS` ∈ {`PRIVATE_CLOUD`, `LOCAL_INFERENCE`, `SOVEREIGN_REGION`}; `REQUIRED_JURISDICTION` with an allowed set of two named jurisdictions and cross-border `FORBIDDEN`; **`SUPPORTED_SENSITIVITY_CLASSES` ⊇ {`PERSONAL_DATA`, `CONFIDENTIAL`, `THIRD_PARTY_RESTRICTED`}**; `REQUIRED_HANDLING_CONTROLS` per label; `REQUIRED_DATA_HANDLING_POSTURE` = no training on input, logging suppressed.
 
 **Exceptionability:** every one of these is `ABSOLUTELY_NON_WAIVABLE`. The labels arrive from statute, from a works-council agreement and from `THIRD_PARTY_RESTRICTED` — which Phase 8 says cannot be relaxed by an internal decision at all. **No Phase 7 Right adjusts any of them.**
 
-## Candidate assessment — the same model, three deployments
+## Candidate assessment — the same model, four deployments
 | Candidate | Eligible? | Why |
 |---|---|---|
 | `model.extractor_e` @ `deployment.public_hosted_e` | **No** | Supports {`PUBLIC`, `INTERNAL`} — none of the three required labels |

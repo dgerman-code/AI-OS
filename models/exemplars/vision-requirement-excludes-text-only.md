@@ -11,7 +11,20 @@ Inherits: `standard.model.common_constraints@0.1`
 Extracting figures from scanned engineering drawings. Criticality **Enhanced Review Candidate**. Material sensitivity `CONFIDENTIAL`.
 
 ## Candidate universe
-Registry state `reg.snapshot.2026-09-11T12:00Z#4485`; universe definition `cud.document_extraction` v1. Enumerated: 3. **`CANDIDATE_UNIVERSE_COMPLETE`.**
+
+Bound before any filtering or ranking, per `models/routing-precedence-and-fallback.md` §1.
+
+| Element | Value |
+|---|---|
+| **Registry state reference** | `reg.snapshot.2026-09-11T12:00Z#4485` |
+| **Universe definition version** | `cud.document_extraction` v1 |
+| **Inclusion rule** | Every `ROUTABLE` Model Profile paired with the deployment classes approved for `CONFIDENTIAL` material. **Modality is not an enumeration filter**: text-only profiles are enumerated and excluded at stage 3, so the record shows what the modality requirement removed. **Availability pre-enumeration: no** |
+| **Routing scope** | Routable profiles × `CONFIDENTIAL`-approved deployment classes × the internal provider allowlist |
+| **Pre-filter exclusions** | Deployment classes not approved for `CONFIDENTIAL` material, by the inclusion rule |
+| **Enumerated candidate set** | **3**: `model.frontier_reasoning_b` v6; `model.vision_specialist_c` @ `deployment.tenant_internal_c`; `model.midsize_analyst_d` |
+| **Omission reasons** | `NONE` — every registered candidate inside the scope is enumerated |
+| **Completeness result** | **`CANDIDATE_UNIVERSE_COMPLETE`** |
+| **Behaviour if incomplete** | Policy `rp.document_extraction` v1 declares **`BLOCK`** on `CANDIDATE_UNIVERSE_INCOMPLETE` |
 
 ## Requirements
 `REQUIRED_MODALITY` image input; `capability.vision` `STRONG`; `capability.document_analysis` `STRONG`; `capability.structured_extraction` `BASELINE`.
