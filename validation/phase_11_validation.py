@@ -766,10 +766,60 @@ def late_results_are_never_applied():
 
 check("concurrency", "late results are recorded and never applied", late_results_are_never_applied)
 
-check("concurrency", "a late Decision Record is not discarded as stale",
-      lambda: ("A Decision Record is an exercise of authority by a human" in plain(RACE)
-               and "the record stands" in plain(RACE).lower()
-               and "compensation" in plain(RACE).lower(), ""))
+
+def late_decision_record_stands():
+    """Inspect the authoritative race rows, not positive prose elsewhere.
+
+    A late review result may be IGNORE_AS_STALE while remaining recorded against its Review
+    Instance. A late Decision Record is an authority-bearing governed act: the record stands,
+    and current-state handling must reconcile and/or escalate. The asymmetry is intentional.
+    """
+    rows = race_rows()
+    decision_rows = [r for r in rows if "Decision result after cancellation" in plain(r)]
+    review_rows = [r for r in rows if "Review result after supersession" in plain(r)]
+    problems = []
+
+    if len(decision_rows) != 1:
+        problems.append("expected exactly one late-Decision race row, found %d"
+                        % len(decision_rows))
+    else:
+        cells = [plain(c).strip() for c in decision_rows[0].strip().strip("|").split("|")]
+        if len(cells) != 4:
+            problems.append("late-Decision race row does not have four cells")
+        else:
+            outcome, reason = cells[2], cells[3]
+            if "IGNORE_AS_STALE" in outcome:
+                problems.append("late Decision Record uses IGNORE_AS_STALE")
+            if not any(required in outcome for required in ("RECONCILE", "ESCALATE")):
+                problems.append("late Decision Record lacks RECONCILE/ESCALATE handling")
+            if not re.search(r"(?i)\b(stands?|retain(?:ed|s|ing)?)\b", reason):
+                problems.append("late Decision Record is not explicitly retained / standing")
+            forbidden = re.search(
+                r"(?i)\b(discard(?:ed|s|ing)?|ignor(?:e|ed|es|ing)|drop(?:ped|s|ping)?|"
+                r"eras(?:e|ed|es|ing)|void(?:ed|s|ing)?)\b|treated? as stale",
+                outcome + " " + reason)
+            if forbidden:
+                problems.append("late Decision Record is described as discarded or stale")
+
+    if len(review_rows) != 1:
+        problems.append("expected exactly one late-review race row, found %d" % len(review_rows))
+    else:
+        cells = [plain(c).strip() for c in review_rows[0].strip().strip("|").split("|")]
+        if len(cells) != 4:
+            problems.append("late-review race row does not have four cells")
+        else:
+            outcome, reason = cells[2], cells[3]
+            if "IGNORE_AS_STALE" not in outcome:
+                problems.append("late review no longer uses IGNORE_AS_STALE")
+            if "record" not in reason.lower() or "Review Instance" not in reason:
+                problems.append("late review is not retained against its Review Instance")
+
+    return (not problems, str(problems) if problems
+            else "late Decision Record stands with RECONCILE/ESCALATE; late review remains stale")
+
+
+check("concurrency", "late Decision Record stands and remains asymmetric with late review",
+      late_decision_record_stands)
 
 check("concurrency", "a human intervention wins against automated continuation",
       lambda: (lambda row: (row and "Human wins" in plain(row[0]) and "BLOCK" in row[0], ""))(
