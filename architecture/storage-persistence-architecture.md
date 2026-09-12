@@ -67,7 +67,7 @@ A storage backend that can assign, infer or overwrite the first, third or sixth 
 |---|---|---|
 | Identity denials | **9** | This document §2 |
 | Identity facets | **7** | This document §2.1 |
-| Source-of-truth rows | **21** | `storage/source-of-truth-matrix.md` |
+| Source-of-truth rows | **24** | `storage/source-of-truth-matrix.md` |
 | Data domains | **10** | `storage/data-domain-model.md` |
 | Identifier kinds | **5** | `storage/versioning-and-lineage.md` §1 |
 | Version planes | **6** | `storage/versioning-and-lineage.md` §2 |

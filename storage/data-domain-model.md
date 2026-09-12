@@ -31,6 +31,16 @@ Domains split for readability and not for ownership were rejected: a boundary th
 
 It is reserved rather than designed, because execution belongs to Phase 11 and a domain invented later tends to be bolted onto whichever table was nearest. What Phase 10 fixes is its **boundary**: it holds correlation metadata only, never payloads, never governance outcomes, and **nothing in any other domain may cite it as a reason**. A record that would be incomplete without a runtime event is a record that was written wrong.
 
+**This domain is not where operational logs live, and it never becomes that.** The independent audit was right that the two were run together in the first draft, which produced a source-of-truth row naming two authorities at once. They are now two data classes (`storage/source-of-truth-matrix.md` rows 18 and 19) with different authorities and different conflict outcomes:
+
+| | Bounded runtime-event metadata | Operational logs |
+|---|---|---|
+| Authority | `DB`, in this domain | `NONE` — deliberately not a source of truth |
+| What it holds | Correlation IDs, system identity references, timing, outcome class | Whatever the running system emits |
+| Retention | By retention class, append-only | Rotated, sampled, discarded |
+| May a governed record cite it? | **No** | **No** |
+| Promotion between them | **None.** A log is never copied into this domain to make it survive; anything that must survive is written here or to `audit` in the first place |
+
 ### 2.2 Why `registry_mirror` is one domain and not nine
 
 Nine mirrors would share one write authority (the projector), one lifecycle owner (the repository) and one audit posture. By §1 that is one domain. Splitting it would suggest the mirrors have independent authority, which is precisely what they must not have.

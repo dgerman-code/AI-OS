@@ -169,7 +169,24 @@ check("identity", "upstream separations are preserved, not restated as new",
 
 # =========================================================== source-of-truth matrix
 
-SYSTEMS = ["GITHUB", "DB", "OBJECT", "SECRETS", "NONE"]
+# The two controlled vocabularies are parsed OUT OF THE ARCHITECTURE rather than duplicated
+# here. A hard-coded list is a closed world: the independent audit proved that a validator
+# counting known tokens misses `GITHUB or the external wiki` and accepts
+# `DB or the operational log sink`, because neither introduces a token it already knows.
+
+
+def declared_vocabulary(heading, stop):
+    """Tokens from a declared vocabulary table in the matrix document."""
+    body = SOT.split(heading)[1].split(stop)[0]
+    return [m.group(1) for m in re.finditer(r"^\| `([A-Z_]+)` \|", body, re.M)]
+
+
+SYSTEMS = declared_vocabulary("### 0.1 Authority vocabulary", "### 0.2")
+CONFLICT_OUTCOMES = declared_vocabulary("### 0.2 Conflict outcome vocabulary", "## 1. The matrix")
+
+check("source-of-truth", "both controlled vocabularies are declared and parse",
+      lambda: (len(SYSTEMS) == 6 and len(CONFLICT_OUTCOMES) == 9,
+               "authorities=%s conflict outcomes=%s" % (SYSTEMS, CONFLICT_OUTCOMES)))
 
 
 def sot_rows():
@@ -189,35 +206,117 @@ def sot_rows():
 
 
 check("source-of-truth", "the matrix parses into rows with every required column",
-      lambda: (lambda r: (len(r) == 21 and all(len(x) == 9 for x in r),
+      lambda: (lambda r: (len(r) == 24 and all(len(x) == 9 for x in r),
                           "%d rows x %d columns" % (len(r), len(r[0]) if r else 0)))(sot_rows()))
 
 
-def no_dual_master():
-    """Exactly one authoritative system per row. A row naming two is the defect this exists for."""
+def authority_grammar():
+    """Fail-closed: an authority cell must BE exactly one declared token, not merely contain one.
+
+    Every rejection below is a case the previous closed-world parser let through."""
     bad = []
     for cells in sot_rows():
-        auth = plain(cells[2])
-        named = [s for s in SYSTEMS if re.search(r"\b%s\b" % s, auth)]
-        if len(named) != 1:
-            # Row 20 declares a split by item; it must say so explicitly and still name a rule.
-            if "Split, stated per item" in auth and "no single configuration item is authoritative in two places" in plain(SOT):
+        raw = cells[2].strip()
+        token = plain(raw).strip()
+        if not token:
+            bad.append("row %s: empty authority cell" % cells[0])
+            continue
+        # Structural rejections, tested before vocabulary so the message names the real fault.
+        if re.search(r"(?i)\bor\b|\band\b|/|,|\bfallback\b|\botherwise\b|\beither\b",
+                     token):
+            bad.append("row %s: compound or alternative authority: %r" % (cells[0], token))
+            continue
+        if token not in SYSTEMS:
+            bad.append("row %s: undeclared authority %r (declared: %s)"
+                       % (cells[0], token, SYSTEMS))
+            continue
+        # A token must be written as a code span, so prose can never be read as a token.
+        if not re.fullmatch(r"`%s`" % re.escape(token), raw.replace("**", "")):
+            bad.append("row %s: authority not written as a bare declared token: %r"
+                       % (cells[0], raw))
+    return (not bad, str(bad) if bad
+            else "%d rows each resolve to exactly one declared authority" % len(sot_rows()))
+
+
+check("source-of-truth", "every authority cell is exactly one declared token", authority_grammar)
+
+
+def telemetry_never_authoritative():
+    """A non-authoritative sink may never occupy an authority position, under any wording."""
+    bad = []
+    for cells in sot_rows():
+        auth = plain(cells[2]).lower()
+        if re.search(r"log|sink|telemetry|wiki|spreadsheet|cache|index", auth):
+            bad.append("row %s: %r" % (cells[0], plain(cells[2])))
+        # NONE and NOT_A_SOURCE_OF_TRUTH imply each other. Either alone is a row that has
+        # been half-edited: a telemetry class quietly given an authority, or an authoritative
+        # class quietly declared to be telemetry.
+        is_none = plain(cells[2]).strip() == "NONE"
+        declares_non_source = "NOT_A_SOURCE_OF_TRUTH" in cells[8]
+        if is_none and not declares_non_source:
+            bad.append("row %s: NONE authority without a NOT_A_SOURCE_OF_TRUTH outcome"
+                       % cells[0])
+        if declares_non_source and not is_none:
+            bad.append("row %s: declared not a source of truth yet given authority %r"
+                       % (cells[0], plain(cells[2]).strip()))
+    return (not bad, str(bad) if bad
+            else "no telemetry or unnamed store occupies an authority position")
+
+
+check("source-of-truth", "no telemetry or log sink is promoted into an authority position",
+      telemetry_never_authoritative)
+
+
+OVERWRITE_PHRASES = re.compile(
+    r"(?i)last[- ]write[- ]wins|whichever (copy|version) was written last|"
+    r"newer copy wins|secondary wins|most recent wins|overwrites the (source|authority)")
+
+
+def conflict_rule_contract():
+    """A conflict cell must carry a declared OUTCOME, not prose of any length.
+
+    The independent audit passed a long sentence whose content was that no conflict rule
+    existed, because the previous check measured length. Length is not a contract."""
+    bad = []
+    for cells in sot_rows():
+        raw = cells[8].strip()
+        if not raw:
+            bad.append("row %s: empty conflict cell" % cells[0])
+            continue
+        tokens = re.findall(r"`([A-Z_]+)`", raw)
+        if not tokens:
+            bad.append("row %s: prose with no declared conflict outcome: %r"
+                       % (cells[0], plain(raw)[:60]))
+            continue
+        unknown = [t for t in tokens if t not in CONFLICT_OUTCOMES]
+        if unknown:
+            bad.append("row %s: undeclared conflict outcome(s) %s" % (cells[0], unknown))
+            continue
+        if OVERWRITE_PHRASES.search(plain(raw)):
+            bad.append("row %s: permits a secondary to overwrite the authority" % cells[0])
+    return (not bad, str(bad) if bad
+            else "%d rows each carry a declared conflict outcome from a %d-value vocabulary"
+            % (len(sot_rows()), len(CONFLICT_OUTCOMES)))
+
+
+check("source-of-truth", "every conflict cell carries a declared conflict outcome",
+      conflict_rule_contract)
+
+
+def no_last_write_wins_anywhere():
+    """The vocabulary omits last-write-wins deliberately; prose must not reintroduce it."""
+    hits = []
+    for rel, doc in DOCS.items():
+        flat = plain(doc)
+        for m in OVERWRITE_PHRASES.finditer(flat):
+            if DENIAL_MARKER.search(line_of(flat, m.start())):
                 continue
-            bad.append("row %s: authoritative = %s" % (cells[0], named or auth[:40]))
-    return (not bad, str(bad) if bad else "every row names exactly one authoritative system")
+            hits.append("%s: %s" % (rel, m.group(0)))
+    return (not hits, str(hits) if hits else "0 last-write-wins constructs")
 
 
-check("source-of-truth", "no row has two masters", no_dual_master)
-
-
-def every_row_has_a_conflict_rule():
-    bad = [cells[0] for cells in sot_rows() if len(plain(cells[8]).strip()) < 10]
-    return (not bad, "rows without a conflict rule: %s" % bad if bad
-            else "all %d rows carry a conflict resolution rule" % len(sot_rows()))
-
-
-check("source-of-truth", "every row carries a conflict resolution rule",
-      every_row_has_a_conflict_rule)
+check("source-of-truth", "no artifact lets a secondary representation win by being later",
+      no_last_write_wins_anywhere)
 
 
 def secrets_never_replicated():
@@ -237,8 +336,9 @@ REQUIRED_CLASSES = ["Role Registry", "Skill Registry", "Review Profile Registry"
                     "Workflow Registry", "Decision Rights Register", "Knowledge / Canonical",
                     "Model Registry", "Routing Policies", "Routing Decisions",
                     "Handoff records", "Review instances", "Decision Records", "Memory items",
-                    "Source / evidence metadata", "Runtime logs", "Secrets and credentials",
-                    "Configuration", "backups"]
+                    "Source / evidence metadata", "Bounded runtime-event",
+                    "Operational logs", "Secrets and credentials",
+                    "Governed configuration", "Environment-specific configuration", "backups"]
 check("source-of-truth", "every required data class appears as a row",
       lambda: (lambda missing: (not missing, str(missing) if missing
                                 else "%d required classes present" % len(REQUIRED_CLASSES)))(

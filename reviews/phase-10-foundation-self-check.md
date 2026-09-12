@@ -1,10 +1,12 @@
 # Phase 10 — GitHub / Supabase / Storage Foundation Self-Check
 
-Status: PROPOSED — READY FOR INDEPENDENT PHASE 10 FOUNDATION AUDIT
+Status: PROPOSED — READY FOR FINAL PHASE 10 APPROVAL RE-AUDIT
 
 Branch: `architecture/phase-10-github-supabase-storage`
 Start baseline: Phase 9 human-approval record `a94de435f0a47f9910d804029cc74bb7c995434a`
 Approved Phase 9 architecture baseline: `a13fee667859bb8983d4f6a1f902f18fee0af083`
+
+**Updated after the independent Phase 10 foundation audit returned FAIL.** Every finding was genuine; the remediation is recorded in `reviews/phase-10-foundation-audit-remediation.md`. This document describes the architecture **as it currently stands** and carries no historical counts.
 
 This is a **self**-check by the producing pass. Under Phase 6's vocabulary it is `PRODUCER_REVIEW` — internal quality control, which cannot satisfy an independent review requirement. It carries no results of its own; it points at the harness that produces them.
 
@@ -16,14 +18,14 @@ python3 validation/phase_10_validation.py
 
 Python 3 standard library and `git` only. No network, no third-party packages, no writes. Deterministic; exit code 0 on pass, non-zero on any failure. `--verbose` prints each check's evidence; `--json` emits machine-readable results. Conventions are in `validation/README.md`.
 
-**Current result: `=== 143/143 PASS ===`.** Normal, `--verbose` and `--json` modes all report the same total. The harness asserts that this document states the total and the group counts the suite actually emits, so a stale number here is a failure rather than a cosmetic slip.
+**Current result: `=== 146/146 PASS ===`.** Normal, `--verbose` and `--json` modes all report the same total. The harness asserts that this document states the total and the group counts the suite actually emits, so a stale number here is a failure rather than a cosmetic slip.
 
-**Scope boundary.** These 143 are **offline, deterministic checks over committed content**. Remote repository state — open pull requests, branch protection, review state — and the configuration of any database, bucket or forge are **not provable offline and are not claimed**. Phase 10 is unusual in that its subject is infrastructure; the temptation to assert that infrastructure is configured correctly is exactly what §5.3 and §4 of the migration document refuse.
+**Scope boundary.** These 146 are **offline, deterministic checks over committed content**. Remote repository state — open pull requests, branch protection, review state — and the configuration of any database, bucket or forge are **not provable offline and are not claimed**. Phase 10 is unusual in that its subject is infrastructure; the temptation to assert that infrastructure is configured correctly is exactly what §5.3 and §4 of the migration document refuse.
 
 | Group | Checks | Covers |
 |---|---:|---|
 | `identity` | 5 | The nine-object chain verbatim; every adjacent denial with its own consequence; seven identity facets; a backend may not redefine identity |
-| `source-of-truth` | 8 | The matrix parsed as 21 rows × 9 columns; **no row with two masters**; every row carries a conflict rule; secrets never replicated; every required class present; definitions in the repository, operational records in the database |
+| `source-of-truth` | 11 | Both controlled vocabularies parsed **out of the architecture** rather than duplicated; the matrix parsed as 24 rows × 9 columns; **every authority cell is exactly one declared token**, fail-closed against `A or B`, slashes, commas, unknown phrases and empty cells; **no telemetry sink in an authority position**; **every conflict cell carries a declared outcome**, so prose of any length fails; no last-write-wins anywhere; secrets never replicated; every required class present; definitions in the repository, operational records in the database |
 | `data-domains` | 7 | Ten domains with write authority, lifecycle owner and audit posture; the boundary test; the bounded runtime domain; append-only has no operation to grant; `RETRACTED` terminal across every storage act; unclassified mutability defaults immutable |
 | `versioning` | 9 | Five identifier kinds; surrogate key never a governance identity; six version planes; one stated rule for mutation/new object/supersession; lineage cycles detected; **historical references are recorded values, not pointers** |
 | `consistency` | 5 | Six boundaries parsed; the four governance claims strong; **the two-system boundary declared non-atomic rather than pretending**; declared commit order and named compensating pattern |
