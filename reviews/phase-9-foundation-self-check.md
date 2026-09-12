@@ -18,11 +18,11 @@ python3 validation/phase_9_validation.py
 
 Python 3 standard library and `git` only. No network, no third-party packages, no writes. Deterministic; exit code 0 on pass, non-zero on any failure. `--verbose` prints each check's evidence; `--json` emits machine-readable results. Conventions are in `validation/README.md`.
 
-**Current result: `=== 270/270 PASS ===`.** Normal, `--verbose` and `--json` modes all report the same total.
+**Current result: `=== 277/277 PASS ===`.** Normal, `--verbose` and `--json` modes all report the same total.
 
-**The count is derived from the suite, not chosen.** It has grown at every pass — 141, then 204, then 219, then 239, now 270 — because each audit found real defects and each fix was written as a stricter test. Nothing was preserved cosmetically, and no number was targeted. Those earlier figures are history; the only current result is the one above, and the harness asserts that this document states it.
+**The count is derived from the suite, not chosen.** It has grown at every pass — 141, then 204, then 219, then 239, then 270, now 277 — because each audit found real defects and each fix was written as a stricter test. Nothing was preserved cosmetically, and no number was targeted. Those earlier figures are history; the only current result is the one above, and the harness asserts that this document states it.
 
-**Scope boundary.** These 270 are **offline, deterministic checks over committed content**. Remote repository state — open pull requests, branch protection, review state — is **not provable offline and is not claimed**; it is checked separately against the GitHub API and reported alongside this foundation.
+**Scope boundary.** These 277 are **offline, deterministic checks over committed content**. Remote repository state — open pull requests, branch protection, review state — is **not provable offline and is not claimed**; it is checked separately against the GitHub API and reported alongside this foundation.
 
 | Group | Checks | Covers |
 |---|---:|---|
@@ -47,12 +47,12 @@ Python 3 standard library and `git` only. No network, no third-party packages, n
 | `templates` | 8 | Five templates; non-runtime statements; no URLs or credentials; bands not prices; 45 contiguous constraints |
 | `exemplars` | 14 | Nine on disk; each states what it proves; block, outage and history exemplars checked specifically |
 | `cross-registry` | 8 | **Every `review.<id>` and `decision.<id>` in Phase 9 resolves to an approved registry object**; exception paths cite only carded Rights; the check proves the registries were found, so it cannot pass vacuously |
-| `inventory` | 29 | Counts derived from the files and compared to every statement of them — capability families, common constraints, Routing Decision elements, negative-evidence dimensions, exemplars — in **this document as well as the normative files**; stale word-form counts; heading-versus-list consistency; no live reference to a removed capability; no scalar sensitivity language here; and that the total stated above is the total the suite produces |
+| `inventory` | 36 | Counts derived from the files and compared to every statement of them — capability families, common constraints, Routing Decision elements, negative-evidence dimensions, exemplars — in **this document as well as the normative files**; stale word-form counts; heading-versus-list consistency; no live reference to a removed capability; no scalar sensitivity language here; **this document's own condition and open-question cardinalities**; and that the group counts and total stated above are the ones the suite actually emits |
 | `regression` | 15 | Phases 3–8 unchanged; all `PROPOSED`; no runtime; no profile instances; harness read-only; no vacuous checks |
 
 ## Producer self-check threshold
 
-The prompt's twelve conditions, answered against the artifacts rather than asserted:
+The prompt's **thirteen** conditions, answered against the artifacts rather than asserted — and the harness now checks that this number governs the table below, which is how the miscount that stood here was found:
 
 | Condition | Position |
 |---|---|
@@ -68,7 +68,7 @@ The prompt's twelve conditions, answered against the artifacts rather than asser
 | No provider lock-in in higher architecture | Stable IDs, aliases, deployment-carries-sensitivity; **zero vendor names in any Phase 9 file**, verified mechanically |
 | No Phase 3–8 regression | `git diff` against the Phase 8 approval baseline, verified in the harness |
 | No runtime implementation | No SDK, API, credential, endpoint, price, probe or storage; enforced by a pattern scan over every file |
-| All deterministic validation passes | 270/270 |
+| All deterministic validation passes | 277/277 |
 
 ## Open architecture questions — all 17 adjudicated
 

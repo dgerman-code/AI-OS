@@ -511,3 +511,58 @@ Eight controlled failure injections, each reverted, each failing exactly the int
 ## Standing statement
 
 Every Phase 9 artifact is `PROPOSED`. Nothing is APPROVED or CANONICAL. No Decision Right was created, no Review Profile bound, no review status set or changed, no Model, Provider or Deployment Profile created, no real model or provider named, no runtime, SDK, API, credential, storage, UI or orchestration written, and no approved Phase 3–8 artifact modified. No pull request was created. **Human approval remains pending the final re-audit.**
+
+---
+
+# Final validator hardening after the human-approval re-audit
+
+**Scope: two issues, nothing else.** The re-audit found the architecture materially sound and all nine exemplars conformant. No Phase 9 semantics were touched in this pass, no approved Phase 3–8 artifact was modified, every artifact remains `PROPOSED`, and **human approval has not occurred.**
+
+## Issue 1 — the self-check miscounted its own table
+
+"The prompt's twelve conditions" governed a table of **thirteen**. Corrected to thirteen; no condition was deleted to preserve the number. A check now derives the table's cardinality and fails on the claim, and a companion check does the same for the seventeen open architecture questions.
+
+## Issue 2 — count checks were syntax- and location-sensitive
+
+The more uncomfortable finding. `270/270 PASS` was true and still gave false confidence: the count checks matched *prose shapes*, so a wrong number in a **table cell** or behind **bold markup** went straight past them. Four regressions the previous suite did not catch:
+
+| Regression | Why it passed |
+|---|---|
+| `\| Routing Decision elements \| **31** \|` | The scan looked for `"N elements"`; the cell reads `elements \| **31**` |
+| `\| Capability families \| **24** \|` | The scan looked for `"N capability families"`; the cell reads `families \| **24**` |
+| `**eight**` → `**seven**` applicability dimensions | The scan ran over raw text, where `**` sits between the number and the noun |
+| A stale per-group count in the self-check | Nothing checked group counts at all |
+
+### What replaced them
+
+A **structured reconciliation layer**. Eleven authoritative quantities are parsed from their owning files and every active current claim is reconciled against them, by kind:
+
+- **Table cells are read as cells.** The master universe inventory is parsed into label → value pairs and nine labels are reconciled. If a label stops resolving the check **fails** rather than passing on an empty comparison — a check that finds nothing to compare is the failure mode being fixed here.
+- **Prose is read after `plain()`**, which strips emphasis, so `**eight**`, `eight` and `8` are one claim in three costumes rather than three patterns to enumerate. Fifteen claim patterns cover all eleven quantities.
+- **Artifact counts** (`models/_templates/` × 5, `models/exemplars/` × 9) reconcile against the files actually on disk.
+- **Group counts and the suite total** are derived from the harness's own result registry. Both are frozen once, before either check appends its own result, and each re-derives the registry shape and fails if that freeze has drifted — so adding a check elsewhere cannot leave these two describing a suite that no longer exists.
+
+Historical progression text (141, 204, 219, 239, 270) is explicitly labelled as history and is not read as a current claim; the checks confirmed this by passing over it unchanged.
+
+## Controlled failure probes
+
+Seven deliberate regressions, each reverted, each producing exit 1:
+
+| Probe | Result |
+|---|---|
+| Self-check conditions 13 → 12 | `276/277` — condition-cardinality check |
+| Master Routing Decision elements 35 → 31 | `276/277` — master inventory reconciliation |
+| Master capability families 23 → 24 | `276/277` — master inventory reconciliation |
+| Applicability `**eight**` → `**seven**` | `276/277` — prose reconciliation |
+| Applicability `**eight**` → `7` | `275/277` — prose reconciliation and the dimension-claim check |
+| Self-check `identity-stack` 15 → 9 | `276/277` — group-count reconciliation |
+| Self-check total 277 → 239 | `276/277` — current-total check |
+| A vacuous `or True` added to the harness | `275/278` — vacuity scan, plus both self-describing checks |
+
+The four probes proven in the previous pass were re-run and still fail: a missing exemplar universe block, a declared-versus-assessed cardinality mismatch, a preference placed at stage 7, and a renumbered stage map.
+
+## Result
+
+`validation/phase_9_validation.py`: **270 → 277** checks. `inventory` 29 → 36. The number is what the new checks come to; nothing was targeted. `python3 validation/phase_8_validation.py` → **`119/119 PASS`**, and that file is byte-identical to its committed state.
+
+**Phase 9 remains `PROPOSED`. Human approval is pending and is not claimed here.**

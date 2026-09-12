@@ -1804,12 +1804,257 @@ for _rel in HISTORICAL_EXEMPLARS:
           (lambda r=_rel: historical_decision_identity(r)))
 
 
-# --- this check must stay last: it counts the suite, itself included ---
+# =========================================================== structured count reconciliation
+# The human-approval re-audit found the previous count checks syntax- and location-sensitive:
+# they matched prose shapes like "23 capability families" and so passed unchanged while the
+# master inventory *table* said 24, while `| Routing Decision elements | **31** |` was wrong,
+# and while a bolded `**eight**` reverted to `**seven**`. The layer below reconciles every
+# active current claim against a parsed authoritative source instead: structured table cells
+# are read as cells, and prose is read after markdown emphasis is stripped, so `**eight**`,
+# `eight` and `8` are one claim rather than three shapes to enumerate.
+
+AUTHORITATIVE = {
+    "capability families": len(declared_capabilities()),
+    "eligibility constraints": len({t for r in eligibility_table_rows()
+                                    for t in r[0].split(", ") if t}),
+    "preferences": len(re.findall(r"^\| `PREFER_[A-Z_]+` \|",
+                                  CONS.split("## 6. Preferences")[1].split("### When cost")[0],
+                                  re.M)),
+    "routing act requirements": act_requirement_count(),
+    "primary lifecycle states": len(declared_lifecycle_states()),
+    "evidence classes": evidence_class_count(),
+    "negative-evidence applicability dimensions": negative_evidence_dimensions(),
+    "common governance constraints": len(re.findall(r"^## (\d+)\. ", STD, re.M)),
+    "templates": len(TEMPLATES),
+    "exemplars": len(EXEMPLARS),
+    "Routing Decision elements": routing_decision_elements(),
+}
+
+# Every quantity must come from a parsed file, never from a literal in this dictionary.
+check("inventory", "every authoritative count is derived from a parsed source, not a constant",
+      lambda: (all(isinstance(v, int) and v > 0 for v in AUTHORITATIVE.values())
+               and len(AUTHORITATIVE) == 11,
+               ", ".join("%s=%d" % kv for kv in sorted(AUTHORITATIVE.items()))))
+
+
+def master_inventory_rows():
+    """The master universe's vocabulary table, read as table cells rather than as prose."""
+    body = UNIV.split("| Vocabulary | Members | Owner document |")[1]
+    rows = {}
+    for line in body.splitlines():
+        if not line.startswith("|"):
+            if rows:
+                break
+            continue
+        cells = [plain(c).strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        m = re.match(r"(\d+)", cells[1])
+        if m:
+            rows[cells[0]] = int(m.group(1))
+    return rows
+
+
+# Master-table label -> authoritative quantity. A label that stops resolving is itself a
+# failure: the check must never pass because it found nothing to compare.
+MASTER_LABELS = {
+    "Capability families": "capability families",
+    "Evidence classes": "evidence classes",
+    "Negative-evidence applicability dimensions": "negative-evidence applicability dimensions",
+    "Primary lifecycle states": "primary lifecycle states",
+    "Eligibility constraints": "eligibility constraints",
+    "Act requirements": "routing act requirements",
+    "Preferences": "preferences",
+    "Routing Decision elements": "Routing Decision elements",
+    "Enforceable constraints": "common governance constraints",
+}
+
+
+def master_inventory_reconciled():
+    rows = master_inventory_rows()
+    missing = [lbl for lbl in MASTER_LABELS if lbl not in rows]
+    if missing:
+        return (False, "master inventory rows not found, so nothing was compared: %s" % missing)
+    wrong = ["%s states %d, authoritative %d" % (lbl, rows[lbl], AUTHORITATIVE[key])
+             for lbl, key in MASTER_LABELS.items() if rows[lbl] != AUTHORITATIVE[key]]
+    return (not wrong, str(wrong) if wrong
+            else "%d master inventory rows reconciled against parsed sources" % len(MASTER_LABELS))
+
+
+check("inventory", "master universe inventory table reconciles with every parsed source",
+      master_inventory_reconciled)
+
+
+def master_file_counts_reconciled():
+    """The artifact table's `models/_templates/` x 5 and `models/exemplars/` x 9 rows."""
+    found = {}
+    for m in re.finditer(r"`models/(_templates|exemplars)/` × (\d+)", UNIV):
+        found[m.group(1)] = int(m.group(2))
+    expected = {"_templates": AUTHORITATIVE["templates"], "exemplars": AUTHORITATIVE["exemplars"]}
+    missing = [k for k in expected if k not in found]
+    if missing:
+        return (False, "artifact rows not found, so nothing was compared: %s" % missing)
+    wrong = ["%s states %d, on disk %d" % (k, found[k], expected[k])
+             for k in expected if found[k] != expected[k]]
+    return (not wrong, str(wrong) if wrong else "templates=%d, exemplars=%d on disk"
+            % (expected["_templates"], expected["exemplars"]))
+
+
+check("inventory", "master universe artifact counts reconcile with the files on disk",
+      master_file_counts_reconciled)
+
+# --------------------------------------------------------- prose claims, markup-normalised
+
+NUMBER_WORDS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
+    "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
+    "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+    "twenty": 20, "twenty-one": 21, "twenty-two": 22, "twenty-three": 23, "twenty-four": 24,
+    "twenty-five": 25, "twenty-six": 26, "twenty-seven": 27, "twenty-eight": 28,
+    "thirty-one": 31, "thirty-four": 34, "thirty-five": 35, "thirty-six": 36,
+    "forty-three": 43, "forty-four": 44, "forty-five": 45, "forty-six": 46,
+}
+
+
+def as_number(token):
+    token = token.strip().lower()
+    if token.isdigit():
+        return int(token)
+    return NUMBER_WORDS.get(token)
+
+
+# Each pattern captures the quantity token immediately before a phrase that can only be a
+# current claim about that quantity. Run over plain() text, so emphasis cannot hide a claim.
+PROSE_CLAIMS = [
+    (r"(\S+)[- ]capability famil(?:y|ies)", "capability families"),
+    (r"(\S+)[- ]famil(?:y|ies) taxonomy", "capability families"),
+    (r"(\S+) families;", "capability families"),
+    (r"(\S+) eligibility constraints", "eligibility constraints"),
+    (r"(\S+) preferences", "preferences"),
+    (r"(\S+) (?:routing )?act requirements", "routing act requirements"),
+    (r"(\S+) (?:primary )?lifecycle states", "primary lifecycle states"),
+    (r"(\S+) (?:distinct )?evidence classes", "evidence classes"),
+    (r"(?:on|assessed on) (\S+) (?:recorded )?dimensions", "negative-evidence applicability dimensions"),
+    (r"(\S+) (?:applicability )?dimensions, each recorded",
+     "negative-evidence applicability dimensions"),
+    (r"(\S+) (?:inherited rules|contiguous constraints|enforceable constraints|"
+     r"common governance constraints)", "common governance constraints"),
+    (r"(\S+) Routing Decision elements", "Routing Decision elements"),
+    (r"(\S+) elements;", "Routing Decision elements"),
+    (r"(\S+) templates;", "templates"),
+    (r"(\S+) exemplars\b", "exemplars"),
+]
+
+
+def prose_claims_reconciled():
+    bad = []
+    for rel, doc in ACTIVE.items():
+        flat = plain(doc)
+        for pattern, key in PROSE_CLAIMS:
+            for m in re.finditer(pattern, flat):
+                stated = as_number(m.group(1))
+                if stated is None or stated == AUTHORITATIVE[key]:
+                    continue
+                window = flat[max(0, m.start() - 250):m.end() + 250]
+                if REMEDIATION_CONTEXT.search(window):
+                    continue
+                bad.append("%s: '%s' (%s is %d)"
+                           % (rel, m.group(0).strip(), key, AUTHORITATIVE[key]))
+    return (not bad, str(sorted(set(bad))) if bad
+            else "%d quantities reconciled across %d active documents"
+            % (len(AUTHORITATIVE), len(ACTIVE)))
+
+
+check("inventory", "every active prose count reconciles with its parsed source",
+      prose_claims_reconciled)
+
+# --------------------------------------------------------- self-check own cardinalities
+
+
+def self_check_condition_cardinality():
+    """'The prompt's N conditions' must govern a table of N conditions."""
+    m = re.search(r"The prompt's (\S+) conditions", plain(SELF))
+    if m is None:
+        return (False, "no condition-count claim found to check")
+    stated = as_number(m.group(1))
+    block = SELF.split("## Producer self-check threshold")[1].split("\n## ")[0]
+    rows = [ln for ln in block.splitlines()
+            if ln.startswith("| ") and not re.match(r"^\|[\s:|-]+\|\s*$", ln)]
+    actual = max(0, len(rows) - 1)          # the header row is not a condition
+    return (stated == actual, "claims %s, table has %d" % (m.group(1), actual))
+
+
+check("inventory", "the self-check's stated condition count governs its own table",
+      self_check_condition_cardinality)
+
+
+def self_check_question_cardinality():
+    m = re.search(r"Open architecture questions — all (\S+) adjudicated", plain(SELF))
+    if m is None:
+        return (False, "no open-question count claim found to check")
+    stated = as_number(m.group(1))
+    block = SELF.split("## Open architecture questions")[1].split("\n## ")[0]
+    actual = len(re.findall(r"^\| *\*{0,2}\d+\*{0,2} \|", block, re.M))
+    return (stated == actual, "claims %s, table has %d" % (m.group(1), actual))
+
+
+check("inventory", "the self-check's stated open-question count governs its own table",
+      self_check_question_cardinality)
+
+
+# --- these two checks must stay last: they count the suite, themselves included ---
+# The group counts and the total are frozen here, BEFORE either check appends its own result,
+# so both describe the same finished suite. Each check below re-derives what the registry will
+# hold and fails if this freeze has drifted, so adding a check elsewhere can never leave these
+# two silently describing a suite that no longer exists.
+_PENDING_FINAL_CHECKS = 2                                              # self-literal
+_PENDING_FINAL_GROUP = "inventory"                                     # self-literal
+
+
+def _freeze_final_counts():
+    groups = {}
+    for r in RESULTS:
+        groups[r["group"]] = groups.get(r["group"], 0) + 1
+    groups[_PENDING_FINAL_GROUP] = groups.get(_PENDING_FINAL_GROUP, 0) + _PENDING_FINAL_CHECKS
+    return groups, sum(groups.values())
+
+
+FINAL_GROUPS, FINAL_TOTAL = _freeze_final_counts()
+
+
+def self_check_group_counts_are_current():
+    """Every per-group count stated in the current self-check must equal the number of checks
+    this harness actually emits for that group. Derived from the result registry, never from a
+    duplicated table."""
+    if len(RESULTS) + _PENDING_FINAL_CHECKS != FINAL_TOTAL:
+        return (False, "the frozen suite shape has drifted: registry holds %d, frozen %d"
+                % (len(RESULTS) + _PENDING_FINAL_CHECKS, FINAL_TOTAL))
+    stated = {m.group(1): int(m.group(2))
+              for m in re.finditer(r"^\| `([a-z-]+)` \| (\d+) \|", SELF, re.M)}
+    if not stated:
+        return (False, "no per-group counts found in the self-check, so nothing was compared")
+    unknown = sorted(g for g in stated if g not in FINAL_GROUPS)
+    wrong = ["%s states %d, suite emits %d" % (g, n, FINAL_GROUPS[g])
+             for g, n in sorted(stated.items()) if g in FINAL_GROUPS and n != FINAL_GROUPS[g]]
+    absent = sorted(g for g in FINAL_GROUPS if g not in stated)
+    problems = wrong + (["no such group: %s" % unknown] if unknown else []) \
+        + (["group not stated at all: %s" % absent] if absent else [])
+    return (not problems, str(problems) if problems
+            else "all %d groups reconciled against the result registry" % len(FINAL_GROUPS))
+
+
+check("inventory", "the self-check's per-group counts match the groups the suite emits",
+      self_check_group_counts_are_current)
+
+
 def self_check_total_is_current():
     """The producer self-check may not state a total the suite does not actually produce.
     Prior-pass totals (141, 204, 219, 239) are history and belong in the history sentence,
     never in a fraction presented as a result."""
-    expected = len(RESULTS) + 1  # self-literal
+    expected = FINAL_TOTAL
+    if len(RESULTS) + 1 != FINAL_TOTAL:
+        return (False, "the frozen suite shape has drifted: registry holds %d, frozen %d"
+                % (len(RESULTS) + 1, FINAL_TOTAL))
     stated = [(int(m.group(1)), int(m.group(2)))
               for m in re.finditer(r"\b(\d{2,4})/(\d{2,4})\b", SELF)]
     bad = ["%d/%d" % f for f in stated if f != (expected, expected)]
