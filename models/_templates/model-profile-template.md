@@ -10,15 +10,20 @@ Sections are mandatory. One that does not apply is filled with an explicit "None
 
 ---
 
-## Identity
-- Model Profile ID: `model.<stable_snake_case_name>` — no marketing name, version number, price, date or region in the ID
+## Identity — the stack, layers 1 to 4
+
+Per `models/model-lifecycle-and-versioning.md` §0. The four layers a Model Profile carries; layers 5 and 6 are the Provider's and the Deployment's.
+
+- **Model Family:** `family.<stable_name>` — the lineage, used by diversity constraints
+- **Underlying Model Release:** the originator's release identity for the thing being profiled. **Recorded, never used as the registry ID**
+- **Model Profile ID:** `model.<stable_snake_case_name>` — no marketing name, version number, price, date or region
+- **Registry Profile Version:** `v<n>` — the version of **this AI-OS record**, which is **not** the underlying model version and moves independently of it
 - Display name: the human-facing name
-- Aliases: provider display names and API identifiers, each with the period it applied. **Metadata only — no constraint is ever expressed against an alias**
-- Profile version:
-- Provider reference: `provider.<id>`
-- Model family: the lineage this belongs to, used by family-diversity constraints
-- Provider version / release identifier: as the provider states it
-- Lifecycle status: `CANDIDATE` / `EVALUATING` / `ELIGIBLE` / `PREFERRED` / `RESTRICTED` / `DEPRECATED` / `SUSPENDED` / `RETIRED`
+- Aliases: provider display names and API identifiers, each with the period it applied. **Metadata only — no constraint is ever expressed against an alias, and an alias never defines identity**
+- **Provider offering mappings:** the `provider.<id>` / `deployment.<id>` combinations that expose **this same underlying release**, each with the evidence that it is the same release. Where a provider's exposure is materially different and cannot be evidenced as the same release, **it belongs to a distinct Model Profile, not to this list**
+- Primary lifecycle state: `CANDIDATE` / `EVALUATING` / `ELIGIBLE` / `DEPRECATED` / `SUSPENDED` / `RETIRED` — **exactly one**
+- Routing designation: `PREFERRED`, or none — an annotation, not a state
+- Restriction annotations: zero or more, each naming the contexts it excludes and why — annotations, not states
 - Status: PROPOSED
 
 ## Capability Claims
@@ -38,16 +43,18 @@ Context capacity **class**, and any difference between what is accepted and what
 Claims for `capability.tool_calling`, `capability.structured_tool_use` and `capability.structured_generation`, with the class and its evidence. State whether conformance holds under unusual input or only typical input.
 
 ## Safety and Compliance Constraints
-Declared behavioural constraints, and any compliance property claimed for the model itself as distinct from its deployment.
+Declared **behavioural** constraints intrinsic to the model. **Not contractual or data-handling properties** — those belong to Provider and Deployment.
 
-## Data Handling Posture
-Retention, training-on-input and logging posture **as declared, with the source of the declaration**. Where it varies by deployment, the deployment governs and this section says so. **Unstated is not satisfied** — an absent statement never satisfies `NO_TRAINING_ON_INPUT`.
+## Data Handling — not recorded here
+
+**None. By rule.** Retention, training-on-input, logging, residency and approved sensitivity labels are **Provider and Deployment governance properties**, and routing reads the **effective deployment posture** (`models/routing-constraint-model.md` §3.4).
+
+A generic retention or no-training promise on a Model Profile is a **defect**, not a convenience: it creates a second source of truth for a question the deployment already answers, and the two will diverge.
+
+Intrinsic *technical* characteristics that happen to bear on privacy — a model that cannot retain state across calls, say — are recorded above as behavioural constraints, with evidence, and they are never a substitute for deployment posture.
 
 ## Deployment Class Applicability
-Which deployment classes this profile is available through: hosted provider / private hosted / local / sovereign / other declared class.
-
-## Region and Residency Applicability
-Where relevant. Residency is a **deployment** property; this section records which deployments carry which.
+Which deployment classes this release is available through. This states **availability**, not approval: whether a given deployment may handle given material is the Deployment Profile's answer.
 
 ## Semantic Bands
 - Cost class: `COST_LOW` / `COST_MEDIUM` / `COST_HIGH` / `COST_PREMIUM`

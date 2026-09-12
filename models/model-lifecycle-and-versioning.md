@@ -4,30 +4,83 @@ Status: PROPOSED — Phase 9 architecture candidate
 Version: 0.1
 Inherits: `standard.model.common_constraints@0.1`
 
+## 0. The identity stack
+
+The audit found the first draft did not sufficiently distinguish underlying model version, provider-hosted variant, provider alias, registry profile version and the provider/deployment relationship. **Runtime must never have to guess whether a provider-specific variant is the same underlying model, a different release, or merely a renamed catalogue entry.** Six layers, no overlap:
+
+| # | Layer | Is | Identified by |
+|---:|---|---|---|
+| 1 | **Model Family** | A lineage, used for grouping and diversity constraints | `family.<stable_name>` |
+| 2 | **Underlying Model Release** | The thing whose behaviour is being profiled — the release identity as the originator versions it | The originator's release identity, recorded, **never used as the registry ID** |
+| 3 | **Model Profile** | The AI-OS governed record describing **one underlying model release** | `model.<stable_snake_case_name>` |
+| 4 | **Registry Profile Version** | The version of the **AI-OS record**, not of the model | `v<n>` on the profile |
+| 5 | **Provider Offering Mapping** | A provider's exposure of that release — its catalogue name, aliases and any provider-specific behaviour | A bounded mapping **inside the Provider Profile**, not a separate registry object |
+| 6 | **Deployment Profile** | The concrete target: class, tenant, region, residency, supported handling labels, effective posture | `deployment.<stable_snake_case_name>` |
+
+### Why Provider Offering is a mapping, not a seventh object
+
+It has no independent lifecycle, no capability claims of its own, and no governance properties that are not already the Provider's or the Deployment's. It is the answer to *what does this provider call this release, and does anything about their exposure of it differ* — a bounded mapping, with an unambiguous outcome, held where the provider's other facts are held.
+
+### Identity rules
+
+1. **Registry profile version is not the underlying model version.** The record may be revised — new evidence, a new limitation, a corrected claim — while the model is unchanged; and the model may change while the record has not yet caught up, which is precisely what a refresh trigger is for.
+2. **One Model Profile may map to several provider/deployment combinations** where they genuinely expose **the same underlying release**, evidenced.
+3. **Where provider-specific behaviour is materially different and cannot be evidenced as the same release**, it is **a distinct Model Profile** — or an explicitly named provider-specific variant profile with its own ID. It is never left as an ambiguous mapping under a shared profile.
+4. **A provider marketing alias never defines Model Profile identity.** Aliases are metadata; identity is the stable internal ID; no constraint is ever expressed against an alias.
+5. **Model Profile carries no provider-specific governance property.** Retention, training, logging, residency and approved handling labels belong to Provider and Deployment (`models/routing-constraint-model.md` §3.4). A generic retention promise on a Model Profile is a defect.
+6. **A historical Routing Decision preserves both the exact Model Profile version and the provider/deployment mapping used.** Either alone under-determines what ran.
+7. **A silent provider backend change triggers review.** Where the exposure changes without a release change the consumer can see, `PROVIDER_VERSION_CHANGE` fires; depending on materiality the outcome is a new mapping version, a new profile version, or — where the same release can no longer be evidenced — a distinct profile.
+
 ## 1. Lifecycle states
 
 Registry-level status of a Model Profile. **Not task eligibility.**
 
-| State | Meaning |
-|---|---|
-| `CANDIDATE` | Known to the registry; not assessed. Routable to nothing |
-| `EVALUATING` | Under assessment. Routable only where a policy explicitly permits evaluation traffic |
-| `ELIGIBLE` | Assessed and admitted to the registry. **May be routed to where a policy's constraints are also met** |
-| `PREFERRED` | Eligible, and ranked first by `PREFER_LIFECYCLE_PREFERRED` where nothing else decides |
-| `RESTRICTED` | Eligible only for bounded contexts the restriction names |
-| `DEPRECATED` | Excluded from **new** routing; historical decisions stand |
-| `SUSPENDED` | Excluded from new routing **immediately**, pending investigation. A temporary state with an owner |
-| `RETIRED` | Permanently excluded from new routing; historical decisions stand |
+**Exactly one primary lifecycle state at a time.** The states are mutually exclusive, and two never coexist — the audit was right that this was not said, and that a runtime would otherwise have to invent whether `PREFERRED` and `RESTRICTED` can be held together.
+
+| State | Meaning | Routable to new work? |
+|---|---|---|
+| `CANDIDATE` | Known to the registry; not assessed | **No** |
+| `EVALUATING` | Under assessment | Only where a policy explicitly permits evaluation traffic |
+| `ELIGIBLE` | Assessed and admitted to the registry | **Yes, where the policy's constraints are also met** |
+| `DEPRECATED` | Wound down, planned and one-way | **No.** Historical decisions stand |
+| `SUSPENDED` | Excluded immediately pending investigation; temporary, with an owner | **No.** Historical decisions stand |
+| `RETIRED` | Permanently excluded | **No.** Historical decisions stand |
+
+Six states, down from eight. `PREFERRED` and `RESTRICTED` were removed **as lifecycle states** because neither is one:
+
+| Was a state | Is now | Why |
+|---|---|---|
+| `PREFERRED` | A **routing preference designation** — an annotation read by `PREFER_LIFECYCLE_PREFERRED` at stage 6 | Preference is a ranking property, not an admission property. As a lifecycle state it collided with `ELIGIBLE`, which every preferred profile also is |
+| `RESTRICTED` | A **restriction annotation** — zero or more bounded exclusions, each naming the contexts it excludes and why | A restriction is contextual by nature. As a lifecycle state it forced one global answer to a question whose answer is per-context |
+
+**Annotations are orthogonal to the state and to each other.** A profile is `ELIGIBLE`, may carry the `PREFERRED` designation, and may carry any number of restriction annotations — with no ambiguity, because only one of the three is a state.
+
+### Transitions
+
+| From | To | On |
+|---|---|---|
+| `CANDIDATE` | `EVALUATING` | Assessment begins |
+| `EVALUATING` | `ELIGIBLE` | Assessment admits it |
+| `EVALUATING` | `RETIRED` | Assessment rejects it |
+| `ELIGIBLE` | `SUSPENDED` | An incident or concern, urgently |
+| `ELIGIBLE` | `DEPRECATED` | A planned wind-down |
+| `SUSPENDED` | `ELIGIBLE` | Investigation clears it — possibly with new restriction annotations |
+| `SUSPENDED` | `DEPRECATED` / `RETIRED` | Investigation does not clear it |
+| `DEPRECATED` | `RETIRED` | The wind-down completes |
+
+**`RETIRED` is terminal.** Restoring a retired profile is a **new profile** with its own evidence, not a state change — the evidence that retired it does not un-apply.
+
+**No transition touches history.** Every state change affects new routing only; existing Routing Decisions name the profile and version they used, permanently.
 
 ## 2. Lifecycle status is not task eligibility
 
 > **Registry status is a gate, not a grant.** `ELIGIBLE` means "admitted to the registry", never "usable for this task".
 
-A profile is routable to a specific task only when it is `ELIGIBLE` or `PREFERRED` (or `RESTRICTED` within its restriction) **and** every hard constraint of the task is met. Three consequences stated plainly:
+A profile is routable to a specific task only when its **primary state permits new routing**, **no restriction annotation excludes this context**, and **every eligibility constraint of the task is met**. Three consequences stated plainly:
 
 1. **A globally `ELIGIBLE` model can be prohibited for a particular task** — by sensitivity, residency, capability, diversity or an explicit prohibition. This is the ordinary case, not an exception.
-2. **A `PREFERRED` model is not mandatory.** Preference ranks the eligible set; where policy disqualifies it, it is not in the set to be ranked, and preferring it anyway would be a soft value overriding a hard constraint.
-3. **A `RESTRICTED` model is not a lesser `ELIGIBLE` one.** Outside its named contexts it is ineligible, not disfavoured.
+2. **The `PREFERRED` designation is not mandatory.** It ranks within the eligible set; where policy disqualifies the profile, it is not in the set to be ranked, and preferring it anyway would be a preference overriding an eligibility constraint.
+3. **A restriction annotation is not a weaker eligibility.** Inside the contexts it excludes, the profile is **ineligible** — not disfavoured — and outside them the annotation says nothing.
 
 ## 3. Deprecation and history
 
@@ -100,15 +153,16 @@ Pinning a specific profile for a task is permitted only with a **recorded justif
 
 | Trigger | Typical consequence |
 |---|---|
-| Incorrect capability assumption | Claim corrected; evidence refreshed; `RESTRICTED` if load-bearing |
+| Incorrect capability assumption | Claim corrected; evidence refreshed; a **restriction annotation** if load-bearing |
 | Provider incident | Availability change; `SUSPENDED` if recurring or unexplained |
-| Data-handling concern | `SUSPENDED` or `RESTRICTED`; deployment eligibility reassessed; `NO_TRAINING_ON_INPUT` re-verified |
-| Safety concern | `RESTRICTED` for bounded contexts, or `SUSPENDED` |
-| Severe quality regression | Evidence refresh trigger; `RESTRICTED` or `SUSPENDED` pending re-evaluation |
+| Data-handling concern | `SUSPENDED`, or a restriction annotation; **deployment** posture reassessed and re-evidenced |
+| Safety concern | A **restriction annotation** for bounded contexts, or `SUSPENDED` |
+| Severe quality regression | Evidence refresh trigger; a restriction annotation or `SUSPENDED` pending re-evaluation |
 | Outage | Availability class change — **not a lifecycle change**, unless it recurs |
+| Provider-specific behavioural divergence | Mapping review; a new mapping version, a new profile version, or a **distinct profile** where the same release can no longer be evidenced (§0 rule 7) |
 | Policy violation | `SUSPENDED`, then a governed determination |
 
-**An incident is negative evidence and is recorded as such** (`models/evaluation-evidence-model.md` §2), not averaged away against positive claims. **A route prohibition may be bounded** — a model restricted from personal data remains eligible for everything else.
+**An incident is negative evidence and is recorded as such** (`models/evaluation-evidence-model.md` §2), not averaged away against positive claims — and its effect is bounded by its **applicability** (§2a there), so an incident in one context does not silently disqualify unrelated ones. **A route prohibition may be bounded** — a model restricted from personal data remains eligible for everything else.
 
 **Historical Routing Decisions are preserved through every one of these.** No incident rewrites what was selected before it was known.
 

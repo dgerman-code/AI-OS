@@ -5,10 +5,13 @@ Inherits: `standard.model.common_constraints@0.1`
 
 **Illustrative and synthetic.** All profile, provider and deployment identifiers below are architecture placeholders. **No claim is made about any real model or provider.**
 
-**Proves:** that a modality requirement is a **hard constraint**, and that no strength elsewhere compensates for it.
+**Proves:** that a modality requirement is an **eligibility constraint** — `ABSOLUTELY_NON_WAIVABLE`, because no decision makes a text-only model read an image — and that no strength elsewhere compensates for it.
 
 ## Task context
 Extracting figures from scanned engineering drawings. Criticality **Enhanced Review Candidate**. Material sensitivity `CONFIDENTIAL`.
+
+## Candidate universe
+Registry state `reg.snapshot.2026-09-11T12:00Z#4485`; universe definition `cud.document_extraction` v1. Enumerated: 3. **`CANDIDATE_UNIVERSE_COMPLETE`.**
 
 ## Requirements
 `REQUIRED_MODALITY` image input; `capability.vision` `STRONG`; `capability.document_analysis` `STRONG`; `capability.structured_extraction` `BASELINE`.

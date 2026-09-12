@@ -37,9 +37,18 @@ A Model Profile that describes capability in prose cannot be matched against a r
 | `capability.instruction_fidelity` | Instruction fidelity | Doing what was asked, including the constraints, including the negative ones |
 | `capability.citation_evidence_handling` | Citation / evidence handling | Attributing claims to sources without inventing the attribution |
 | `capability.safety_sensitive_handling` | Safety-sensitive handling | Appropriate behaviour on material where error carries physical, legal or welfare consequence |
-| `capability.privacy_sensitive_suitability` | Privacy-sensitive deployment suitability | Suitability for restricted material — **a deployment and contractual property as much as a model one** |
 
-Twenty-four families. The list is extensible by governed amendment; a Routing Policy may not invent a capability inline, because a requirement nothing can claim is a requirement nothing can satisfy.
+Twenty-three families. The list is extensible by governed amendment; a Routing Policy may not invent a capability inline, because a requirement nothing can claim is a requirement nothing can satisfy.
+
+### `capability.privacy_sensitive_suitability` was removed
+
+The first draft listed it and conceded in its own description that it was "a deployment and contractual property as much as a model one". The audit was right: **it duplicated a provider and deployment governance decision as a model capability**, and a capability token that can be satisfied by signing a contract is not a capability.
+
+Privacy suitability is now expressed only where it is actually determined — on the **Deployment Profile**, as supported sensitivity labels, handling controls and effective posture, tested by `SUPPORTED_SENSITIVITY_CLASSES`, `REQUIRED_HANDLING_CONTROLS` and `REQUIRED_DATA_HANDLING_POSTURE` (`models/routing-constraint-model.md` §3).
+
+**No intrinsic model capability is being hidden by this removal.** Were one to be identified later — a genuine technical property of a model bearing on privacy-preserving processing — it would be named narrowly for that property and kept explicitly distinct from contractual and data-handling eligibility. Nothing currently evidenced requires it.
+
+**No capability token duplicates a provider or deployment governance decision**, and this is the rule the removal establishes.
 
 ## 3. Capability classes
 

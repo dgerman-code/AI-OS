@@ -39,8 +39,8 @@ It ranks within the eligible set. It never satisfies a constraint, never compens
 ## 11. `NOT_CLAIMED` is not `NOT_CAPABLE`
 An unevaluated dimension is an absence of assertion. A known weakness is recorded as a limitation, never as a low claim.
 
-## 12. A soft preference never overrides a hard constraint
-Hard constraints filter; preferences rank what survives. No accumulation of preferences makes an ineligible candidate eligible.
+## 12. Three kinds of requirement, never confused
+**Eligibility constraints filter. Preferences rank what survives. Act requirements — human selection, acknowledgement, governance review — withhold finalisation and change eligibility in neither direction.** A preference may never override an eligibility constraint, no accumulation of preferences makes an ineligible candidate eligible, and no act requirement ever does either.
 
 ## 13. Cost and latency never override governance
 They never displace legality, confidentiality, residency, required capability, review independence or a criticality requirement. The cheapest eligible model is not automatically preferred, and the most expensive is not automatically best.
@@ -49,7 +49,7 @@ They never displace legality, confidentiality, residency, required capability, r
 `ELIGIBLE` means admitted to the registry. A globally eligible model may be prohibited for a specific task, and a `PREFERRED` model is not mandatory where policy disqualifies it.
 
 ## 15. There is no partial eligibility
-A candidate satisfies every hard constraint or it is not a candidate. "Closest fit" and "fewest violations" are not concepts this architecture contains.
+A candidate satisfies every eligibility constraint or it is not a candidate. "Closest fit" and "fewest violations" are not concepts this architecture contains, and **a candidate failing an eligibility constraint is never recorded as eligible** — before, during or after any governed act.
 
 ## 16. An unrecognised constraint blocks routing
 It is never ignored. Ignoring a constraint silently grants everything it was written to prevent.
@@ -102,7 +102,37 @@ Given the same requirements, registry state and policy version, the same candida
 ## 32. Runtime validates against this registry; it does not mutate it
 A later system may call providers, observe availability and record instances. It may not redefine what eligibility is, what a constraint means, or what a Routing Decision does.
 
+## 33. Every routing decision binds a candidate universe first
+A deterministic registry state reference, an inclusion rule, the enumerated set, omission reasons and a completeness result — **before any filtering**. Pre-filter exclusion and constraint exclusion are different and separately recorded. **A load failure yields `CANDIDATE_UNIVERSE_INCOMPLETE` and blocks or escalates; it never silently shrinks the universe.** Availability is a candidate property and an evaluation result, not a reason to disappear.
+
+## 34. Sensitivity is a multi-label set test, never an ordinal comparison
+Phase 8 defines no total order over its sensitivity classes and Phase 9 imposes none. **Every applicable label must be explicitly supported, every handling obligation met, and no prohibition triggered.** Support for one label implies support for no other, no label outranks another, and **unknown support is not support**.
+
+## 35. Data-handling posture has one authoritative reading
+Model Profiles carry none. Provider Profiles carry the contractual default and its constraints. **Routing reads the deployment's effective posture** after those constraints are applied. A deployment may be more restrictive freely, less restrictive only where the provider instrument explicitly permits and the deployment evidences it. No second source of truth.
+
+## 36. Residency belongs to the deployment, and unknown is never satisfied
+Exact jurisdictions, region class, allowed and prohibited sets, and cross-border handling are Deployment Profile properties. **`UNKNOWN_RESIDENCY` never satisfies a residency requirement**; prohibited outranks allowed; and a region class satisfies a requirement over exact jurisdictions only through an explicit declared mapping.
+
+## 37. Exceptionability is a property of the source, and unknown defaults to non-waivable
+`ABSOLUTELY_NON_WAIVABLE` / `GOVERNED_EXCEPTION_POSSIBLE` / `OPERATOR_CONFIGURABLE_WITHIN_POLICY`, derived from where the requirement comes from. **A Phase 7 Right cannot create legal authority the legal order does not grant**, a specific named Right must cover the specific constraint class, and **an unclassified constraint is non-waivable for routing**.
+
+## 38. An exception adjusts the requirement before re-evaluation, never after the fact
+Where an adjustable eligibility constraint fails: the ineligibility is recorded; a named valid Phase 7 Right is exercised; a **bounded, expiring adjusted context** is created; eligibility is **re-evaluated against it**. The original result is never overwritten, and **no candidate is called eligible under a policy whose constraint it failed**.
+
+## 39. Negative evidence restricts only where applicable
+Applicability is assessed on release and profile version, provider and deployment context, capability dimension, task domain, materiality, evidence quality, freshness and remediation status. Stale evidence about a superseded release does not dominate current evidence; a context-specific incident does not invalidate unrelated contexts; conflicting evidence creates a governed **`EVIDENCE_CONFLICT`**, never an average. **Unassessed applicability is treated as applicable until assessed.**
+
+## 40. Exactly one primary lifecycle state at a time
+States are mutually exclusive. `PREFERRED` is a **routing designation** and restrictions are **annotations** — neither is a state, and both are orthogonal to it and to each other. `RETIRED` is terminal: restoring a retired profile is a new profile, not a transition.
+
+## 41. Adjusting model diversity never touches reviewer independence
+They are two controls. Reviewer independence is Phase 6's, organisational, and **no routing act, acknowledgement or Right exercised over a routing constraint waives it**. Where a Review Profile requires both, both are separately satisfied.
+
+## 42. The identity stack has six layers and no overlap
+Model Family · Underlying Model Release · Model Profile · Registry Profile Version · Provider Offering Mapping · Deployment Profile. **Registry profile version is not the underlying model version**; a marketing alias never defines identity; and where provider-specific behaviour cannot be evidenced as the same release, it is a **distinct Model Profile**, never an ambiguous mapping.
+
 ---
 
-## 33. Status discipline
+## 43. Status discipline
 All Phase 9 artifacts are `PROPOSED`. No Phase 9 artifact may set its own status to `APPROVED` or `CANONICAL`, no exemplar is a live profile or decision, and no provider or product is endorsed by appearing in one.

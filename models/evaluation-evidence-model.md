@@ -26,8 +26,36 @@ Kept distinct because they fail in different ways.
 1. **`PROVIDER_DECLARED` is admissible and is not proof.** It is evidence that a provider made a statement.
 2. **A benchmark score is not authority.** Its relevance to this organisation's work is itself a claim requiring its own justification.
 3. **Classes never merge.** Three provider declarations are not an internal evaluation, and no quantity of weak evidence becomes strong evidence.
-4. **`KNOWN_LIMITATION_OR_INCIDENT` outranks positive evidence on the dimension it concerns.** A documented failure mode is not averaged against claims that the model performs well; it narrows or disqualifies the claim.
+4. **`KNOWN_LIMITATION_OR_INCIDENT` outranks positive evidence — but only where it is *applicable*.** A documented failure mode is not averaged against claims that the model performs well; where applicable it narrows or disqualifies the claim. Applicability is determined, not assumed: see §2a.
 5. **A Routing Policy declares which classes it accepts, per capability and per criticality band.** Evidence the policy does not accept leaves the claim **unevidenced for that policy** — the claim still exists, and it buys no eligibility.
+
+## 2a. Applicability of negative evidence
+
+The first draft said negative evidence always outranks positive evidence. The audit was right that this is unbounded: it would let a stale, anecdotal, already-remediated report about a superseded release permanently dominate current verified evidence about a different context.
+
+**Negative evidence restricts a capability claim only where it applies to it.** Applicability is assessed on seven dimensions, each recorded:
+
+| Dimension | The question |
+|---|---|
+| **Release and profile version** | Does it concern **this** underlying release and this profile version, or a superseded one? |
+| **Provider / deployment context** | Was it observed through this exposure, or a different one? |
+| **Capability dimension** | Which claim does it bear on? A coding incident bears on coding |
+| **Task or domain context** | Was it in a domain this task shares? |
+| **Materiality and severity** | How bad, and does it matter for this use? |
+| **Evidence quality** | Reproduced and verified, or a single unreproduced report? |
+| **Freshness and effective period** | When, and does it still hold? |
+| **Remediation status** | Open, mitigated, or resolved and verified? |
+
+### Rules
+
+1. **Stale evidence about a superseded version does not automatically dominate current evidence** about the current one. It remains relevant as history and as a reason to look, not as a standing disqualification.
+2. **A context-specific incident does not automatically invalidate unrelated contexts.** A failure observed through one provider's exposure bears on that exposure; extending it further requires a reason, stated.
+3. **Low-quality anecdotal evidence does not permanently override stronger verified evidence** without a recorded materiality assessment — attributable and reviewable, on the Phase 8 model.
+4. **A severe, current safety or data-handling incident may restrict routing immediately, pending review.** Precaution is available where severity and currency are both present, and it is a restriction with an owner and a review point, not a permanent verdict.
+5. **Conflicting evidence creates a governed conflict state, not an average.** Where positive and negative evidence both apply and disagree materially, the claim carries **`EVIDENCE_CONFLICT`** — visible, blocking for the bands whose policy says so, and cleared only by a recorded resolution. Phase 8's conflict rules govern: later is not superior, authority is not evidence, and the losing evidence is retained.
+6. **No composite score is introduced by any of this.** Applicability narrows or does not narrow a specific claim on a specific dimension. Nothing is summed.
+
+**Unassessed applicability is not inapplicability.** Negative evidence whose applicability nobody has assessed is treated as applicable until someone assesses it — the strict reading, consistent with the rest of this architecture.
 
 ## 3. Evaluation dimensions
 
@@ -45,7 +73,7 @@ A composite would let strength on one dimension mask disqualifying weakness on a
 
 Each claim carries a confidence — `LOW` / `MEDIUM` / `HIGH` — reflecting evidence strength, breadth and age.
 
-**Confidence never creates eligibility.** It ranks within the eligible set (`PREFER_HIGHER_CAPABILITY_EVIDENCE`) and nothing else. A `HIGH` confidence claim on one capability does not satisfy a requirement on another, does not compensate for a failed hard constraint, and does not substitute for the evidence class a policy requires.
+**Confidence never creates eligibility.** It ranks within the eligible set (`PREFER_HIGHER_CAPABILITY_EVIDENCE`) and nothing else. A `HIGH` confidence claim on one capability does not satisfy a requirement on another, does not compensate for a failed eligibility constraint, and does not substitute for the evidence class a policy requires.
 
 **Confidence is about the evidence, not about the model.** High confidence that a model is weak at something is a perfectly ordinary record.
 
@@ -63,7 +91,7 @@ Use-context verdicts at routing time: `CURRENT_FOR_USE` · `STALE_BUT_USABLE` ·
 
 `PROVIDER_VERSION_CHANGE` · `PROVIDER_TERMS_CHANGE` · `DEPLOYMENT_CHANGE` · `INCIDENT_OR_REGRESSION` · `LIFECYCLE_CHANGE` · `REVIEW_BY_REACHED` · `NEW_CONTRADICTING_EVIDENCE`
 
-**Model behaviour drifts under a stable name.** Providers update models, terms and defaults without a version change the consumer sees, so `PROVIDER_VERSION_CHANGE` and `PROVIDER_TERMS_CHANGE` fire on *any* observed change — and `PROVIDER_TERMS_CHANGE` in particular can invalidate a `NO_TRAINING_ON_INPUT` constraint without touching a single capability claim.
+**Model behaviour drifts under a stable name.** Providers update models, terms and defaults without a version change the consumer sees, so `PROVIDER_VERSION_CHANGE` and `PROVIDER_TERMS_CHANGE` fire on *any* observed change — and `PROVIDER_TERMS_CHANGE` in particular can invalidate a `REQUIRED_DATA_HANDLING_POSTURE` constraint without touching a single capability claim.
 
 ## 6. Evidence is about a tool, never about the world
 

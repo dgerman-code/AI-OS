@@ -29,42 +29,59 @@ Sections are mandatory. One that does not apply is filled with an explicit "None
 | 8 | Diversity requirement and **the named prior Routing Decision** it was evaluated against |
 | 9 | Cost, latency, privacy and residency constraints applied, and whether each was hard or soft |
 
-## 3. Candidate assessment
+## 3. Candidate universe
 | # | Element |
 |---:|---|
-| 10 | Candidate set considered |
-| 11 | **Eligibility result per candidate, with the constraint that excluded each ineligible one** |
-| 12 | Declared fallback candidates, in order |
+| 10 | **Registry state reference** — a deterministic snapshot or registry version. **A timestamp alone reconstructs nothing** |
+| 11 | **Candidate Universe Definition version** — the version of the enumeration rule |
+| 12 | **Inclusion rule and routing scope** applied |
+| 13 | **Pre-filter exclusions** — candidates outside the universe, with the rule that put them outside |
+| 14 | **Enumerated candidate set** |
+| 15 | **Omission reasons** for any registered candidate not enumerated |
+| 16 | **Completeness result** — `CANDIDATE_UNIVERSE_COMPLETE` or `CANDIDATE_UNIVERSE_INCOMPLETE`, and on incomplete, the policy's declared block-or-escalate outcome |
 
-Element 11 is what makes the decision reviewable rather than merely reported: a record listing only the winner cannot be questioned, because the question is always *what else was there, and why not*.
+The universe is bound **before** any filtering. "Where practical" is not a standard: a set nobody can reconstruct cannot be checked for accidental omission, and **a load failure must never silently shrink it** (`models/routing-precedence-and-fallback.md` §1).
 
-## 4. Selection
+## 4. Candidate assessment
 | # | Element |
 |---:|---|
-| 13 | Selected `model.<id>` **and profile version** |
-| 14 | Selected `provider.<id>` and `deployment.<id>`, **with versions** |
-| 15 | `routing_policy.<id>` **and policy version** |
-| 16 | Reason for selection — which preference or tie-break decided it |
-| 17 | Availability class of the selected candidate **at selection time**, including `UNKNOWN_AVAILABILITY` where that is what it was |
+| 17 | **Eligibility result per enumerated candidate, with the constraint that excluded each ineligible one** |
+| 18 | **Availability class per candidate at evaluation time** — an `UNAVAILABLE` candidate is enumerated and excluded with availability named, never made to disappear |
+| 19 | Declared fallback candidates, in order |
 
-Elements 13–15 are what make the selection reproducible after the model behind the name has changed or gone. **A name without a version reproduces nothing.**
+Element 17 is what makes the decision reviewable rather than merely reported: a record listing only the winner cannot be questioned, because the question is always *what else was there, and why not*.
 
-## 5. Exceptions and human involvement
+## 5. Selection
 | # | Element |
 |---:|---|
-| 18 | Human selection, requirement or prohibition, where one occurred |
-| 19 | Fallback kind where this was a fallback: `EQUIVALENT_FALLBACK` / `DEGRADED_FALLBACK` / `HUMAN_SELECTION_FALLBACK` |
-| 20 | **Where degraded: the dimension on which it is weaker, the acknowledgement, and the Phase 7 exception reference where one was required** |
-| 21 | Outcome where nothing was eligible: `NO_ELIGIBLE_MODEL` / `BLOCKED_FOR_ROUTING`, with the unsatisfiable constraint named |
+| 20 | Selected `model.<id>` **and registry profile version** — which is not the underlying model version |
+| 21 | The **provider offering mapping** used: `provider.<id>` and `deployment.<id>`, **with versions** |
+| 22 | `routing_policy.<id>` **and policy version**, and the **declared preference order** applied |
+| 23 | Reason for selection — which preference or tie-break decided it |
 
-Element 20 is the anti-silent-degradation element. **A degraded fallback recorded as an ordinary selection is a defect in the record**, not a routing style.
+Elements 20–22 are what make the selection reproducible after the model behind the name has changed or gone. **A profile version alone under-determines what ran**, and so does a mapping alone: both are recorded.
 
-## 6. Time and lineage
+## 6. Acts, exceptions and outcomes
 | # | Element |
 |---:|---|
-| 22 | Timestamp and effective context (runtime) |
-| 23 | Provenance and audit history — append-only |
-| 24 | Supersedes / superseded-by, where a later decision replaced this one |
+| 24 | **Act requirements** that applied, and the acts performed: human selection, acknowledgement, governance review |
+| 25 | Fallback kind where this was a fallback: `EQUIVALENT_FALLBACK` / `DEGRADED_FALLBACK` / `HUMAN_SELECTION_FALLBACK` |
+| 26 | **Where degraded on a preference or permitted band: the dimension on which it is weaker, and the acknowledgement** |
+| 27 | **Where an eligibility constraint failed and was adjusted — the full case-B chain**: the original constraint; **the original ineligibility result**; the constraint's exceptionability class; the Phase 7 `decision.<id>` and Decision Record reference; the exact adjusted constraint and its bounded effect; the **expiry**; and the **re-evaluated** eligibility result |
+| 28 | Outcome where nothing was eligible: `NO_ELIGIBLE_MODEL` / `BLOCKED_FOR_ROUTING`, with the unsatisfiable constraint and its exceptionability class named |
+
+Element 26 is the anti-silent-degradation element. **A degraded fallback recorded as an ordinary selection is a defect in the record**, not a routing style.
+
+Element 27 is the anti-retrospective-justification element. **A candidate that failed an eligibility constraint is never recorded as eligible under the original policy** (`models/routing-precedence-and-fallback.md` §5): the original result stands, the governed act is recorded, and eligibility is re-evaluated **against the adjusted context only**. Reversing that order turns a governance record into a justification written afterwards.
+
+**Act requirements change no eligibility.** They withhold finalisation, and element 24 records whether they were met.
+
+## 7. Time and lineage
+| # | Element |
+|---:|---|
+| 29 | Timestamp and effective context (runtime) |
+| 30 | Provenance and audit history — append-only |
+| 31 | Supersedes / superseded-by, where a later decision replaced this one |
 
 ## What a Routing Decision is not
 
@@ -72,6 +89,7 @@ Element 20 is the anti-silent-degradation element. **A degraded fallback recorde
 - **not an approval of the work** the model then performed;
 - **not evidence the output is correct** — output is `AI_SUGGESTION` with `ORIGIN: AI_GENERATED`;
 - **not a review satisfaction** — routing has no effect on review status, in either direction;
+- **not a change to reviewer independence** — model diversity is an execution control; adjusting it leaves Phase 6 reviewer independence exactly as it was;
 - **not editable** — a correction is a new linked decision, and history is preserved through deprecation, retirement and provider disappearance alike.
 
 ## Non-Runtime Statement

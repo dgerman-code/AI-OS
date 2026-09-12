@@ -16,23 +16,31 @@ The nine exemplars are **Routing Decisions over synthetic identifiers**. They de
 
 | Vocabulary | Members | Owner document |
 |---|---:|---|
-| Capability families | 24 | `models/model-capability-taxonomy.md` §2 |
+| Capability families | **23** | `models/model-capability-taxonomy.md` §2 |
 | Capability claim classes | 4 | `models/model-capability-taxonomy.md` §3 |
 | Evidence classes | 6 | `models/evaluation-evidence-model.md` §2 |
+| Negative-evidence applicability dimensions | 8 | `models/evaluation-evidence-model.md` §2a |
 | Evaluation dimensions | 11 | `models/evaluation-evidence-model.md` §3 |
 | Confidence levels | 3 | `models/evaluation-evidence-model.md` §4 |
 | Refresh triggers | 7 | `models/evaluation-evidence-model.md` §5 |
-| Lifecycle states | 8 | `models/model-lifecycle-and-versioning.md` §1 |
-| Hard eligibility constraints | 22 | `models/routing-constraint-model.md` §2 |
-| Soft preferences | 8 | `models/routing-constraint-model.md` §3 |
-| Precedence stages | 8 | `models/routing-precedence-and-fallback.md` §1 |
+| Identity-stack layers | 6 | `models/model-lifecycle-and-versioning.md` §0 |
+| Primary lifecycle states | **6**, mutually exclusive | `models/model-lifecycle-and-versioning.md` §1 |
+| Lifecycle annotations | 2 kinds — `PREFERRED` designation, restriction annotations | `models/model-lifecycle-and-versioning.md` §1 |
+| Eligibility constraints | **24** | `models/routing-constraint-model.md` §2 |
+| Act requirements | **3** | `models/routing-constraint-model.md` §7 |
+| Exceptionability classes | **3** | `models/routing-constraint-model.md` §5 |
+| Preferences | **9**, lexicographically ordered by the policy | `models/routing-constraint-model.md` §6 |
+| Precedence stages | **9** (0–8); stages 1–5 globally fixed, stage 6 policy-owned | `models/routing-precedence-and-fallback.md` §2 |
+| Candidate Universe Definition elements | 8 | `models/routing-precedence-and-fallback.md` §1 |
 | Availability classes | 4 | `models/routing-precedence-and-fallback.md` §2 |
 | Fallback kinds | 5 | `models/routing-precedence-and-fallback.md` §3 |
 | Model diversity values | 6 | `models/review-diversity-and-criticality.md` §2 |
 | Deployment classes | 5 + declared | `models/_templates/deployment-profile-template.md` |
+| Residency / jurisdiction fields | 6 | `models/_templates/deployment-profile-template.md` |
+| Region / residency classes | 5 | `models/_templates/deployment-profile-template.md` |
 | Cost / latency bands | 4 + 4 | `models/_templates/model-profile-template.md` |
-| Routing Decision elements | 24 | `models/_templates/routing-decision-template.md` |
-| Enforceable constraints | 33 | `models/_standards/common-model-governance-constraints.md` |
+| Routing Decision elements | **31** | `models/_templates/routing-decision-template.md` |
+| Enforceable constraints | **43** | `models/_standards/common-model-governance-constraints.md` |
 
 ## 3. Artifacts
 
@@ -57,7 +65,8 @@ The nine exemplars are **Routing Decisions over synthetic identifiers**. They de
 Stated as inventory, because their absence is a design output rather than an omission:
 
 1. **A ranking of models.** A profile is a vector of claims across 24 dimensions, with evidence of differing classes and ages. No composite exists, no ordering is derivable, and **"the best model" is not a sentence this vocabulary can form.**
-2. **Partial eligibility.** A candidate meets every hard constraint or is not a candidate. "Closest fit", "fewest violations" and "best available" have no representation.
+2. **Partial eligibility.** A candidate meets every eligibility constraint or is not a candidate. "Closest fit", "fewest violations" and "best available" have no representation — **and neither does "eligible pending an exception"**, which is why a governed act changes the requirement *before* re-evaluation rather than justifying a selection afterwards.
+3. **An ordering of sensitivity classes.** Phase 8 defines none and Phase 9 imposes none, so "maximum sensitivity" and "at or above" cannot be expressed. Eligibility is a subset test with obligations.
 
 The first is why `models/evaluation-evidence-model.md` refuses a composite score; the second is why `BLOCKED_FOR_ROUTING` exists.
 
@@ -87,6 +96,7 @@ Also relevant and unchanged: Phase 2 lists **Model Router** as a System Control 
 | Any Model, Provider or Deployment Profile | §1 — evidence first, profiles after |
 | Any Routing Policy instance | Policies are organisational; a default would be a silent policy decision |
 | A ranking, score or leaderboard | §4 |
+| A sensitivity ordering or ceiling | §4 — Phase 8's classes are an unordered multi-label set and are used as one |
 | An evaluation system, benchmark or harness | Phase 9 defines what evidence *means*; producing it is later work |
 | Availability monitoring, health checks, failover | Runtime |
 | Cost tables, price feeds, billing | Bands only, by construction |

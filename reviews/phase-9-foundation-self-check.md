@@ -1,6 +1,8 @@
 # Phase 9 — Model Registry and Router Foundation Self-Check
 
-Status: PROPOSED — READY FOR INDEPENDENT PHASE 9 FOUNDATION AUDIT
+Status: PROPOSED — READY FOR FINAL INDEPENDENT PHASE 9 RE-AUDIT
+
+**Updated after the independent Phase 9 audit returned FAIL (5 HIGH, 7 MEDIUM).** Every finding was genuine; the remediation and its 204-check suite are recorded in `reviews/phase-9-foundation-audit-remediation.md`.
 
 Branch: `architecture/phase-9-model-registry-router`
 Start baseline: Phase 8 human-approval record `00fb92e1b2dd1209ee2f69550c5962158b881e3e`
@@ -16,28 +18,35 @@ python3 validation/phase_9_validation.py
 
 Python 3 standard library and `git` only. No network, no third-party packages, no writes. Deterministic; exit code 0 on pass, non-zero on any failure. `--verbose` prints each check's evidence; `--json` emits machine-readable results. Conventions are in `validation/README.md`.
 
-**Current result: `=== 141/141 PASS ===`.** Normal, `--verbose` and `--json` modes all report the same total.
+**Current result: `=== 204/204 PASS ===`.** Normal, `--verbose` and `--json` modes all report the same total.
 
-**The count is derived from the suite, not chosen.** No number was carried over from Phase 8, and none was targeted.
+**The count is derived from the suite, not chosen.** It rose from 141 after the audit; nothing was preserved cosmetically, and no number was targeted.
 
 **Scope boundary.** These 141 are **offline, deterministic checks over committed content**. Remote repository state — open pull requests, branch protection, review state — is **not provable offline and is not claimed**; it is checked separately against the GitHub API and reported alongside this foundation.
 
 | Group | Checks | Covers |
 |---|---:|---|
 | `identity` | 8 | The 14-object chain; all nine denials verbatim; model/provider/deployment separation; output enters Phase 8 as `AI_SUGGESTION` |
-| `capability` | 13 | 24 families; 4 claim classes; `NOT_CLAIMED` ≠ `NOT_CAPABLE`; 6 evidence classes; provider declaration ≠ proof; benchmark ≠ authority; no composite; confidence ≠ eligibility; Phase 8 freshness reused |
-| `constraints` | 10 | 24 constraint types; hard filters, soft ranks; no partial eligibility; unrecognised constraint blocks; sensitivity is a deployment property; unstated ≠ satisfied |
-| `precedence` | 7 | 8 ordered stages; each filters the next; cost never overrides governance; reliability ordered before cost; ordered not weighted; deterministic tie-break |
-| `lifecycle` | 8 | 8 states; status ≠ task eligibility; `PREFERRED` not mandatory; deprecation removes nothing; three versioned objects |
-| `anti-lock-in` | 8 | Stable ID forms; aliases never constrained against; pinning exceptional and expiring; **zero vendor names anywhere**; exemplars declared synthetic |
-| `diversity` | 10 | 6 diversity values; independence ≠ diversity; all four combinations; no Phase 6 class added; different-provider never default; named prior selection required |
-| `fallback` | 12 | 4 availability classes; availability ≠ capability; `UNKNOWN_AVAILABILITY` not silently available; 5 fallback kinds; no silent degradation; no compounding; block is correct |
-| `human` | 5 | What a human may do, and the four things no human override reaches |
-| `privacy` | 7 | Phase 8 classes reused; classification never names a provider; no scope crossing; canonicality and visibility unchanged; no IAM |
-| `decision-record` | 17 | 24 elements; policy and profile versions; per-candidate eligibility; degraded-selection disclosure; not editable; routing reproducibility only |
-| `templates` | 8 | 5 templates; non-runtime statements; no URLs or credentials; bands not prices; contiguous constraint numbering matched against the inventory |
-| `exemplars` | 14 | 9 discovered on disk; each states what it proves; block, outage and history exemplars checked specifically |
-| `regression` | 14 | Phases 3–8 and inherited architecture unchanged since the baseline; all `PROPOSED`; no runtime; no profile instances created; harness read-only; no vacuous checks; no local PR action |
+| `identity-stack` | 9 | Six layers; registry version ≠ model version; offering is a mapping; materially different behaviour becomes a distinct profile; alias never defines identity |
+| `capability` | 13 | 23 families; 4 claim classes; 6 evidence classes; provider declaration ≠ proof; no composite; confidence ≠ eligibility; Phase 8 freshness reused |
+| `constraints` | 10 | 27 eligibility constraints; three requirement kinds; act requirements absent from the eligibility table; no partial eligibility |
+| `exceptionability` | 7 | Three classes; derived from source; legal and privileged sources non-waivable; unknown defaults non-waivable; acknowledgement changes nothing |
+| `candidate-universe` | 9 | Eight elements; bound before filtering; pre-filter vs constraint exclusion; availability does not remove; incomplete blocks or escalates |
+| `sensitivity` | 7 | No ordinal construct survives; subset test with obligations; compound labels; unknown ≠ supported; prohibition wins |
+| `residency` | 6 | Six fields; `UNKNOWN_RESIDENCY` never satisfies; prohibited outranks allowed; class needs a mapping; deployment-owned |
+| `posture` | 4 | One authoritative reading; Model Profile carries none; deployment effective posture; evidenced relaxation only |
+| `precedence` | 9 | Nine stages; 1–5 globally fixed, 6 policy-owned; no fixed reliability-before-cost; lexicographic; deterministic tie-break |
+| `exception` | 10 | Cases A/B/C; never eligible before the act; original ineligibility preserved; ordering proven by position; bounded and expiring |
+| `lifecycle` | 11 | Six exclusive states; `PREFERRED` and restrictions as annotations; transitions; `RETIRED` terminal; history untouched |
+| `anti-lock-in` | 8 | Stable IDs; aliases never constrained against; pinning expiring; **zero vendor names**; exemplars synthetic |
+| `diversity` | 10 | Six values; independence ≠ diversity; no Phase 6 class added; provider diversity never default; named prior selection |
+| `fallback` | 12 | Four availability classes; five fallback kinds; no silent degradation; no compounding; block is correct |
+| `human` | 5 | What a human may do; four unreachable things; three acts kept apart |
+| `privacy` | 7 | Phase 8 classes reused; classification never names a provider; no scope crossing; no IAM |
+| `decision-record` | 17 | 31 elements; universe binding; per-candidate results; case-B chain; routing reproducibility only |
+| `templates` | 8 | Five templates; non-runtime statements; no URLs or credentials; bands not prices; 43 contiguous constraints |
+| `exemplars` | 14 | Nine on disk; each states what it proves; block, outage and history exemplars checked specifically |
+| `regression` | 14 | Phases 3–8 unchanged; all `PROPOSED`; no runtime; no profile instances; harness read-only; no vacuous checks |
 
 ## Producer self-check threshold
 
@@ -85,13 +94,13 @@ The prompt's twelve conditions, answered against the artifacts rather than asser
 
 ## Where this foundation is most likely to be wrong
 
-Recorded for the audit rather than left to be discovered:
+Recorded for the re-audit rather than left to be discovered. The first version of this section listed five; the audit found five HIGH findings, and **none of them was on that list** — which is the honest measure of how much weight to put on what follows.
 
-1. **The capability taxonomy is a judgement, not a derivation.** Twenty-four families is a reasonable cut of a continuous space, and the boundaries between `general_reasoning` / `advanced_reasoning`, and between `coding` / `code_review`, will be argued. The architecture depends on requirements and claims sharing a vocabulary — not on this particular vocabulary being right.
-2. **`MODEL_DIVERSITY_REQUIRED` depends on a registry that does not exist yet.** With few profiles, family diversity may be unsatisfiable in practice, and the honest outcome is then `BLOCKED_FOR_ROUTING` more often than an organisation will find comfortable. That is the control working, and it will be read as the control failing.
-3. **No Routing Policy instance exists**, so the constraint model is unexercised against a real policy. The nine exemplars are decisions under policies described in prose, not authored.
-4. **The cost/latency-as-sometimes-hard rule is the weakest joint.** It is where a future policy author could, by declaring a bound aggressively, squeeze the eligible set until only the cheap candidate survives — technically without violating anything. §4 of the constraint model forbids relaxing other constraints to fit a budget; whether that is enough without a policy review gate is a fair audit question.
-5. **`HUMAN_SELECTION_REQUIRED` is a constraint that nothing in the architecture can satisfy on its own.** That is deliberate, and it means a policy declaring it without a human process behind it produces a permanent block.
+1. **The exceptionability derivation table is a judgement about sources.** Classifying "an explicit security prohibition adopted as policy" as non-waivable-unless-the-policy-names-a-Right is defensible and arguable, and an organisation whose security policy is written loosely will find the classification doing more work than its authors intended.
+2. **The candidate universe assumes a registry snapshot mechanism that does not exist.** The architecture requires a deterministic registry state reference and says storage is Phase 10's. Until Phase 10 provides one, the requirement is satisfiable only by convention, and a convention is not a snapshot.
+3. **Case B depends on Phase 7 Rights nobody has carded.** `decision.model_capability_threshold_exception` is named in exemplar 9 as a synthetic identifier. No such Right exists, so today every case-B path is in fact case C.
+4. **23 capability families is still a judgement**, and the boundaries between `general_reasoning` / `advanced_reasoning` and `coding` / `code_review` will be argued. The architecture depends on requirements and claims sharing a vocabulary, not on this vocabulary being right.
+5. **The multi-label sensitivity model makes eligibility harder to satisfy than the ceiling model did**, deliberately. Organisations will meet `BLOCKED_FOR_ROUTING` more often, and will read the control as an obstruction. Exemplar 7 exists to show it working.
 
 ## Standing statement
 

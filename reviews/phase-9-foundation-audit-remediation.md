@@ -1,0 +1,282 @@
+# Phase 9 — Model Registry and Router Foundation Audit Remediation
+
+Status: PROPOSED — READY FOR FINAL INDEPENDENT PHASE 9 RE-AUDIT
+
+Branch: `architecture/phase-9-model-registry-router`
+Audited foundation baseline: `212f42e4453033d63b761fe6c19c63538ce772d8`
+Phase 8 approval-record baseline: `00fb92e1b2dd1209ee2f69550c5962158b881e3e`
+
+The independent Phase 9 foundation audit returned **FAIL** with 5 HIGH and 7 MEDIUM findings. **Every one was genuine.** None is contested, and two of them — H3 and H5 — identify places where the architecture contradicted either an approved upstream phase or itself.
+
+---
+
+## H1 — Model Profile identity granularity
+
+**Finding.** The template and lifecycle docs did not distinguish underlying model version, provider-hosted variant, provider alias, registry profile version and the provider/deployment relationship. A runtime would have to guess whether a provider variant is the same underlying model, a different release, or a renamed catalogue entry.
+
+**Status: RESOLVED.** A six-layer identity stack, `models/model-lifecycle-and-versioning.md` §0:
+
+| # | Layer | Identified by |
+|---:|---|---|
+| 1 | Model Family | `family.<stable_name>` |
+| 2 | **Underlying Model Release** | The originator's release identity — **recorded, never the registry ID** |
+| 3 | Model Profile | `model.<stable_snake_case_name>` |
+| 4 | **Registry Profile Version** | `v<n>` on the record — **not the model's version** |
+| 5 | **Provider Offering Mapping** | A bounded mapping inside the Provider Profile |
+| 6 | Deployment Profile | `deployment.<stable_snake_case_name>` |
+
+**Provider Offering is a mapping, not a seventh registry object**: it has no lifecycle, no capability claims and no governance properties that are not already the Provider's or the Deployment's. Seven rules follow, of which three carry the weight: a registry profile version moves **independently** of the model's; one profile may map to several provider/deployment combinations **only where they expose the same underlying release, evidenced**; and where provider-specific behaviour is materially different and cannot be evidenced as the same release, it is a **distinct Model Profile**, never an ambiguous mapping.
+
+**Data-handling posture was removed from Model Profile entirely** — see M7. A historical Routing Decision now preserves **both** the profile version and the mapping used, because either alone under-determines what ran.
+
+---
+
+## H2 — Candidate universe not reproducible
+
+**Finding.** "Candidate set where practical" is not auditable and cannot detect accidental omission. Flagged as a human-approval blocker.
+
+**Status: RESOLVED.** `models/routing-precedence-and-fallback.md` §1: **every Routing Decision binds a Candidate Universe Definition before any filtering or ranking occurs** — a deterministic registry state reference (**not a timestamp alone, which reconstructs nothing**), a universe definition version, an inclusion rule, the routing scope, pre-filter exclusions, the enumerated set, omission reasons, and a completeness result.
+
+Three rules the phrase "where practical" was hiding:
+
+1. **Outside the universe and ineligible inside it are different exclusions**, separately recorded. A candidate appearing in neither list is the defect this makes impossible.
+2. **Availability does not remove a candidate from the universe.** An `UNAVAILABLE` candidate is enumerated, evaluated and excluded **with availability named** — so the record distinguishes "a compliant option existed and was unreachable" from "no compliant option existed". Pre-enumeration availability filtering is permitted **only** where the policy declares it explicitly.
+3. **A load failure never silently shrinks the universe.** It yields **`CANDIDATE_UNIVERSE_INCOMPLETE`**, and the policy declares `BLOCK` or `ESCALATE`. This is the failure mode that is invisible from the inside: a router that enumerated three of five and picked the best of three produces a record indistinguishable from a correct decision — **unless the universe was bound first**.
+
+A bounded universe is permitted; an unexplainable one is not.
+
+---
+
+## H3 — Ordinal sensitivity model was invalid
+
+**Finding.** Phase 8 sensitivity is multi-valued and orthogonal; Phase 9 treated it as one scalar maximum compared "at or above".
+
+**Status: RESOLVED.** The audit was right, and the repository evidence is explicit: Phase 8 states that an item "may carry several" labels, that `PERSONAL_DATA` "carries obligations independent of every other class here", and that restrictions from `PRIVILEGED` or `THIRD_PARTY_RESTRICTED` "cannot be relaxed by an internal decision at all". **There is no total order to compare against**, and `MAX_DATA_SENSITIVITY_ALLOWED` was asking a question Phase 8 does not answer.
+
+Replaced by a **set-compatibility model** (`models/routing-constraint-model.md` §3): `SUPPORTED_SENSITIVITY_CLASSES`, `PROHIBITED_SENSITIVITY_CLASSES`, `REQUIRED_HANDLING_CONTROLS`, `REQUIRED_DATA_HANDLING_POSTURE`.
+
+> **A deployment is eligible only if every applicable label is explicitly supported, every handling obligation those labels impose is satisfied, and no prohibited condition applies.**
+
+A **subset test with obligations**, not a comparison: `PERSONAL_DATA + PRIVILEGED` requires **both** regimes; `TRADE_SECRET` support implies nothing about `PERSONAL_DATA`; **no label outranks another, because there is no higher**; **unknown support is not support**; a prohibition wins over any support; and compound material takes the **union** of obligations under Phase 8's most-restrictive rule.
+
+**Phase 8's semantics are used exactly as written and are not redefined.**
+
+---
+
+## H4 — Residency semantics incomplete
+
+**Status: RESOLVED.** Deployment-level residency now carries exact jurisdiction(s), a region/residency class with five values, a **class-to-jurisdiction mapping**, cross-border processing (`FORBIDDEN` / `CONDITIONAL` / `ALLOWED`), **`UNKNOWN_RESIDENCY`**, and evidence with a review-by.
+
+Five rules: **`UNKNOWN_RESIDENCY` never satisfies a residency requirement** and is never read as "probably fine"; **prohibited outranks allowed**, and an overlap is a defect to correct rather than resolve case by case; **exact jurisdiction and region class are not interchangeable** without an explicit declared mapping; **provider-level claims constrain but never substitute** for deployment-specific evidence; and **cross-border processing is assessed separately** from the primary jurisdiction, since a compliant primary region with unbounded cross-border processing satisfies nothing.
+
+---
+
+## H5 — Fallback, eligibility and exception contradicted each other
+
+**Finding.** Exemplar 9 called a `BASELINE` candidate eligible despite a `STRONG` requirement, then used a Phase 7 exception because the requirement was unmet.
+
+**Status: RESOLVED.** The contradiction was real. `models/routing-precedence-and-fallback.md` §5 separates three cases:
+
+| | Requirement met? | Governed act? | Eligible? |
+|---|---|---|---|
+| **A — ordinary fallback** | Yes, all of them | No | Yes, under the policy |
+| **B — exception-adjusted** | No, then adjusted | **Yes, before re-evaluation** | Yes, **under the adjusted context only** |
+| **C — non-waivable failure** | No, and unadjustable | Not available | **No. Blocked** |
+
+Case B runs in a fixed order: the candidate **is ineligible and that is recorded**; the constraint's exceptionability class is checked; a **named, valid Phase 7 Right whose scope covers that class** is exercised, producing a bounded, expiring **adjusted routing context**; and only then is eligibility **re-evaluated against the adjusted set**.
+
+> **A candidate is never called eligible before the governing act changes the applicable requirement set.** Reversing that order converts a governance record into a justification written afterwards.
+
+The Routing Decision preserves the original constraint, **the original ineligibility result**, the Right and Decision Record reference, the adjusted constraint and its effect, the expiry, and the re-evaluated result. Nothing is rewritten.
+
+---
+
+## M1 — Hard constraints not classified by exceptionability
+
+**Finding.** The architecture said ordinary humans cannot bypass law, privacy, security or contract, and elsewhere spoke generically of Phase 7 exceptions to hard constraints. Both could not be true.
+
+**Status: RESOLVED.** Exceptionability is a property of **where the requirement comes from** (`models/routing-constraint-model.md` §5):
+
+- **`ABSOLUTELY_NON_WAIVABLE`** — no routing exception exists inside AI-OS. Statute, regulation, binding contract, `PRIVILEGED` and `THIRD_PARTY_RESTRICTED` handling, an unsupported sensitivity label, physical impossibility.
+- **`GOVERNED_EXCEPTION_POSSIBLE`** — adjustable by a named valid Phase 7 Right covering that class, bounded and expiring.
+- **`OPERATOR_CONFIGURABLE_WITHIN_POLICY`** — ordinary choice inside the permitted envelope; not an exception at all.
+
+Every eligibility constraint in §2 carries a class or a derivation rule, validated mechanically. Five rules: **a Phase 7 Right cannot create legal authority the legal order does not grant**; exceptionability is anchored to the source **and to a specific named Right** — "a Decision Right exists" is not a basis; **unknown or unrecognised exceptionability defaults to non-waivable**; **human acknowledgement never changes eligibility**; and an adjustment is bounded and expiring.
+
+---
+
+## M2 — Negative evidence precedence unbounded
+
+**Status: RESOLVED.** `models/evaluation-evidence-model.md` §2a: **negative evidence restricts a claim only where it applies to it**, assessed on eight recorded dimensions — release and profile version, provider/deployment context, capability dimension, task domain, materiality and severity, evidence quality, freshness and effective period, remediation status.
+
+Six rules: stale evidence about a **superseded** release does not dominate current evidence; a context-specific incident does not invalidate unrelated contexts; low-quality anecdote does not permanently override verified evidence without a recorded materiality assessment; a **severe, current** safety or data-handling incident may restrict routing immediately pending review; conflicting applicable evidence creates a governed **`EVIDENCE_CONFLICT`** under Phase 8's conflict rules rather than an average; and **no composite score is introduced by any of it**.
+
+**Unassessed applicability is treated as applicable until assessed** — the strict reading.
+
+---
+
+## M3 — Lifecycle exclusivity unclear
+
+**Status: RESOLVED, by removing two states.** **Exactly one primary lifecycle state at a time**, six of them: `CANDIDATE`, `EVALUATING`, `ELIGIBLE`, `DEPRECATED`, `SUSPENDED`, `RETIRED`.
+
+`PREFERRED` and `RESTRICTED` were removed **as states** because neither is one: preference is a **ranking** property that collided with `ELIGIBLE` (which every preferred profile also is), and a restriction is **contextual** by nature, so as a state it forced one global answer to a per-context question. They are now a **routing designation** and **restriction annotations**, orthogonal to the state and to each other.
+
+Transition rules are defined; **`RETIRED` is terminal** — restoring a retired profile is a new profile, because the evidence that retired it does not un-apply. **No transition touches history.**
+
+---
+
+## M4 — Act requirements masquerading as eligibility filters
+
+**Status: RESOLVED.** Three kinds of requirement, not two (`models/routing-constraint-model.md` §1):
+
+| Kind | Does | On failure |
+|---|---|---|
+| `ELIGIBILITY_CONSTRAINT` | Filters | Candidate is ineligible |
+| `PREFERENCE` | Ranks the eligible | Ranks lower, stays eligible |
+| **`ROUTING_ACT_REQUIREMENT`** | Requires an **act** | **No selection finalises.** Candidate set unchanged |
+
+`HUMAN_SELECTION_REQUIRED`, `HUMAN_ACKNOWLEDGEMENT_REQUIRED` and `GOVERNANCE_REVIEW_REQUIRED` are the third kind. **None filters a candidate; none changes eligibility in either direction.** The harness parses the eligibility table and **fails if an act requirement appears in it**.
+
+---
+
+## M5 — Global precedence versus policy-owned preference ordering
+
+**Status: RESOLVED.** The boundary is now explicit:
+
+- **Stages 1–5 are globally fixed and no policy reorders them**: legality/governance → sensitivity/handling/residency → capability/modality/context/tooling → independence/diversity → lifecycle/availability.
+- **Stage 6, the preference order, is owned by the versioned Routing Policy**, as an **ordered lexicographic list**. A policy may rank reliability above cost or cost above reliability where the work's risk permits.
+
+Three bounds the policy does not own: no ordering restores an ineligible candidate; the hard stages stay fixed; and **where risk requires reliability it is stated as `MINIMUM_RELIABILITY_CLASS` — an eligibility constraint** — because a preference is negotiable by definition. The old global "reliability before cost" rule is gone, and the harness fails if it returns.
+
+---
+
+## M6 — Model-diversity / reviewer-independence leakage
+
+**Status: RESOLVED.** Exemplar 9 said dropping family diversity waives review independence. **It does not, and cannot.**
+
+Model-family diversity is an **execution** control: reducing it reduces protection against correlated model failure, and nothing else. **Reviewer independence is an organisational property of who reviews** — Phase 6's, waived if ever by Phase 6 and Phase 7 acting on the review itself, **never by a routing choice, an acknowledgement, or any Right exercised over a routing constraint**. Where a Review Profile requires both, they are two controls, and an exception to one leaves the other exactly as it was.
+
+Stated in `models/review-diversity-and-criticality.md` §1, constraint model §5.4, standard §41, architecture §6, the decision template, and the rewritten exemplar 9. A repository-wide scan for similar leakage found no other occurrence.
+
+---
+
+## M7 — Privacy-suitability capability duplicated governance
+
+**Status: RESOLVED — the capability was removed.** `capability.privacy_sensitive_suitability` conceded in its own description that it was "a deployment and contractual property as much as a model one". **A capability token that can be satisfied by signing a contract is not a capability.**
+
+Privacy suitability is expressed only where it is determined: on the Deployment Profile, tested by `SUPPORTED_SENSITIVITY_CLASSES`, `REQUIRED_HANDLING_CONTROLS` and `REQUIRED_DATA_HANDLING_POSTURE`. **23 capability families**, down from 24. Were a genuine intrinsic privacy-relevant model property identified later, it would be named narrowly for that property and kept distinct from contractual eligibility; nothing currently evidenced requires one.
+
+---
+
+## M8 — Data-handling posture ownership
+
+**Status: RESOLVED.** One authoritative reading:
+
+| Layer | Owns |
+|---|---|
+| **Model Profile** | **Nothing.** Intrinsic technical characteristics only. No retention, training or logging posture |
+| **Provider Profile** | The contractual default **and the constraints it places on deployments beneath it** |
+| **Deployment Profile** | The **effective posture** routing reads |
+
+A deployment may be **more** restrictive freely; **less** restrictive only where the provider instrument explicitly permits and the deployment evidences it — an unevidenced relaxation is a defect, and the provider-level constraint governs. The Model Profile template's data-handling section now states that recording posture there **is a defect**, because it creates a second source of truth that will diverge.
+
+---
+
+## Validation
+
+**Command:** `python3 validation/phase_9_validation.py`
+**Result: `=== 204/204 PASS ===`**, exit 0. Normal, `--verbose` and `--json` all report 204.
+
+**141 → 204.** The count is derived from the suite; nothing was preserved cosmetically.
+
+New semantic groups target the findings directly: `identity-stack` (9), `candidate-universe` (9), `sensitivity` (7), `residency` (6), `posture` (4), `exceptionability` (7), `exception` (10), plus rebuilt `constraints`, `precedence`, `lifecycle`, `human`, `decision-record` and `exemplars` groups.
+
+Checks that parse rather than match: the **eligibility-constraint table** is parsed and every row must carry an exceptionability class or a derivation, and **fails if an act requirement appears in it**; the **lifecycle state table** is parsed from the first table only, so the explanatory table beneath it cannot be read as a declaration; a **scan for ordinal sensitivity constructs** across all normative documents, exempting only text that quotes the rejected model; a scan for `where practical`; a scan for a fixed global reliability-before-cost ordering; and **section-position comparisons** proving the universe section precedes precedence and that case B records ineligibility before re-evaluation.
+
+### What the strengthened harness caught
+
+Rebuilding it against the new semantics surfaced **two real content defects my own edits had left**, both silent:
+
+1. **The standard's §12 rewrite never applied.** An earlier bulk vocabulary normalisation had changed the sentence my replacement targeted, the replacement failed without an assertion, and the standard still carried the **two-kind** requirement model while every other document carried three.
+2. **The architecture still said "candidate set where practical"** in its reproducibility section — the exact phrase H2 is about, in the one place the H2 edits had not reached.
+
+Several further failures were stale needles in the harness itself, each replaced with a **stricter** test rather than relaxed — most notably the act-requirement check, which now requires the rule in **three independent places** (§1 and §7 of the constraint model, and the policy template) instead of one phrase.
+
+**Phase 8 harness: `119/119 PASS`, unchanged.** No Phase 8 file was modified in this pass.
+
+---
+
+## Open questions — all 17 re-adjudicated
+
+| # | Question | Disposition | The concrete rule |
+|---:|---|---|---|
+| 1 | Model Profile identity granularity | **RESOLVED IN FOUNDATION** *(was MUST RESOLVE)* | Six-layer stack; profile describes **one underlying release**; registry version independent of model version; provider offering a bounded mapping; materially different behaviour becomes a distinct profile |
+| 2 | Provider and Deployment first-class? | **RESOLVED IN FOUNDATION** | Both, separately; Provider Offering is a mapping inside Provider, with a stated reason |
+| 3 | Family versus version for diversity | **RESOLVED IN FOUNDATION** | Version diversity is the weakest form; family addresses correlated blind spots |
+| 4 | When is same-model review allowed? | **RESOLVED IN FOUNDATION** | Where the Review Profile declares `SAME_MODEL_ALLOWED` |
+| 5 | When is family diversity mandatory? | **RESOLVED IN FOUNDATION** | Where declared; the expected value at Decision-Grade for material independent review, departed from only with a recorded justification |
+| 6 | Is different-provider ever mandatory? | **RESOLVED IN FOUNDATION** | Where justified by a provider-level concern; **never a default**, never on quality grounds alone |
+| 7 | Capability evidence and refresh | **RESOLVED IN FOUNDATION** *(was MUST RESOLVE)* | Six classes that never merge; **negative evidence bounded by eight applicability dimensions**; `EVIDENCE_CONFLICT` instead of averaging; Phase 8 freshness reused; unassessed applicability treated as applicable |
+| 8 | Cost and latency without runtime data | **RESOLVED IN FOUNDATION** | Semantic bands only; preferences unless a task policy declares a bound; a bound blocks rather than relaxing anything else |
+| 9 | Human selection and its constraints | **RESOLVED IN FOUNDATION** | A **`ROUTING_ACT_REQUIREMENT`**, not a filter; four things no human act reaches; operator choice, acknowledgement and governed exception separated |
+| 10 | Fallback vs degraded vs exception | **RESOLVED IN FOUNDATION** *(was MUST RESOLVE)* | Cases A, B, C; the candidate is **never eligible before the governing act**; the original ineligibility is preserved |
+| 11 | When to block rather than choose | **RESOLVED IN FOUNDATION** | Whenever no candidate satisfies every eligibility constraint, or the universe is incomplete and the policy says block |
+| 12 | Deprecated and retired in history | **RESOLVED IN FOUNDATION** | Excluded from new routing, removed from nothing; decisions name the profile **version and mapping** used |
+| 13 | Privacy and residency attachment | **RESOLVED IN FOUNDATION** *(was MUST RESOLVE)* | Multi-label supported/prohibited sets, handling controls and **effective deployment posture**, plus the six-field residency model with `UNKNOWN_RESIDENCY` never satisfying. No IAM |
+| 14 | Preferred for a Role, prohibited for a stage | **RESOLVED IN FOUNDATION** | Lifecycle is a gate, not a grant; `PREFERRED` is a designation, restrictions are annotations |
+| 15 | Evaluation methodology or evidence semantics | **RESOLVED IN FOUNDATION** | Evidence semantics only; no benchmark, harness or score |
+| 16 | Orchestrator concerns | **PHASE 11+** | What work happens, in what order, by which Role; concurrency, retry, scheduling |
+| 17 | Storage and infrastructure | **PHASE 10+** | Persistence for profiles, policies and decisions; **including the registry snapshot mechanism** the Candidate Universe Definition references |
+
+All four audit blockers are resolved by rules that **did not exist before this pass**. No authority, privacy or independence ambiguity is deferred.
+
+---
+
+## Files changed
+
+| File | Purpose |
+|---|---|
+| `models/routing-constraint-model.md` | Rewritten: three requirement kinds (M4), multi-label sensitivity (H3), residency (H4), exceptionability (M1), posture ownership (M8), policy-owned preference order (M5) |
+| `models/routing-precedence-and-fallback.md` | Candidate Universe Definition (H2); fixed/owned precedence split (M5); cases A/B/C (H5) |
+| `models/model-lifecycle-and-versioning.md` | Six-layer identity stack (H1); six exclusive states with annotations and transitions (M3) |
+| `models/evaluation-evidence-model.md` | Negative-evidence applicability and `EVIDENCE_CONFLICT` (M2) |
+| `models/model-capability-taxonomy.md` | `capability.privacy_sensitive_suitability` removed; 23 families (M7) |
+| `models/review-diversity-and-criticality.md` | Diversity cannot waive reviewer independence (M6) |
+| `models/_standards/common-model-governance-constraints.md` | §12 corrected; **ten new rules (33–42)**; 43 total, contiguous |
+| `models/_templates/model-profile-template.md` | Identity stack layers; data-handling removed as a defect (H1, M8) |
+| `models/_templates/provider-profile-template.md` | Provider Offering Mappings; provider-level posture and its constraints (H1, M8) |
+| `models/_templates/deployment-profile-template.md` | Residency fields (H4); supported/prohibited label sets (H3); effective posture (M8) |
+| `models/_templates/routing-policy-template.md` | Candidate Universe Definition; exceptionability column; policy-owned preference order; act requirements (H2, M1, M4, M5) |
+| `models/_templates/routing-decision-template.md` | 24 → **31 elements**: universe binding, per-candidate availability, the case-B chain (H2, H5) |
+| `models/master-model-routing-universe.md` | Every count corrected; two inexpressible things become three |
+| `models/exemplars/` × 6 | 1, 4, 5, 6, 7 reworked for multi-label sensitivity and universe binding; **9 rewritten entirely** (H3, H5, M6) |
+| `architecture/model-registry-router.md` | Three requirement kinds; universe binding; multi-label sensitivity; posture ownership; three human acts (H2, H3, H5, M1, M4, M8) |
+| `validation/phase_9_validation.py` | 141 → **204 checks**; seven new semantic groups |
+| `reviews/phase-9-foundation-self-check.md` | Counts, groups, and where this foundation is most likely to be wrong |
+| `reviews/phase-9-foundation-audit-remediation.md` | This record |
+
+**No approved Phase 3–8 file was modified.** Phase 8's harness was not touched in this pass and still reports 119/119.
+
+---
+
+## Regression
+
+Verified in the harness by `git diff` against `00fb92e` plus a clean-tree check: **Phase 3 Roles 0 · Phase 4 Skills 0 · Phase 5 Workflows 0 · Phase 6 Handoff/Review 0 · Phase 7 Decisions 0 · Phase 8 Knowledge 0 · inherited Phase 2/3 architecture 0.**
+
+Phase 9 changes only its own architecture, models, exemplars, validation and review evidence. No runtime, SDK, API call, credential, endpoint, price, probe, storage, UI or orchestration. **No Model, Provider or Deployment Profile instance exists.** No real vendor or product is named anywhere — verified mechanically across every Phase 9 file.
+
+## External repository checks — separate from the offline count
+
+Performed against the GitHub API, **not** folded into the 204:
+
+- Open pull requests on the repository: **1** — PR #1, `architecture/phase-1-2` → `main`, pre-existing and unrelated.
+- Open pull requests for `architecture/phase-9-model-registry-router`: **0**.
+- Pull requests created by this pass: **0**.
+
+The local validator states its scope honestly and makes no remote claim.
+
+## Status
+
+**Phase 9 remains `PROPOSED`.** Nothing is APPROVED or CANONICAL. No Decision Right was created, no Role gained authority, no review status was set or changed, no profile was created, and no approved Phase 3–8 artifact was modified. Under Phase 6's vocabulary this record is `PRODUCER_REVIEW` and is not an independent audit.
+
+**Post-remediation architecture baseline:** the commit carrying this record — `docs: remediate Phase 9 foundation after independent audit` on this branch. A commit cannot contain its own SHA, so it is not written here rather than written wrongly; resolve it with `git rev-parse HEAD`, and reproduce the result from that tree with `python3 validation/phase_9_validation.py` → `204/204 PASS`.

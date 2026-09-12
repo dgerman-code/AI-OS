@@ -15,7 +15,11 @@ Phase 6 established review independence at the **reviewer and Profile** level: `
 
 > **`REVIEWER / REVIEW PROFILE INDEPENDENCE != MODEL DIVERSITY`**
 
-**Phase 9 changes nothing in Phase 6.** It adds no independence class, removes none, and cannot make an unsatisfied review satisfied or a non-independent reviewer independent. A model-diversity requirement is a **routing constraint**; a review independence class is a **review property**; satisfying one says nothing about the other, and the bottom-right cell above is where organisations most often believe otherwise.
+**Phase 9 changes nothing in Phase 6.** It adds no independence class, removes none, and cannot make an unsatisfied review satisfied or a non-independent reviewer independent.
+
+> **Reducing or excepting model diversity does not waive reviewer independence, and cannot.** They are two controls. A Phase 7 exception adjusting `MODEL_DIVERSITY_REQUIRED` reduces **execution diversity** and records that; the reviewer, the Review Profile and the independence class are **untouched by it**. Where a Review Profile requires both, both must be separately satisfied, and an exception affecting one leaves the other exactly as it was.
+
+Nothing in Phase 9 can waive reviewer independence — not a routing choice, not an acknowledgement, not any Decision Right exercised over a routing constraint. Reviewer independence is waived, if ever, by Phase 6 and Phase 7 acting on the review itself. A model-diversity requirement is a **routing constraint**; a review independence class is a **review property**; satisfying one says nothing about the other, and the bottom-right cell above is where organisations most often believe otherwise.
 
 ## 2. Model diversity policy values
 

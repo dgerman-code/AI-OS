@@ -76,9 +76,13 @@ Each arrow is a narrowing, and **the left-hand side never names a model**. Requi
 
 ## 3. Eligibility, in one rule
 
-> **A candidate is eligible when it satisfies *every* hard constraint. Preferences then rank what is left. There is no partial eligibility and no "closest fit".**
+> **A candidate is eligible when it satisfies *every* eligibility constraint. Preferences then rank what is left. Act requirements then withhold or release finalisation. There is no partial eligibility and no "closest fit".**
 
-Precedence is `models/routing-precedence-and-fallback.md` §1: legality, then sensitivity and residency, then capability, then independence, then lifecycle and availability — all hard — then reliability, then cost and latency, then a deterministic tie-break. A later stage cannot restore what an earlier one removed.
+Three kinds of requirement, never confused (`models/routing-constraint-model.md` §1): **eligibility constraints filter**, **preferences rank**, and **act requirements** — human selection, acknowledgement, governance review — **withhold completion without touching eligibility in either direction**.
+
+Filtering presupposes a set. **Every Routing Decision binds a Candidate Universe Definition first** — a deterministic registry state reference, an inclusion rule, the enumerated set, omission reasons, and a completeness result. A load failure yields `CANDIDATE_UNIVERSE_INCOMPLETE` and blocks or escalates; **it never silently shrinks the universe** (`models/routing-precedence-and-fallback.md` §1).
+
+Precedence then runs in stages: **1–5 are globally fixed** — legality, then sensitivity/handling/residency, then capability, then independence, then lifecycle and availability. **Stage 6, the preference order, is owned by the versioned Routing Policy** and is lexicographic, not weighted. A later stage cannot restore what an earlier one removed, and no preference ordering reaches a candidate an eligibility constraint excluded.
 
 ## 4. Integration with the approved phases
 
@@ -91,7 +95,7 @@ Precedence is `models/routing-precedence-and-fallback.md` §1: legality, then se
 | 5 — Workflows | A stage may state **capability requirements**; it does not route, and reaching a stage implies nothing about model adequacy |
 | 6 — Handoffs and Reviews | A Profile may state a **model diversity** value. **Phase 9 adds no independence class and changes no review status**, and a handoff does not trigger a model change |
 | 7 — Decision Rights | A Routing Decision is not a Decision Record. **Phase 9 cards no Right and grants none** |
-| 8 — Knowledge | Model output is `AI_SUGGESTION` with `ORIGIN: AI_GENERATED`. **Routing changes no canonicality, no sensitivity classification and no scope**, and selecting a deployment never moves knowledge across a scope boundary |
+| 8 — Knowledge | Model output is `AI_SUGGESTION` with `ORIGIN: AI_GENERATED`. **Routing changes no canonicality, no sensitivity classification and no scope**, and selecting a deployment never moves knowledge across a scope boundary. Phase 8's sensitivity classes are used as **an unordered multi-label set**, exactly as Phase 8 defines them |
 
 Phase 9 resolves exactly one forward reference — the Model Registry promised in `architecture/registry-separation.md` §8 — and resolves it **by defining the registry**, without modifying that approved file.
 
@@ -99,10 +103,14 @@ Phase 9 resolves exactly one forward reference — the Model Registry promised i
 
 Phase 8's sensitivity classes are **used, not redefined**. The mapping is a two-sided declaration:
 
-- the **task** carries the sensitivity of the material it will handle, from Phase 8;
-- the **deployment** carries an approved **maximum sensitivity**, a residency, and a retention and training posture.
+- the **task** carries every Phase 8 sensitivity label its material bears — often several;
+- the **deployment** declares the labels it **explicitly supports**, the labels it **prohibits**, the handling obligations it meets per label, its residency, and its **effective data-handling posture**.
 
-A candidate is eligible only where the deployment's maximum is at or above the task's material sensitivity, its residency satisfies the requirement, and its posture satisfies `NO_TRAINING_ON_INPUT` where required.
+> **Phase 8 defines no total order over its sensitivity classes, and Phase 9 imposes none.** An item may carry several; `PERSONAL_DATA`, `PRIVILEGED` and `THIRD_PARTY_RESTRICTED` each carry obligations independent of every other class. There is no "maximum sensitivity" and nothing is "at or above" anything.
+
+A candidate is eligible only where **every applicable label is explicitly supported**, **every handling obligation those labels impose is satisfied**, **no prohibited condition applies**, and residency and posture requirements are met. `PERSONAL_DATA + PRIVILEGED` requires **both** regimes; support for `TRADE_SECRET` implies nothing about `PERSONAL_DATA`; and **unknown support is not support** (`models/routing-constraint-model.md` §3).
+
+Data-handling posture has **one authoritative reading**: Model Profiles carry none, Provider Profiles carry the contractual default and its constraints, and **routing reads the deployment's effective posture** after those constraints are applied (§3.4 there). There is no second source of truth.
 
 Four rules:
 
@@ -119,12 +127,16 @@ A human may: **select** among eligible candidates; **require** a stronger model,
 
 A human may **not**:
 
-1. **make an ineligible model eligible** where law, regulation, contract, privacy or security forbids it — no role, seniority or urgency reaches that;
-2. **waive mandatory review independence** — that requires a valid upstream Phase 7 Decision Right, and a routing choice is not one;
+1. **make an ineligible model eligible by any act of their own.** Where a constraint is `ABSOLUTELY_NON_WAIVABLE` — law, regulation, binding contract, `PRIVILEGED` or `THIRD_PARTY_RESTRICTED` handling, an unsupported sensitivity label, physical impossibility — **no exception path exists at all**, and no role, seniority or urgency reaches it;
+2. **waive reviewer independence by any routing act.** Reviewer independence is Phase 6's, organisational, and **no routing choice or model-diversity adjustment touches it**;
 3. **make output true or canonical** — selection is about the instrument, and Phase 8 governs the claim;
-4. **rewrite routing history** — a change is a new Routing Decision linked to the prior one.
+4. **rewrite routing history** — a change is a new Routing Decision linked to the prior one, and an original ineligibility result is never overwritten.
 
-**Ordinary operator choice and a governed exception are different acts.** Choosing among eligible candidates, or requiring something stronger, is ordinary and recorded. Proceeding where a hard constraint is unmet is **not an override at all** — it is either a governed exception under a Phase 7 Right, or it does not happen.
+**Three different acts, kept apart** (`models/routing-constraint-model.md` §5, `models/routing-precedence-and-fallback.md` §5):
+
+- **Operator choice** — selecting among eligible candidates, requiring something stronger, prohibiting a candidate. Ordinary, recorded, changes no requirement.
+- **Acknowledgement** — recording that someone knows a declared degradation on a **preference** or a permitted band. **Adjusts no requirement.**
+- **Governed exception** — where an **eligibility constraint** fails and its class is `GOVERNED_EXCEPTION_POSSIBLE`: a named Phase 7 Right whose scope covers that class is exercised, producing a bounded, expiring **adjusted requirement context**, and eligibility is **re-evaluated against it**. The candidate is never called eligible under the original policy.
 
 ## 7. Reproducibility
 
@@ -136,7 +148,7 @@ Three different things, and Phase 9 owns exactly one:
 | **Model-output reproducibility** | The same input yields the same output | **No.** Not claimed, not achievable, not architecture's to promise |
 | **Provider availability reproducibility** | The same deployment is reachable as before | **No.** A runtime observation |
 
-A Routing Decision preserves the exact Model Profile version, Provider and Deployment Profile versions, Routing Policy version, the constraints considered, the candidate set where practical, and the selection reason — so the **selection** can be re-derived and questioned even after the model behind it has changed or gone.
+A Routing Decision preserves the exact Model Profile version, Provider and Deployment Profile versions, Routing Policy version, the constraints considered, the **Candidate Universe Definition and the enumerated candidate set with per-candidate eligibility results**, and the selection reason — so the **selection** can be re-derived and questioned even after the model behind it has changed or gone.
 
 ## 8. Non-runtime statement
 

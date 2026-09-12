@@ -221,26 +221,113 @@ check("capability", "evaluation dimensions are separate, review-detection among 
 
 # =========================================================== constraints / precedence
 
-HARD = ["REQUIRED_CAPABILITY", "REQUIRED_MODALITY", "REQUIRED_CONTEXT_CLASS", "REQUIRED_TOOL_USE",
-        "REQUIRED_STRUCTURED_OUTPUT", "REQUIRED_DEPLOYMENT_CLASS",
-        "REQUIRED_RESIDENCY_OR_JURISDICTION", "MAX_DATA_SENSITIVITY_ALLOWED",
-        "PROVIDER_ALLOWED", "PROVIDER_PROHIBITED", "MODEL_ALLOWED", "MODEL_PROHIBITED",
-        "MODEL_FAMILY_ALLOWED", "MODEL_FAMILY_PROHIBITED", "MINIMUM_REASONING_CLASS",
-        "MINIMUM_RELIABILITY_CLASS", "MAX_COST_CLASS", "MAX_LATENCY_CLASS",
-        "MINIMUM_CONTEXT_CAPACITY_CLASS", "MODEL_DIVERSITY_REQUIRED",
-        "PROVIDER_DIVERSITY_REQUIRED", "HUMAN_SELECTION_REQUIRED", "NO_EXTERNAL_PROVIDER",
-        "NO_TRAINING_ON_INPUT"]
-missing_hard = [h for h in HARD if h not in CONS]
-check("constraints", "every required constraint type defined",
-      lambda: (not missing_hard, str(missing_hard) if missing_hard else "%d types" % len(HARD)))
+ELIGIBILITY = ["REQUIRED_CAPABILITY", "REQUIRED_MODALITY", "REQUIRED_CONTEXT_CLASS",
+               "REQUIRED_TOOL_USE", "REQUIRED_STRUCTURED_OUTPUT", "REQUIRED_DEPLOYMENT_CLASS",
+               "REQUIRED_JURISDICTION", "SUPPORTED_SENSITIVITY_CLASSES",
+               "REQUIRED_HANDLING_CONTROLS", "PROHIBITED_SENSITIVITY_CLASSES",
+               "REQUIRED_DATA_HANDLING_POSTURE", "PROVIDER_ALLOWED", "PROVIDER_PROHIBITED",
+               "MODEL_ALLOWED", "MODEL_PROHIBITED", "MODEL_FAMILY_ALLOWED",
+               "MODEL_FAMILY_PROHIBITED", "MINIMUM_REASONING_CLASS",
+               "MINIMUM_RELIABILITY_CLASS", "MINIMUM_CONTEXT_CAPACITY_CLASS",
+               "MODEL_DIVERSITY_REQUIRED", "PROVIDER_DIVERSITY_REQUIRED",
+               "NO_EXTERNAL_PROVIDER", "MAX_COST_CLASS", "MAX_LATENCY_CLASS",
+               "LIFECYCLE_ROUTABLE", "AVAILABILITY_ELIGIBLE"]
+ACT_REQUIREMENTS = ["HUMAN_SELECTION_REQUIRED", "HUMAN_ACKNOWLEDGEMENT_REQUIRED",
+                    "GOVERNANCE_REVIEW_REQUIRED"]
+EXCEPTIONABILITY = ["ABSOLUTELY_NON_WAIVABLE", "GOVERNED_EXCEPTION_POSSIBLE",
+                    "OPERATOR_CONFIGURABLE_WITHIN_POLICY"]
+missing_hard = [h for h in ELIGIBILITY if h not in CONS]
+check("constraints", "every eligibility constraint type defined",
+      lambda: (not missing_hard, str(missing_hard) if missing_hard
+               else "%d types" % len(ELIGIBILITY)))
 
-check("constraints", "hard constraints filter, soft preferences rank",
-      lambda: ("Hard eligibility constraint" in CONS and "Soft preference" in CONS
-               and "Filters" in CONS and "Ranks" in CONS, ""))
 
-check("constraints", "a soft preference never overrides a hard constraint",
-      lambda: ("A soft preference may never override a hard constraint" in plain(CONS)
-               and "A soft preference never overrides a hard constraint" in plain(STD)
+def eligibility_table_rows():
+    """Parse the eligibility-constraint table, not the whole file."""
+    block = CONS.split("## 2. Eligibility constraints")[1].split("### Three that are commonly misread")[0]
+    rows = []
+    for line in block.splitlines():
+        if not line.startswith("|") or line.startswith("|---") or "Constraint |" in line:
+            continue
+        cells = [c.strip() for c in line.split("|")[1:-1]]
+        if len(cells) == 3 and re.search(r"`[A-Z_]+`", cells[0]):
+            rows.append((", ".join(re.findall(r"`([A-Z_]+)`", cells[0])), cells[1], "", cells[2]))
+    return rows
+
+
+# --- 14.15 act requirements are NOT in the eligibility-filter set
+def act_requirements_not_filters():
+    rows = [r[0] for r in eligibility_table_rows()]
+    leaked = [a for a in ACT_REQUIREMENTS if a in rows]
+    return (not leaked and all(a in CONS.split("## 7. Act requirements")[1]
+                               for a in ACT_REQUIREMENTS),
+            str(leaked) if leaked else "3 act requirements, none in the eligibility table")
+
+
+check("constraints", "act requirements are a third kind, not eligibility filters",
+      act_requirements_not_filters)
+
+check("constraints", "act requirements change eligibility in neither direction",
+      lambda: ("change eligibility in neither direction" in plain(STD)
+               and "Three kinds of requirement, never confused" in plain(STD)
+               and "never changes eligibility in either direction" in plain(CONS)
+               and "None of these filters a candidate, and none changes eligibility" in plain(CONS)
+               and "conditions on **finalisation**" in CONS
+               and "None of these filters a candidate or changes eligibility in either direction"
+               in plain(TMPL["routing-policy-template.md"]), ""))
+
+# --- 14.11 every eligibility constraint carries an exceptionability class or derivation
+def every_constraint_has_exceptionability():
+    rows = eligibility_table_rows()
+    if len(rows) < 20:
+        return (False, "only %d rows parsed from the eligibility table" % len(rows))
+    bad = [r[0] for r in rows
+           if not (any(e in r[3] for e in EXCEPTIONABILITY) or "Derived from source" in r[3])]
+    return (not bad, str(bad) if bad else "%d rows, all classified or derived" % len(rows))
+
+
+check("exceptionability", "every eligibility constraint has an exceptionability class or derivation",
+      every_constraint_has_exceptionability)
+
+check("exceptionability", "three exceptionability classes defined",
+      lambda: (all(re.search(r"\| \*\*`%s`\*\* \|" % e, CONS) for e in EXCEPTIONABILITY),
+               ", ".join(EXCEPTIONABILITY)))
+
+check("exceptionability", "class is derived from the source of the requirement",
+      lambda: ("Deriving the class from the source" in CONS
+               and "Exceptionability is a property of the source" in plain(STD), ""))
+
+check("exceptionability", "legal, contractual, privileged and third-party sources are non-waivable",
+      lambda: (lambda block: (all(("**`ABSOLUTELY_NON_WAIVABLE`**" in ln)
+                                  for ln in block.splitlines()
+                                  if re.search(r"Statute|contractual prohibition|PRIVILEGED. or .THIRD_PARTY", ln)),
+                              "legal/contract/privilege rows non-waivable"))(
+          CONS.split("### 5.2")[1].split("### 5.3")[0]))
+
+check("exceptionability", "a Phase 7 Right cannot create legal authority",
+      lambda: ("cannot create legal authority" in plain(CONS)
+               and "cannot create legal authority" in plain(STD), ""))
+
+check("exceptionability", "unknown exceptionability defaults to non-waivable",
+      lambda: ("defaults to `ABSOLUTELY_NON_WAIVABLE`" in CONS
+               and "unclassified constraint is non-waivable" in plain(STD), ""))
+
+check("exceptionability", "human acknowledgement never changes eligibility",
+      lambda: ("Human acknowledgement never changes eligibility" in plain(CONS)
+               and "adjusts no requirement" in plain(CONS), ""))
+
+check("exceptionability", "a named Right must cover the specific constraint class",
+      lambda: ('"A Decision Right exists" is not a basis' in plain(CONS).replace("\u201c", '"').replace("\u201d", '"')
+               or "a Decision Right exists\" is not a basis" in plain(CONS), ""))
+
+check("constraints", "three kinds: eligibility filters, preferences rank, acts withhold",
+      lambda: (all(k in CONS for k in ("ELIGIBILITY_CONSTRAINT", "PREFERENCE",
+                                       "ROUTING_ACT_REQUIREMENT"))
+               and "Filters" in CONS and "Ranks" in CONS and "No selection is final" in CONS, ""))
+
+check("constraints", "a preference never overrides an eligibility constraint",
+      lambda: ("preference may never override an eligibility constraint" in plain(CONS)
+               and "Three kinds of requirement, never confused" in plain(STD)
                and "no accumulation of preferences" in plain(CONS).lower(), ""))
 
 check("constraints", "ranking happens only inside the eligible set",
@@ -255,62 +342,319 @@ check("constraints", "an unrecognised constraint blocks rather than being ignore
       lambda: ("An unrecognised constraint blocks routing" in plain(STD)
                and "blocks routing" in plain(CONS), ""))
 
-check("constraints", "MAX_DATA_SENSITIVITY_ALLOWED is a deployment property",
+check("constraints", "sensitivity eligibility is a deployment property",
       lambda: ("property of the deployment, not of the model" in plain(CONS), ""))
 
-check("constraints", "NO_TRAINING_ON_INPUT: unstated is not satisfied",
-      lambda: ("Unstated is not satisfied" in plain(CONS)
+check("constraints", "data-handling posture: unstated is not satisfied",
+      lambda: ("unstated is not satisfied" in plain(CONS).lower()
                and "unstated is not satisfied" in plain(TMPL["deployment-profile-template.md"]).lower(), ""))
 
-check("constraints", "HUMAN_SELECTION_REQUIRED is an act, not a filter",
-      lambda: ("is not a filter" in plain(CONS) and "requires is a human act" in plain(CONS), ""))
+check("constraints", "an unrecognised requirement blocks routing",
+      lambda: ("an unrecognised requirement blocks routing" in plain(CONS).lower()
+               and "An unrecognised constraint blocks routing" in plain(STD), ""))
 
-check("constraints", "conflicting hard constraints yield NO_ELIGIBLE_MODEL, not a compromise",
+check("constraints", "conflicting eligibility constraints yield NO_ELIGIBLE_MODEL, not a compromise",
       lambda: ("NO_ELIGIBLE_MODEL" in CONS
-               and "fewest constraints" in plain(CONS), ""))
+               and "violates the fewest" in plain(CONS)
+               and "There is no partial eligibility" in plain(CONS), ""))
 
-STAGES = ["Legality and governance", "Sensitivity, privacy and residency",
+STAGES = ["Legality and governance", "Sensitivity, handling and residency",
           "Required capability", "Independence and diversity", "Lifecycle and availability",
-          "Quality and reliability preference", "Latency and cost preference",
-          "Deterministic tie-break"]
-check("precedence", "eight ordered precedence stages, hard before soft",
+          "Preferences, in the policy's declared order", "Deterministic tie-break",
+          "Act requirements"]
+check("precedence", "nine precedence stages including universe binding at stage 0",
       lambda: (all(s in plain(PREC) for s in STAGES)
-               and "Stages 1-5 are hard and cannot be reordered" in plain(PREC).replace("–", "-"),
-               "%d stages" % len(STAGES)))
+               and "Candidate universe binding" in plain(PREC), "%d stages" % (len(STAGES) + 1)))
 
-check("precedence", "each stage filters what the next sees",
+check("precedence", "hard stages 1-5 globally fixed; stage 6 owned by the versioned policy",
+      lambda: ("Stages 1-5 are globally fixed and cannot be reordered by any policy"
+               in plain(PREC).replace("\u2013", "-")
+               and "Stage 6 is owned by the versioned Routing Policy" in plain(PREC)
+               and "This policy owns the order" in plain(TMPL["routing-policy-template.md"]), ""))
+
+check("precedence", "no global hard-coded reliability-before-cost ordering survives",
+      lambda: (lambda stale: (not stale, str(stale) if stale else "no fixed soft ordering"))(
+          [rel for rel, doc in NORMATIVE.items()
+           if re.search(r"reliability outranks (cheapness|cost)", doc, re.I)
+           or "stage 7 sits **after** stage 6" in doc]))
+
+check("precedence", "risk-required reliability is expressed as an eligibility constraint",
+      lambda: ("MINIMUM_RELIABILITY_CLASS" in PREC
+               and "a preference is always negotiable by definition" in plain(PREC), ""))
+
+check("precedence", "each stage filters what the next sees; no ordering restores a candidate",
       lambda: ("Each stage filters the set the next stage sees" in plain(PREC)
-               and "can never restore what an earlier one excluded" in plain(PREC), ""))
+               and "No preference ordering can restore an ineligible candidate" in plain(PREC), ""))
 
 check("precedence", "cost and latency can never override governance requirements",
-      lambda: ("can never override legality, confidentiality, residency, required capability, "
-               "review independence, or a criticality requirement" in plain(PREC)
+      lambda: ("never displaces a governance" in plain(CONS)
                and "Cost and latency never override governance" in plain(STD), ""))
 
-check("precedence", "reliability preference is ordered before cost preference",
-      lambda: (plain(PREC).index("Quality and reliability preference")
-               < plain(PREC).index("Latency and cost preference"), "stage 6 before stage 7"))
-
-check("precedence", "preferences are ordered, not weighted",
-      lambda: ("A preference states a direction, not a weight" in plain(CONS)
-               and "Ordered, not weighted" in plain(TMPL["routing-policy-template.md"]), ""))
+check("precedence", "preferences are lexicographic, not weighted",
+      lambda: ("lexicographic" in plain(PREC) and "not weighted" in plain(PREC)
+               and "declared order, not weighted" in plain(CONS)
+               and "none to tune" in plain(TMPL["routing-policy-template.md"]).lower(), ""))
 
 check("precedence", "tie-break is deterministic and recorded, never random",
-      lambda: ("deterministic and recorded" in plain(PREC)
-               and "never random" in plain(PREC)
+      lambda: ("deterministic and recorded" in plain(PREC) and "never random" in plain(PREC)
                and "select the same candidate" in plain(PREC), ""))
 
-check("precedence", "cost may be hard only by declared task policy, and never relaxes others",
+check("precedence", "cost may be an eligibility constraint only by declared task policy",
       lambda: ("preferences by default" in plain(CONS)
-               and "never displaces a governance" in plain(CONS)
                and "the work costs more than the budget" in plain(CONS), ""))
+
+# =========================================================== candidate universe
+
+UNIVERSE_ELEMENTS = ["Registry state reference", "Universe definition version", "Inclusion rule",
+                     "Routing scope", "Pre-filter exclusions", "Enumerated candidate set",
+                     "Omission reasons", "Completeness result"]
+check("candidate-universe", "Candidate Universe Definition names all required elements",
+      lambda: (all(e in PREC for e in UNIVERSE_ELEMENTS), "%d elements" % len(UNIVERSE_ELEMENTS)))
+
+check("candidate-universe", "universe is bound before any filtering",
+      lambda: ("binds to a Candidate Universe Definition before any filtering or ranking occurs"
+               in plain(PREC)
+               and PREC.index("## 1. The candidate universe comes first")
+               < PREC.index("## 2. Precedence"), "universe section precedes precedence section"))
+
+def where_practical_removed():
+    """The phrase survives only where it is quoted as the standard being rejected."""
+    stale = []
+    for rel, doc in NORMATIVE.items():
+        for m in re.finditer(r"where practical", doc):
+            window = doc[max(0, m.start() - 250):m.end() + 250]
+            if re.search(r"is not a standard|does not meet it|replaced|first draft|audit", window, re.I):
+                continue
+            stale.append(rel)
+    return (not stale, str(sorted(set(stale))) if stale else "only as the rejected standard")
+
+
+check("candidate-universe", "'where practical' replaced by normative semantics",
+      where_practical_removed)
+
+check("candidate-universe", "registry state reference is deterministic, not a timestamp alone",
+      lambda: ("Not a timestamp alone" in plain(PREC)
+               and "does not reconstruct anything" in plain(PREC)
+               and "reconstructs nothing" in plain(TMPL["routing-decision-template.md"]), ""))
+
+check("candidate-universe", "pre-filter exclusion is distinguished from constraint exclusion",
+      lambda: ("Outside the universe versus ineligible inside it" in plain(PREC)
+               and "appears in neither list is the defect" in plain(PREC), ""))
+
+check("candidate-universe", "availability does not remove a candidate from the universe",
+      lambda: ("Availability does not remove a candidate from the universe" in plain(PREC)
+               and "never made to disappear" in plain(TMPL["routing-decision-template.md"]), ""))
+
+check("candidate-universe", "a load failure yields CANDIDATE_UNIVERSE_INCOMPLETE, never silent shrink",
+      lambda: ("CANDIDATE_UNIVERSE_INCOMPLETE" in PREC
+               and "must never silently shrink the universe" in plain(PREC)
+               and "never silently shrinks the universe" in plain(STD), ""))
+
+check("candidate-universe", "incomplete universe blocks or escalates per policy",
+      lambda: ("**block**, or **escalate**" in PREC and "It never proceeds" in plain(PREC)
+               and "`BLOCK` or `ESCALATE`" in TMPL["routing-policy-template.md"], ""))
+
+check("candidate-universe", "routing decision template requires the universe elements",
+      lambda: (all(x in TMPL["routing-decision-template.md"]
+                   for x in ["Registry state reference", "Candidate Universe Definition version",
+                             "Omission reasons", "Completeness result",
+                             "CANDIDATE_UNIVERSE_COMPLETE"]), ""))
+
+check("candidate-universe", "policy template declares the universe definition and its failure mode",
+      lambda: ("## Candidate Universe Definition" in TMPL["routing-policy-template.md"]
+               and "Availability pre-enumeration" in TMPL["routing-policy-template.md"], ""))
+
+# =========================================================== sensitivity multi-label
+
+def no_ordinal_sensitivity():
+    """No scalar ceiling or ordinal comparison over Phase 8 sensitivity classes."""
+    patterns = [r"MAX_DATA_SENSITIVITY_ALLOWED", r"maximum (approved )?(data )?sensitivity",
+                r"sensitivity[^.]{0,40}at or above", r"at or above[^.]{0,40}sensitivity",
+                r"highest[^.]{0,30}sensitivity class"]
+    hits = []
+    for rel, doc in NORMATIVE.items():
+        for pat in patterns:
+            for m in re.finditer(pat, doc, re.I):
+                window = doc[max(0, m.start() - 250):m.end() + 250]
+                if (REMEDIATION_CONTEXT.search(window) or "no total order" in window
+                        or re.search(r"would have|ceiling test|first draft|rejected", window, re.I)):
+                    continue
+                hits.append("%s: %s" % (rel, m.group(0)[:40]))
+    return (not hits, str(hits) if hits else "0 ordinal sensitivity constructs")
+
+
+check("sensitivity", "no scalar maximum-sensitivity or ordinal comparison survives",
+      no_ordinal_sensitivity)
+
+check("sensitivity", "Phase 8's lack of a total order is stated and honoured",
+      lambda: ("no total order" in plain(CONS) and "no total order" in plain(A)
+               and "Sensitivity is a multi-label set test" in plain(STD), ""))
+
+check("sensitivity", "eligibility is a subset test with obligations",
+      lambda: ("subset test with obligations" in plain(CONS)
+               and "every applicable sensitivity label is explicitly supported" in plain(CONS), ""))
+
+check("sensitivity", "compound labels require every regime simultaneously",
+      lambda: ("requires **both** regimes simultaneously" in CONS
+               and "implies support for no other" in plain(CONS), ""))
+
+check("sensitivity", "unknown support is not support",
+      lambda: ("Unknown support is not support" in plain(CONS)
+               and "unknown support is not support" in plain(STD).lower()
+               and "Unknown support is not support" in plain(TMPL["deployment-profile-template.md"]), ""))
+
+check("sensitivity", "prohibition wins over support",
+      lambda: ("A prohibition wins over any support" in plain(CONS)
+               and "Prohibition wins over support" in plain(TMPL["deployment-profile-template.md"]), ""))
+
+check("sensitivity", "Phase 8's most-restrictive and non-relaxable rules are carried through",
+      lambda: ("most restrictive handling applies" in plain(CONS)
+               and "cannot be relaxed by an internal decision" in plain(CONS), ""))
+
+check("sensitivity", "deployment template declares supported/prohibited sets and controls",
+      lambda: (all(x in TMPL["deployment-profile-template.md"]
+                   for x in ["SUPPORTED_SENSITIVITY_CLASSES", "PROHIBITED_SENSITIVITY_CLASSES",
+                             "Handling controls per supported label", "Unassessed labels"]), ""))
+
+# =========================================================== residency
+
+RESIDENCY_FIELDS = ["Exact jurisdiction", "Region / residency class", "Allowed jurisdiction set",
+                    "Prohibited jurisdiction set", "Cross-border processing", "UNKNOWN_RESIDENCY"]
+check("residency", "residency semantics complete in the constraint model",
+      lambda: (all(f in CONS for f in RESIDENCY_FIELDS), "%d fields" % len(RESIDENCY_FIELDS)))
+
+check("residency", "deployment template carries the residency fields and evidence",
+      lambda: (all(f in TMPL["deployment-profile-template.md"]
+                   for f in ["Exact jurisdiction", "Region / residency class",
+                             "Cross-border processing", "UNKNOWN_RESIDENCY",
+                             "Evidence and review-by"]), ""))
+
+check("residency", "UNKNOWN_RESIDENCY never satisfies a residency requirement",
+      lambda: ("never satisfies a residency requirement" in plain(CONS)
+               and "Never satisfies a residency requirement" in plain(TMPL["deployment-profile-template.md"])
+               and "never satisfied" in plain(STD).lower(), ""))
+
+check("residency", "prohibited outranks allowed",
+      lambda: ("Prohibited outranks allowed" in plain(CONS)
+               and "prohibited outranks allowed" in plain(STD).lower(), ""))
+
+check("residency", "region class and exact jurisdiction need an explicit mapping",
+      lambda: ("not interchangeable" in plain(CONS)
+               and "explicit declared mapping" in plain(CONS), ""))
+
+check("residency", "provider claims constrain but do not substitute for deployment evidence",
+      lambda: ("do not substitute" in plain(CONS)
+               and "never substitute for deployment-specific evidence"
+               in plain(TMPL["deployment-profile-template.md"]), ""))
+
+check("residency", "residency belongs to the deployment, not the model",
+      lambda: ("belongs **primarily to the Deployment Profile**" in CONS
+               and "Residency belongs to the deployment" in plain(STD), ""))
+
+# =========================================================== data-handling ownership
+
+check("posture", "data-handling posture has one authoritative reading",
+      lambda: ("Effective deployment posture" in CONS
+               and "Data-handling posture has one authoritative reading" in plain(STD)
+               and "There is no second source of truth" in plain(CONS), ""))
+
+check("posture", "Model Profile carries no data-handling posture",
+      lambda: ("Data Handling — not recorded here" in TMPL["model-profile-template.md"]
+               and "is a **defect**" in TMPL["model-profile-template.md"]
+               and "**Nothing.**" in CONS.split("| **Model Profile** |")[1][:60], ""))
+
+check("posture", "provider carries the default; deployment carries the effective posture",
+      lambda: ("provider-level default and constraint" in plain(TMPL["provider-profile-template.md"])
+               and "Effective Data-Handling Posture" in TMPL["deployment-profile-template.md"], ""))
+
+check("posture", "a deployment may be more restrictive freely, less only if evidenced",
+      lambda: ("more** restrictive" in CONS and "explicitly evidenced and permitted" in plain(CONS)
+               and "provider-level constraint governs" in plain(TMPL["deployment-profile-template.md"]), ""))
 
 # =========================================================== lifecycle
 
-LIFECYCLE = ["CANDIDATE", "EVALUATING", "ELIGIBLE", "PREFERRED", "RESTRICTED",
-             "DEPRECATED", "SUSPENDED", "RETIRED"]
-check("lifecycle", "eight lifecycle states defined",
-      lambda: (all(re.search(r"\| `%s` \|" % s, LIFE) for s in LIFECYCLE), "%d" % len(LIFECYCLE)))
+IDENTITY_LAYERS = ["Model Family", "Underlying Model Release", "Model Profile",
+                   "Registry Profile Version", "Provider Offering Mapping", "Deployment Profile"]
+check("identity-stack", "six identity-stack layers defined with no overlap",
+      lambda: (all(l in LIFE for l in IDENTITY_LAYERS)
+               and "The identity stack" in LIFE, "%d layers" % len(IDENTITY_LAYERS)))
+
+check("identity-stack", "registry profile version is not the underlying model version",
+      lambda: ("Registry profile version is not the underlying model version" in plain(LIFE)
+               and "not the underlying model version" in plain(TMPL["model-profile-template.md"])
+               and "Registry profile version is not the underlying model version" in plain(STD), ""))
+
+check("identity-stack", "model profile template carries all four of its layers",
+      lambda: (all(x in TMPL["model-profile-template.md"]
+                   for x in ["Model Family:", "Underlying Model Release:", "Model Profile ID:",
+                             "Registry Profile Version:"]), ""))
+
+check("identity-stack", "provider offering mapping is a bounded mapping, not a registry object",
+      lambda: ("Provider Offering Mappings" in TMPL["provider-profile-template.md"]
+               and "not a registry object" in plain(TMPL["provider-profile-template.md"])
+               and "Why Provider Offering is a mapping, not a seventh object" in LIFE, ""))
+
+check("identity-stack", "materially different provider behaviour becomes a distinct Model Profile",
+      lambda: ("distinct Model Profile" in LIFE
+               and "belongs to a distinct Model Profile, not to this list"
+               in plain(TMPL["model-profile-template.md"])
+               and "never an ambiguous mapping" in plain(STD), ""))
+
+check("identity-stack", "a marketing alias never defines identity",
+      lambda: ("never defines Model Profile identity" in plain(LIFE)
+               and "an alias never defines identity" in plain(TMPL["model-profile-template.md"]), ""))
+
+check("identity-stack", "one profile may map to several provider/deployment combinations",
+      lambda: ("may map to several provider/deployment combinations" in plain(LIFE)
+               and "the same underlying release" in plain(LIFE), ""))
+
+check("identity-stack", "a routing decision preserves both profile version and mapping",
+      lambda: ("preserves both the exact Model Profile version and the provider/deployment mapping"
+               in plain(LIFE)
+               and "under-determines what ran" in plain(TMPL["routing-decision-template.md"]), ""))
+
+check("identity-stack", "a silent provider backend change triggers review",
+      lambda: ("silent provider backend change" in plain(LIFE).lower()
+               and "silent backend change" in plain(TMPL["provider-profile-template.md"]).lower(), ""))
+
+LIFECYCLE = ["CANDIDATE", "EVALUATING", "ELIGIBLE", "DEPRECATED", "SUSPENDED", "RETIRED"]
+
+
+def declared_lifecycle_states():
+    # Only the first table after the heading declares the states; the table after it
+    # explains what was removed and must not be read as a declaration.
+    block = LIFE.split("## 1. Lifecycle states")[1]
+    first_table = re.search(r"\| State \|.*?\n\n", block, re.S)
+    return sorted(set(re.findall(r"^\| `([A-Z_]+)` \|", first_table.group(0), re.M)))
+
+
+check("lifecycle", "exactly six mutually exclusive primary lifecycle states",
+      lambda: (declared_lifecycle_states() == sorted(LIFECYCLE),
+               ", ".join(declared_lifecycle_states())))
+
+check("lifecycle", "lifecycle exclusivity is explicit",
+      lambda: ("Exactly one primary lifecycle state at a time" in plain(LIFE)
+               and "two never coexist" in plain(LIFE)
+               and "Exactly one primary lifecycle state at a time" in plain(STD), ""))
+
+check("lifecycle", "PREFERRED and RESTRICTED are annotations, not states",
+      lambda: ("PREFERRED" not in declared_lifecycle_states()
+               and "RESTRICTED" not in declared_lifecycle_states()
+               and "routing preference designation" in plain(LIFE)
+               and "restriction annotation" in plain(LIFE)
+               and "were removed" in LIFE.split("## 1. Lifecycle states")[1]
+               and "Exactly one primary lifecycle state" in plain(LIFE), ""))
+
+check("lifecycle", "annotations are orthogonal to the state and to each other",
+      lambda: ("orthogonal to the state and to each other" in plain(LIFE)
+               and "neither is a state" in plain(STD), ""))
+
+check("lifecycle", "transition rules defined and RETIRED is terminal",
+      lambda: ("### Transitions" in LIFE and "RETIRED` is terminal" in LIFE
+               and "a new profile" in plain(LIFE), ""))
+
+check("lifecycle", "no transition touches history",
+      lambda: ("No transition touches history" in plain(LIFE), ""))
 
 check("lifecycle", "lifecycle status is not task eligibility",
       lambda: ("Registry status is a gate, not a grant" in plain(LIFE)
@@ -319,25 +663,63 @@ check("lifecycle", "lifecycle status is not task eligibility",
 check("lifecycle", "a globally ELIGIBLE model can be prohibited for a specific task",
       lambda: ("can be prohibited for a particular task" in plain(LIFE), ""))
 
-check("lifecycle", "a PREFERRED model is not mandatory",
-      lambda: ("A PREFERRED model is not mandatory" in plain(LIFE)
-               and "is not mandatory where policy disqualifies it" in plain(STD), ""))
-
 check("lifecycle", "deprecation excludes new routing and removes nothing",
       lambda: ("excludes a profile from new routing. It removes nothing" in plain(LIFE)
                and "Routing history is preserved through everything" in plain(STD), ""))
 
-check("lifecycle", "historical Routing Decisions preserved through deprecation and incident",
+check("lifecycle", "historical decisions preserved through deprecation and incident",
       lambda: ("Preserved intact" in plain(LIFE)
-               and "Historical Routing Decisions are preserved through every one of these"
-               in plain(LIFE), ""))
+               and "Historical Routing Decisions are preserved through every one of these" in plain(LIFE), ""))
 
 check("lifecycle", "three versioned objects, all named by a Routing Decision",
       lambda: ("Model Profile version" in LIFE and "Routing Policy version" in LIFE
                and "A Routing Decision names all three, by version" in plain(LIFE), ""))
 
-check("lifecycle", "a provider version change is a profile version change",
-      lambda: ("provider version change is a profile version change" in plain(LIFE), ""))
+# =========================================================== fallback / exception
+
+check("exception", "three distinct cases A/B/C defined",
+      lambda: ("Ordinary eligible fallback" in PREC and "Exception-adjusted re-evaluation" in PREC
+               and "Non-waivable constraint failure" in PREC, "A, B, C"))
+
+check("exception", "a candidate is never eligible before the governing act",
+      lambda: ("never called eligible before the governing act changes the applicable requirement set"
+               in plain(PREC)
+               and "never recorded as eligible" in plain(STD), ""))
+
+check("exception", "case B records the original ineligibility and never rewrites it",
+      lambda: ("the original ineligibility result" in plain(PREC)
+               and "No part of the original routing history is rewritten" in plain(PREC)
+               and "The original result is never overwritten" in plain(STD), ""))
+
+check("exception", "case B requires the act before re-evaluation, in order",
+      lambda: (plain(PREC).index("The candidate is ineligible")
+               < plain(PREC).index("Eligibility is re-evaluated against the adjusted set"),
+               "ineligibility recorded before re-evaluation"))
+
+check("exception", "exception effect is bounded and expiring",
+      lambda: ("bounded, expiring effect" in plain(PREC)
+               and "bounded, expiring adjusted context" in plain(STD), ""))
+
+check("exception", "ordinary degraded fallback is weaker only on a preference or permitted band",
+      lambda: ("preference** or an **explicitly declared permitted degradation band**" in PREC
+               and "never weaker on an eligibility constraint" in plain(PREC), ""))
+
+check("exception", "acknowledgement is not the mechanism for a failed eligibility constraint",
+      lambda: ("this is not a degraded fallback at all" in plain(PREC).lower()
+               and "Operator acknowledgement is not sufficient and is not the mechanism" in plain(PREC), ""))
+
+check("exception", "case C blocks with no acknowledgement, seniority or urgency changing it",
+      lambda: ("no acknowledgement, seniority or urgency changes it" in plain(PREC), ""))
+
+check("exception", "routing decision template records the full case-B chain",
+      lambda: (all(x in plain(TMPL["routing-decision-template.md"])
+                   for x in ["the original ineligibility result", "exceptionability class",
+                             "adjusted constraint", "expiry", "re-evaluated"]), ""))
+
+check("exception", "routing decision template names the anti-retrospective-justification rule",
+      lambda: ("never recorded as eligible under the original policy"
+               in plain(TMPL["routing-decision-template.md"])
+               and "justification written afterwards" in plain(TMPL["routing-decision-template.md"]), ""))
 
 # =========================================================== anti-lock-in
 
@@ -455,8 +837,9 @@ FBKINDS = ["EQUIVALENT_FALLBACK", "DEGRADED_FALLBACK", "PROHIBITED_FALLBACK",
 check("fallback", "five fallback outcomes defined",
       lambda: (all(re.search(r"\| `%s` \|" % f, PREC) for f in FBKINDS), "%d" % len(FBKINDS)))
 
-check("fallback", "a fallback satisfies every hard constraint or is not a fallback",
-      lambda: ("satisfies every hard constraint or it is not a fallback" in plain(PREC), ""))
+check("fallback", "a fallback satisfies every eligibility constraint or is not a fallback",
+      lambda: ("satisfies every eligibility constraint or it is not a fallback" in plain(PREC)
+               and "is never called eligible" in plain(PREC), ""))
 
 check("fallback", "no silent degradation; degraded fallback names the weaker dimension",
       lambda: ("No silent degradation" in plain(PREC) and "No silent degradation" in plain(STD)
@@ -478,9 +861,9 @@ check("fallback", "no eligible candidate yields NO_ELIGIBLE_MODEL / BLOCKED_FOR_
 check("fallback", "blocking is stated as a legitimate outcome, not a router failure",
       lambda: ("is a correct result, not a failure of the router" in plain(PREC), ""))
 
-check("fallback", "material degraded fallback at Decision-Grade needs a Phase 7 exception",
-      lambda: ("governed exception under an upstream Phase 7 Decision Right" in plain(PREC)
-               and "Operator acknowledgement is not sufficient" in plain(PREC), ""))
+check("fallback", "a weaker eligibility constraint is case B, not a degraded fallback",
+      lambda: ("it is case B of" in plain(PREC)
+               and "Operator acknowledgement is not sufficient and is not the mechanism" in plain(PREC), ""))
 
 # =========================================================== human control
 
@@ -488,22 +871,25 @@ check("human", "human may select, require, prohibit, accept degraded, or block",
       lambda: (all(w in plain(A) for w in ["select", "require", "prohibit",
                                            "accept a declared degraded fallback", "block"]), ""))
 
-check("human", "human cannot make an ineligible model eligible where law/privacy forbids",
-      lambda: ("make an ineligible model eligible" in plain(A)
-               and "no role, seniority or urgency reaches that" in plain(A)
+check("human", "human cannot make an ineligible model eligible by any act of their own",
+      lambda: ("make an ineligible model eligible by any act of their own" in plain(A)
+               and "no exception path exists at all" in plain(A)
                and "Human override cannot reach a mandatory constraint" in plain(STD), ""))
 
-check("human", "human cannot waive mandatory review independence without a Decision Right",
-      lambda: ("waive mandatory review independence" in plain(A)
-               and "a routing choice is not one" in plain(A), ""))
+check("human", "no routing act waives reviewer independence, with or without a Decision Right",
+      lambda: ("waive reviewer independence by any routing act" in plain(A)
+               and "no routing choice or model-diversity adjustment touches it" in plain(A)
+               and "never touches reviewer independence" in plain(STD).lower(), ""))
 
 check("human", "human cannot make output true or canonical, nor rewrite routing history",
       lambda: ("make output true or canonical" in plain(A)
                and "rewrite routing history" in plain(A), ""))
 
-check("human", "operator choice and governed exception are distinguished",
-      lambda: ("Ordinary operator choice and a governed exception are different acts" in plain(A)
-               and "it is either a governed exception" in plain(A).lower(), ""))
+check("human", "operator choice, acknowledgement and governed exception are three acts",
+      lambda: ("Three different acts, kept apart" in plain(A)
+               and "Adjusts no requirement" in plain(A)
+               and "re-evaluated against it" in plain(A)
+               and "never called eligible under the original policy" in plain(A), ""))
 
 # =========================================================== privacy / Phase 8 integration
 
@@ -543,21 +929,22 @@ check("decision-record", "routing decision template enumerates its required elem
 
 for label, needle in [("policy version", "routing_policy.<id>` **and policy version**"),
                       ("model profile version", "profile version**"),
-                      ("candidate set", "Candidate set considered"),
-                      ("per-candidate eligibility", "Eligibility result per candidate"),
+                      ("candidate set", "Enumerated candidate set"),
+                      ("per-candidate eligibility", "Eligibility result per enumerated candidate"),
                       ("selection reason", "Reason for selection"),
                       ("fallback candidates", "Declared fallback candidates"),
                       ("diversity prior", "named prior Routing Decision"),
-                      ("availability at selection", "at selection time"),
-                      ("human involvement", "Human selection, requirement or prohibition"),
+                      ("availability at selection", "Availability class per candidate at evaluation time"),
+                      ("human involvement", "Act requirements"),
                       ("block outcome", "BLOCKED_FOR_ROUTING"),
                       ("audit history", "append-only")]:
     check("decision-record", "routing decision records %s" % label,
           (lambda n=needle: (n in TMPL["routing-decision-template.md"], "")))
 
-check("decision-record", "degraded selection must name dimension, acknowledgement and exception",
-      lambda: ("the dimension on which it is weaker, the acknowledgement, and the Phase 7 "
-               "exception reference" in plain(TMPL["routing-decision-template.md"]), ""))
+check("decision-record", "degraded selection names its dimension; exception chain is separate",
+      lambda: ("the dimension on which it is weaker, and the acknowledgement"
+               in plain(TMPL["routing-decision-template.md"])
+               and "the full case-B chain" in plain(TMPL["routing-decision-template.md"]), ""))
 
 check("decision-record", "a degraded fallback recorded as ordinary selection is a defect",
       lambda: ("is a defect in the record" in plain(TMPL["routing-decision-template.md"]), ""))
@@ -628,12 +1015,12 @@ EXEMPLAR_PROOFS = {
     "routine-drafting-low-cost.md": "already-filtered set",
     "high-criticality-reasoning.md": "not the same as",
     "independent-assurance-family-diversity.md": "two controls",
-    "privacy-restricted-deployment.md": "property of the",
-    "vision-requirement-excludes-text-only.md": "hard constraint",
+    "privacy-restricted-deployment.md": "multi-label subset test",
+    "vision-requirement-excludes-text-only.md": "ABSOLUTELY_NON_WAIVABLE",
     "provider-outage-equivalent-fallback.md": "never a reason to relax",
     "no-eligible-model-block.md": "correct outcome",
     "deprecated-model-history-preserved.md": "removes nothing",
-    "degraded-fallback-governed-exception.md": "governed Phase 7 exception",
+    "degraded-fallback-governed-exception.md": "never called eligible",
 }
 for fname, needle in EXEMPLAR_PROOFS.items():
     check("exemplars", "exemplar %s states what it proves" % fname.replace(".md", ""),
