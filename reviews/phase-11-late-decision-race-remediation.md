@@ -48,3 +48,61 @@ structured late-Decision assertion.
 
 No Phase 10 validator or approval record was changed. All Phase 11 architecture remains
 `PROPOSED`; no runtime or infrastructure was introduced.
+
+---
+
+# Final targeted remediation — a late Decision Record may not be called stale
+
+Approval re-audit: **FAIL**, one remaining HIGH validator gap.
+
+**One defect, and it was in the harness.** The previous pass rejected `IGNORE_AS_STALE`, the discard vocabulary, and the exact phrase `treated as stale` — a **word list**, and a word list only knows the words someone thought of. The re-audit wrote `The Decision Record stands but is stale` and it passed: the row still said the record stands, still carried `RECONCILE`/`ESCALATE`, and named no forbidden word.
+
+That wording is the whole failure in miniature. Staleness is a property a coordinator would be **assigning to a governed act that occurred** — and a record that stands while being stale is a record nobody has to act on, which is exactly the outcome this race case exists to refuse.
+
+## The rule
+
+A late Decision Record:
+
+- **remains a valid authority-bearing governed historical fact** — it stands, or is retained;
+- **may require `RECONCILE` and/or `ESCALATE`** for current-state handling;
+- **may not be ignored or discarded**;
+- **may not be characterised as stale itself** merely because the execution state changed.
+
+The asymmetry with a late **review** result is preserved deliberately and is checked in the same place: `IGNORE_AS_STALE` remains correct there, with the result recorded against its Review Instance. A review is an assessment of superseded work. A Decision Record is an act that happened.
+
+## Predication, not a word ban
+
+The check moved from listing phrases to matching **predications of staleness** — constructions in which staleness is asserted *of* something. At two widths, deliberately:
+
+| Scope | Width | Why |
+|---|---|---|
+| **The authoritative late-Decision race row** (its outcome and reason cells) | Broad: any predication of staleness at all | It is two cells of one row, where a sentence about anything being stale does not belong |
+| **Every Phase 11 artifact** | Narrow: the predication must **name a Decision Record** | So that stale **evidence** — a real and blocking condition in this architecture — is never touched |
+
+A negation immediately before a predication inverts it, so "the Decision Record is **not** stale" is the correct characterisation and passes. The declared vocabulary token `IGNORE_AS_STALE` is scrubbed before matching, so the row may still reference the contrast without tripping the rule.
+
+Rejected at minimum: `is stale` · `was stale` · `becomes stale` · `considered stale` · `deemed stale` · `marked stale` · `treated as stale` · `stale Decision Record`.
+
+**The architecture row is unchanged.** The audit was right that committed content is correct; this was validator coverage.
+
+## The rule, executed rather than described
+
+A third check feeds the matcher its own cases — twelve of them, each asserted against **both** scopes — including the audit's exact bypass. Relaxing the patterns fails it **without any document being edited**, which is the property the previous word list did not have.
+
+## Probes
+
+| Probe | Exit |
+|---|:--:|
+| `The Decision Record stands but is stale` — the exact bypass, now **rejected** | 1 |
+| `was deemed stale` · `stale Decision Record` · `considered stale` · `marked stale` · `becomes stale` · `treated as stale` — each **rejected** | 1 each |
+| `IGNORE_AS_STALE` + discarded | 1 |
+| `voided` | 1 |
+| `RECONCILE`/`ESCALATE` removed | 1 |
+| Late review loses `IGNORE_AS_STALE`, or is no longer recorded against its Review Instance | 1 each |
+| **Control** — retained + `RECONCILE` + `ESCALATE` | **0** |
+| **Control** — the row says the record is **not** stale | **0** |
+| **Control** — stale *evidence* prose elsewhere in Phase 11 | **0** |
+
+The twelve foundation probes were re-run and all still exit 1.
+
+Suite **151 → 153**; `concurrency` 9 → 11. **Phase 11 remains `PROPOSED`; human approval is pending.**

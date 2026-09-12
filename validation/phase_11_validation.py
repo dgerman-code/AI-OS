@@ -767,6 +767,58 @@ def late_results_are_never_applied():
 check("concurrency", "late results are recorded and never applied", late_results_are_never_applied)
 
 
+# A late Decision Record may require RECONCILE and/or ESCALATE for current-state handling.
+# It may never be characterised as stale ITSELF: staleness is a property a coordinator would
+# be assigning to a governed act that occurred, which is the one move this race case exists to
+# refuse. The previous forbidden-word list caught "treated as stale" and nothing else, so
+# "The Decision Record stands but is stale" passed - the exact bypass the approval re-audit
+# demonstrated. The patterns below are predications rather than a word ban, so `stale` remains
+# usable everywhere in Phase 11 where it is correct (stale evidence, IGNORE_AS_STALE).
+STALE_PREDICATION = re.compile(
+    r"\bstale\s+(?:decision\s+)?record\b"
+    r"|\b(?:record|records|decision|act|it|which|that|this)\s+"
+    r"(?:is|was|were|becomes?|became|remains?|stays?|gets?|turns?|counts?|reads?)\s+"
+    r"(?:now\s+|then\s+|already\s+|merely\s+)?stale\b"
+    r"|\b(?:deemed|considered|marked|regarded|classified|counted|treated|held|taken)\s+"
+    r"(?:as\s+|to\s+be\s+)?stale\b"
+    r"|\b(?:is|was|were|becomes|became|remains|stays)\s+"
+    r"(?:now\s+|then\s+|already\s+|merely\s+)?stale\b", re.I)
+
+# A negation immediately before the predication inverts it: "the record is not stale" is the
+# correct characterisation, not the forbidden one.
+NEGATION_BEFORE = re.compile(r"\b(?:not|never|no longer|nor|neither)\b[^.;]{0,30}$", re.I)
+
+
+# The row-scoped matcher above is deliberately broad, because it is only ever applied to the
+# two cells of the late-Decision race row, where a sentence about anything being stale does not
+# belong. The Phase-11-wide matcher below is narrow by necessity: it must name a Decision
+# Record, so that stale *evidence* - a real and blocking condition in this architecture - is
+# never touched by it. Two scopes, two widths, and the difference is the point.
+NAMED_STALE_RECORD = re.compile(
+    r"\bstale\s+decision\s+record\b"
+    r"|\bdecision\s+record\b[^.;|]{0,60}?\b(?:is|was|were|becomes?|became|remains?|"
+    r"stays?|deemed|considered|marked|regarded|classified|treated)\s+"
+    r"(?:as\s+|to\s+be\s+|now\s+|then\s+|merely\s+)?stale\b", re.I)
+
+
+def named_stale_record(text):
+    """Predications of staleness that name a Decision Record, anywhere in Phase 11."""
+    scrubbed = text.replace("IGNORE_AS_STALE", "<declared-outcome-token>")
+    return [" ".join(m.group(0).split()) for m in NAMED_STALE_RECORD.finditer(scrubbed)
+            if not NEGATION_BEFORE.search(scrubbed[max(0, m.start() - 40):m.start()])]
+
+
+def stale_characterisations(text):
+    """Predications of staleness in `text`, with declared vocabulary tokens scrubbed first."""
+    scrubbed = text.replace("IGNORE_AS_STALE", "<declared-outcome-token>")
+    hits = []
+    for m in STALE_PREDICATION.finditer(scrubbed):
+        if NEGATION_BEFORE.search(scrubbed[max(0, m.start() - 40):m.start()]):
+            continue
+        hits.append(m.group(0).strip())
+    return hits
+
+
 def late_decision_record_stands():
     """Inspect the authoritative race rows, not positive prose elsewhere.
 
@@ -796,10 +848,15 @@ def late_decision_record_stands():
                 problems.append("late Decision Record is not explicitly retained / standing")
             forbidden = re.search(
                 r"(?i)\b(discard(?:ed|s|ing)?|ignor(?:e|ed|es|ing)|drop(?:ped|s|ping)?|"
-                r"eras(?:e|ed|es|ing)|void(?:ed|s|ing)?)\b|treated? as stale",
+                r"eras(?:e|ed|es|ing)|void(?:ed|s|ing)?)\b",
                 outcome + " " + reason)
             if forbidden:
-                problems.append("late Decision Record is described as discarded or stale")
+                problems.append("late Decision Record is described as discarded: %r"
+                                % forbidden.group(0))
+            stale = stale_characterisations(outcome + " " + reason)
+            if stale:
+                problems.append("late Decision Record is itself characterised as stale: %s"
+                                % stale)
 
     if len(review_rows) != 1:
         problems.append("expected exactly one late-review race row, found %d" % len(review_rows))
@@ -815,11 +872,77 @@ def late_decision_record_stands():
                 problems.append("late review is not retained against its Review Instance")
 
     return (not problems, str(problems) if problems
-            else "late Decision Record stands with RECONCILE/ESCALATE; late review remains stale")
+            else "late Decision Record stands with RECONCILE/ESCALATE, never characterised as "
+                 "stale; late review keeps IGNORE_AS_STALE, recorded against its Review Instance")
 
 
 check("concurrency", "late Decision Record stands and remains asymmetric with late review",
       late_decision_record_stands)
+
+
+def no_decision_record_is_called_stale():
+    """Nowhere in Phase 11 may a Decision Record itself be called stale.
+
+    Narrower than the row check and applied everywhere: it fires only where the predication
+    names a Decision Record, so stale *evidence* - which is a real and blocking condition in
+    this architecture - is untouched."""
+    bad = []
+    for rel, doc in DOCS.items():
+        flat = plain(doc).replace("IGNORE_AS_STALE", "<declared-outcome-token>")
+        for m in NAMED_STALE_RECORD.finditer(flat):
+            if NEGATION_BEFORE.search(flat[max(0, m.start() - 40):m.start()]):
+                continue
+            if DENIAL_MARKER.search(line_of(flat, m.start())):
+                continue
+            bad.append("%s: %s" % (rel, " ".join(m.group(0).split())[:80]))
+    return (not bad, str(bad) if bad
+            else "no artifact characterises a Decision Record as stale")
+
+
+check("concurrency", "no artifact characterises a Decision Record as stale",
+      no_decision_record_is_called_stale)
+
+
+def stale_predication_grammar():
+    """The rule, executed rather than described.
+
+    A check is only as good as the cases it was written for, so the cases run here: the
+    harness feeds its own matcher the audit's bypass and the wordings the remediation must
+    reject, and requires each verdict. Relaxing the patterns fails this without any document
+    being edited."""
+    # (text, flagged by the row-scoped matcher, flagged by the Phase-11-wide matcher)
+    cases = {
+        "the audit bypass": ("The Decision Record stands but is stale", True, True),
+        # Sentence-bounded: the phase-wide matcher deliberately does not reach across `;`,
+        # which is why the authoritative row - not this net - is the rule that governs.
+        "was stale, across a clause boundary":
+            ("The Decision Record stands; it was stale by then", True, False),
+        "deemed stale": ("The Decision Record was deemed stale", True, True),
+        "considered stale": ("The record is considered stale", True, False),
+        "marked stale": ("The record is marked stale", True, False),
+        "becomes stale": ("The Decision Record becomes stale on cancellation", True, True),
+        "treated as stale": ("The Decision Record is treated as stale", True, True),
+        "stale Decision Record": ("A stale Decision Record needs no handling", True, True),
+        "the correct wording": ("The Decision Record stands - a human exercised a Right "
+                                "and that happened", False, False),
+        "explicitly not stale": ("The Decision Record is not stale; it stands", False, False),
+        "the declared token alone": ("IGNORE_AS_STALE - recorded against its request",
+                                     False, False),
+        "stale evidence, in the row": ("Evidence that was current in week one is stale "
+                                       "in week six", True, False),
+    }
+    wrong = []
+    for label, (text, row_scoped, phase_wide) in cases.items():
+        if bool(stale_characterisations(text)) != row_scoped:
+            wrong.append("%s: row-scoped verdict wrong (expected %s)" % (label, row_scoped))
+        if bool(named_stale_record(text)) != phase_wide:
+            wrong.append("%s: phase-wide verdict wrong (expected %s)" % (label, phase_wide))
+    return (not wrong, str(wrong) if wrong
+            else "%d cases behave as specified in both scopes, the audit bypass rejected" % len(cases))
+
+
+check("concurrency", "the stale-characterisation matcher rejects every named wording",
+      stale_predication_grammar)
 
 check("concurrency", "a human intervention wins against automated continuation",
       lambda: (lambda row: (row and "Human wins" in plain(row[0]) and "BLOCK" in row[0], ""))(

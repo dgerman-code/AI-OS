@@ -16,9 +16,9 @@ python3 validation/phase_11_validation.py
 
 Python 3 standard library and `git` only. No network, no third-party packages, no writes. Deterministic; exit code 0 on pass, non-zero on any failure. `--verbose` prints each check's evidence; `--json` emits machine-readable results. Conventions are in `validation/README.md`.
 
-**Current result: `=== 151/151 PASS ===`.** Normal, `--verbose` and `--json` modes all report the same total. The harness asserts that this document states the total and the group counts the suite actually emits, so a stale number here is a failure rather than a cosmetic slip.
+**Current result: `=== 153/153 PASS ===`.** Normal, `--verbose` and `--json` modes all report the same total. The harness asserts that this document states the total and the group counts the suite actually emits, so a stale number here is a failure rather than a cosmetic slip.
 
-**Scope boundary.** These 151 are **offline, deterministic checks over committed content**. Remote repository state and the configuration of any engine, queue, database or forge are **not provable offline and are not claimed**.
+**Scope boundary.** These 153 are **offline, deterministic checks over committed content**. Remote repository state and the configuration of any engine, queue, database or forge are **not provable offline and are not claimed**.
 
 | Group | Checks | Covers |
 |---|---:|---|
@@ -31,7 +31,7 @@ Python 3 standard library and `git` only. No network, no third-party packages, n
 | `router` | 6 | Request and decision are two objects; no chosen model or relaxed constraint in the request; a routing block is a block; decisions recorded by value; **retry may not switch models to evade independence**; a model completes an activity, not a gate |
 | `gates` | 8 | 7 outcomes parsed; **no non-satisfying outcome permits continuation**; four gate kinds apart; re-request needs a recorded change; a missing Right blocks with four refusals named; independence enforced mechanically; a waiting window governs escalation only; **the policy template forbids an auto-approve setting** |
 | `retry` | 9 | 7 classes parsed; unclassified is non-retryable; **authority-bearing and external acts never blindly replayed**; every authority act class enumerated; **exactly-once denied wherever it appears**; at-most-once grounded in the governed record; replay walks the classes; retry never widens or unblocks; compensation ≠ rollback |
-| `concurrency` | 9 | 5 outcomes as a fixed vocabulary; 10 races each resolving to one; every required case; late results recorded never applied; **a late Decision Record is not discarded as stale**; a human beats automated continuation; last-write-wins absent; limits delay but never skip; causation not timestamps |
+| `concurrency` | 11 | 5 outcomes as a fixed vocabulary; 10 races each resolving to one; every required case; late results recorded never applied; **a late Decision Record is neither discarded nor characterised as stale**, checked on the authoritative row, again phase-wide wherever a Decision Record is named, and a third time by feeding the matcher its own cases; a human beats automated continuation; last-write-wins absent; limits delay but never skip; causation not timestamps |
 | `failure` | 8 | 7 distinctions with the harm of collapsing each; every required pair; 12 stop conditions with outcomes; every required condition; **no distributed transaction claimed**; external uncertainty stops the run; no failure path weakens a constraint; a resume re-enters current constraints |
 | `manual` | 6 | 6 acts, each stating whether a Right is required; human and system identity separate; **an operational exception touches no governed requirement**; no refusal becomes a continuation; history cannot be edited; seniority is not authority |
 | `audit` | 9 | 8 histories apart; 13 execution-event fields; a log is never evidence; **a scan for any artifact treating a log as evidence**; append-only; an unenforceable immutability claim recorded as a gap; authority reference required where the class needs one; historical reconstruction by recorded value; **nothing governed relocated** |
