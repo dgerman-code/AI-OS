@@ -311,7 +311,7 @@ The third row is the operative one. Provider version changes are opaque from out
 
 ## R2 — H5 and M1: exemplar 9 exercised registry objects that do not exist
 
-**Finding.** The A/B/C sequence was correct, and the exemplar ran it over `decision.model_capability_threshold_exception` and `review.software_security_change` — **neither of which exists in any approved registry**. Semantically correct and legally inoperable.
+**Finding.** The A/B/C sequence was correct, and the exemplar ran it over an invented model-capability-threshold exception Right and an invented software-security-change Review Profile — **neither of which exists in any approved registry**. Their names are not reproduced here in code form, for the same reason the exemplar no longer reproduces them: a code-form `decision.<id>` or `review.<id>` that resolves to nothing **is** the defect, in a remediation record as much as anywhere else. Semantically correct and legally inoperable.
 
 **Status: RESOLVED — by following the architecture to its actual conclusion rather than inventing a way past it.**
 
