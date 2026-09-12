@@ -812,14 +812,30 @@ NAMED_STALE_RECORD = re.compile(
     % {"cop2": COPULA, "neg": NEGATOR, "adv": ADVERB, "ass": ASSESSED},
     re.I)
 
-# A wording quoted as a code span is a specimen someone is rejecting, not an assertion. The
-# Phase-11-wide scan therefore reads prose only. The authoritative row is NOT given this
-# latitude: there, a specimen has no business appearing at all.
-QUOTED_SPECIMEN = re.compile(r"```.*?```|`[^`\n]*`", re.S)
+# Formatting is not semantics.
+#
+# The previous pass exempted anything inside a code span, on the theory that a quoted wording
+# is a specimen rather than an assertion. The re-audit showed what that buys an author who
+# does not want to be caught: backticks around one word, or around half the subject, delete
+# exactly the text the invariant needs to read. `The Decision Record is ``stale``.` and
+# `The Decision ``Record`` is stale.` both passed, and neither is a quotation of anything.
+#
+# So markup is now NORMALISED rather than deleted - every formatting marker is removed while
+# the semantic text it wrapped is preserved - and an exemption has to be claimed EXPLICITLY,
+# in a fence that says what it is. A fence is a statement by the author; a backtick is a
+# typographic choice, and the two are not interchangeable.
+SPECIMEN_FENCE = re.compile(
+    r"<!--\s*stale-specimen\s*-->.*?<!--\s*/stale-specimen\s*-->", re.S)
 
 
-def prose_only(doc):
-    return QUOTED_SPECIMEN.sub(" ", doc)
+def assertive_text(doc):
+    """The document's assertions: markup normalised, explicitly fenced specimens removed.
+
+    `plain()` strips emphasis and code markers while keeping their contents, so a wrapped or
+    split word reads exactly as the sentence means it. Only an explicit specimen fence is
+    dropped, and only a review record that is quoting rejected wordings has any reason to
+    open one."""
+    return plain(SPECIMEN_FENCE.sub(" ", doc))
 
 
 def named_stale_record(text):
@@ -903,9 +919,10 @@ def no_decision_record_is_called_stale():
     this architecture - is untouched."""
     bad = []
     for rel, doc in DOCS.items():
-        # Prose only, and NO line-wide denial exemption: a denial elsewhere on the line must
-        # never speak for a positive stale predicate later in it.
-        for hit in named_stale_record(plain(prose_only(doc))):
+        # Markup normalised, not deleted, and NO line-wide denial exemption: neither a
+        # backtick nor a denial elsewhere on the line may speak for a positive stale
+        # predicate. Only an explicit specimen fence exempts anything.
+        for hit in named_stale_record(assertive_text(doc)):
             bad.append("%s: %s" % (rel, hit[:80]))
     return (not bad, str(bad) if bad
             else "no artifact characterises a Decision Record as stale")
@@ -960,6 +977,18 @@ def stale_predication_grammar():
         # which is why the authoritative row - not this net - is the rule that governs.
         "was stale, across a clause boundary":
             ("The Decision Record stands; it was stale by then", True, False),
+        # --- Markdown inline code must not hide an assertion. These are written exactly as
+        # they would appear in a document, and are read through the same normalisation the
+        # Phase-11-wide scan applies. Deleting code spans - the behaviour this remediation
+        # removed - makes every one of them stop being flagged, so reintroducing it fails here
+        # with no document edited.
+        "stale wrapped in code": ("The Decision Record is `stale`.", True, True),
+        "subject half in code": ("The Decision `Record` is stale.", True, True),
+        "subject wholly in code": ("The `Decision Record` is stale.", True, True),
+        "every token in code": ("The `Decision` `Record` is `stale`.", True, True),
+        "deemed, stale in code": ("The Decision Record was deemed `stale`.", True, True),
+        "adjectival, subject in code": ("This is a stale `Decision Record`.", True, True),
+        "negation survives normalisation": ("The `Decision Record` is not stale.", False, False),
         # --- correct content and unrelated staleness: must stay unflagged
         "the correct wording": ("The Decision Record stands - a human exercised a Right "
                                 "and that happened", False, False),
@@ -973,9 +1002,12 @@ def stale_predication_grammar():
     }
     wrong = []
     for label, (text, row_scoped, phase_wide) in cases.items():
-        if bool(stale_characterisations(text)) != row_scoped:
+        # Both scopes read normalised text, which is how a real document reaches them: the
+        # row cells are normalised by the row check, documents by assertive_text().
+        read_as = assertive_text(text)
+        if bool(stale_characterisations(read_as)) != row_scoped:
             wrong.append("%s: row-scoped verdict wrong (expected %s)" % (label, row_scoped))
-        if bool(named_stale_record(text)) != phase_wide:
+        if bool(named_stale_record(read_as)) != phase_wide:
             wrong.append("%s: phase-wide verdict wrong (expected %s)" % (label, phase_wide))
     return (not wrong, str(wrong) if wrong
             else "%d cases behave as specified in both scopes, the audit bypass rejected" % len(cases))
@@ -983,6 +1015,36 @@ def stale_predication_grammar():
 
 check("concurrency", "the stale-characterisation matcher rejects every named wording",
       stale_predication_grammar)
+
+
+def formatting_is_not_an_exemption():
+    """Only an explicit fence exempts a specimen; markup never does.
+
+    Asserted against the real reading path, so that reinstating code-span deletion - or
+    widening the fence to accept a typographic marker - fails here directly."""
+    assertion = "The Decision Record is `stale`."
+    fenced = ("<!-- stale-specimen -->The Decision Record is `stale`."
+              "<!-- /stale-specimen -->")
+    problems = []
+    if not named_stale_record(assertive_text(assertion)):
+        problems.append("inline code hid an assertion: markup is being deleted, not normalised")
+    if named_stale_record(assertive_text(fenced)):
+        problems.append("an explicitly fenced specimen was read as an assertion")
+    if "`" in assertive_text("a `code span`"):
+        problems.append("normalisation left a formatting marker in the text")
+    if "code span" not in assertive_text("a `code span`"):
+        problems.append("normalisation dropped the text a code span wrapped")
+    # No architecture document may claim the exemption; it is for review records only.
+    misuse = [rel for rel in NORMATIVE if SPECIMEN_FENCE.search(DOCS[rel])]
+    if misuse:
+        problems.append("architecture documents claiming a specimen fence: %s" % misuse)
+    return (not problems, str(problems) if problems
+            else "markup is normalised, only an explicit fence exempts, and no architecture "
+                 "document claims one")
+
+
+check("concurrency", "Markdown formatting cannot exempt a stale assertion",
+      formatting_is_not_an_exemption)
 
 check("concurrency", "a human intervention wins against automated continuation",
       lambda: (lambda row: (row and "Human wins" in plain(row[0]) and "BLOCK" in row[0], ""))(
