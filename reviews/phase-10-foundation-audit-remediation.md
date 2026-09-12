@@ -66,3 +66,27 @@ Suite: **143 → 146** checks; `source-of-truth` 8 → 11. The number is what th
 ## Scope
 
 Conformance and validation only. No governance semantics were introduced, changed or removed; no new Decision Right was invented; no access, sensitivity, residency, audit, retention or failure semantic was weakened; no approved Phase 1–9 artifact was touched. Nothing was connected to, created or deployed. **Phase 10 remains `PROPOSED` and human approval is pending.**
+
+---
+
+# Final targeted remediation — anchoring the conflict-rule grammar
+
+Audited baseline: `157cdd337c988b383aff0421aefd7f183611ce19` · Approval re-audit: **FAIL — READY AFTER LISTED CHANGES**
+
+**One defect, and it was mine.** The architecture says a conflict cell **begins with** a declared outcome. The parser I wrote to replace the length check extracted a token from *anywhere* in the cell — so a cell could open with a sentence denying that any conflict rule existed and still pass, because `AUTHORITY_WINS` appeared later as an illustration. That is the second time a check for this field has been bypassed, and both times the bypass was the same shape: the check tested something adjacent to the rule instead of the rule.
+
+**Fixed by anchoring.** The grammar is now fixed and documented in the normative section itself (`storage/source-of-truth-matrix.md` §0.2), so that "begins with" is a parse rather than a reading:
+
+```
+conflict cell := OUTCOME ( ", " ["then "] OUTCOME )*  [ " — " explanation ]
+```
+
+The parser matches it from the start of the normalized cell. A token quoted mid-sentence is an example, not a rule, and no amount of leading prose can now supply one. The scan for undeclared outcomes still covers the whole cell: anchoring constrains **where** a rule may be stated; it does not license inventing vocabulary further along.
+
+**No document needed correcting.** All 24 existing cells already conformed to the rule the parser was failing to enforce — the defect was entirely in the harness.
+
+**A regression that does not depend on a file.** `prose_cannot_precede_the_outcome` feeds the harness's own parser eight cases, including the audit's exact bypass, and requires each to be accepted or rejected as specified. Relaxing the anchor is therefore caught **without any document being edited**: removing the `^` from the grammar fails that check on an otherwise clean tree, which was verified.
+
+**Probes:** the audit bypass, prose-before-token, unknown leading token, empty cell, and a cell reintroducing last-write-wins — which the vocabulary does **not** carry — each exit 1; a valid leading token followed by prose passes; the twelve authority and source-of-truth probes and the vacuous-check probe all still exit 1.
+
+Suite **146 → 147**. Matrix unchanged at 24 rows, 6 authority tokens, 9 conflict outcomes. No semantics were added, changed or weakened; **Phase 10 remains `PROPOSED` and human approval is pending.**

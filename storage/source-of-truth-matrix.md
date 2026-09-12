@@ -27,7 +27,14 @@ A data class that would need two authorities is not one data class. **It is spli
 
 ### 0.2 Conflict outcome vocabulary
 
-Every row's conflict cell **begins with one or more of these tokens** and then explains it. A cell of prose alone carries no outcome and fails, however well written — including a cell that states at length that it has no conflict rule.
+Every row's conflict cell **begins with one or more of these tokens** and then explains it. The syntax is fixed, so that "begins with" is a parse rather than a reading:
+
+```
+conflict cell := OUTCOME ( ", " ["then "] OUTCOME )*  [ " — " explanation ]
+OUTCOME       := a declared token, written as a code span
+```
+
+A cell of prose alone carries no outcome and fails, however well written — including a cell that states at length that it has no conflict rule. **A cell that opens with prose fails even if it names a valid outcome later**: a token quoted mid-sentence as an illustration is an example, not a rule, and the approval re-audit was right that a parser extracting one from anywhere had stopped enforcing this paragraph.
 
 | Outcome | Meaning |
 |---|---|

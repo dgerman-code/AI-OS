@@ -272,35 +272,101 @@ OVERWRITE_PHRASES = re.compile(
     r"newer copy wins|secondary wins|most recent wins|overwrites the (source|authority)")
 
 
-def conflict_rule_contract():
-    """A conflict cell must carry a declared OUTCOME, not prose of any length.
+# The conflict cell's grammar, anchored at the start of the normalized cell. The approval
+# re-audit demonstrated that extracting a token from anywhere in the cell is not the rule the
+# architecture states: a cell could open with a sentence denying that any conflict rule
+# existed and still pass because `AUTHORITY_WINS` appeared later, as an example, in prose.
+# Anchoring is the whole fix - a leading token is not something prose can supply.
+CONFLICT_TOKEN = r"`[A-Z_]+`"
+CONFLICT_GRAMMAR = re.compile(
+    r"^%s(?:,\s*(?:then\s+)?%s)*(?:\s*[\u2014-].*)?$" % (CONFLICT_TOKEN, CONFLICT_TOKEN),
+    re.S)
 
-    The independent audit passed a long sentence whose content was that no conflict rule
-    existed, because the previous check measured length. Length is not a contract."""
+
+def leading_outcomes(cell):
+    """The declared outcomes at the START of the cell, or None if it does not begin with one."""
+    normalized = cell.replace("**", "").strip()
+    if not CONFLICT_GRAMMAR.match(normalized):
+        return None
+    head = re.match(r"^(%s(?:,\s*(?:then\s+)?%s)*)" % (CONFLICT_TOKEN, CONFLICT_TOKEN),
+                    normalized)
+    return re.findall(r"`([A-Z_]+)`", head.group(1))
+
+
+def conflict_rule_contract():
+    """A conflict cell must BEGIN with one or more declared outcomes, then may explain itself.
+
+    Two earlier versions of this check were bypassed. The first measured length, and a long
+    sentence saying no conflict rule existed passed it. The second extracted a token from
+    anywhere in the cell, and the same sentence passed again by naming a valid outcome later
+    as an illustration. Neither is what the architecture says, which is `begin with`."""
     bad = []
     for cells in sot_rows():
         raw = cells[8].strip()
         if not raw:
             bad.append("row %s: empty conflict cell" % cells[0])
             continue
-        tokens = re.findall(r"`([A-Z_]+)`", raw)
-        if not tokens:
-            bad.append("row %s: prose with no declared conflict outcome: %r"
-                       % (cells[0], plain(raw)[:60]))
+        leading = leading_outcomes(raw)
+        if leading is None:
+            bad.append("row %s: does not begin with a declared outcome: %r"
+                       % (cells[0], plain(raw)[:70]))
             continue
-        unknown = [t for t in tokens if t not in CONFLICT_OUTCOMES]
-        if unknown:
-            bad.append("row %s: undeclared conflict outcome(s) %s" % (cells[0], unknown))
+        undeclared_leading = [t for t in leading if t not in CONFLICT_OUTCOMES]
+        if undeclared_leading:
+            bad.append("row %s: undeclared leading outcome(s) %s" % (cells[0], undeclared_leading))
+            continue
+        # An undeclared outcome anywhere in the cell is still a defect: anchoring constrains
+        # where a rule may be stated, it does not license inventing vocabulary further along.
+        undeclared_anywhere = [t for t in re.findall(r"`([A-Z_]+)`", raw)
+                               if t not in CONFLICT_OUTCOMES]
+        if undeclared_anywhere:
+            bad.append("row %s: undeclared conflict outcome(s) %s"
+                       % (cells[0], sorted(set(undeclared_anywhere))))
             continue
         if OVERWRITE_PHRASES.search(plain(raw)):
             bad.append("row %s: permits a secondary to overwrite the authority" % cells[0])
     return (not bad, str(bad) if bad
-            else "%d rows each carry a declared conflict outcome from a %d-value vocabulary"
+            else "%d rows each BEGIN with a declared outcome from a %d-value vocabulary"
             % (len(sot_rows()), len(CONFLICT_OUTCOMES)))
 
 
-check("source-of-truth", "every conflict cell carries a declared conflict outcome",
+check("source-of-truth", "every conflict cell BEGINS with a declared conflict outcome",
       conflict_rule_contract)
+
+
+def prose_cannot_precede_the_outcome():
+    """The anchored grammar, asserted against the exact bypass the approval re-audit used.
+
+    A check is only as good as the case it was written for, so the case is executed here
+    rather than described: the harness feeds its own parser the adversarial cell and requires
+    a rejection. If anchoring were ever relaxed, this fails without any file being edited."""
+    bypass = ("This field is deliberately left without a conflict-resolution rule, because "
+              "the class is append-only and the team has agreed none is required at this "
+              "stage; a rule such as `AUTHORITY_WINS` may be supplied later if operational "
+              "experience shows one is needed.")
+    cases = {
+        "the audit's leading-prose bypass": (bypass, False),
+        "prose before a leading token": ("Repository wins \u2014 `AUTHORITY_WINS`", False),
+        "a token mentioned only in prose": ("The rule here is `QUARANTINE` in practice", False),
+        "an unknown leading token": ("`MERGE_BOTH_SIDES` \u2014 both sides are merged", False),
+        "an empty cell": ("", False),
+        "a bare declared outcome": ("`AUTHORITY_WINS`", True),
+        "declared outcome then prose": ("`AUTHORITY_WINS` \u2014 the repository stands", True),
+        "two declared outcomes then prose":
+            ("`AUTHORITY_WINS`, then `SECONDARY_REBUILT` \u2014 rebuilt from the baseline", True),
+    }
+    wrong = []
+    for label, (cell, should_pass) in cases.items():
+        leading = leading_outcomes(cell) if cell.strip() else None
+        accepted = bool(leading) and all(t in CONFLICT_OUTCOMES for t in leading)
+        if accepted != should_pass:
+            wrong.append("%s: accepted=%s expected=%s" % (label, accepted, should_pass))
+    return (not wrong, str(wrong) if wrong
+            else "%d grammar cases behave as specified, the audit bypass rejected" % len(cases))
+
+
+check("source-of-truth", "leading prose can never supply a conflict outcome",
+      prose_cannot_precede_the_outcome)
 
 
 def no_last_write_wins_anywhere():
