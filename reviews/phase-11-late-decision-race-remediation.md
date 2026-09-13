@@ -691,6 +691,123 @@ producer self-check states the new totals. **Phase 11 remains `PROPOSED`; human 
 pending.**
 
 
+## Remediation — a controlled normative grammar
+
+Three enforcement classes, from the v10 re-audit on `620518d`. Two of them are the same
+mistake in different places: the validator was still trying to **understand open-ended
+English** — condition and connective vocabulary for scope, equivalence verbs for identity — and
+an auditor only had to reach for a word nobody had enumerated. The third was that the derived
+pair set had no independent check at all.
+
+The answer is not more vocabulary. Normative Phase 11 prose is **controlled input**: the
+validator accepts a small set of provably safe constructions and rejects everything else.
+
+### Blocker 1 — controlled crossing grammar
+
+Eight bypasses: `pending operator approval` · `in cases authorised by the operator` ·
+`outside emergency conditions` · `should the operator request it` · `as long as the operator
+remains silent` · `consequently` · `accordingly` · `whereby`.
+
+A crossing **span** is bounded by sentence punctuation, table-cell walls, and a coordinated
+*negative* continuation — a coordinate that begins with a negation cannot grant permission,
+which is exactly what lets the two committed crossings stand as written:
+
+| Committed crossing | Parse |
+|---|---|
+| `Never cross a scope boundary, and never widen where material may go` | `PROHIBITION_CANONICAL` |
+| `A cross-scope movement uses an approved mechanism or does not happen` | `MECHANISM_BOUND_CANONICAL` |
+
+Each span is classified into exactly one of three results, and a form counts **only when the
+grammar consumes the whole span**:
+
+- `PROHIBITION_CANONICAL` — subject (optional) + a required prohibitive modal + `cross` +
+  boundary object, or the `is prohibited/barred/precluded from crossing` form. Nothing may be
+  left over: a condition, an exception, a purpose, a consequence or a trailing remark is not
+  interpreted, it simply means the construction was never proven unconditional.
+- `MECHANISM_BOUND_CANONICAL` — the mechanism must be **bound** to the crossing by a local
+  relation (`through`, `via`, `using`, `under`, `by`, `by means of`, `only through`), or by the
+  two nominal forms the corpus uses (`a cross-scope movement uses …`,
+  `crossing … happens through …`). A mechanism reached any other way is not a binding.
+- `UNCLASSIFIED` — everything else, and it REJECTs.
+
+The grammar therefore never had to learn `pending`, `whereby` or `accordingly`. It does not
+know them, and that is why they fail.
+
+### Blocker 2 — guarded-pair co-occurrence
+
+Seven bypasses of the enumerated equivalence relations, among them `constitutes`,
+`doubles as`, `denote` and `collapses into`. The rule is now inverted: **two guarded objects
+appearing in one predication are not presumed harmless**; the span must prove it is a
+separation or one of the narrow relations the committed corpus actually uses.
+
+Two span shapes are read. A **relational** span links the pair directly and carries at most one
+content word between them — content being anything outside a closed function-word vocabulary.
+A **coordinated** span names the pair as one subject and then predicates something of it. A span
+is safe when it carries an explicit separation (`!=`, `not`, `never`, `no`, `neither`, or an
+`are two / distinct / separate / different / independent` predicate), when it is a possessive,
+or when its single content word is one of the corpus's own relations — `records`, `references`,
+`activates`, `requests`, `binds`, `execution`, `submits`, `rewriting`. Everything else is
+reported. The harness does not know `constitutes`; it does not need to.
+
+The whole committed corpus was measured before the rule was written: 122 guarded-pair
+co-occurrences, 29 of them outside a denial chain, and **zero** survive the grammar as
+unproven. No architecture text was edited to achieve that.
+
+### Blocker 3 — pair-closure oracle
+
+A v10 weakening dropped the production builder from full combinations to adjacent pairs — 212
+pairs down to 23 — and the suite still reported PASS. `denial_chains()` is now an
+**independent parser**: it walks each line, splits on the operator and reads the capitalised
+run on each side, sharing no code with the production regex. The production set is then
+compared against `itertools.combinations` over those chains, pair by pair, with the longest
+chain's closure asserted against the production set **directly** rather than against the
+oracle's own expected set, so the comparison cannot be satisfied by aliasing the oracle to the
+production output. The parser itself is checked on a synthetic four-term chain with a
+hand-computed answer of six pairs.
+
+Result, computed independently: **12 chains, 221 pair slots, 212 distinct pairs**, production
+agreeing exactly.
+
+### Probes and weakenings
+
+Scope: **36** spans classified as specified — 23 `UNCLASSIFIED` (the eight audit bypasses,
+twelve independent paraphrases the grammar enumerates nowhere, and three bare permissions),
+seven canonical prohibitions, six canonical mechanism-bound crossings. Two crossings in one
+sentence are classified independently in both orders; a prohibition followed by a separate
+recording sentence stays a prohibition; and the document scan is driven with four violating and
+three governed synthetic documents.
+
+Identity: **22** collapses must be detected and **14** denials and descriptions left alone,
+including the corpus forms `Review Profile or Decision Right`, `Task, Work Item and
+Assignment`, `The orchestrator's role` and `The orchestrator submits a Model Invocation
+Request`. The corpus scan is driven with three synthetic normative documents, one hiding its
+collapse in a specimen fence.
+
+Twelve controlled weakenings, **exit 1 each**: unknown scope constructions turned into ALLOW ·
+mechanism lookup widened to a span-wide search · prohibition no longer requiring full
+consumption · the canonical mechanism binder removed · the scope scan bypassing the parser ·
+unknown guarded-pair co-occurrence turned into ALLOW · the identity relation grammar widened to
+any co-occurrence · specimen fencing allowed to hide a normative collapse · the production pair
+builder weakened to adjacent pairs · the closure oracle disabled · the identity document scan
+bypassed · a vacuous `or True` check.
+
+One defect of my own surfaced while adding the bare-permission probes: the prohibition
+production had its modal optional, so `The stage crosses a project boundary.` parsed as a
+canonical prohibition. The modal is now required, and the bare-assertion case is a committed
+probe.
+
+The rendered-text family was re-run and still bites. The specimen-fence limit recorded earlier
+stands for its own check; for identity the hiding place is closed, because the collapse scan
+reads through fences in normative content.
+
+### Scope
+
+**No architecture content changed** — `orchestration/` and `architecture/` are byte-for-byte
+identical, so no stop-and-report was required. Suite **157 → 158**; `identity` 9 → 10 for the
+closure oracle, `scope` unchanged at 9 with its check replaced rather than added to. **Phase 11
+remains `PROPOSED`; human approval is pending.**
+
+
 ---
 
 ## A note on the specimen fence
