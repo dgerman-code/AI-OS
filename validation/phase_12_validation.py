@@ -1444,6 +1444,140 @@ check("assurance", "a late failure in an ordinary governed act leaves no partial
       late_failures_leave_no_partial_mutation)
 
 
+def terminal_interventions_are_atomic_and_provenanced():
+    """Re-audit v5 finding: the terminal path validated less than every other path.
+
+    Cancellation and termination consume a `HumanInterventionRecord` like any other act, so
+    a foreign-run record, a non-record object and a repeated identity must each be refused
+    with no observable change at all."""
+    problems = []
+
+    def fresh(run_id):
+        orch, run, item = _started(_task(), run_id=run_id)
+        return orch, run
+
+    def intervention(run, ref="iv.1", act="cancel"):
+        return domain.HumanInterventionRecord(domain.InterventionRef(ref), run.ref,
+                                              domain.HumanAuthorityRef("h"), act, "reason")
+
+    # 1. cross-run provenance, on both terminal outcomes that take an intervention.
+    foreign = domain.HumanInterventionRecord(
+        domain.InterventionRef("iv.foreign"), domain.WorkflowRunRef("run.elsewhere"),
+        domain.HumanAuthorityRef("h"), "cancel", "withdrawn")
+    for label, outcome, cause in (("cancellation", domain.TerminalOutcome.CANCELLED, ""),
+                                  ("termination", domain.TerminalOutcome.TERMINATED, "c")):
+        orch, run = fresh("run.tv.%s" % label)
+        before = _snapshot(run, orch)
+        if not _raises(lambda: orch.complete(run, outcome, cause=cause,
+                                             intervention=foreign), Exception):
+            problems.append("a foreign-run intervention reached %s" % label)
+        if _snapshot(run, orch) != before:
+            problems.append("a refused %s left a partial mutation behind" % label)
+        if run.interventions():
+            problems.append("a foreign intervention entered history through %s" % label)
+        if run.axes()[1] is not None:
+            problems.append("a refused %s still set a terminal outcome" % label)
+
+    # 2. objects that are not governed records.
+    orch, run = fresh("run.tv.malformed")
+    before = _snapshot(run, orch)
+    for label, malformed in (("a string", "a human said so"),
+                             ("an arbitrary object", object())):
+        if not _raises(lambda: orch.complete(run, domain.TerminalOutcome.CANCELLED,
+                                             intervention=malformed), Exception):
+            problems.append("%s was accepted as a cancellation intervention" % label)
+        if run.interventions():
+            problems.append("%s was appended to the intervention store" % label)
+    if _snapshot(run, orch) != before:
+        problems.append("a refused malformed cancellation left a partial mutation behind")
+
+    # 3. duplicate stable identity on the terminal path.
+    orch, run = fresh("run.tv.duplicate")
+    orch.record_intervention(run, intervention(run, "iv.1", "note"))
+    before = _snapshot(run, orch)
+    if not _raises(lambda: orch.complete(run, domain.TerminalOutcome.CANCELLED,
+                                         intervention=intervention(run, "iv.1")), Exception):
+        problems.append("a repeated intervention identity cancelled the run")
+    if _snapshot(run, orch) != before:
+        problems.append("a refused duplicate cancellation left a partial mutation behind")
+    if len(run.interventions()) != 1 or run.axes()[1] is not None:
+        problems.append("a duplicate identity reached governed history or a terminal outcome")
+
+    # 4. the positive controls: nothing that was permitted is now refused.
+    orch, run = fresh("run.tv.ok1")
+    orch.complete(run, domain.TerminalOutcome.CANCELLED,
+                  intervention=intervention(run, "iv.ok"))
+    if run.axes()[1] is not domain.TerminalOutcome.CANCELLED or len(run.interventions()) != 1:
+        problems.append("a valid cancellation no longer completes")
+    orch, run = fresh("run.tv.ok2")
+    orch.complete(run, domain.TerminalOutcome.TERMINATED, cause="external constraint",
+                  intervention=intervention(run, "iv.ok", "terminate"))
+    if run.axes()[1] is not domain.TerminalOutcome.TERMINATED:
+        problems.append("a valid termination no longer completes")
+    orch, run = fresh("run.tv.ok3")
+    orch.complete(run, domain.TerminalOutcome.TERMINATED, cause="external constraint")
+    if run.axes()[1] is not domain.TerminalOutcome.TERMINATED:
+        problems.append("a termination without an intervention no longer completes")
+
+    return (not problems, str(problems)[:400] if problems
+            else "terminal interventions are validated, provenanced and atomic")
+
+
+check("assurance", "a terminal intervention is held to the same contract as every other",
+      terminal_interventions_are_atomic_and_provenanced)
+
+
+def one_intervention_contract_serves_every_path():
+    """Every API that consumes an intervention refuses the same foreign record identically."""
+    foreign = lambda run: domain.HumanInterventionRecord(          # noqa: E731
+        domain.InterventionRef("iv.foreign"), domain.WorkflowRunRef("run.elsewhere"),
+        domain.HumanAuthorityRef("h"), "act", "reason")
+    paths = {
+        "record_intervention": lambda orch, run: orch.record_intervention(run, foreign(run)),
+        "pause": lambda orch, run: orch.pause(run, foreign(run)),
+        "complete/CANCELLED": lambda orch, run: orch.complete(
+            run, domain.TerminalOutcome.CANCELLED, intervention=foreign(run)),
+        "complete/TERMINATED": lambda orch, run: orch.complete(
+            run, domain.TerminalOutcome.TERMINATED, cause="c", intervention=foreign(run)),
+    }
+    problems = []
+    for name, call in paths.items():
+        orch, run, _item = _started(_task(), run_id="run.contract.%s" % len(problems + [name]))
+        before = _snapshot(run, orch)
+        if not _raises(lambda: call(orch, run), domain.LineageError):
+            problems.append("%s did not refuse a foreign-run intervention as a lineage error"
+                            % name)
+        if _snapshot(run, orch) != before:
+            problems.append("%s left a partial mutation behind" % name)
+    # `unblock()` is exempt from the halted guard, not from the contract.
+    orch = _fresh()
+    orch.router.missing_right_for = ("cap",)
+    orch, run, item = _started(_task(capability="cap"), orch, run_id="run.contract.unblock")
+    orch.route(run, item, "policy@1")
+    before = _snapshot(run, orch)
+    if not _raises(lambda: orch.unblock(run, foreign(run)), domain.LineageError):
+        problems.append("unblock did not refuse a foreign-run intervention")
+    if _snapshot(run, orch) != before:
+        problems.append("unblock left a partial mutation behind")
+    return (not problems, str(problems)[:300] if problems
+            else "five intervention-consuming paths, one contract, no partial mutation")
+
+
+check("assurance", "every intervention-consuming path shares one validation contract",
+      one_intervention_contract_serves_every_path)
+
+
+TERMINAL_TESTS = (
+    "test_a_foreign_run_intervention_cannot_cancel_a_run",
+    "test_a_string_cannot_be_recorded_as_a_cancellation_intervention",
+    "test_an_arbitrary_object_cannot_be_recorded_as_a_cancellation_intervention",
+    "test_a_duplicate_intervention_identity_cannot_cancel_a_run",
+    "test_a_valid_cancellation_still_reaches_cancelled",
+    "test_a_valid_termination_still_reaches_terminated",
+    "test_every_intervention_consuming_api_shares_one_contract",
+)
+
+
 ATOMICITY_TESTS = (
     "test_invalid_assignment_does_not_increment_attempt_or_append_history",
     "test_second_pause_failure_is_atomic",
@@ -1471,25 +1605,59 @@ def the_atomicity_regressions_are_in_the_committed_suite():
             yield item.id().rsplit(".", 1)[-1]
 
     discovered = set(names(suite))
-    missing = [name for name in ATOMICITY_TESTS if name not in discovered]
+    required = [("TestLateFailureAtomicity", name) for name in ATOMICITY_TESTS]
+    required += [("TestTerminalInterventionAtomicity", name) for name in TERMINAL_TESTS]
+    missing = [name for _cls, name in required if name not in discovered]
     if missing:
         return False, "not in the discovered suite: %s" % missing
     selected = loader.loadTestsFromNames(
-        ["test_invariants.TestLateFailureAtomicity.%s" % name for name in ATOMICITY_TESTS])
+        ["test_invariants.%s.%s" % (cls, name) for cls, name in required])
     stream = io.StringIO()
     captured, sys.stdout = sys.stdout, io.StringIO()
     try:
         result = unittest.TextTestRunner(stream=stream, verbosity=0).run(selected)
     finally:
         sys.stdout = captured
-    return (result.wasSuccessful() and result.testsRun == len(ATOMICITY_TESTS),
-            "%d/%d atomicity regressions executed and passed"
-            % (result.testsRun - len(result.failures) - len(result.errors),
-               len(ATOMICITY_TESTS)))
+    return (result.wasSuccessful() and result.testsRun == len(required),
+            "%d/%d named atomicity regressions executed and passed"
+            % (result.testsRun - len(result.failures) - len(result.errors), len(required)))
 
 
-check("suite", "the four named late-failure atomicity regressions run in the suite",
+check("suite", "the named late-failure and terminal atomicity regressions run in the suite",
       the_atomicity_regressions_are_in_the_committed_suite)
+
+
+def documented_weakening_counts_match_the_manifest():
+    """The self-check's numbers are derived from the executable manifest, not from prose.
+
+    The v5 audit found the documented totals drifting from the committed list. This check
+    reads both and refuses any disagreement, so a stale sentence is a validator failure."""
+    sys.path.insert(0, os.path.join(PKG, "tests"))
+    captured, sys.stdout = sys.stdout, io.StringIO()
+    try:
+        import test_mutation_guards as harness
+    finally:
+        sys.stdout = captured
+    total = len(harness.WEAKENINGS)
+    detected = sum(1 for w in harness.WEAKENINGS if w[3] == "DETECTED")
+    redundant = total - detected
+    text = read("reviews/phase-12-foundation-self-check.md")
+    problems = []
+    expected_total = "Controlled weakenings: %d, committed and executed." % total
+    if expected_total not in text:
+        problems.append("the self-check does not state %d weakenings" % total)
+    expected_split = ("%d of the %d are classified `DETECTED`" % (detected, total))
+    if expected_split not in text:
+        problems.append("the self-check does not state %d/%d DETECTED" % (detected, total))
+    if "%d are classified `REDUNDANT`" % redundant not in text:
+        problems.append("the self-check does not state %d REDUNDANT" % redundant)
+    return (not problems, str(problems)[:300] if problems
+            else "manifest and self-check agree: %d weakenings, %d detected, %d redundant"
+                 % (total, detected, redundant))
+
+
+check("suite", "the documented weakening counts match the executable manifest",
+      documented_weakening_counts_match_the_manifest)
 
 
 # =========================================================== the suite itself

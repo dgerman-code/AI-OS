@@ -401,6 +401,81 @@ def a_malformed_router_answer_leaves_no_routing_request(env):
         raise AssertionError("a refused routing recorded a routing request event")
 
 
+def a_foreign_intervention_cannot_cancel_a_run(env):
+    """Cancellation is an ordinary governed act: the same intervention contract holds."""
+    d = env.domain
+    orch = orchestrator(env)
+    run, _item = started(env, orch, task(env), "run.tc1")
+    foreign = d.HumanInterventionRecord(d.InterventionRef("iv.foreign"),
+                                        d.WorkflowRunRef("run.elsewhere"),
+                                        d.HumanAuthorityRef("h"), "cancel", "withdrawn")
+    before = snapshot(run, orch)
+    if not refuses(lambda: orch.complete(run, d.TerminalOutcome.CANCELLED,
+                                         intervention=foreign)):
+        raise AssertionError("an intervention naming another run cancelled this one")
+    if snapshot(run, orch) != before:
+        raise AssertionError("a refused cancellation left a partial mutation behind")
+    if run.interventions():
+        raise AssertionError("a foreign intervention entered this run's history")
+    if run.axes()[1] is not None:
+        raise AssertionError("a refused cancellation still reached a terminal outcome")
+
+
+def a_malformed_cancellation_intervention_is_refused_before_any_append(env):
+    """An object that is not a governed record must never reach the intervention store."""
+    d = env.domain
+    orch = orchestrator(env)
+    run, _item = started(env, orch, task(env), "run.tc2")
+    before = snapshot(run, orch)
+    for label, malformed in (("a string", "a human said so"), ("an arbitrary object",
+                                                               object())):
+        if not refuses(lambda: orch.complete(run, d.TerminalOutcome.CANCELLED,
+                                             intervention=malformed)):
+            raise AssertionError("%s was accepted as a cancellation intervention" % label)
+        if run.interventions():
+            raise AssertionError("%s entered the intervention store" % label)
+    if snapshot(run, orch) != before:
+        raise AssertionError("a refused cancellation left a partial mutation behind")
+
+
+def a_duplicate_intervention_identity_cannot_cancel_a_run(env):
+    """Append-only semantics hold on the terminal path exactly as on the ordinary ones."""
+    d = env.domain
+    orch = orchestrator(env)
+    run, _item = started(env, orch, task(env), "run.tc3")
+
+    def intervention(act):
+        return d.HumanInterventionRecord(d.InterventionRef("iv.1"), run.ref,
+                                         d.HumanAuthorityRef("h"), act, "reason")
+
+    orch.record_intervention(run, intervention("note"))
+    before = snapshot(run, orch)
+    if not refuses(lambda: orch.complete(run, d.TerminalOutcome.CANCELLED,
+                                         intervention=intervention("cancel"))):
+        raise AssertionError("a repeated intervention identity cancelled the run")
+    if snapshot(run, orch) != before:
+        raise AssertionError("a refused cancellation left a partial mutation behind")
+    if len(run.interventions()) != 1:
+        raise AssertionError("a duplicate identity entered governed history")
+    if run.axes()[1] is not None:
+        raise AssertionError("a refused cancellation still reached a terminal outcome")
+
+
+def a_valid_cancellation_still_works(env):
+    """The control for the three above: a corroborated cancellation is still permitted."""
+    d = env.domain
+    orch = orchestrator(env)
+    run, _item = started(env, orch, task(env), "run.tc4")
+    orch.complete(run, d.TerminalOutcome.CANCELLED,
+                  intervention=d.HumanInterventionRecord(
+                      d.InterventionRef("iv.ok"), run.ref, d.HumanAuthorityRef("h"),
+                      "cancel", "withdrawn"))
+    if run.axes()[1] is not d.TerminalOutcome.CANCELLED:
+        raise AssertionError("a valid cancellation did not reach CANCELLED")
+    if len(run.interventions()) != 1:
+        raise AssertionError("a valid cancellation did not retain its intervention")
+
+
 # ===========================================================================================
 # The weakenings themselves
 # ===========================================================================================
@@ -532,6 +607,69 @@ WEAKENINGS = [
        "                        request.ref)\n"
        "        answer = self.router.route(request)")],
      a_malformed_router_answer_leaves_no_routing_request, "DETECTED"),
+
+    ("the terminal path skips the intervention contract entirely",
+     [("orchestrator",
+       "        if intervention is not None:\n"
+       "            self._validate_intervention(run, intervention)",
+       "        if False:\n"
+       "            self._validate_intervention(run, intervention)")],
+     a_foreign_intervention_cannot_cancel_a_run, "DETECTED"),
+
+    ("the terminal path skips the intervention contract (malformed objects)",
+     [("orchestrator",
+       "        if intervention is not None:\n"
+       "            self._validate_intervention(run, intervention)",
+       "        if False:\n"
+       "            self._validate_intervention(run, intervention)")],
+     a_malformed_cancellation_intervention_is_refused_before_any_append, "DETECTED"),
+
+    ("foreign-run lineage is no longer part of the intervention contract",
+     [("orchestrator",
+       "        if intervention.run != run.ref:\n"
+       '            raise LineageError("the intervention names another run")',
+       "        if False:\n"
+       '            raise LineageError("the intervention names another run")')],
+     a_foreign_intervention_cannot_cancel_a_run, "DETECTED"),
+
+    # Honest classification: with the commit order as written, the intervention append is the
+    # first mutation on the terminal path, so the store's own identity check refuses before
+    # anything has changed and the preflight changes nothing observable. It is kept because it
+    # stops being redundant the moment anything is committed ahead of the append - which is
+    # exactly the weakening below, and that one is detected.
+    ("the duplicate-identity preflight is dropped from the intervention contract",
+     [("orchestrator",
+       '        # Read-only: refuses a repeated stable identity without touching history.\n'
+       '        self._store(run, "interventions").validate_add(intervention)',
+       "        pass")],
+     a_duplicate_intervention_identity_cannot_cancel_a_run, "REDUNDANT"),
+
+    ("the duplicate-identity preflight is dropped AND the terminal outcome is committed "
+     "before the append",
+     [("orchestrator",
+       '        # Read-only: refuses a repeated stable identity without touching history.\n'
+       '        self._store(run, "interventions").validate_add(intervention)',
+       "        pass"),
+      ("orchestrator",
+       "        if intervention is not None:\n"
+       "            self._record_intervention(run, intervention)\n"
+       "        state.terminal = outcome",
+       "        state.terminal = outcome\n"
+       "        if intervention is not None:\n"
+       "            self._record_intervention(run, intervention)")],
+     a_duplicate_intervention_identity_cannot_cancel_a_run, "DETECTED"),
+
+    ("the terminal intervention is appended before it is validated",
+     [("orchestrator",
+       "        if intervention is not None:\n"
+       "            self._validate_intervention(run, intervention)\n"
+       "        # ---- commit. History, event and terminal state are one act.\n"
+       "        if intervention is not None:\n"
+       "            self._record_intervention(run, intervention)",
+       "        if intervention is not None:\n"
+       "            self._record_intervention(run, intervention)\n"
+       "            self._validate_intervention(run, intervention)")],
+     a_foreign_intervention_cannot_cancel_a_run, "DETECTED"),
 ]
 
 
@@ -551,6 +689,10 @@ class TestControlledWeakenings(unittest.TestCase):
     def test_the_healthy_crossing_control_passes(self):
         with implementation() as env:
             a_healthy_crossing_still_works(env)
+
+    def test_the_healthy_cancellation_control_passes(self):
+        with implementation() as env:
+            a_valid_cancellation_still_works(env)
 
     def test_each_weakening_behaves_as_classified(self):
         misclassified = []

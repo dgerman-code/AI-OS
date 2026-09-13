@@ -13,6 +13,14 @@ It is not an independent audit.
 
 ---
 
+> **Revision 6 — terminal intervention provenance and atomicity.** The v5 re-audit passed
+> every other family and left one blocker: the completion path validated a
+> `HumanInterventionRecord` less strictly than every other path that consumes one, so a
+> foreign-run record or a non-record object reached the intervention store before an
+> attribute access failed. There is now exactly one intervention contract, used by all five
+> consuming APIs; section 4f records it. The documented weakening counts are now derived from
+> the executable manifest by the validator rather than written by hand.
+>
 > **Revision 5 — late-failure atomicity.** The v4 re-audit found four ordinary governed
 > acts that still mutated before their last fallible check: the assignment attempt counter,
 > `pause`, the scope-transfer authorisation event, and the Routing Request in `route()`. All
@@ -59,21 +67,21 @@ discouraged.** A `RoleRef` and an `AgentInstanceRef` carrying the same string ar
 
 ```
 python3 -m unittest discover -s implementation/phase-12/tests
-Ran 145 tests — OK
+Ran 157 tests — OK
 
-python3 validation/phase_12_validation.py            === 52/52 PASS ===   exit 0
-python3 validation/phase_12_validation.py --verbose   === 52/52 PASS ===   exit 0
-python3 validation/phase_12_validation.py --json      total 52, passed 52, 52 results
+python3 validation/phase_12_validation.py            === 55/55 PASS ===   exit 0
+python3 validation/phase_12_validation.py --verbose   === 55/55 PASS ===   exit 0
+python3 validation/phase_12_validation.py --json      total 55, passed 55, 55 results
 
 python3 implementation/phase-12/examples/governed_run.py   exit 0, run COMPLETED / GOVERNANCE_CLEAR
 python3 implementation/phase-12/examples/blocked_run.py    exit 0, four governance stops and
                                                             twenty-two structural bypasses refused
 ```
 
-Validator groups: `structure` 4 · `containment` 6 · `domain` 7 · `assurance` 29 ·
-`suite` 5 · `inventory` 1.
+Validator groups: `structure` 4 · `containment` 6 · `domain` 7 · `assurance` 31 ·
+`suite` 6 · `inventory` 1.
 
-**Controlled weakenings: 16, committed and executed.**
+**Controlled weakenings: 22, committed and executed.**
 `implementation/phase-12/tests/test_mutation_guards.py` removes each load-bearing guard from
 the module **source in memory**, executes a fresh copy of the implementation, and re-runs the
 scenario that guard protects. Nothing on disk is edited, so the runner is reproducible from a
@@ -81,11 +89,18 @@ clean checkout and runs as part of the ordinary suite. The Phase 12 validator bo
 the harness is committed and re-derives every classification itself, so a weakening that
 quietly stopped biting is a validator failure rather than a stale comment.
 
-Fifteen of the sixteen are classified `DETECTED` — removing the guard changes observable
-governed behaviour. One is classified `REDUNDANT` and says so in the file: removing the Model
-Result identity **preflight** changes nothing observable, because nothing has mutated between
-the preflight and the append, so the store's own identity check still refuses. That store check
-is itself weakened separately, and is detected.
+19 of the 22 are classified `DETECTED` — removing the guard changes observable governed
+behaviour — and 3 are classified `REDUNDANT`. **These numbers are not prose: the validator
+reads the executable manifest and refuses any sentence here that disagrees with it**, which is
+the v5 finding about drifting counts.
+
+All three redundancies are the same shape and each says so in the file: an identity
+**preflight** whose removal changes nothing observable, because nothing has mutated between
+the preflight and the append, so the store's own identity check still refuses first. That
+store check is weakened separately, and is detected. The third one — the intervention
+preflight on the terminal path — is followed by a compound weakening that also commits the
+terminal outcome ahead of the append; that combination *is* detected, which is what shows the
+preflight is load-bearing rather than decorative.
 
 Three earlier redundancies were removed rather than explained: the stage activation path
 refuses a halted run in exactly one place; the authorisation-coverage check is exercised by
@@ -138,7 +153,7 @@ rather than claiming it.
 | 7 | Retry class came from a caller-supplied Task | `retry()` has no task parameter; the class is read from the Work Item's lineage |
 | 8 | A bare mechanism reference proved a crossing was approved | `ScopeTransferAuthorisation` binds mechanism-at-version, source run and scope, target scope, human authority and Decision Record; the crossing creates a **new** execution and rewrites no binding |
 | 9 | Governed records were overwritten by Work Item id | `RecordStore` is append-only with the backing list in a closure; repeated Decision and Review records both stand |
-| 10 | Tests proved object creation, not relationships | 145 tests, including one class per finding, plus the committed weakenings above |
+| 10 | Tests proved object creation, not relationships | 157 tests, including one class per finding, plus the committed weakenings above |
 
 ### 4c. The nine re-audit findings, and how each was closed
 
@@ -152,7 +167,7 @@ rather than claiming it.
 | 6 | A well-shaped authorisation was sufficient | `transfer_scope` corroborates every clause against the source run's retained history: the Decision Record must be retained and must answer the exact run, Work Item, requirement and Right with a continuing outcome; the authorising human must be that record's author and hold the Right; the mechanism at its version must be approved by the configured registry for that exact Right (no registry approves nothing); the complete source and target bindings must match; and sensitivity may not widen nor residency change |
 | 7 | A caller could manufacture a Routing Decision and record it | There is no recording method — `route()` invokes the configured Router and directly records exactly the object it returned; `decided_by` must equal the configured `RouterRef`; and a `ModelResult` must carry its own record identity and answer this run, Work Item, Routing Decision, model and Model Profile before it is recorded |
 | 8 | Evidence could satisfy a gate without being retained | `_commit_gate` retains the evidence in its governed store as part of the same commit, keyed by the record's own identity; `RecordStore` refuses a duplicate identity; and `run.evidence_for(gate)` reconstructs what explained a completion |
-| 9 | Adversarial and mutation credibility | 145 tests, 22 executable bypass probes in `examples/blocked_run.py`, and the committed weakening harness |
+| 9 | Adversarial and mutation credibility | 157 tests, 22 executable bypass probes in `examples/blocked_run.py`, and the committed weakening harness |
 
 Two checks compare the implementation against the architecture **documents** rather than
 against itself: the transition table is parsed from
@@ -190,6 +205,19 @@ Each compares the full observable state — axes, gate outcomes, every governed 
 the execution-event count — before and after the refusal. The validator loads the four by name
 through `unittest` rather than by grep, so a renamed or commented-out test fails it. Four new
 weakenings move each mutation back in front of its check and are classified `DETECTED`.
+
+### 4f. The v5 re-audit finding, and how it was closed
+
+| Finding | Answer |
+|---|---|
+| A `HumanInterventionRecord` naming another run could be accepted, retained and used to reach `CANCELLED` | `_validate_intervention()` is now the single contract, and `complete()` calls it before anything is written. Foreign-run lineage is refused as a `LineageError` on all five consuming paths — ordinary recording, `pause`, `unblock`, `complete/CANCELLED` and `complete/TERMINATED` — and the record is absent from the run's history afterwards |
+| A string or arbitrary object could be appended to the intervention store before a later attribute access failed | The contract's first check is the type check, and the store append now happens only after the whole contract has passed. A string, a bare `object()` and a duck-typed impostor are each refused with the store untouched |
+| Duplicate stable identity was not preflighted on the terminal path | The duplicate-identity preflight moved *into* the contract rather than being repeated at each call site, which is how one path had it and another did not. It is read-only, so the contract stays a pure validation |
+| No committed coverage of the terminal path | Seven named tests in `TestTerminalInterventionAtomicity`, covering foreign-run cancellation and termination, a string, an arbitrary object, a smuggled malformed human authority, duplicate identity, the valid cancellation and termination controls, a termination with no intervention at all, and one test that drives the same foreign record through every consuming API. Each compares axes, terminal outcome, posture, gate outcomes, every record store and the event count before and after |
+| Mutation documentation counts inconsistent with the executable manifest | Five new weakenings on this path, and a validator check that reads the manifest and refuses any count in this document that disagrees with it. The previous revision's "fifteen of sixteen" was wrong; the numbers above are now derived, not written |
+
+The terminal path deliberately reuses the same helper rather than gaining a terminal-specific
+validator. A weaker second validator is what the finding was.
 
 ## 5. Deferred Phase 11 validator hardening
 
@@ -241,15 +269,15 @@ Each of these is an MVP limitation, not an architecture defect.
 9. **The weakening harness is committed and runs in-process.** It executes copies of the
    implementation with guards removed; it does not fork, sandbox or time-limit them. A
    weakening that hung rather than failing would hang the suite.
-10. **One weakening is honestly classified `REDUNDANT`**, and one earlier finding remains so:
-   removing the `AUTHORITY_ABSENT` posture check in the halted guard changes nothing
-   observable today, because that posture is only ever set together with `ESCALATED`. Both are
+10. **Three weakenings are honestly classified `REDUNDANT`**, and one earlier finding remains
+   so: removing the `AUTHORITY_ABSENT` posture check in the halted guard changes nothing
+   observable today, because that posture is only ever set together with `ESCALATED`. All are
    kept as defence for future paths and are recorded rather than claimed.
 
 ## 6a. Harness credibility, self-assessed
 
-**MEDIUM-HIGH, and the gap is named.** What supports it: 145 committed tests; 22 executable
-bypass probes; a committed weakening runner whose fifteen detected weakenings are re-derived by
+**MEDIUM-HIGH, and the gap is named.** What supports it: 157 committed tests; 22 executable
+bypass probes; a committed weakening runner whose 19 detected weakenings are re-derived by
 the validator; and two checks that compare the implementation against the architecture
 *documents* rather than against itself. What holds it back from HIGH: this is a single-process
 in-memory reference with no persistence and no concurrency, so a whole class of governed

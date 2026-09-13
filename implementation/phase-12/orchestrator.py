@@ -34,6 +34,7 @@ from domain import (
     GateKind, GateOutcome, GateRequirement, GateRequirementRef, GovernanceError,
     HaltedRunError,
     GovernancePosture, HumanAuthorityRef, HumanInterventionRecord, HumanWorkCompletion,
+    InterventionRef,
     LineageError, ModelInvocationRequest, ModelResult, NEVER_AUTOMATICALLY_RETRYABLE,
     NON_COMPLETION_TERMINALS, POSTURE_PERMITS_COMPLETION, PrerequisiteEvidence, Ref,
     ReviewInstance, ReviewRequest, RetryClass, RoleRef, RouterOutcome, RouterRef,
@@ -342,7 +343,6 @@ class Orchestrator:
             raise GovernanceError(
                 "%d gate(s) still stand unresolved in favour of continuation; the blocking "
                 "constraint is not satisfied" % len(standing))
-        self._store(run, "interventions").validate_add(intervention)
         self._preflight_phases(run, (RunPhase.RUNNING,), allow_noop=False)
         self._record_intervention(run, intervention)
         self._transition(run, RunPhase.RUNNING, detail=intervention.reason)
@@ -828,17 +828,30 @@ class Orchestrator:
         """A human act on the run. The human is recorded first; automation refuses after."""
         self._require_progressible(run, "recording an intervention")
         self._validate_intervention(run, intervention)
-        self._store(run, "interventions").validate_add(intervention)
         return self._record_intervention(run, intervention)
 
     def _validate_intervention(self, run: WorkflowRun,
                                intervention: HumanInterventionRecord) -> None:
-        """Everything about an intervention that can refuse. Reads only."""
+        """The ONE intervention contract. Everything that can refuse; reads only.
+
+        Every API that consumes a `HumanInterventionRecord` goes through this and nothing
+        else - ordinary recording, `pause`, `unblock`, and every terminal outcome that
+        accepts an intervention. The V5 audit found the terminal path validating less than
+        the ordinary ones, which let a foreign-run or non-record object be appended before an
+        attribute access failed; a weaker terminal-specific validator is exactly what this
+        method exists to prevent.
+
+        The duplicate-identity preflight belongs here rather than at the call sites: it is a
+        read-only question about the same object, and leaving it to each caller is how one
+        path ends up asking it and another not."""
         if not isinstance(intervention, HumanInterventionRecord):
             raise GovernanceError("a human act on a run is recorded as an intervention")
+        require(intervention.ref, InterventionRef, "intervention identity")
         require(intervention.by, HumanAuthorityRef, "intervention")
         if intervention.run != run.ref:
             raise LineageError("the intervention names another run")
+        # Read-only: refuses a repeated stable identity without touching history.
+        self._store(run, "interventions").validate_add(intervention)
 
     def _record_intervention(self, run: WorkflowRun,
                              intervention: HumanInterventionRecord) -> HumanInterventionRecord:
@@ -856,7 +869,6 @@ class Orchestrator:
         itself - now happens before the first mutation."""
         self._require_progressible(run, "pausing the run")
         self._validate_intervention(run, intervention)
-        self._store(run, "interventions").validate_add(intervention)
         self._preflight_phases(run, (RunPhase.PAUSED,), allow_noop=False)
         self._record_intervention(run, intervention)
         return self._transition(run, RunPhase.PAUSED, detail=intervention.reason)
@@ -900,8 +912,13 @@ class Orchestrator:
                 raise GovernanceError(
                     "%d gate(s) are not satisfied; completion is not available"
                     % len(outstanding))
+        # ---- the last refusal-capable check. A terminal outcome is still an ordinary
+        # governed act: the intervention that justifies it is validated by the same contract
+        # every other path uses, and before anything at all is written.
         if intervention is not None:
-            self._store(run, "interventions").validate_add(intervention)
+            self._validate_intervention(run, intervention)
+        # ---- commit. History, event and terminal state are one act.
+        if intervention is not None:
             self._record_intervention(run, intervention)
         state.terminal = outcome
         self.log.append(run.ref, "terminal:%s" % outcome.value, cause)

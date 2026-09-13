@@ -1642,6 +1642,168 @@ class TestLateFailureAtomicity(unittest.TestCase):
         self.assertIn("routing:decided", kinds)
 
 
+class TestTerminalInterventionAtomicity(unittest.TestCase):
+    """A terminal outcome is an ordinary governed act, held to the same contract.
+
+    The fifth audit found the completion path validating less than every other path that
+    consumes a `HumanInterventionRecord`: a foreign-run record, or an object that is not a
+    record at all, reached the intervention store before an attribute access failed. Every
+    test below asserts the whole observable state is unchanged by the refusal.
+    """
+
+    def _run(self, orch=None, run_id="run.term"):
+        orch = orch or build()
+        run, item = started(orch, simple_task(), run_id)
+        return orch, run, item
+
+    def _intervention(self, run, ref="iv.1", act="cancel", reason="withdrawn"):
+        return HumanInterventionRecord(InterventionRef(ref), run.ref,
+                                       HumanAuthorityRef("h"), act, reason)
+
+    # -------------------------------------------------------------- cross-run provenance
+
+    def test_a_foreign_run_intervention_cannot_cancel_a_run(self):
+        orch, run, _item = self._run()
+        other = build()
+        run_b, _ = started(other, simple_task(), "run.b")
+        foreign = self._intervention(run_b, "iv.foreign")
+        before = snapshot(run, orch)
+        with self.assertRaises(LineageError):
+            orch.complete(run, TerminalOutcome.CANCELLED, intervention=foreign)
+        self.assertEqual(snapshot(run, orch), before)
+        self.assertEqual(run.interventions(), ())
+        self.assertIsNone(run.axes()[1])
+
+    def test_a_foreign_run_intervention_cannot_terminate_a_run(self):
+        orch, run, _item = self._run(run_id="run.term2")
+        foreign = HumanInterventionRecord(InterventionRef("iv.foreign"),
+                                          WorkflowRunRef("run.elsewhere"),
+                                          HumanAuthorityRef("h"), "terminate", "constraint")
+        before = snapshot(run, orch)
+        with self.assertRaises(LineageError):
+            orch.complete(run, TerminalOutcome.TERMINATED, cause="constraint",
+                          intervention=foreign)
+        self.assertEqual(snapshot(run, orch), before)
+        self.assertEqual(run.interventions(), ())
+
+    # -------------------------------------------------------------- malformed objects
+
+    def test_a_string_cannot_be_recorded_as_a_cancellation_intervention(self):
+        orch, run, _item = self._run(run_id="run.term3")
+        before = snapshot(run, orch)
+        with self.assertRaises(GovernanceError):
+            orch.complete(run, TerminalOutcome.CANCELLED, intervention="a human said so")
+        self.assertEqual(snapshot(run, orch), before)
+        self.assertEqual(run.interventions(), ())
+        self.assertIsNone(run.axes()[1])
+
+    def test_an_arbitrary_object_cannot_be_recorded_as_a_cancellation_intervention(self):
+        orch, run, _item = self._run(run_id="run.term4")
+
+        class LooksLikeOne:
+            ref = InterventionRef("iv.impostor")
+            act = "cancel"
+            reason = "withdrawn"
+
+            def __init__(self, run_ref):
+                self.run = run_ref
+                self.by = HumanAuthorityRef("h")
+
+        before = snapshot(run, orch)
+        with self.assertRaises(GovernanceError):
+            orch.complete(run, TerminalOutcome.CANCELLED,
+                          intervention=LooksLikeOne(run.ref))
+        self.assertEqual(snapshot(run, orch), before)
+        self.assertEqual(run.interventions(), ())
+
+    def test_an_intervention_without_a_governed_human_authority_is_refused(self):
+        orch, run, _item = self._run(run_id="run.term5")
+        # The dataclass refuses the malformed authority at construction; the API refuses it
+        # again if one is smuggled past construction. Both are asserted.
+        with self.assertRaises((IdentityError, GovernanceError)):
+            HumanInterventionRecord(InterventionRef("iv.bad"), run.ref, "human.h",
+                                    "cancel", "withdrawn")
+        smuggled = self._intervention(run, "iv.bad")
+        object.__setattr__(smuggled, "by", "human.h")
+        before = snapshot(run, orch)
+        with self.assertRaises((IdentityError, GovernanceError)):
+            orch.complete(run, TerminalOutcome.CANCELLED, intervention=smuggled)
+        self.assertEqual(snapshot(run, orch), before)
+        self.assertEqual(run.interventions(), ())
+
+    # -------------------------------------------------------------- duplicate identity
+
+    def test_a_duplicate_intervention_identity_cannot_cancel_a_run(self):
+        orch, run, _item = self._run(run_id="run.term6")
+        first = self._intervention(run, "iv.1", act="note", reason="noted")
+        orch.record_intervention(run, first)
+        before = snapshot(run, orch)
+        repeat = self._intervention(run, "iv.1")           # the same stable identity
+        with self.assertRaises(AppendOnlyError):
+            orch.complete(run, TerminalOutcome.CANCELLED, intervention=repeat)
+        self.assertEqual(snapshot(run, orch), before)
+        self.assertEqual(tuple(r.ref.id for r in run.interventions()), ("iv.1",))
+        self.assertIsNone(run.axes()[1])
+
+    # -------------------------------------------------------------- the positive controls
+
+    def test_a_valid_cancellation_still_reaches_cancelled(self):
+        orch, run, _item = self._run(run_id="run.term7")
+        orch.complete(run, TerminalOutcome.CANCELLED,
+                      intervention=self._intervention(run, "iv.ok"))
+        self.assertIs(run.axes()[1], TerminalOutcome.CANCELLED)
+        self.assertEqual(tuple(r.ref.id for r in run.interventions()), ("iv.ok",))
+        self.assertIn("terminal:CANCELLED", tuple(e.kind for e in orch.log.events()))
+
+    def test_a_valid_termination_still_reaches_terminated(self):
+        orch, run, _item = self._run(run_id="run.term8")
+        orch.complete(run, TerminalOutcome.TERMINATED, cause="external constraint",
+                      intervention=self._intervention(run, "iv.ok", act="terminate"))
+        self.assertIs(run.axes()[1], TerminalOutcome.TERMINATED)
+        self.assertEqual(tuple(r.ref.id for r in run.interventions()), ("iv.ok",))
+
+    def test_a_termination_without_an_intervention_still_works(self):
+        """The intervention is optional on this path, and optional is not unvalidated."""
+        orch, run, _item = self._run(run_id="run.term9")
+        orch.complete(run, TerminalOutcome.TERMINATED, cause="external constraint")
+        self.assertIs(run.axes()[1], TerminalOutcome.TERMINATED)
+        self.assertEqual(run.interventions(), ())
+
+    def test_every_intervention_consuming_api_shares_one_contract(self):
+        """The same foreign record is refused identically by all four public paths."""
+        for run_id, call in (
+                ("run.c1", lambda orch, run, foreign: orch.record_intervention(run, foreign)),
+                ("run.c2", lambda orch, run, foreign: orch.pause(run, foreign)),
+                ("run.c3", lambda orch, run, foreign: orch.complete(
+                    run, TerminalOutcome.CANCELLED, intervention=foreign)),
+                ("run.c4", lambda orch, run, foreign: orch.complete(
+                    run, TerminalOutcome.TERMINATED, cause="c", intervention=foreign))):
+            orch, run, _item = self._run(run_id=run_id)
+            foreign = HumanInterventionRecord(InterventionRef("iv.foreign"),
+                                              WorkflowRunRef("run.elsewhere"),
+                                              HumanAuthorityRef("h"), "act", "reason")
+            before = snapshot(run, orch)
+            with self.assertRaises(LineageError):
+                call(orch, run, foreign)
+            self.assertEqual(snapshot(run, orch), before)
+            self.assertEqual(run.interventions(), ())
+
+    def test_unblock_shares_the_same_contract(self):
+        """`unblock()` is the one API exempt from the halted guard, not from this contract."""
+        orch = build(missing_right_for=("cap",))
+        run, item = started(orch, simple_task(capability="cap"), "run.c5")
+        orch.route(run, item, "policy")
+        self.assertIs(run.axes()[3], GovernancePosture.AUTHORITY_ABSENT)
+        foreign = HumanInterventionRecord(InterventionRef("iv.foreign"),
+                                          WorkflowRunRef("run.elsewhere"),
+                                          HumanAuthorityRef("h"), "unblock", "resolved")
+        before = snapshot(run, orch)
+        with self.assertRaises(LineageError):
+            orch.unblock(run, foreign)
+        self.assertEqual(snapshot(run, orch), before)
+        self.assertEqual(run.interventions(), ())
+
+
 class TestExamplesRun(unittest.TestCase):
     """The two synthetic cases are executed, not merely shipped."""
 
