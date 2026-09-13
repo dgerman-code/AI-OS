@@ -328,6 +328,63 @@ Every prior suite was re-run: eight emphasis/strong/strikethrough probes, six in
 
 ---
 
+# Structured rendered-text remediation — parsing instead of approximating
+
+**The root cause, named.** Six passes closed six bypasses of one invariant, and every fix had the same shape: enumerate the wrappers the reviewer brought, and ship. A word list, then a distance, then a grammatical scope, then one rendering, then a marker list, then links and tags. The seventh review made the diagnosis that the previous six had not: **the validator was approximating rendered text instead of reading it.** Four more bypasses followed from that single fact, and four more regex patches would have bought exactly one more round.
+
+| Bypass class | Why a regex could not see it |
+|---|---|
+| <!-- stale-specimen -->`<span title="a>b">`<!-- /stale-specimen --> | A pattern cannot know the `>` is inside a quoted attribute |
+| <!-- stale-specimen -->`Deci<!-- x -->sion Record`<!-- /stale-specimen --> | A comment between visible words is structure, not a marker |
+| <!-- stale-specimen -->`Reco&#114;d`<!-- /stale-specimen --> | A character reference is content that has not been decoded yet |
+| <!-- stale-specimen -->`[Record](#a(b(c))d)`<!-- /stale-specimen --> | Balanced nesting is not a regular language |
+
+## The rule
+
+> **For this invariant the validator inspects rendered visible semantic text. Presentation syntax may be removed; visible semantic content may never be.**
+
+## Implementation — standard library only
+
+| Concern | Mechanism |
+|---|---|
+| Inline HTML, comments, character references | `html.parser.HTMLParser` with `convert_charrefs=True`, collecting only `handle_data`. Comments have no handler and disappear; quoted attributes are the parser's job, not a pattern's |
+| Named and numeric entities | Decoded by the parser, with `html.unescape` handlers as a second, independent route |
+| Markdown link destinations | A depth-counting scanner, because balanced nesting is not something a regex can consume |
+| Unterminated openers | A **quote-aware scan** locates a `<` with no `>` outside quotes and reduces the marker to nothing, keeping the words after it |
+| Emphasis, strong, strikethrough, inline code | Marker removal, as before, after the structural steps |
+
+The reading order is fixed and load-bearing: links first, so a destination containing angle brackets never reaches the parser as markup; HTML second, so an entity decoding to a formatting marker is stripped by the third step rather than surviving as one; markers last.
+
+## What the parser got wrong, and how it was caught
+
+A real parser is better than a regex at every shape above and **worse at one**: an opener that never closes, where it buffers the rest as an incomplete tag and the sentence is lost. My first attempt at handling this compared the parser against a crude strip and kept whichever preserved more content — which promptly regressed the quoted-attribute case, because a crude strip leaks presentation *as* content and wins that comparison.
+
+The guard caught both mistakes before commit, which is the point of guarding the algorithm rather than the phrase list. The fix is the quote-aware scan: it draws exactly the distinction a regex cannot, and it neutralises only the marker.
+
+## Self-guards — the algorithm, class by class
+
+Thirteen rendering rules are asserted directly: a link renders to its label, inline and reference; nested destination parentheses are consumed whole; a tag is removed and its inner text kept; a quoted `>` **and** a quoted `<` do not terminate a tag early; a comment disappears and its neighbours join; decimal, hexadecimal and named references decode; an entity decoding to a marker is then stripped; an unterminated opener and an unterminated comment do not swallow the words after them; the declared vocabulary is untouched.
+
+Two structural guards sit above them: **no visible content may be lost** — asserted over the malformed shapes that tempt a parser to drop a buffer — and **both scopes must read identically**, asserted on three hard inputs, so the document scan and `race_row_cells()` cannot drift apart.
+
+Fifteen weakenings were applied and reverted. Fourteen failed the harness with **no document edited**: HTML parsing replaced by a regex · quote-awareness removed · unterminated-marker neutralisation removed · nesting removed from the destination scanner · link handling removed · inline-HTML handling removed · row path reverted to raw Markdown · document scan reverted to raw Markdown · specimen widened to ordinary formatting · strikethrough, asterisk and underscore emphasis each dropped · negation reverted to proximity.
+
+The fifteenth is reported honestly: **disabling `convert_charrefs` alone did not fail**, and neither did removing the explicit entity handlers alone — entity decoding has two independent implementations, so either survives the loss of the other. Removing **both** fails. That is redundancy rather than a gap, and it is recorded rather than presented as a clean sweep.
+
+## Probes
+
+Ten negative probes — quoted `>` in an attribute, comment between the subject words, decimal and hexadecimal references, nested link destination, entity in the predicate, all four combined, an unterminated opener, and two of these through the **authoritative row's** reading path — **exit 1 each**.
+
+Seven positive controls — plain and rendered attached negation, unrelated stale evidence, benign link/HTML/entity asserting nothing, late review `IGNORE_AS_STALE` retained against its Review Instance, an allowed specimen fence, and the controlled vocabulary — **exit 0 each**.
+
+Every prior suite re-run: twelve stale-wording, six unrelated-negation, six inline-code, eight emphasis/strong/strikethrough, four link, four inline-HTML and twelve foundation probes including vacuity — **exit 1 each**.
+
+## Scope
+
+**No architecture content changed** — `orchestration/` and `architecture/` are byte-for-byte identical, so no stop-and-report was required. Suite unchanged at **154**. **Phase 11 remains `PROPOSED`; human approval is pending.**
+
+---
+
 ## A note on the specimen fence
 
 This record quotes wordings in order to reject them. Since the inline-code remediation, the

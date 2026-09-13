@@ -11,11 +11,13 @@ Usage:
 Exit code 0 if every check passes, 1 otherwise.
 """
 
+import html
 import json
 import os
 import re
 import subprocess
 import sys
+from html.parser import HTMLParser
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -842,38 +844,190 @@ SPECIMEN_FENCE = re.compile(
 # vocabulary while `_Record_` is still normalised away.
 INTRAWORD_SAFE_UNDERSCORE = re.compile(r"(?<![A-Za-z0-9])_|_(?![A-Za-z0-9])")
 
-# A Markdown inline link renders as its visible text; the destination is syntax nobody reads.
-# `[Record](#term)` therefore reads as `Record`, and a link around half the subject must not
-# be able to split it.
-MARKDOWN_LINK = re.compile(r"!?\[([^\]\n]*)\]\((?:[^()\n]|\([^()\n]*\))*\)")
-MARKDOWN_REFERENCE_LINK = re.compile(r"!?\[([^\]\n]*)\]\[[^\]\n]*\]")
 
-# An inline HTML tag wraps text; the tag is presentation and the text is what is asserted.
-# Removed rather than matched as a pair, so an unclosed or mismatched tag cannot survive as a
-# token splitter either. This normaliser is scoped to one invariant, so deleting an angle
-# placeholder such as an <id> marker costs nothing and can fabricate no assertion.
-INLINE_HTML_TAG = re.compile(r"</?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>\n]*)?/?>")
+class _VisibleText(HTMLParser):
+    """Collects what an HTML fragment renders: text in, tags and comments out.
+
+    `convert_charrefs=True` decodes character references inside text, so an entity that
+    reconstructs part of a word is resolved rather than left as a splitter. Comments have no
+    handler, so they disappear while the text on either side of them joins up."""
+
+    def __init__(self):
+        HTMLParser.__init__(self, convert_charrefs=True)
+        self.parts = []
+
+    def handle_data(self, data):
+        self.parts.append(data)
+
+    def handle_entityref(self, name):
+        self.parts.append(html.unescape("&%s;" % name))
+
+    def handle_charref(self, name):
+        self.parts.append(html.unescape("&#%s;" % name))
+
+
+# A real parser reads quoted attributes, comments and character references correctly, and
+# there is exactly one shape it handles WORSE than a crude strip: an opener that never closes,
+# where it buffers the rest as an incomplete tag and the words are lost. Losing visible content
+# is the single thing this path may never do - it is precisely how an assertion gets hidden.
+#
+# The fix is not a second reading to compare against; a crude strip leaks presentation as
+# content and would win the comparison on well-formed input. Instead, unterminated openers are
+# located with a quote-aware scan - the one thing a regex cannot do here - and reduced to
+# nothing, leaving the words they prefixed for the parser to read normally.
+
+
+def _tag_closes(text, index):
+    """Whether the `<` at `index` has a `>` terminating it OUTSIDE any quoted attribute.
+
+    This is the distinction a regex cannot draw, and the reason `<span title="a>b">` must not
+    be treated as ending at the first `>` it contains."""
+    quote, i, limit = None, index + 1, len(text)
+    while i < limit:
+        ch = text[i]
+        if quote:
+            if ch == quote:
+                quote = None
+        elif ch in "\"'":
+            quote = ch
+        elif ch == ">":
+            return True
+        elif ch == "<":
+            return False
+        i += 1
+    return False
+
+
+def neutralise_unterminated(text):
+    """Remove markers that open a construct they never close, keeping every word after them."""
+    out, i, limit = [], 0, len(text)
+    while i < limit:
+        if text.startswith("<!--", i):
+            if "-->" in text[i:]:
+                out.append(text[i])
+                i += 1
+                continue
+            i += 4                                   # an unclosed comment marker, dropped
+            continue
+        if text[i] == "<" and not _tag_closes(text, i):
+            match = re.match(r"</?[A-Za-z][A-Za-z0-9-]*", text[i:])
+            if match:
+                i += match.end()                     # an unclosed opener, dropped
+                continue
+        out.append(text[i])
+        i += 1
+    return "".join(out)
+
+
+def strip_inline_html(text):
+    """Visible text of `text`, parsed rather than pattern-matched.
+
+    A parser is used because a regex cannot see a quoted attribute containing a tag
+    terminator, a comment between two visible words, or a character reference inside a word.
+    Unterminated markers are neutralised first, so no construct the parser would abandon can
+    take a sentence with it. If the parser raises at all, the fallback strips angle-bracket
+    runs - failing towards MORE normalisation, never less, because less is what hides."""
+    pre = neutralise_unterminated(text)
+    parser = _VisibleText()
+    try:
+        parser.feed(pre)
+        parser.close()
+    except Exception:
+        return html.unescape(re.sub(r"<[^>]*>", "", pre))
+    return "".join(parser.parts)
+
+
+def _consume_balanced(text, index, opener, closer):
+    """Index just past the balanced group starting at `index`, or None if it does not close.
+
+    Nesting is counted rather than matched with a regex, which is what lets a link
+    destination containing balanced parentheses be consumed completely instead of leaving
+    its tail in the visible text."""
+    depth, i, limit = 0, index, len(text)
+    while i < limit:
+        ch = text[i]
+        if ch == "\n":
+            return None
+        if ch == opener:
+            depth += 1
+        elif ch == closer:
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return None
+
+
+def strip_markdown_links(text):
+    """Markdown inline and reference links reduced to their visible label.
+
+    A link renders as its label; the destination is syntax nobody reads. Labels are processed
+    recursively so a link nested inside a label cannot smuggle syntax back in."""
+    out, i, limit = [], 0, len(text)
+    while i < limit:
+        ch = text[i]
+        if ch != "[":
+            out.append(ch)
+            i += 1
+            continue
+        label_end = _consume_balanced(text, i, "[", "]")
+        if label_end is None:
+            out.append(ch)
+            i += 1
+            continue
+        label = text[i + 1:label_end - 1]
+        after = label_end
+        if after < limit and text[after] in "([":
+            opener = text[after]
+            closer = ")" if opener == "(" else "]"
+            target_end = _consume_balanced(text, after, opener, closer)
+            if target_end is not None:
+                out.append(strip_markdown_links(label))
+                i = target_end
+                continue
+        # A bare [label] renders with its brackets. They are punctuation, not content, and
+        # dropping them can only join tokens - never hide one.
+        out.append(strip_markdown_links(label))
+        i = label_end
+    return "".join(out)
 
 
 def semantic_text(text):
     """The text as it renders: presentation removed, visible content preserved exactly.
 
-    Covers inline code, *emphasis*, _emphasis_, **strong**, __strong__, ~~strikethrough~~,
-    Markdown inline and reference links, and inline HTML tags - including mixed and nested
-    forms, because wrappers are removed rather than matched as pairs, so an unbalanced or
-    overlapping one cannot survive as a token splitter.
+    The reading order matters and is fixed:
 
-    Every transformation here removes presentation and keeps visible text. None removes
-    content, so normalisation can only join tokens that formatting split - never hide any."""
-    out = MARKDOWN_LINK.sub(r"\1", text)
-    out = MARKDOWN_REFERENCE_LINK.sub(r"\1", out)
-    out = INLINE_HTML_TAG.sub("", out)
+    1. Markdown links first, so a destination containing angle brackets never reaches the
+       HTML parser as if it were markup.
+    2. Inline HTML next, through a real parser, which also decodes character references -
+       so an entity that decodes to a formatting marker is stripped by step 3 rather than
+       surviving as one.
+    3. Markdown emphasis markers last.
+
+    Every step removes presentation and keeps visible text. None removes content, so this
+    can only join tokens that presentation split; it can hide nothing."""
+    out = strip_markdown_links(text)
+    out = strip_inline_html(out)
     out = out.replace("`", "")
     for marker in ("~~", "**", "__"):
         out = out.replace(marker, "")
     out = out.replace("*", "")
     return INTRAWORD_SAFE_UNDERSCORE.sub("", out)
 
+
+# The row-scoped matcher above is deliberately broad, because it is only ever applied to the
+# two cells of the late-Decision race row, where a sentence about anything being stale does not
+# belong. The Phase-11-wide matcher below is narrow by necessity: it must name a Decision
+# Record, so that stale *evidence* - a real and blocking condition in this architecture - is
+# never touched by it. Two scopes, two widths, and the difference is the point.
+NAMED_STALE_RECORD = re.compile(
+    r"(?<!not )(?<!never )(?<!not a )(?<!never a )\bstale\s+decision\s+record\b"
+    r"|\bdecision\s+record\b[^.;|]{0,60}?\b%(cop2)s\s+(?!%(neg)s\b)"
+    r"(?:%(adv)s\s+)*stale\b"
+    r"|\bdecision\s+record\b[^.;|]{0,60}?(?<!not )(?<!never )\b%(ass)s\s+"
+    r"(?:as\s+|to\s+be\s+)?stale\b"
+    % {"cop2": COPULA, "neg": NEGATOR, "adv": ADVERB, "ass": ASSESSED},
+    re.I)
 
 def assertive_text(doc):
     """The document's assertions: markup normalised, explicitly fenced specimens removed.
@@ -1057,6 +1211,31 @@ def stale_predication_grammar():
             ("The *Decision Record* is not _stale_.", False, False),
         "declared vocabulary survives normalisation":
             ("IGNORE_AS_STALE and NON_RETRYABLE_GOVERNED_ACT are unaffected", False, False),
+        # --- Rendering mechanisms a regex cannot see. Each is a class, not an example: a
+        # quoted attribute holding a tag terminator, a comment between two visible words, a
+        # character reference inside a word, and a link destination with nested parentheses.
+        "quoted > inside an attribute":
+            ('The Decision <span title="a>b">Record</span> is stale.', True, True),
+        "quoted < inside an attribute":
+            ('The Decision <span title="a<b">Record</span> is stale.', True, True),
+        "comment between the two subject words":
+            ("The Decision <!-- aside -->Record is stale.", True, True),
+        "comment inside a subject word":
+            ("The Decision Rec<!-- x -->ord is stale.", True, True),
+        "decimal character reference in the subject":
+            ("The Decision Reco&#114;d is stale.", True, True),
+        "hexadecimal character reference in the subject":
+            ("The Decision Reco&#x72;d is stale.", True, True),
+        "named entity inside the predicate":
+            ("The Decision Record is st&auml;le.", False, False),
+        "nested parentheses in a link destination":
+            ("The Decision [Record](#a(b(c))d) is stale.", True, True),
+        "nested parentheses and a label link":
+            ("The [Decision Record](#see(the(row))) is stale.", True, True),
+        "everything at once":
+            ("The <em>Decision</em> <!-- x -->[Reco&#114;d](#a(b)) is `~~stale~~`.", True, True),
+        "malformed wrapper cannot split the subject":
+            ("The Decision <em Record is stale.", True, True),
         # --- A link or an inline HTML tag renders away; it must not split the subject either.
         "subject in a link": ("The Decision [Record](#term) is stale.", True, True),
         "whole subject in a link": ("The [Decision Record](#term) is stale.", True, True),
@@ -1160,21 +1339,63 @@ def formatting_is_not_an_exemption():
         synthetic = "| 6 | Decision result after cancellation | RECONCILE | %s |" % wrapped
         if not stale_characterisations(" ".join(race_row_cells(synthetic))):
             problems.append("the row's reading path does not normalise %s" % label)
-    # Rendering rules, asserted directly rather than only through phrase examples.
-    if semantic_text("see [the visible text](#anchor-target)") != "see the visible text":
-        problems.append("a link did not render to its visible text alone")
-    if semantic_text("see [the visible text][ref]") != "see the visible text":
-        problems.append("a reference link did not render to its visible text alone")
-    if semantic_text('a <span class="x">wrapped phrase</span> here') \
-            != "a wrapped phrase here":
-        problems.append("an inline HTML tag was not removed, or ate its inner text")
-    if semantic_text("an <em>unclosed wrapper") != "an unclosed wrapper":
-        problems.append("an unbalanced tag survived as a token splitter")
+    # The reading ALGORITHM, asserted class by class rather than through phrase examples.
+    rendering = {
+        "inline link renders to its label":
+            ("see [the visible text](#anchor-target)", "see the visible text"),
+        "reference link renders to its label":
+            ("see [the visible text][ref]", "see the visible text"),
+        "nested parentheses in a destination are consumed whole":
+            ("see [the label](#a(b(c))d) now", "see the label now"),
+        "tag removed, inner text kept":
+            ('a <span class="x">wrapped phrase</span> here', "a wrapped phrase here"),
+        "a quoted > does not terminate the tag early":
+            ('a <span title="a>b">wrapped phrase</span> here', "a wrapped phrase here"),
+        "a quoted < does not terminate the tag early":
+            ('a <span title="a<b">wrapped phrase</span> here', "a wrapped phrase here"),
+        "a comment disappears and its neighbours join":
+            ("Reco<!-- hidden -->rd", "Record"),
+        "a decimal character reference decodes":
+            ("Reco&#114;d", "Record"),
+        "a hexadecimal character reference decodes":
+            ("Reco&#x72;d", "Record"),
+        "a named entity decodes":
+            ("caf&eacute;", "caf\u00e9"),
+        "an entity that decodes to a marker is then stripped":
+            ("a &#96;quoted&#96; word", "a quoted word"),
+        "an unbalanced tag does not survive as a splitter":
+            ("an <em>unclosed wrapper", "an unclosed wrapper"),
+        "declared vocabulary is untouched":
+            ("IGNORE_AS_STALE NON_RETRYABLE_GOVERNED_ACT GOVERNANCE_CLEAR",
+             "IGNORE_AS_STALE NON_RETRYABLE_GOVERNED_ACT GOVERNANCE_CLEAR"),
+        "an unterminated opener does not swallow the rest of the line":
+            ("an <em unclosed wrapper here", "an unclosed wrapper here"),
+        "an unterminated comment does not swallow the words after it":
+            ("Reco<!--rd is stale", "Record is stale"),
+    }
+    for label, (raw, expected) in rendering.items():
+        # Whitespace is not content: removing a marker can leave a doubled space, and the
+        # rule is about what words survive, not about spacing.
+        got = " ".join(semantic_text(raw).split())
+        if got != " ".join(expected.split()):
+            problems.append("%s: read as %r" % (label, got))
+    # The invariant the whole path rests on, asserted rather than assumed: presentation may be
+    # removed, content may not. Checked over the malformed shapes that tempt a parser to drop
+    # a buffer, because that is where the rule is actually at risk.
+    for raw in ("The Decision <em Record is stale.",
+                "The Decision </em Record is stale.",
+                "The Decision <!--Record is stale.",
+                "The Decision [Record](#a(b is stale."):
+        kept = re.sub(r"[^A-Za-z0-9]", "", semantic_text(raw))
+        if "DecisionRecord" not in kept or "stale" not in kept:
+            problems.append("content was lost reading %r: %r" % (raw[:44], semantic_text(raw)))
     # Both scopes must consume the same path: the same input must read identically whether it
     # arrives as a document or as a row cell.
-    sample = "The Decision <code>Record</code> is [stale](#s)."
-    if assertive_text(sample) != " ".join(race_row_cells("| %s |" % sample)):
-        problems.append("the document scan and the row reading path normalise differently")
+    for sample in ("The Decision <code>Record</code> is [stale](#s).",
+                   'The Decision <span title="a>b">Record</span> is stale.',
+                   "The Decision <!-- x -->Reco&#114;d is [stale](#a(b))."):
+        if assertive_text(sample) != " ".join(race_row_cells("| %s |" % sample)):
+            problems.append("document scan and row path differ on %r" % sample[:40])
     # No architecture document may claim the exemption; it is for review records only.
     misuse = [rel for rel in NORMATIVE if SPECIMEN_FENCE.search(DOCS[rel])]
     if misuse:
