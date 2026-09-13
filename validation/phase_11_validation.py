@@ -392,22 +392,146 @@ check("scope", "scope mismatch is a stop condition",
       lambda: ("Scope mismatch" in FAILD and "never a silent transfer" in plain(FAILD), ""))
 
 
+# A sentence about crossing a scope is read by its PREDICATE, not by the words it happens to
+# contain. The previous check exempted any line containing `approved mechanism`, so
+# "a stage may cross a project boundary without an approved mechanism" passed on the strength
+# of the very phrase it was dispensing with - the same substring-coincidence failure that this
+# suite has now hit in three different invariants.
+CROSSING = re.compile(r"cross(?:es|ing|ed)?\b[^.;\n]{0,40}?\b(?:scope|boundar(?:y|ies))", re.I)
+PROHIBITIVE = re.compile(
+    r"\b(?:must not|may not|cannot|can not|shall not|will not|does not|do not|never|"
+    r"is not permitted|are not permitted|is not allowed|are not allowed|no)\b", re.I)
+PERMISSIVE = re.compile(
+    r"\b(?:may|can|could|is permitted to|are permitted to|is allowed to|are allowed to|"
+    r"is free to|shall|will)\b", re.I)
+APPROVED_MECHANISM = re.compile(r"\b(?:approved mechanism|scope transfer|handoff)\b", re.I)
+WITHOUT_MECHANISM = re.compile(
+    r"\bwithout\b[^.;\n]{0,40}?\b(?:approved mechanism|scope transfer|handoff|mechanism|"
+    r"authorisation|authorization|approval)\b", re.I)
+
+
+def _sentence_around(text, index):
+    start = max(text.rfind(".", 0, index), text.rfind(";", 0, index),
+                text.rfind("\n", 0, index)) + 1
+    end = min((x for x in (text.find(".", index), text.find(";", index),
+                           text.find("\n", index)) if x != -1), default=len(text))
+    return text[start:end]
+
+
+def scope_crossing_verdict(sentence, crossing_at):
+    """ALLOW or REJECT for one sentence that mentions crossing a scope.
+
+    The subject region - everything before the crossing verb - carries the polarity, because
+    that is where the modal sits: `must not cross`, `may cross`, `is permitted to cross`."""
+    subject = sentence[:crossing_at]
+    if PROHIBITIVE.search(subject):
+        return "ALLOW"                      # a prohibition, however it continues
+    if WITHOUT_MECHANISM.search(sentence):
+        return "REJECT"                     # permission that dispenses with the mechanism
+    if PERMISSIVE.search(subject):
+        return "ALLOW" if APPROVED_MECHANISM.search(sentence) else "REJECT"
+    return "ALLOW" if APPROVED_MECHANISM.search(sentence) else "REJECT"
+
+
+def scope_crossing_offences(text):
+    """Sentences in `text` that permit crossing a scope without an approved mechanism.
+
+    Named and shared so the guard can drive the SCAN, not only the verdict helper: a
+    weakening that bypasses the verdict inside the scan is invisible to a guard that calls
+    the verdict directly, which is exactly how a reverted substring exemption survived a
+    controlled weakening run."""
+    # `plain()` rather than the rendered-text path: that helper is defined later in the file,
+    # and this invariant is about the predicate of a sentence, not about wrappers.
+    flat = plain(text)
+    offences = []
+    for m in CROSSING.finditer(flat):
+        sentence = _sentence_around(flat, m.start())
+        at = sentence.find(m.group(0))
+        if at == -1:
+            at = 0
+        if scope_crossing_verdict(sentence, at) == "REJECT":
+            offences.append(" ".join(sentence.split())[:100])
+    return offences
+
+
 def no_implicit_scope_crossing():
-    """No artifact may describe crossing a scope without naming an approved mechanism."""
-    bad = []
-    for rel, doc in NORMATIVE.items():
-        flat = plain(doc)
-        for m in re.finditer(r"(?i)cross(?:es|ing)?[^.\n]{0,30}(scope|boundar)", flat):
-            line = line_of(flat, m.start())
-            if DENIAL_MARKER.search(line):
-                continue
-            if re.search(r"(?i)approved mechanism|scope transfer|handoff", line):
-                continue
-            bad.append("%s: %s" % (rel, line.strip()[:90]))
-    return (not bad, str(bad) if bad else "no scope crossing is described without a mechanism")
+    """No artifact may permit crossing a scope without an approved mechanism.
+
+    Read by predicate: a prohibition is allowed however it is worded, a permission is allowed
+    only when it names an approved mechanism and does not dispense with one."""
+    bad = ["%s: %s" % (rel, offence)
+           for rel, doc in NORMATIVE.items() for offence in scope_crossing_offences(doc)]
+    return (not bad, str(bad) if bad
+            else "every scope-crossing sentence prohibits it or names an approved mechanism")
 
 
 check("scope", "no scope crossing is implicit", no_implicit_scope_crossing)
+
+
+def scope_negation_grammar():
+    """The scope rule, executed rather than described.
+
+    Permission and prohibition are opposite readings of sentences that share almost every
+    word, so the cases are run against the real verdict function. Reverting to a substring
+    exemption makes every REJECT case pass, and fails here with no document edited."""
+    cases = {
+        "may cross without the mechanism":
+            ("A stage may cross a project boundary without an approved mechanism.", "REJECT"),
+        "can cross without the mechanism":
+            ("The orchestrator can cross a scope boundary without an approved mechanism.",
+             "REJECT"),
+        "is permitted to cross without the mechanism":
+            ("A run is permitted to cross a programme boundary without an approved mechanism.",
+             "REJECT"),
+        "crosses with no mechanism named":
+            ("A stage may cross a project boundary when the work requires it.", "REJECT"),
+        "without authorisation":
+            ("A sub-run may cross a scope boundary without authorisation.", "REJECT"),
+        "must not cross without the mechanism":
+            ("A stage must not cross a project boundary without an approved mechanism.",
+             "ALLOW"),
+        "cannot cross without the mechanism":
+            ("The orchestrator cannot cross a scope boundary without an approved mechanism.",
+             "ALLOW"),
+        "never crosses":
+            ("The orchestrator never crosses an organisation or product boundary.", "ALLOW"),
+        "may not cross":
+            ("A run may not cross a portfolio boundary without an approved mechanism.",
+             "ALLOW"),
+        "approved mechanism or it does not happen":
+            ("A cross-scope movement uses an approved mechanism or does not happen.", "ALLOW"),
+        "crossing through a governed handoff":
+            ("Crossing a project boundary happens through a Phase 6 handoff.", "ALLOW"),
+        "crossing through scope transfer":
+            ("A cross-scope movement uses Phase 8 scope transfer.", "ALLOW"),
+    }
+    wrong = []
+    for label, (sentence, expected) in cases.items():
+        match = CROSSING.search(sentence)
+        if match is None:
+            wrong.append("%s: the sentence does not read as a crossing at all" % label)
+            continue
+        verdict = scope_crossing_verdict(sentence, match.start())
+        if verdict != expected:
+            wrong.append("%s: %s, expected %s" % (label, verdict, expected))
+    # Drive the SCAN as well, on synthetic documents. A weakening that bypasses the verdict
+    # inside the scan leaves the verdict helper correct, so testing the helper alone misses it.
+    offending_document = ("## Sub-runs\n\n"
+                          "A stage may cross a project boundary without an approved "
+                          "mechanism.\n")
+    clean_document = ("## Sub-runs\n\n"
+                      "A cross-scope movement uses an approved mechanism or does not "
+                      "happen.\n")
+    if not scope_crossing_offences(offending_document):
+        wrong.append("the document scan did not reject an explicit permission")
+    if scope_crossing_offences(clean_document):
+        wrong.append("the document scan rejected legitimate approved-mechanism wording")
+    return (not wrong, str(wrong) if wrong
+            else "%d scope sentences verdict as specified, and the scan agrees" % len(cases))
+
+
+check("scope", "permission to cross a scope cannot pass on a substring",
+      scope_negation_grammar)
 
 check("scope", "sensitivity and residency are carried and never widened",
       lambda: ("Sensitivity and residency are carried, never relaxed" in plain(STD)
@@ -880,11 +1004,23 @@ class _VisibleText(HTMLParser):
 def _tag_closes(text, index):
     """Whether the `<` at `index` has a `>` terminating it OUTSIDE any quoted attribute.
 
-    This is the distinction a regex cannot draw, and the reason `<span title="a>b">` must not
-    be treated as ending at the first `>` it contains."""
+    Two bounds make this a local decision rather than an open-ended search, and both matter:
+
+    * quotes are tracked, because `<span title="a>b">` does not end at the first `>` it
+      contains - the distinction a regex cannot draw;
+    * the scan stops at the end of the LINE. An inline tag is inline. Without that bound, a
+      stray `<em` could find a `>` arbitrarily far below - a blockquote marker at the start of
+      some later line will do - be judged well-formed, and hand the parser everything in
+      between to swallow. That is how malformed presentation consumed visible content in the
+      full-document path while the single-cell row path, which has no later `>`, read the
+      same text correctly. Bounding to the line makes the two agree by construction, and errs
+      towards treating an opener as malformed, which neutralises the marker and keeps the
+      words."""
     quote, i, limit = None, index + 1, len(text)
     while i < limit:
         ch = text[i]
+        if ch == "\n":
+            return False
         if quote:
             if ch == quote:
                 quote = None
@@ -903,11 +1039,19 @@ def neutralise_unterminated(text):
     out, i, limit = [], 0, len(text)
     while i < limit:
         if text.startswith("<!--", i):
-            if "-->" in text[i:]:
-                out.append(text[i])
-                i += 1
+            # A comment may span lines, but not the whole document: bounded to the paragraph,
+            # so an unterminated marker cannot reach a `-->` belonging to something else.
+            paragraph = text[i:].split("\n\n", 1)[0]
+            closer = paragraph.find("-->")
+            if closer != -1:
+                end = i + closer + 3
+                out.append(text[i:end])              # a real comment, left for the parser
+                i = end
                 continue
             i += 4                                   # an unclosed comment marker, dropped
+            continue
+        if text.startswith("-->", i):
+            i += 3                                   # an orphaned terminator, dropped
             continue
         if text[i] == "<" and not _tag_closes(text, i):
             match = re.match(r"</?[A-Za-z][A-Za-z0-9-]*", text[i:])
@@ -1372,6 +1516,9 @@ def formatting_is_not_an_exemption():
             ("an <em unclosed wrapper here", "an unclosed wrapper here"),
         "an unterminated comment does not swallow the words after it":
             ("Reco<!--rd is stale", "Record is stale"),
+        "an unterminated comment cannot reach a terminator in a later paragraph":
+            ("The Decision <!--Record is stale.\n\nA later line ends a comment -->here.",
+             "The Decision Record is stale. A later line ends a comment here."),
     }
     for label, (raw, expected) in rendering.items():
         # Whitespace is not content: removing a marker can leave a doubled space, and the
@@ -1391,6 +1538,22 @@ def formatting_is_not_an_exemption():
             problems.append("content was lost reading %r: %r" % (raw[:44], semantic_text(raw)))
     # Both scopes must consume the same path: the same input must read identically whether it
     # arrives as a document or as a row cell.
+    # A malformed opener must be neutralised LOCALLY. In a whole document a later `>` - a
+    # blockquote marker will do - used to make a stray `<em` look well-formed, and the parser
+    # then swallowed everything between them. Asserted on a document-shaped sample, because
+    # that is the only shape in which the bug existed.
+    document_shaped = ("Intro line.\n\nThe Decision <em Record is stale.\n\n"
+                       "> A later blockquote marker.\n\nA closing line.\n")
+    read = assertive_text(document_shaped)
+    for word in ("Decision", "Record", "stale", "later blockquote", "closing line"):
+        if word not in read:
+            problems.append("a malformed opener consumed %r in a full document" % word)
+    if not named_stale_record(read):
+        problems.append("a malformed opener hid a stale assertion in a full document")
+    # The same malformed sample must read identically through both paths.
+    malformed = "The Decision <em Record is stale."
+    if assertive_text(malformed) != " ".join(race_row_cells("| %s |" % malformed)):
+        problems.append("document and row paths differ on a malformed opener")
     for sample in ("The Decision <code>Record</code> is [stale](#s).",
                    'The Decision <span title="a>b">Record</span> is stale.',
                    "The Decision <!-- x -->Reco&#114;d is [stale](#a(b))."):

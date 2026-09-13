@@ -385,6 +385,70 @@ Every prior suite re-run: twelve stale-wording, six unrelated-negation, six inli
 
 ---
 
+# Malformed-rendering and scope-negation remediation
+
+Two validator blockers, both found by independent audit, both fixed here. **The committed architecture was correct in both cases** and is byte-for-byte unchanged.
+
+## Blocker 1 — a malformed opener could consume visible content
+
+`_tag_closes()` scanned forward for a `>` outside quotes with **no bound**. In a single table cell that is harmless. In a whole document it is not: a stray `<em` finds a `>` further down the file — a blockquote marker at the start of a later line will do — is judged well-formed, and the parser then swallows everything in between.
+
+Two symptoms, one cause: visible content disappeared in the document path, and the bounded row path read the same text correctly, so **the two paths disagreed**.
+
+**Fixed structurally, not by pattern.** An inline tag is inline: the scan now stops at end of line. A comment is bounded to its paragraph for the same reason, and an orphaned `-->` left behind by an unterminated marker is dropped as the presentation it is. Every bound errs towards treating a marker as malformed, which neutralises it and **keeps the words** — the direction that cannot hide an assertion.
+
+Nothing correctly handled regressed: quoted `>` and `<` inside attributes, well-formed comments, entities, nested link destinations, emphasis, inline code, specimen fences and the controlled vocabulary all still read as before, and each has a guard case saying so.
+
+## Blocker 2 — the scope guard read a substring instead of a predicate
+
+`no_implicit_scope_crossing()` exempted any line containing `approved mechanism`. So <!-- stale-specimen -->`a stage may cross a project boundary without an approved mechanism`<!-- /stale-specimen --> passed **on the strength of the phrase it was dispensing with**.
+
+That is the same substring-coincidence failure this suite has now hit in three separate invariants, and it gets the same answer: read the predicate.
+
+**The rule.** A sentence that mentions crossing a scope is judged by the modal in front of the crossing verb:
+
+| Subject region | Sentence | Verdict |
+|---|---|---|
+| Prohibitive — `must not`, `cannot`, `may not`, `never` | however it continues | **ALLOW** |
+| Permissive — `may`, `can`, `is permitted to` | dispenses with the mechanism (`without …`) | **REJECT** |
+| Permissive | names no approved mechanism | **REJECT** |
+| Permissive or descriptive | names an approved mechanism, dispenses with none | **ALLOW** |
+
+## Self-guards
+
+Twelve scope sentences are run against the verdict function, and — this is the part the first attempt got wrong — **the document scan is driven too**, on a synthetic offending document and a synthetic clean one. A weakening that bypasses the verdict *inside* the scan leaves the verdict helper correct, so a guard that only calls the helper misses it entirely.
+
+For the malformed opener: a document-shaped sample with a later blockquote marker must keep every word **and** still be caught as an assertion, and the same malformed sample must read identically through both paths.
+
+## What the weakening run found
+
+Nine weakenings were applied and reverted. **Two initially did not fail**, and both were gaps in my guards rather than in the fixes:
+
+| Weakening | First run | After closing the gap |
+|---|---|---|
+| Comment paragraph bound removed | **passed** — no case exercised a far-away `-->` | exit 1 |
+| Scope check reverted to the substring exemption | **passed** — the guard tested the helper, not the scan | exit 1 |
+
+The other seven failed immediately: line bound removed · quote tracking removed · neutralisation removed · orphan terminator kept · prohibitive polarity ignored · without-mechanism clause ignored · permissive-with-no-mechanism allowed.
+
+Recording the two misses matters more than the seven hits. A guard that passes when the thing it guards is broken is the failure mode this whole sequence has been about.
+
+## Probes
+
+**Blocker 1**, exit 1 each: malformed opener with a later blockquote; malformed closer in another document with a real tag later; unterminated comment reaching a later terminator; and a malformed opener through the **authoritative row** path.
+
+**Blocker 2**, exit 1 each: `may cross … without an approved mechanism` · `can cross …` · `is permitted to cross …` · a crossing naming no mechanism at all.
+
+**Controls**, exit 0 each: `must not cross … without an approved mechanism` · `cannot cross …` · `a cross-scope movement uses an approved mechanism or does not happen` · crossing through a Phase 6 handoff · a valid quoted attribute containing `>` · a well-formed comment between words.
+
+Every prior suite re-run: eighteen stale-wording and negation probes, seventeen rendering-family probes, the specimen-fence restriction, and eleven foundation probes including vacuity — **exit 1 each**.
+
+## Scope
+
+**No architecture content changed** — `orchestration/` and `architecture/` are byte-for-byte identical, so no stop-and-report was required. Suite **154 → 155**; `scope` 8 → 9. **Phase 11 remains `PROPOSED`; human approval is pending.**
+
+---
+
 ## A note on the specimen fence
 
 This record quotes wordings in order to reject them. Since the inline-code remediation, the
