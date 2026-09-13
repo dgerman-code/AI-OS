@@ -20,7 +20,7 @@ from domain import (
     AppendOnlyError, DecisionRecord, DecisionRecordRef, DecisionRightRef, GateKind,
     GateOutcome, GateRequirement, GateRequirementRef, GovernanceError, GovernancePosture,
     HandoffRef, HumanAuthorityRef, HumanWorkCompletion, HumanWorkRecordRef, HumanWorkRef,
-    IdentityError, ModelProfileRef, ModelRef, PrerequisiteEvidence, PrerequisiteRecordRef,
+    IdentityError, ModelProfileRef, ModelRef, ModelResultRef, PrerequisiteEvidence, PrerequisiteRecordRef,
     PrerequisiteRef, ReviewProfileRef, RetryClass, RoleRef, RouterOutcome, RouterRef,
     RoutingDecision, RoutingDecisionRef, RoutingRequestRef, RunPhase, ScopeBinding, ScopeRef,
     ScopeTransferAuthorisation, ScopeTransferRef, StateAccessError, StorageRecordRef, Task,
@@ -288,12 +288,13 @@ def bypass_fabricated_routing_decision():
 
 def bypass_router_mismatch():
     orch, run, task, item = _governed_setup(capability="cap", run_id="run.byp.18")
-    request = orch.request_routing(run, item, "policy@1")
-    impostor = RoutingDecision(RoutingDecisionRef("rd.imp"), request.ref, run.ref, item.ref,
+    def impostor(request):
+        return RoutingDecision(RoutingDecisionRef("rd.imp"), request.ref, run.ref, item.ref,
                                RouterOutcome.ELIGIBLE_CANDIDATE, RouterRef("router.other"),
                                ModelRef("m"), ModelProfileRef("p"))
+    orch.router.route = impostor
     return "Router identity mismatch", _refused_any(
-        lambda: orch._record_routing_decision(run, request, impostor))[:88]
+        lambda: orch.route(run, item, "policy@1"))[:88]
 
 
 def bypass_foreign_model_result():
@@ -302,7 +303,8 @@ def bypass_foreign_model_result():
         run_id="run.byp.19")
     decision = orch.route(run, item, "policy@1")
     foreign = __import__("domain").ModelResult(
-        WorkflowRunRef("run.elsewhere"), item.ref, decision.ref, ModelRef("m"), "text")
+        ModelResultRef("mr.foreign"), WorkflowRunRef("run.elsewhere"), item.ref,
+        decision.ref, ModelRef("m"), ModelProfileRef("p"), "text")
     orch.model.execute = lambda request: foreign
     before = len(run.model_results())
     refusal = _refused_any(lambda: orch.invoke_model(run, item, decision))

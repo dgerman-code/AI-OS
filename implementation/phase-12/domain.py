@@ -24,6 +24,7 @@ Standard library only. No provider SDK, no I/O, no clock of its own.
 """
 
 import dataclasses
+import collections.abc
 import typing
 from dataclasses import dataclass, field
 from enum import Enum
@@ -195,6 +196,10 @@ class RoutingRequestRef(Ref):
     KIND = "routing_request"
 
 
+class ModelResultRef(Ref):
+    KIND = "model_result"
+
+
 class ScopeTransferRef(Ref):
     KIND = "scope_transfer"
 
@@ -301,6 +306,13 @@ def _check_value(where: str, annotation, value) -> None:
             raise IdentityError("%s requires a frozenset, got %s" % (where, _describe(value)))
         for element in value:
             _check_value("%s{}" % where, args[0] if args else object, element)
+        return
+    if origin in (list, List, collections.abc.Sequence, Sequence):
+        args = typing.get_args(annotation)
+        if isinstance(value, (str, bytes)) or not isinstance(value, collections.abc.Sequence):
+            raise IdentityError("%s requires a sequence, got %s" % (where, _describe(value)))
+        for index, element in enumerate(value):
+            _check_value("%s[%d]" % (where, index), args[0] if args else object, element)
         return
     if origin is not None:
         return                                   # a construct this MVP does not use
@@ -862,6 +874,7 @@ class ModelInvocationRequest:
     work_item: WorkItemRef
     routing_decision: RoutingDecisionRef
     model: ModelRef
+    model_profile: ModelProfileRef
     prompt_context: str = ""
 
     def __post_init__(self):
@@ -872,10 +885,12 @@ class ModelInvocationRequest:
 class ModelResult:
     """Model output. Always a suggestion, never an approval and never canonical knowledge."""
 
+    ref: ModelResultRef
     run: WorkflowRunRef
     work_item: WorkItemRef
     routing_decision: RoutingDecisionRef
     model: ModelRef
+    model_profile: ModelProfileRef
     content: str
     origin: Origin = Origin.AI_GENERATED
     canonicality: Canonicality = Canonicality.AI_SUGGESTION
@@ -1097,14 +1112,23 @@ class RecordStore:
     def __init__(self, name: str):
         records: List[object] = []
 
-        def _add(record):
+        def _validate_add(record):
             identity = getattr(record, "ref", None)
-            if identity is not None:
-                for existing in records:
-                    if getattr(existing, "ref", None) == identity:
-                        raise AppendOnlyError(
-                            "%s already holds a record with identity %s; ambiguous history is "
-                            "not admitted" % (name, identity))
+            # Some non-evidence collections (for example Assignment) have no architecture-
+            # level record identity. Where a governed record does declare one, it must be a
+            # governed reference and must be unique in this history.
+            if identity is None:
+                return
+            if not isinstance(identity, Ref):
+                raise AppendOnlyError("%s has a malformed record identity" % name)
+            for existing in records:
+                if getattr(existing, "ref", None) == identity:
+                    raise AppendOnlyError(
+                        "%s already holds a record with identity %s; ambiguous history is "
+                        "not admitted" % (name, identity))
+
+        def _add(record):
+            _validate_add(record)
             records.append(record)
             return record
 
@@ -1112,11 +1136,16 @@ class RecordStore:
             return tuple(records)
 
         object.__setattr__(self, "_RecordStore__add", _add)
+        object.__setattr__(self, "_RecordStore__validate_add", _validate_add)
         object.__setattr__(self, "_RecordStore__read", _read)
         object.__setattr__(self, "_RecordStore__name", name)
 
     def add(self, record):
         return self.__add(record)
+
+    def validate_add(self, record) -> None:
+        """Preflight an append without mutating history."""
+        self.__validate_add(record)
 
     def all(self) -> Tuple[object, ...]:
         return self.__read()

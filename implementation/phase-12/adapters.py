@@ -20,7 +20,7 @@ from typing import Dict, FrozenSet, List, Optional, Tuple
 from domain import (
     Canonicality, DecisionRecord, DecisionRecordRef, DecisionRequest, DecisionRightRef,
     GateOutcome, GovernanceError, HandoffRef, HumanAuthorityRef, ModelInvocationRequest,
-    ModelProfileRef, ModelRef, ModelResult, Origin, Ref, ReviewInstance, ReviewInstanceRef,
+    ModelProfileRef, ModelRef, ModelResult, ModelResultRef, Origin, Ref, ReviewInstance, ReviewInstanceRef,
     ReviewProfileRef, ReviewRequest, RouterOutcome, RouterRef, RoutingDecision,
     RoutingDecisionRef, RoutingRequest, ScopeBinding, ScopeTransferRef, require,
 )
@@ -95,11 +95,15 @@ class StubModel(ModelAdapter):
     def __init__(self, text: str = "draft produced by a model"):
         self.text = text
         self.invocations: List[ModelInvocationRequest] = []
+        self._serial = 0
 
     def execute(self, request: ModelInvocationRequest) -> ModelResult:
         self.invocations.append(request)
-        return ModelResult(request.run, request.work_item, request.routing_decision,
-                           request.model, self.text, origin=Origin.AI_GENERATED,
+        self._serial += 1
+        return ModelResult(ModelResultRef("mr-%d" % self._serial), request.run,
+                           request.work_item, request.routing_decision,
+                           request.model, request.model_profile, self.text,
+                           origin=Origin.AI_GENERATED,
                            canonicality=Canonicality.AI_SUGGESTION)
 
 
@@ -198,7 +202,8 @@ class MechanismRegistryAdapter:
     """Which crossing mechanisms, at which versions, are approved for which crossings."""
 
     def approves(self, mechanism: Ref, version: str, source: ScopeBinding,
-                 target: ScopeBinding) -> bool:  # pragma: no cover - protocol
+                 target: ScopeBinding,
+                 decision_right: DecisionRightRef) -> bool:  # pragma: no cover - protocol
         raise NotImplementedError
 
 
@@ -210,16 +215,19 @@ class InMemoryMechanismRegistry(MechanismRegistryAdapter):
     all - which is the right default for a governance control plane."""
 
     def __init__(self, approved=None):
-        # {(mechanism kind, mechanism id, version): (source ScopeRef id, target ScopeRef id)}
+        # {(mechanism kind, mechanism id, version):
+        #      (source binding, target binding, exact authorising Decision Right)}
         self.approved = dict(approved or {})
 
     def register(self, mechanism: Ref, version: str, source: ScopeBinding,
-                 target: ScopeBinding) -> None:
+                 target: ScopeBinding, decision_right: DecisionRightRef) -> None:
         if type(mechanism) not in (HandoffRef, ScopeTransferRef):
             raise GovernanceError("only a Phase 6 handoff or a Phase 8 scope transfer")
-        self.approved[(mechanism.KIND, mechanism.id, version)] = (source, target)
+        require(decision_right, DecisionRightRef, "scope-transfer decision right")
+        self.approved[(mechanism.KIND, mechanism.id, version)] = (
+            source, target, decision_right)
 
     def approves(self, mechanism: Ref, version: str, source: ScopeBinding,
-                 target: ScopeBinding) -> bool:
+                 target: ScopeBinding, decision_right: DecisionRightRef) -> bool:
         declared = self.approved.get((mechanism.KIND, mechanism.id, version))
-        return declared is not None and declared == (source, target)
+        return declared is not None and declared == (source, target, decision_right)

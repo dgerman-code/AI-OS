@@ -48,7 +48,7 @@ discouraged.** A `RoleRef` and an `AgentInstanceRef` carrying the same string ar
 
 ```
 python3 -m unittest discover -s implementation/phase-12/tests
-Ran 118 tests — OK
+Ran 126 tests — OK
 
 python3 validation/phase_12_validation.py            === 43/43 PASS ===   exit 0
 python3 validation/phase_12_validation.py --verbose   === 43/43 PASS ===   exit 0
@@ -124,7 +124,7 @@ rather than claiming it.
 | 7 | Retry class came from a caller-supplied Task | `retry()` has no task parameter; the class is read from the Work Item's lineage |
 | 8 | A bare mechanism reference proved a crossing was approved | `ScopeTransferAuthorisation` binds mechanism-at-version, source run and scope, target scope, human authority and Decision Record; the crossing creates a **new** execution and rewrites no binding |
 | 9 | Governed records were overwritten by Work Item id | `RecordStore` is append-only with the backing list in a closure; repeated Decision and Review records both stand |
-| 10 | Tests proved object creation, not relationships | 121 tests, including one class per finding, plus the 32 controlled weakenings above |
+| 10 | Tests proved object creation, not relationships | 126 tests, including one class per finding, plus the 32 controlled weakenings above |
 
 ### 4c. The nine re-audit findings, and how each was closed
 
@@ -132,13 +132,13 @@ rather than claiming it.
 |---|---|---|
 | 1 | Construction-time validation covered references only | `enforce_field_types()` validates **every** declared field: Enums by exact type, structured values such as `ScopeBinding` by class, tuples and frozensets element by element, `Optional` distinguished from required, and a plain `str` refused wherever an Enum or a structured value is declared. No coercion anywhere. A sweep test asserts every governed dataclass calls it |
 | 2 | A `GateRequirementRef` is not an instantiated gate identity | `GateInstance` carries a `GateInstanceRef` and its own `kind`; the run keys gates by instance identity, so activating one gated Task twice yields two Work Items and two retained gates, and two Tasks reusing a requirement id do not alias |
-| 3 | A blocked or escalated run could activate another stage | `activate_stage` refuses from `BLOCKED`/`ESCALATED` and under `AUTHORITY_ABSENT`; leaving those states is `unblock()`, which needs a recorded human act and refuses while any gate stands resolved against continuation |
+| 3 | A blocked or escalated run could progress through ordinary APIs | Stage activation plus assignment, routing, model invocation, review/decision/human-work/prerequisite gates, external evidence satisfaction and retry all refuse from `BLOCKED`/`ESCALATED` and under `AUTHORITY_ABSENT`; leaving those states is `unblock()`, which needs a recorded human act and refuses while any gate stands resolved against continuation |
 | 4 | State moved before validation completed | Every governed act is validate-then-commit: the adapter is asked, the answer is validated in full, and `_commit_gate` applies the result. A refusal leaves axes, gate outcomes, all five record stores and the event count identical — asserted by a `snapshot()` helper in four tests. A continuing Decision outcome with no record raises `MissingEvidenceError` before anything moves |
 | 5 | `SATISFIED_WITH_OPEN_ITEMS` applied only on the review path | Every satisfaction path funnels through `_apply_gate_outcome`, so all four gate kinds and `satisfy_gate_with()` carry `OPEN_ITEMS_CARRIED`, and such a run completes only as `COMPLETED_WITH_OPEN_ITEMS` |
-| 6 | A well-shaped authorisation was sufficient | `transfer_scope` corroborates every clause against the source run's retained history: the Decision Record must be retained and must answer the exact run, Work Item, requirement and Right with a continuing outcome; the authorising human must be that record's author and hold the Right; the mechanism at its version must be approved by the configured registry (no registry approves nothing); the complete source and target bindings must match; and sensitivity may not widen nor residency change |
-| 7 | A caller could manufacture a Routing Decision and record it | There is no public recording path — `route()` asks the configured Router and records exactly the object it returned; `decided_by` must equal the configured `RouterRef`; and a `ModelResult` must answer this run, Work Item, Routing Decision and model before it is recorded |
+| 6 | A well-shaped authorisation was sufficient | `transfer_scope` corroborates every clause against the source run's retained history: the Decision Record must be retained and must answer the exact run, Work Item, requirement and Right with a continuing outcome; the authorising human must be that record's author and hold the Right; the mechanism at its version must be approved by the configured registry for that exact Right (no registry approves nothing); the complete source and target bindings must match; and sensitivity may not widen nor residency change |
+| 7 | A caller could manufacture a Routing Decision and record it | There is no recording method — `route()` invokes the configured Router and directly records exactly the object it returned; `decided_by` must equal the configured `RouterRef`; and a `ModelResult` must carry its own record identity and answer this run, Work Item, Routing Decision, model and Model Profile before it is recorded |
 | 8 | Evidence could satisfy a gate without being retained | `_commit_gate` retains the evidence in its governed store as part of the same commit, keyed by the record's own identity; `RecordStore` refuses a duplicate identity; and `run.evidence_for(gate)` reconstructs what explained a completion |
-| 9 | Adversarial and mutation credibility | 121 tests, 22 executable bypass probes in `examples/blocked_run.py`, and 32 controlled weakenings |
+| 9 | Adversarial and mutation credibility | 126 tests, 22 executable bypass probes in `examples/blocked_run.py`, and 32 controlled weakenings |
 
 Two checks compare the implementation against the architecture **documents** rather than
 against itself: the transition table is parsed from

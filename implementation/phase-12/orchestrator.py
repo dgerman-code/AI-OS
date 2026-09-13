@@ -82,6 +82,14 @@ class Orchestrator:
         self._serial += 1
         return "%s-%d" % (prefix, self._serial)
 
+    def _require_progressible(self, run: WorkflowRun, act: str) -> None:
+        """Refuse every ordinary progression API while governance has halted the run."""
+        state = self._state(run)
+        if state.phase in HALTED_PHASES or state.posture is GovernancePosture.AUTHORITY_ABSENT:
+            raise TransitionError(
+                "%s is %s / %s; %s requires governed unblock/reconciliation first"
+                % (run.ref, state.phase.value, state.posture.value, act))
+
     # ---------------------------------------------------------------- state transitions
 
     def _transition(self, run: WorkflowRun, phase: RunPhase, *, detail: str = "",
@@ -232,7 +240,7 @@ class Orchestrator:
         # The mechanism must be one the source run recognises as approved for this act.
         if self.mechanisms is None or not self.mechanisms.approves(
                 authorisation.mechanism, authorisation.mechanism_version,
-                run.scope, target):
+                run.scope, target, authorisation.decision_right):
             raise GovernanceError(
                 "%s @ %s is not an approved mechanism for this crossing"
                 % (authorisation.mechanism, authorisation.mechanism_version))
@@ -330,6 +338,7 @@ class Orchestrator:
         """Bind a Role - and where permitted an Agent Instance - to a Work Item.
 
         The required Role comes from the Work Item's bound lineage, not from a Task argument."""
+        self._require_progressible(run, "assignment")
         item = self._bound_item(run, work_item)
         require(role, RoleRef, "assignment")
         if role != item.required_role:
@@ -349,6 +358,7 @@ class Orchestrator:
     def request_routing(self, run: WorkflowRun, work_item,
                         routing_policy: str) -> RoutingRequest:
         """Create and RECORD the Routing Request. The orchestrator may not choose the model."""
+        self._require_progressible(run, "routing")
         item = self._bound_item(run, work_item)
         request = RoutingRequest(RoutingRequestRef(self._next("rr")), run.ref, item.ref,
                                  item.capability, run.scope, routing_policy)
@@ -356,14 +366,9 @@ class Orchestrator:
         self.log.append(run.ref, "routing:requested", item.capability, request.ref)
         return request
 
-    def _record_routing_decision(self, run: WorkflowRun, request: RoutingRequest,
-                                 decision: RoutingDecision) -> RoutingDecision:
-        """Record the Router's answer, bound to the exact request it answers.
-
-        Deliberately NOT public. The audit's seventh finding was that a caller could
-        manufacture a Routing Decision and then simply ask for it to be recorded; a Routing
-        Decision now enters governed history only as the object the configured Router returned
-        from `route()` for a request this run issued."""
+    def _validate_router_answer(self, run: WorkflowRun, request: RoutingRequest,
+                                decision: RoutingDecision) -> None:
+        """Validate the configured Router's direct answer without recording it."""
         if not isinstance(decision, RoutingDecision):
             raise GovernanceError("only a Routing Decision can be recorded as routing")
         if not self._store(run, "routing_requests").contains(request):
@@ -374,18 +379,6 @@ class Orchestrator:
         if not isinstance(configured, RouterRef) or decision.decided_by != configured:
             raise LineageError(
                 "the routing decision was not made by the configured Router (%s)" % configured)
-        self._store(run, "routing").add(decision)
-        self.log.append(run.ref, "routing:decided", decision.outcome.value, decision.ref)
-        if decision.outcome is RouterOutcome.NO_APPLICABLE_DECISION_RIGHT:
-            self._transition(run, RunPhase.BLOCKED, detail="routing has no applicable Right")
-            self._transition(run, RunPhase.ESCALATED, detail="governance design escalation")
-            self._set_posture(run, GovernancePosture.AUTHORITY_ABSENT,
-                              "no approved Decision Right covers the routing act")
-        elif decision.outcome is not RouterOutcome.ELIGIBLE_CANDIDATE:
-            self._transition(run, RunPhase.BLOCKED, detail=decision.outcome.value)
-            self._set_posture(run, GovernancePosture.GATE_UNSATISFIED,
-                              "no eligible candidate, and no fallback outside the eligible set")
-        return decision
 
     def route(self, run: WorkflowRun, work_item, routing_policy: str) -> RoutingDecision:
         """Ask the configured Router, then record exactly what it returned.
@@ -393,7 +386,28 @@ class Orchestrator:
         This is the only path by which a Routing Decision reaches governed history."""
         request = self.request_routing(run, work_item, routing_policy)
         answer = self.router.route(request)
-        return self._record_routing_decision(run, request, answer)
+        self._validate_router_answer(run, request, answer)
+        # Preflight every resulting phase before recording the answer. A malformed state cannot
+        # leave a Routing Decision in history without its declared state effect.
+        phases = ()
+        if answer.outcome is RouterOutcome.NO_APPLICABLE_DECISION_RIGHT:
+            phases = (RunPhase.BLOCKED, RunPhase.ESCALATED)
+        elif answer.outcome is not RouterOutcome.ELIGIBLE_CANDIDATE:
+            phases = (RunPhase.BLOCKED,)
+        self._preflight_phases(run, phases)
+        self._store(run, "routing").validate_add(answer)
+        self._store(run, "routing").add(answer)
+        self.log.append(run.ref, "routing:decided", answer.outcome.value, answer.ref)
+        if answer.outcome is RouterOutcome.NO_APPLICABLE_DECISION_RIGHT:
+            self._transition(run, RunPhase.BLOCKED, detail="routing has no applicable Right")
+            self._transition(run, RunPhase.ESCALATED, detail="governance design escalation")
+            self._set_posture(run, GovernancePosture.AUTHORITY_ABSENT,
+                              "no approved Decision Right covers the routing act")
+        elif answer.outcome is not RouterOutcome.ELIGIBLE_CANDIDATE:
+            self._transition(run, RunPhase.BLOCKED, detail=answer.outcome.value)
+            self._set_posture(run, GovernancePosture.GATE_UNSATISFIED,
+                              "no eligible candidate, and no fallback outside the eligible set")
+        return answer
 
     # ---------------------------------------------------------------- model execution
 
@@ -403,6 +417,7 @@ class Orchestrator:
 
         The decision must be the very object this run recorded from its own Router request. A
         fabricated decision naming an arbitrary model is refused here, before any execution."""
+        self._require_progressible(run, "model invocation")
         item = self._bound_item(run, work_item)
         if not self._store(run, "routing").contains(decision):
             raise LineageError(
@@ -412,13 +427,14 @@ class Orchestrator:
         if decision.outcome is not RouterOutcome.ELIGIBLE_CANDIDATE:
             raise GovernanceError("no eligible candidate was selected; there is nothing to run")
         request = ModelInvocationRequest(run.ref, item.ref, decision.ref, decision.model,
-                                         prompt_context)
+                                         decision.model_profile, prompt_context)
         result = self.model.execute(request)
         # A model adapter answering for other work is refused before anything is recorded.
         if not isinstance(result, ModelResult):
             raise LineageError("the model adapter did not return a Model Result")
         if (result.run != run.ref or result.work_item != item.ref
-                or result.routing_decision != decision.ref or result.model != decision.model):
+                or result.routing_decision != decision.ref or result.model != decision.model
+                or result.model_profile != decision.model_profile):
             raise LineageError(
                 "the model result does not answer the recorded Routing Decision for this work")
         self._store(run, "model_results").add(result)
@@ -438,6 +454,42 @@ class Orchestrator:
         GateKind.HUMAN_WORK: "human_work",
         GateKind.GOVERNED_PREREQUISITE: "prerequisites",
     }
+
+    def _preflight_phases(self, run: WorkflowRun, phases) -> None:
+        """Prove a phase sequence is legal without changing the run or its log."""
+        state = self._state(run)
+        if state.terminal is not None:
+            raise TransitionError("run %s is terminal as %s and cannot move again"
+                                  % (run.ref, state.terminal.value))
+        current = state.phase
+        for phase in phases:
+            if phase is current:
+                continue
+            if phase not in ALLOWED_TRANSITIONS[current]:
+                raise TransitionError("%s -> %s is not an approved transition"
+                                      % (current.value, phase.value))
+            current = phase
+
+    def _gate_phase_plan(self, run: WorkflowRun, outcome: GateOutcome,
+                         wait_reason: Optional[WaitReason]) -> Tuple[RunPhase, ...]:
+        """Return the exact phase sequence a gate commit will apply."""
+        current = self._state(run).phase
+        phases = []
+        if wait_reason is not None and current is not RunPhase.WAITING:
+            phases.append(RunPhase.WAITING)
+            current = RunPhase.WAITING
+        if outcome in CONTINUING_GATE_OUTCOMES and current is RunPhase.WAITING:
+            phases.append(RunPhase.RUNNING)
+            current = RunPhase.RUNNING
+        if outcome is GateOutcome.NOT_SATISFIED:
+            phases.append(RunPhase.REWORK_REQUIRED)
+        elif outcome is GateOutcome.DEFER and current is not RunPhase.WAITING:
+            phases.append(RunPhase.WAITING)
+        elif outcome in (GateOutcome.ESCALATE, GateOutcome.EXPIRED):
+            phases.append(RunPhase.ESCALATED)
+        elif outcome is GateOutcome.NO_APPLICABLE_DECISION_RIGHT:
+            phases.extend((RunPhase.BLOCKED, RunPhase.ESCALATED))
+        return tuple(phases)
 
     def validate_evidence(self, run: WorkflowRun, item: WorkItem, instance: GateInstance,
                           evidence, outcome: GateOutcome) -> None:
@@ -500,6 +552,12 @@ class Orchestrator:
         then let the outcome have its declared run effect. Everything before this point is a
         read, so a refusal leaves the run and its histories exactly as they were."""
         state = self._state(run)
+        if wait_reason is not None and wait_subject is None:
+            raise GovernanceError("a WAITING gate must name its subject")
+        if evidence is not None:
+            self._store(run, self.EVIDENCE_STORE[instance.kind]).validate_add(evidence)
+        # All fallible state/history checks happen before the first mutation.
+        self._preflight_phases(run, self._gate_phase_plan(run, outcome, wait_reason))
         if wait_reason is not None:
             self._ensure_phase(run, RunPhase.WAITING, detail=detail or "gate requested",
                                wait_reason=wait_reason, wait_subject=wait_subject)
@@ -560,6 +618,7 @@ class Orchestrator:
 
         The evidence is retained in its governed store as part of the same commit: there is no
         path here that changes gate state without the record that explains it."""
+        self._require_progressible(run, "gate satisfaction")
         item = self._bound_item(run, work_item)
         instance = self._bound_gate(run, item, requirement)
         applied = outcome if outcome is not None else getattr(evidence, "outcome", None)
@@ -572,6 +631,7 @@ class Orchestrator:
         """Detect, request, record. The orchestrator is not the reviewer.
 
         The desk is asked, the answer is validated in full, and only then does any state move."""
+        self._require_progressible(run, "review progression")
         item = self._bound_item(run, work_item)
         instance = self._bound_gate(run, item, requirement)
         declared = instance.requirement
@@ -593,6 +653,7 @@ class Orchestrator:
         A continuing outcome with no Decision Record is refused before anything moves: an
         approval with no record of a human exercising a Right is exactly what this phase
         exists to make impossible."""
+        self._require_progressible(run, "decision progression")
         item = self._bound_item(run, work_item)
         instance = self._bound_gate(run, item, requirement)
         declared = instance.requirement
@@ -621,6 +682,7 @@ class Orchestrator:
     def record_human_work(self, run: WorkflowRun, work_item, requirement,
                           completion: HumanWorkCompletion) -> GateInstance:
         """A human completing requested work, retained and applied like any other evidence."""
+        self._require_progressible(run, "human-work progression")
         item = self._bound_item(run, work_item)
         instance = self._bound_gate(run, item, requirement)
         self.validate_evidence(run, item, instance, completion, completion.outcome)
@@ -632,6 +694,7 @@ class Orchestrator:
     def record_prerequisite(self, run: WorkflowRun, work_item, requirement,
                             evidence: PrerequisiteEvidence) -> GateInstance:
         """A Phase 8-10 prerequisite evaluated against recorded state."""
+        self._require_progressible(run, "prerequisite progression")
         item = self._bound_item(run, work_item)
         instance = self._bound_gate(run, item, requirement)
         self.validate_evidence(run, item, instance, evidence, evidence.outcome)
@@ -647,6 +710,7 @@ class Orchestrator:
         The class comes from the lineage the Work Item was created under. A caller who presents
         a substitute Task claiming a friendlier class changes nothing: the argument is not
         consulted, because there is no argument."""
+        self._require_progressible(run, "retry")
         item = self._bound_item(run, work_item)
         cls = item.retry_class
         state = self._state(run)

@@ -346,9 +346,11 @@ check("assurance", "a Role reference cannot fill an Agent Instance slot",
 
 def construction_enforces_reference_types():
     """Finding 1: every governed object validates its references at construction."""
-    good_result = dict(run=domain.WorkflowRunRef("r"), work_item=domain.WorkItemRef("wi"),
+    good_result = dict(ref=domain.ModelResultRef("mr"), run=domain.WorkflowRunRef("r"),
+                       work_item=domain.WorkItemRef("wi"),
                        routing_decision=domain.RoutingDecisionRef("rd"),
-                       model=domain.ModelRef("m"), content="t")
+                       model=domain.ModelRef("m"),
+                       model_profile=domain.ModelProfileRef("mp"), content="t")
     good_routing = dict(ref=domain.RoutingDecisionRef("rd"),
                         request=domain.RoutingRequestRef("rr"), run=domain.WorkflowRunRef("r"),
                         work_item=domain.WorkItemRef("wi"),
@@ -586,35 +588,46 @@ def routing_output_is_bound_to_its_request():
     problems = []
     if not _raises(lambda: orch.invoke_model(run, item, fabricated), domain.LineageError):
         problems.append("a fabricated Routing Decision reached model invocation")
-    if hasattr(orch, "record_routing_decision"):
+    if hasattr(orch, "record_routing_decision") or hasattr(orch, "_record_routing_decision"):
         problems.append("a public path exists for recording a manufactured Routing Decision")
-    request = orch.request_routing(run, item, "policy@1")
-    unrelated = domain.RoutingDecision(
-        domain.RoutingDecisionRef("rd.y"), domain.RoutingRequestRef("rr.other"), run.ref,
-        item.ref, domain.RouterOutcome.ELIGIBLE_CANDIDATE, domain.RouterRef("router.v"),
-        domain.ModelRef("m"), domain.ModelProfileRef("p"))
-    if not _raises(lambda: orch._record_routing_decision(run, request, unrelated),
-                   domain.LineageError):
+    def unrelated(request):
+        return domain.RoutingDecision(
+            domain.RoutingDecisionRef("rd.y"), domain.RoutingRequestRef("rr.other"), run.ref,
+            item.ref, domain.RouterOutcome.ELIGIBLE_CANDIDATE, domain.RouterRef("router.v"),
+            domain.ModelRef("m"), domain.ModelProfileRef("p"))
+    orch.router.route = unrelated
+    if not _raises(lambda: orch.route(run, item, "policy@1"), domain.LineageError):
         problems.append("a decision answering another request was recorded")
-    impostor = domain.RoutingDecision(
-        domain.RoutingDecisionRef("rd.i"), request.ref, run.ref, item.ref,
-        domain.RouterOutcome.ELIGIBLE_CANDIDATE, domain.RouterRef("router.other"),
-        domain.ModelRef("m"), domain.ModelProfileRef("p"))
-    if not _raises(lambda: orch._record_routing_decision(run, request, impostor),
-                   domain.LineageError):
+    def impostor(request):
+        return domain.RoutingDecision(
+            domain.RoutingDecisionRef("rd.i"), request.ref, run.ref, item.ref,
+            domain.RouterOutcome.ELIGIBLE_CANDIDATE, domain.RouterRef("router.other"),
+            domain.ModelRef("m"), domain.ModelProfileRef("p"))
+    orch.router.route = impostor
+    if not _raises(lambda: orch.route(run, item, "policy@2"), domain.LineageError):
         problems.append("a decision from an unconfigured Router was recorded")
-    recorded = orch.route(run, item, "policy@2")
+    orch.router = adapters.InMemoryRouter(
+        domain.RouterRef("router.v"),
+        eligible={"cap": (domain.ModelRef("m"), domain.ModelProfileRef("p"))})
+    recorded = orch.route(run, item, "policy@3")
     if run.routing_decisions()[-1] is not recorded:
         problems.append("the recorded decision is not the object the Router returned")
     orch.invoke_model(run, item, recorded)
-    foreign = domain.ModelResult(domain.WorkflowRunRef("run.elsewhere"), item.ref,
-                                 recorded.ref, recorded.model, "t")
+    foreign = domain.ModelResult(domain.ModelResultRef("mr.foreign"),
+                                 domain.WorkflowRunRef("run.elsewhere"), item.ref,
+                                 recorded.ref, recorded.model, recorded.model_profile, "t")
     orch.model.execute = lambda request: foreign
     before = len(run.model_results())
     if not _raises(lambda: orch.invoke_model(run, item, recorded), domain.LineageError):
         problems.append("a model result for another run was accepted")
     if len(run.model_results()) != before:
         problems.append("a rejected model result was still recorded")
+    foreign_profile = domain.ModelResult(
+        domain.ModelResultRef("mr.profile"), run.ref, item.ref, recorded.ref, recorded.model,
+        domain.ModelProfileRef("profile.other"), "t")
+    orch.model.execute = lambda request: foreign_profile
+    if not _raises(lambda: orch.invoke_model(run, item, recorded), domain.LineageError):
+        problems.append("a model result for another Model Profile was accepted")
     return (not problems, str(problems) if problems
             else "only the recorded Router output for this exact request is executable")
 
@@ -666,7 +679,8 @@ def scope_crossing_needs_governed_evidence():
     def authorised(target_binding, run_id):
         gate = _decision_gate("gate.tr", "dr.tr")
         registry = adapters.InMemoryMechanismRegistry()
-        registry.register(domain.ScopeTransferRef("st.1"), "v2", SCOPE, target_binding)
+        registry.register(domain.ScopeTransferRef("st.1"), "v2", SCOPE, target_binding,
+                          domain.DecisionRightRef("dr.tr"))
         orch = _fresh(rights={"dr.tr": (domain.HumanAuthorityRef("h"),
                                         domain.GateOutcome.SATISFIED)})
         orch.mechanisms = registry
@@ -701,6 +715,12 @@ def scope_crossing_needs_governed_evidence():
                                                domain.WorkflowRunRef("run.x"), target,
                                                unknown)):
         problems.append("an unrecognised mechanism version was accepted")
+    orch.mechanisms.register(domain.ScopeTransferRef("st.1"), "v2", SCOPE, target,
+                             domain.DecisionRightRef("dr.some-other-act"))
+    if not _raises(lambda: orch.transfer_scope(
+            run, run.definition, domain.WorkflowRunRef("run.wrong-right"), target,
+            build_authorisation(run, item, gate, record, target))):
+        problems.append("a mechanism approved for another Decision Right was accepted")
 
     wider = domain.ScopeBinding(domain.ScopeRef("scope.other"),
                                 frozenset({"INTERNAL", "SECRET"}), "EU")
@@ -761,8 +781,9 @@ check("assurance", "a model result is a suggestion and satisfies no gate",
       lambda: (lambda result: (result.canonicality is domain.Canonicality.AI_SUGGESTION
                                and result.origin is domain.Origin.AI_GENERATED
                                and result.satisfies_gate() is False, ""))(
-          domain.ModelResult(domain.WorkflowRunRef("r"), domain.WorkItemRef("wi"),
-                             domain.RoutingDecisionRef("rd"), domain.ModelRef("m"), "t")))
+          domain.ModelResult(domain.ModelResultRef("mr"), domain.WorkflowRunRef("r"),
+                             domain.WorkItemRef("wi"), domain.RoutingDecisionRef("rd"),
+                             domain.ModelRef("m"), domain.ModelProfileRef("mp"), "t")))
 
 
 def missing_right_blocks():
@@ -834,8 +855,10 @@ def _snapshot(run, orch):
             tuple(r.ref for r in run.review_instances()),
             tuple(r.ref for r in run.human_work_records()),
             tuple(r.ref for r in run.prerequisite_records()),
+            tuple(r.ref for r in run.routing_requests()),
             tuple(r.ref for r in run.routing_decisions()),
-            len(run.model_results()), len(orch.log))
+            tuple(r.ref for r in run.model_results()),
+            len(run.assignments()), tuple(r.ref for r in run.interventions()), len(orch.log))
 
 
 def gate_instances_keep_their_identities():
@@ -890,14 +913,54 @@ check("assurance", "gate instances keep their own identities",
 def a_halted_run_cannot_progress():
     """Re-audit finding 3: BLOCKED, ESCALATED and AUTHORITY_ABSENT stop ordinary progression."""
     gate = _decision_gate("gate.absent", "dr.absent")
-    orch, run, item = _started(_task(gates=(gate,)))
+    review = _review_gate("gate.review", "rp", "INDEPENDENT")
+    human = domain.GateRequirement(domain.GateRequirementRef("gate.human"),
+                                   domain.GateKind.HUMAN_WORK,
+                                   human_work=domain.HumanWorkRef("hw"))
+    prereq = domain.GateRequirement(domain.GateRequirementRef("gate.pre"),
+                                    domain.GateKind.GOVERNED_PREREQUISITE,
+                                    prerequisite=domain.PrerequisiteRef("pre"))
+    orch = _fresh(eligible={"cap": (domain.ModelRef("m"), domain.ModelProfileRef("p"))},
+                  reviews={"rp": (domain.GateOutcome.SATISFIED,
+                                    domain.HumanAuthorityRef("reviewer"), "INDEPENDENT")})
+    orch, run, item = _started(_task(gates=(gate, review, human, prereq), capability="cap"),
+                               orch)
+    routed = orch.route(run, item, "policy@1")
     orch.run_decision_gate(run, item, gate.ref)
     problems = []
     if run.posture is not domain.GovernancePosture.AUTHORITY_ABSENT:
         problems.append("the missing Right did not produce AUTHORITY_ABSENT")
     if not _raises(lambda: orch.activate_stage(run, domain.TaskRef("task.v")), Exception):
         problems.append("a halted run activated another stage")
-    if len(run.gates()) != 1 or run.gates()[0].outcome is not \
+    human_record = domain.HumanWorkCompletion(
+        domain.HumanWorkRecordRef("hwr.blocked"), human.ref, run.ref, item.ref,
+        domain.HumanWorkRef("hw"), domain.GateOutcome.SATISFIED,
+        domain.HumanAuthorityRef("h"))
+    prerequisite_record = domain.PrerequisiteEvidence(
+        domain.PrerequisiteRecordRef("prr.blocked"), prereq.ref, run.ref, item.ref,
+        domain.PrerequisiteRef("pre"), domain.GateOutcome.SATISFIED,
+        domain.StorageRecordRef("sr"))
+    ordinary = (
+        lambda: orch.assign(run, item, AUTHOR),
+        lambda: orch.request_routing(run, item, "policy@2"),
+        lambda: orch.route(run, item, "policy@2"),
+        lambda: orch.invoke_model(run, item, routed),
+        lambda: orch.run_review_gate(run, item, review.ref),
+        lambda: orch.run_decision_gate(run, item, gate.ref),
+        lambda: orch.record_human_work(run, item, human.ref, human_record),
+        lambda: orch.record_prerequisite(run, item, prereq.ref, prerequisite_record),
+        lambda: orch.satisfy_gate_with(run, item, prereq.ref, prerequisite_record),
+        lambda: orch.retry(run, item),
+        lambda: orch.complete(run, domain.TerminalOutcome.COMPLETED),
+    )
+    for act in ordinary:
+        before = _snapshot(run, orch)
+        if not _raises(act):
+            problems.append("an ordinary progression API advanced a halted run")
+        if _snapshot(run, orch) != before:
+            problems.append("a refused halted-run act changed state or history")
+    retained_missing = [g for g in run.gates() if g.requirement.ref == gate.ref]
+    if len(retained_missing) != 1 or retained_missing[0].outcome is not \
             domain.GateOutcome.NO_APPLICABLE_DECISION_RIGHT:
         problems.append("the original gate was not retained")
     intervention = domain.HumanInterventionRecord(
@@ -906,7 +969,7 @@ def a_halted_run_cannot_progress():
     if not _raises(lambda: orch.unblock(run, intervention)):
         problems.append("a standing unresolved gate did not prevent unblocking")
     return (not problems, str(problems) if problems
-            else "a halted run resumes only through a governed act, and not while a gate stands")
+            else "all ordinary progression APIs stop until governed unblock/reconciliation")
 
 
 check("assurance", "a blocked or escalated run cannot progress through the stage API",
@@ -952,8 +1015,26 @@ def validation_precedes_every_mutation():
         problems.append("a mismatched review satisfied a gate")
     if _snapshot(run3, orch3) != before3:
         problems.append("the refused review left state or history changed")
+    # A duplicate identity is invalid evidence for this history and must be rejected before
+    # the review path moves the run into WAITING.
+    first = _review_gate("gate.dup.1", "rp.dup", "INDEPENDENT")
+    second = _review_gate("gate.dup.2", "rp.dup", "INDEPENDENT")
+    orch4, run4, item4 = _started(_task(gates=(first, second)), run_id="run.dup")
+    def repeated(request):
+        return domain.ReviewInstance(
+            domain.ReviewInstanceRef("ri.same"), request.requirement, request.run,
+            request.work_item, request.review_profile, domain.GateOutcome.SATISFIED,
+            domain.HumanAuthorityRef("h"), request.independence_class)
+    orch4.reviewers.review = repeated
+    orch4.run_review_gate(run4, item4, first.ref)
+    before4 = _snapshot(run4, orch4)
+    if not _raises(lambda: orch4.run_review_gate(run4, item4, second.ref),
+                   domain.AppendOnlyError):
+        problems.append("duplicate evidence identity was accepted")
+    if _snapshot(run4, orch4) != before4:
+        problems.append("duplicate evidence changed state before append refusal")
     return (not problems, str(problems)[:300] if problems
-            else "three refusals, each leaving run state and every history identical")
+            else "four refusals, each leaving run state and every history identical")
 
 
 check("assurance", "validation completes before any state or history is changed",
@@ -1035,8 +1116,21 @@ def satisfying_evidence_is_retained():
                    domain.AppendOnlyError):
         problems.append("a duplicate record identity was admitted")
     orch.complete(run, domain.TerminalOutcome.COMPLETED)
+    model_orch = _fresh(eligible={"cap": (domain.ModelRef("m"),
+                                           domain.ModelProfileRef("p"))})
+    model_orch, model_run, model_item = _started(
+        _task(capability="cap"), model_orch, run_id="run.model-history")
+    routed = model_orch.route(model_run, model_item, "policy@1")
+    model_record = domain.ModelResult(
+        domain.ModelResultRef("mr.same"), model_run.ref, model_item.ref, routed.ref,
+        routed.model, routed.model_profile, "t")
+    model_orch.model.execute = lambda request: model_record
+    model_orch.invoke_model(model_run, model_item, routed)
+    if not _raises(lambda: model_orch.invoke_model(model_run, model_item, routed),
+                   domain.AppendOnlyError):
+        problems.append("a duplicate Model Result identity was admitted")
     return (not problems, str(problems) if problems
-            else "all four gate kinds retain their evidence, reconstructable by identity")
+            else "all gate evidence and model results retain unique governed identities")
 
 
 check("assurance", "every satisfying evidence object is retained in governed history",

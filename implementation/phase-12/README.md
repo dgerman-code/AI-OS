@@ -46,14 +46,14 @@ The MVP runs in memory, offline, on the standard library.
 | One admissible evidence type per gate kind | `domain.EVIDENCE_CONTRACT` and `Orchestrator.validate_evidence` |
 | Validate, then commit | every governed act reads and validates in full before `Orchestrator._commit_gate` changes anything; a refusal leaves the run and all five record stores identical |
 | Satisfying evidence is retained | `_commit_gate` appends the record to its governed store in the same commit; `run.evidence_for(gate)` reconstructs it |
-| A halted run resumes only by a governed act | `HALTED_PHASES` and `Orchestrator.unblock` |
+| A halted run resumes only by a governed act | `HALTED_PHASES`, the shared progression guard on every ordinary work/routing/model/gate/retry API, and `Orchestrator.unblock` |
 | `NO_APPLICABLE_DECISION_RIGHT` → BLOCKED + ESCALATED + `AUTHORITY_ABSENT` | `Orchestrator._apply_gate_outcome` |
 | Seven retry classes; exactly-once claimed nowhere | `domain.RetryClass`, `AUTOMATICALLY_RETRYABLE`, `NEVER_AUTOMATICALLY_RETRYABLE` |
 | Ten races, five outcomes, the late-review / late-Decision asymmetry | `domain.RaceOutcome` and `tests/test_invariants.py::TestLateResultAsymmetry` |
 | `ROUTER != ORCHESTRATOR` | `RoutingRequest` and `RoutingDecision` are different types produced by different parties; the request carries no model |
-| Model output is `AI_SUGGESTION` / `AI_GENERATED` | `domain.ModelResult`, which admits nothing else |
+| Model output is `AI_SUGGESTION` / `AI_GENERATED` | `domain.ModelResult`, which has its own governed record identity and admits nothing else |
 | One governed scope per execution; narrowing-only sub-runs | `domain.ScopeBinding.narrows_to`, `Orchestrator.open_sub_run` |
-| Cross-scope movement needs an approved Phase 6 handoff or Phase 8 scope transfer | `domain.ScopeTransferAuthorisation` — mechanism at a version, source run and scope, target scope, authorising human and Decision Record — consumed by `Orchestrator.transfer_scope`, which creates a **new** execution rather than rewriting a binding |
+| Cross-scope movement needs an approved Phase 6 handoff or Phase 8 scope transfer | `domain.ScopeTransferAuthorisation` — mechanism at a version, source run and scope, target scope, exact Decision Right, authorising human and Decision Record — consumed by `Orchestrator.transfer_scope`, which creates a **new** execution rather than rewriting a binding |
 | Execution history is append-only | `domain.ExecutionEventLog` and `domain.RecordStore` — the backing list lives in a closure, so there is no attribute to rewrite, and no governed record is replaced by Work Item id |
 | Completion is not approval | `Orchestrator.complete` consults the posture and the open gates, never the operational result |
 
@@ -91,9 +91,9 @@ the orchestrator itself recorded.
 | a `DecisionRecord` | its run, Work Item, requirement, Right, outcome and the holder's standing in the approved decision path |
 | a `ReviewInstance` | its run, Work Item, requirement, Profile and independence class |
 | a `RoutingDecision` | nothing — there is no public recording path; `route()` asks the configured Router and records the object it returned |
-| a `ModelResult` | its run, Work Item, Routing Decision and model, checked before anything is recorded |
+| a `ModelResult` | its own record identity, run, Work Item, Routing Decision, model and Model Profile, checked before anything is recorded |
 | a retry class | nothing — `retry()` takes no task argument; the class comes from the Work Item |
-| a mechanism reference | nothing — a crossing needs a `ScopeTransferAuthorisation` corroborated clause by clause against the source run's retained Decision Record, the Right's holders, an approved-mechanism registry, and the complete source and target bindings |
+| a mechanism reference | nothing — a crossing needs a `ScopeTransferAuthorisation` corroborated clause by clause against the source run's retained Decision Record, the exact Right and its holders, an approved-mechanism registry bound to that Right, and the complete source and target bindings |
 | an assignment to `run.phase` | nothing — governed run state is read-only from outside the orchestrator |
 
 ## What the orchestrator may not do

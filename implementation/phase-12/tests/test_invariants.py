@@ -28,7 +28,7 @@ from domain import (  # noqa: E402
     ExecutionEventLog, GateInstance, GateKind, GateOutcome, GateRequirement,
     GateRequirementRef, GovernanceError, GovernancePosture, HandoffRef, HumanAuthorityRef,
     HumanInterventionRecord, HumanWorkCompletion, HumanWorkRef, IdentityError, InterventionRef,
-    LineageError, MissingEvidenceError, ModelProfileRef, ModelRef, ModelResult, NEVER_AUTOMATICALLY_RETRYABLE,
+    LineageError, MissingEvidenceError, ModelProfileRef, ModelRef, ModelResult, ModelResultRef, NEVER_AUTOMATICALLY_RETRYABLE,
     Origin, OrchestratorRef, POSTURE_PERMITS_COMPLETION, PrerequisiteEvidence, PrerequisiteRef,
     RaceOutcome, RecordStore, RetryClass, ReviewInstance, ReviewInstanceRef, ReviewProfileRef,
     RoleRef, RouterOutcome, RouterRef, RoutingDecision, RoutingDecisionRef, RoutingRequest,
@@ -86,8 +86,10 @@ def snapshot(run, orch):
             tuple(r.ref for r in run.review_instances()),
             tuple(r.ref for r in run.human_work_records()),
             tuple(r.ref for r in run.prerequisite_records()),
+            tuple(r.ref for r in run.routing_requests()),
             tuple(r.ref for r in run.routing_decisions()),
-            len(run.model_results()), len(orch.log))
+            tuple(r.ref for r in run.model_results()),
+            len(run.assignments()), tuple(r.ref for r in run.interventions()), len(orch.log))
 
 
 def started(orch, task, run_id="run.t", workflow="wf.t", version="v1"):
@@ -129,8 +131,9 @@ class TestConstructionTimeTypeEnforcement(unittest.TestCase):
     """Audit finding 1: every governed object validates its references at construction."""
 
     def test_model_result_rejects_wrong_reference_types(self):
-        good = dict(run=WorkflowRunRef("r"), work_item=WorkItemRef("wi"),
+        good = dict(ref=ModelResultRef("mr"), run=WorkflowRunRef("r"), work_item=WorkItemRef("wi"),
                     routing_decision=RoutingDecisionRef("rd"), model=ModelRef("m"),
+                    model_profile=ModelProfileRef("mp"),
                     content="t")
         ModelResult(**good)                                   # the well-formed one exists
         for field, wrong in (("work_item", TaskRef("t")), ("model", ModelProfileRef("mp")),
@@ -205,8 +208,10 @@ class TestConstructionTimeTypeEnforcement(unittest.TestCase):
                 cls(**dict(good, **{field: wrong}))
 
     def test_model_result_cannot_be_declared_canonical_or_human(self):
-        base = dict(run=WorkflowRunRef("r"), work_item=WorkItemRef("wi"),
+        base = dict(ref=ModelResultRef("mr"), run=WorkflowRunRef("r"),
+                    work_item=WorkItemRef("wi"),
                     routing_decision=RoutingDecisionRef("rd"), model=ModelRef("m"),
+                    model_profile=ModelProfileRef("mp"),
                     content="t")
         with self.assertRaises(GovernanceError):
             ModelResult(canonicality=Canonicality.CANONICAL, **base)
@@ -444,7 +449,9 @@ class TestEvidenceBinding(unittest.TestCase):
         gate = decision_gate()
         orch = build()
         run, item = started(orch, simple_task(gates=(gate,)))
-        result = ModelResult(run.ref, item.ref, RoutingDecisionRef("rd"), ModelRef("m"), "t")
+        result = ModelResult(ModelResultRef("mr"), run.ref, item.ref,
+                             RoutingDecisionRef("rd"), ModelRef("m"),
+                             ModelProfileRef("mp"), "t")
         self.assertFalse(result.satisfies_gate())
         with self.assertRaises(EvidenceError):
             orch.satisfy_gate_with(run, item, gate.ref, result)
@@ -477,12 +484,14 @@ class TestRoutingBinding(unittest.TestCase):
     def test_a_decision_answering_another_request_is_refused(self):
         orch = build(eligible={"cap": (ModelRef("m"), ModelProfileRef("p"))})
         run, item = started(orch, simple_task(capability="cap"))
-        request = orch.request_routing(run, item, "policy@1")
-        other = RoutingDecision(RoutingDecisionRef("rd.x"), RoutingRequestRef("rr.other"),
-                                run.ref, item.ref, RouterOutcome.ELIGIBLE_CANDIDATE,
-                                RouterRef("router.phase9"), ModelRef("m"), ModelProfileRef("p"))
+        def wrong_answer(request):
+            return RoutingDecision(RoutingDecisionRef("rd.x"), RoutingRequestRef("rr.other"),
+                                   run.ref, item.ref, RouterOutcome.ELIGIBLE_CANDIDATE,
+                                   RouterRef("router.phase9"), ModelRef("m"),
+                                   ModelProfileRef("p"))
+        orch.router.route = wrong_answer
         with self.assertRaises(LineageError):
-            orch._record_routing_decision(run, request, other)
+            orch.route(run, item, "policy@1")
 
     def test_a_fabricated_decision_cannot_reach_model_invocation(self):
         orch = build(eligible={"cap": (ModelRef("m"), ModelProfileRef("p"))})
@@ -603,7 +612,8 @@ class TestScopeBinding(unittest.TestCase):
         """A run that really did take a governed decision to cross, with a registry to match."""
         gate = decision_gate("gate.tr", "dr.tr")
         registry = InMemoryMechanismRegistry()
-        registry.register(ScopeTransferRef("st.1"), "v2", SCOPE, target)
+        registry.register(ScopeTransferRef("st.1"), "v2", SCOPE, target,
+                          DecisionRightRef("dr.tr"))
         orch = build(rights={"dr.tr": (HumanAuthorityRef("h"), GateOutcome.SATISFIED)},
                      mechanisms=registry)
         run, item = started(orch, simple_task(gates=(gate,)))
@@ -649,7 +659,8 @@ class TestScopeBinding(unittest.TestCase):
         target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
         narrower = ScopeBinding(ScopeRef("project.zephyr"), frozenset(), "EU")
         orch, run, item, gate, record = self._authorised_setup(target)
-        orch.mechanisms.register(ScopeTransferRef("st.1"), "v2", SCOPE, target)
+        orch.mechanisms.register(ScopeTransferRef("st.1"), "v2", SCOPE, target,
+                                 DecisionRightRef("dr.tr"))
         # The authorisation covers a different (narrower) target than the one being crossed to.
         wrong = self._authorisation(run, item, gate, record, narrower)
         with self.assertRaises(GovernanceError):
@@ -671,6 +682,15 @@ class TestScopeBinding(unittest.TestCase):
         with self.assertRaises(GovernanceError):
             orch.transfer_scope(run, run.definition, WorkflowRunRef("run.x"), target, unknown)
 
+    def test_the_mechanism_is_approved_for_the_exact_decision_right(self):
+        target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
+        orch, run, item, gate, record = self._authorised_setup(target)
+        orch.mechanisms.register(ScopeTransferRef("st.1"), "v2", SCOPE, target,
+                                 DecisionRightRef("dr.some-other-act"))
+        with self.assertRaises(GovernanceError):
+            orch.transfer_scope(run, run.definition, WorkflowRunRef("run.x"), target,
+                                self._authorisation(run, item, gate, record, target))
+
     def test_an_orchestrator_with_no_registry_approves_no_crossing(self):
         target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
         orch, run, item, gate, record = self._authorised_setup(target)
@@ -684,13 +704,15 @@ class TestScopeBinding(unittest.TestCase):
         wider = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL", "SECRET"}),
                              "EU")
         orch, run, item, gate, record = self._authorised_setup(wider)
-        orch.mechanisms.register(ScopeTransferRef("st.1"), "v2", SCOPE, wider)
+        orch.mechanisms.register(ScopeTransferRef("st.1"), "v2", SCOPE, wider,
+                                 DecisionRightRef("dr.tr"))
         with self.assertRaises(GovernanceError):
             orch.transfer_scope(run, run.definition, WorkflowRunRef("run.x"), wider,
                                 self._authorisation(run, item, gate, record, wider))
         elsewhere = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "US")
         orch2, run2, item2, gate2, record2 = self._authorised_setup(elsewhere)
-        orch2.mechanisms.register(ScopeTransferRef("st.1"), "v2", SCOPE, elsewhere)
+        orch2.mechanisms.register(ScopeTransferRef("st.1"), "v2", SCOPE, elsewhere,
+                                  DecisionRightRef("dr.tr"))
         with self.assertRaises(GovernanceError):
             orch2.transfer_scope(run2, run2.definition, WorkflowRunRef("run.y"), elsewhere,
                                  self._authorisation(run2, item2, gate2, record2, elsewhere))
@@ -870,8 +892,10 @@ class TestGateOutcomes(unittest.TestCase):
         outcome, record = orch.run_decision_gate(run, item, gate.ref)
         self.assertIs(outcome, GateOutcome.EXPIRED)
         self.assertIs(run.phase, RunPhase.ESCALATED)
-        with self.assertRaises(EvidenceError):
+        before = snapshot(run, orch)
+        with self.assertRaises(GovernanceError):
             orch.satisfy_gate_with(run, item, gate.ref, record)
+        self.assertEqual(before, snapshot(run, orch))
 
 
 class TestAssignmentAuthority(unittest.TestCase):
@@ -1086,6 +1110,43 @@ class TestHaltedRunCannotProgress(unittest.TestCase):
         with self.assertRaises(TransitionError):
             orch.activate_stage(run, TASK)
 
+    def test_every_ordinary_progression_api_refuses_after_missing_authority(self):
+        missing = decision_gate("gate.absent", "dr.absent")
+        review = review_gate("gate.review", "rp", "INDEPENDENT")
+        human = human_gate("gate.human", "hw")
+        prereq = prerequisite_gate("gate.pre", "pre")
+        orch = build(eligible={"cap": (ModelRef("m"), ModelProfileRef("p"))},
+                     reviews={"rp": (GateOutcome.SATISFIED, HumanAuthorityRef("reviewer"),
+                                      "INDEPENDENT")})
+        run, item = started(orch, simple_task(gates=(missing, review, human, prereq),
+                                              capability="cap"))
+        routed = orch.route(run, item, "policy@1")
+        orch.run_decision_gate(run, item, missing.ref)
+        human_record = HumanWorkCompletion(
+            HumanWorkRecordRef("hwr.blocked"), human.ref, run.ref, item.ref,
+            HumanWorkRef("hw"), GateOutcome.SATISFIED, HumanAuthorityRef("h"))
+        prerequisite_record = PrerequisiteEvidence(
+            PrerequisiteRecordRef("prr.blocked"), prereq.ref, run.ref, item.ref,
+            PrerequisiteRef("pre"), GateOutcome.SATISFIED, StorageRecordRef("sr"))
+        actions = (
+            lambda: orch.assign(run, item, AUTHOR),
+            lambda: orch.request_routing(run, item, "policy@2"),
+            lambda: orch.route(run, item, "policy@2"),
+            lambda: orch.invoke_model(run, item, routed),
+            lambda: orch.run_review_gate(run, item, review.ref),
+            lambda: orch.run_decision_gate(run, item, missing.ref),
+            lambda: orch.record_human_work(run, item, human.ref, human_record),
+            lambda: orch.record_prerequisite(run, item, prereq.ref, prerequisite_record),
+            lambda: orch.satisfy_gate_with(run, item, prereq.ref, prerequisite_record),
+            lambda: orch.retry(run, item),
+            lambda: orch.complete(run, TerminalOutcome.COMPLETED),
+        )
+        for action in actions:
+            before = snapshot(run, orch)
+            with self.assertRaises(GovernanceError):
+                action()
+            self.assertEqual(before, snapshot(run, orch))
+
     def test_authority_absent_always_arrives_with_an_escalated_phase(self):
         """Two guards, one reachable state.
 
@@ -1161,12 +1222,32 @@ class TestEvidenceBeforeMutation(unittest.TestCase):
             orch.run_review_gate(run, item, gate.ref)
         self.assertEqual(before, snapshot(run, orch))
 
+    def test_duplicate_evidence_is_refused_before_wait_state_or_history_changes(self):
+        first = review_gate("gate.first", "rp", "INDEPENDENT")
+        second = review_gate("gate.second", "rp", "INDEPENDENT")
+        orch = build()
+        run, item = started(orch, simple_task(gates=(first, second)))
+
+        def repeated(request):
+            return ReviewInstance(ReviewInstanceRef("ri.same"), request.requirement,
+                                  request.run, request.work_item, request.review_profile,
+                                  GateOutcome.SATISFIED, HumanAuthorityRef("h"),
+                                  request.independence_class)
+
+        orch.reviewers.review = repeated
+        orch.run_review_gate(run, item, first.ref)
+        before = snapshot(run, orch)
+        with self.assertRaises(AppendOnlyError):
+            orch.run_review_gate(run, item, second.ref)
+        self.assertEqual(before, snapshot(run, orch))
+
     def test_a_rejected_model_result_leaves_nothing_recorded(self):
         orch = build(eligible={"cap": (ModelRef("m"), ModelProfileRef("p"))})
         run, item = started(orch, simple_task(capability="cap"))
         decision = orch.route(run, item, "policy@1")
         orch.model.execute = lambda request: ModelResult(
-            WorkflowRunRef("run.elsewhere"), item.ref, decision.ref, ModelRef("m"), "t")
+            ModelResultRef("mr.foreign"), WorkflowRunRef("run.elsewhere"), item.ref,
+            decision.ref, ModelRef("m"), ModelProfileRef("p"), "t")
         before = snapshot(run, orch)
         with self.assertRaises(LineageError):
             orch.invoke_model(run, item, decision)
@@ -1303,17 +1384,19 @@ class TestRoutingProvenance(unittest.TestCase):
     def test_there_is_no_public_recording_path(self):
         orch = build()
         self.assertFalse(hasattr(orch, "record_routing_decision"))
+        self.assertFalse(hasattr(orch, "_record_routing_decision"))
 
     def test_a_decision_from_another_router_is_refused(self):
         orch = build(eligible={"cap": (ModelRef("m"), ModelProfileRef("p"))})
         run, item = started(orch, simple_task(capability="cap"))
-        request = orch.request_routing(run, item, "policy@1")
-        impostor = RoutingDecision(RoutingDecisionRef("rd.imp"), request.ref, run.ref,
+        def impostor(request):
+            return RoutingDecision(RoutingDecisionRef("rd.imp"), request.ref, run.ref,
                                    item.ref, RouterOutcome.ELIGIBLE_CANDIDATE,
                                    RouterRef("router.other"), ModelRef("m"),
                                    ModelProfileRef("p"))
+        orch.router.route = impostor
         with self.assertRaises(LineageError):
-            orch._record_routing_decision(run, request, impostor)
+            orch.route(run, item, "policy@1")
 
     def test_the_recorded_decision_is_the_object_the_router_returned(self):
         orch = build(eligible={"cap": (ModelRef("m"), ModelProfileRef("p"))})
@@ -1326,10 +1409,34 @@ class TestRoutingProvenance(unittest.TestCase):
         run, item = started(orch, simple_task(capability="cap"))
         decision = orch.route(run, item, "policy@1")
         orch.model.execute = lambda request: ModelResult(
-            run.ref, WorkItemRef("wi.elsewhere"), decision.ref, ModelRef("m"), "t")
+            ModelResultRef("mr.foreign"), run.ref, WorkItemRef("wi.elsewhere"),
+            decision.ref, ModelRef("m"), ModelProfileRef("p"), "t")
         with self.assertRaises(LineageError):
             orch.invoke_model(run, item, decision)
         self.assertEqual(len(run.model_results()), 0)
+
+    def test_a_model_result_for_another_profile_is_refused(self):
+        orch = build(eligible={"cap": (ModelRef("m"), ModelProfileRef("p"))})
+        run, item = started(orch, simple_task(capability="cap"))
+        decision = orch.route(run, item, "policy@1")
+        orch.model.execute = lambda request: ModelResult(
+            ModelResultRef("mr.profile"), run.ref, item.ref, decision.ref, ModelRef("m"),
+            ModelProfileRef("p.other"), "t")
+        with self.assertRaises(LineageError):
+            orch.invoke_model(run, item, decision)
+        self.assertEqual(len(run.model_results()), 0)
+
+    def test_model_results_have_unique_governed_record_identity(self):
+        orch = build(eligible={"cap": (ModelRef("m"), ModelProfileRef("p"))})
+        run, item = started(orch, simple_task(capability="cap"))
+        decision = orch.route(run, item, "policy@1")
+        result = ModelResult(ModelResultRef("mr.same"), run.ref, item.ref, decision.ref,
+                             decision.model, decision.model_profile, "t")
+        orch.model.execute = lambda request: result
+        self.assertIs(orch.invoke_model(run, item, decision), result)
+        with self.assertRaises(AppendOnlyError):
+            orch.invoke_model(run, item, decision)
+        self.assertEqual(run.model_results(), (result,))
 
 
 class TestExamplesRun(unittest.TestCase):
