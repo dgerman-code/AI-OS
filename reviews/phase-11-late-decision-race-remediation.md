@@ -447,6 +447,74 @@ Every prior suite re-run: eighteen stale-wording and negation probes, seventeen 
 
 **No architecture content changed** — `orchestration/` and `architecture/` are byte-for-byte identical, so no stop-and-report was required. Suite **154 → 155**; `scope` 8 → 9. **Phase 11 remains `PROPOSED`; human approval is pending.**
 
+## Remediation — scope polarity bound to the crossing predicate
+
+Independent re-audit found that scope polarity was still a property of the *sentence* rather
+than of the *predicate*. `scope_crossing_verdict()` searched the whole pre-crossing subject for
+any prohibitive token and allowed on the first hit, so a prohibition belonging to a different
+verb silently licensed a later permission:
+
+- `The orchestrator never waits and may cross a scope boundary.`
+- `The run cannot be delayed but may cross a project boundary.`
+- `No approval exists, but the orchestrator may cross a scope boundary.`
+- `The run may not only log the event but may cross a project boundary.`
+
+This is the same shape as the contrastive-negation defect the stale rule hit earlier: a scan
+that measures *presence somewhere nearby* instead of *grammatical attachment*.
+
+### The rule now executed
+
+Modality is read from the modal phrase that **governs the crossing verb** — the auxiliary
+sequence immediately adjacent to `cross`, adverbs such as `only`, `then`, `still` aside — and
+from nowhere else. `crossing_modality()` returns one of three readings:
+
+| Reading | Attached form | Verdict |
+|---|---|---|
+| `PROHIBITED` | `must not cross`, `cannot cross`, `may not cross`, `is not permitted to cross`, `never crosses` | ALLOW, however the sentence continues |
+| `PERMITTED` | `may cross`, `can cross`, `could cross`, `is permitted to cross`, `is allowed to cross` | ALLOW only when the crossing's **own clause** names an approved mechanism and the sentence does not dispense with one |
+| `NEUTRAL` | no modal governs the predicate — a descriptive or nominal mention | ALLOW when the sentence names an approved mechanism |
+
+The clause distinction is deliberate. A permission asserts a right, so the means must be
+attached to it; `may cross a scope boundary, and an approved mechanism is recorded elsewhere`
+names a mechanism that governs its neighbour, not the crossing. A description carries no
+assertion of right, so `a cross-scope movement, when it occurs, uses an approved mechanism`
+stays governed. `WITHOUT_MECHANISM` continues to reject any waiver, and approved-mechanism
+enforcement is unchanged in strength.
+
+Unrelated prohibitive language earlier in the sentence now changes nothing, because it is never
+consulted.
+
+### Probes
+
+All twenty mandated cases verdict as specified, alongside four independent contrastive variants
+not taken from the audit list (`will not escalate yet may cross`, `no gate is open although the
+run can cross`, `does not widen sensitivity and is allowed to cross`, `never reassigns the Role,
+and the stage might cross`) — thirty-five sentences in total, plus three assertions on
+`crossing_modality()` itself so a mutation that stops binding the modal to the predicate fails
+even where the verdict happens to coincide.
+
+The **document scan** is driven, not only the helper: four synthetic violating documents must
+produce offences and three governed ones must not. That is the gap that let a reverted
+substring exemption survive the previous weakening run.
+
+Six controlled weakenings, **exit 1 each**: whole-subject prohibitive search restored ·
+permissive modality on `cross` ignored · `not only` read as prohibiting a later `may cross` ·
+approved-mechanism enforcement dropped · the scan bypassing the verdict · clause scoping of a
+permitted crossing removed.
+
+The prior rendering family was re-run against the repaired file — markdown-link stripping,
+inline-HTML stripping, malformed-opener neutralisation and inline-code normalisation each fail
+the harness when removed. One honest limit stands: the specimen-fence restriction is a document
+scan with no synthetic injection, so deleting the detector passes on a corpus that contains no
+misuse. It catches real misuse, which is what it is for; it does not catch its own removal.
+
+### Scope
+
+**No architecture content changed** — `orchestration/` and `architecture/` are byte-for-byte
+identical, so no stop-and-report was required. The suite total is unchanged at **155**; the
+`scope` group remains at 9. **Phase 11 remains `PROPOSED`; human approval is pending.**
+
+
 ---
 
 ## A note on the specimen fence
