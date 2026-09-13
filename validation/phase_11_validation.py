@@ -473,11 +473,16 @@ def classify_crossing(span):
 
 
 def crossing_spans(text):
-    """(span, classification) for every span of `text` that mentions crossing a scope."""
-    # `plain()` rather than the rendered-text path: that helper is defined later in the file,
-    # and this invariant is about the construction of a proposition, not about wrappers.
+    """(span, classification) for every span of `text` that mentions crossing a scope.
+
+    Discovery reads the SAME rendered-text path the identity invariants use. Reading `plain()`
+    let syntax the normaliser already supports hide the predicate: `cr*oss*` and
+    `c<!--x-->ross` both render as `cross` to a reader, and were invisible to the scan. There
+    is one semantic reader in this file, and every invariant that reads visible text uses it.
+    `semantic_text` is defined further down, so the two scope checks that depend on this are
+    registered after it rather than here."""
     return [(span, classify_crossing(span))
-            for span in SPAN_BREAK.split(plain(text)) if span and CROSSING.search(span)]
+            for span in SPAN_BREAK.split(semantic_text(text)) if span and CROSSING.search(span)]
 
 
 def scope_crossing_offences(text):
@@ -501,7 +506,6 @@ def no_implicit_scope_crossing():
             else "every scope-crossing span parses as a canonical governed construction")
 
 
-check("scope", "no scope crossing is implicit", no_implicit_scope_crossing)
 
 
 def controlled_crossing_grammar():
@@ -619,6 +623,39 @@ def controlled_crossing_grammar():
         problems.append("a separate recording sentence changed a prohibition: %s"
                         % parses(separate))
 
+    # Rendering may change presentation; it may not hide the predicate. Each raw form below
+    # must discover exactly what its rendered equivalent discovers, and reverting discovery to
+    # `plain()` leaves every one of them undiscovered.
+    rendered = {
+        "emphasis splitting the verb": "The run may cr*oss* a project boundary.",
+        "strong emphasis splitting the verb": "The run may cr**oss** a project boundary.",
+        "an HTML comment splitting the verb":
+            "The run may c<!--x-->ross a project boundary.",
+        "a code span around the verb": "The run may `cross` a project boundary.",
+        "an inline HTML tag around the verb":
+            "The run may <em>cross</em> a project boundary.",
+        "a numeric entity inside the verb": "The run may cr&#111;ss a project boundary.",
+        "a Markdown link around the verb":
+            "The run may [cross](#anchor-target) a project boundary.",
+    }
+    plain_form = "The run may cross a project boundary."
+    expected_spans = crossing_spans(plain_form)
+    for label, raw in rendered.items():
+        if crossing_spans(raw) != expected_spans:
+            problems.append("%s: discovery differs from the rendered text: %s"
+                            % (label, crossing_spans(raw)))
+        if not scope_crossing_offences(raw):
+            problems.append("%s: formatting hid the crossing from the scan" % label)
+    # Rendering must not turn a governed construction into an offence either.
+    for label, raw in {
+            "prohibition with emphasis":
+                "The orchestrator must not cr*oss* a scope boundary.",
+            "mechanism-bound crossing with emphasis":
+                "The run may cr*oss* a project boundary through an approved scope transfer."
+    }.items():
+        if scope_crossing_offences(raw):
+            problems.append("%s: rendering broke a governed construction" % label)
+
     # Drive the document SCAN, not only the classifier.
     for label, doc in {
             "bare permission": "## Sub-runs\n\nThe run may cross a project boundary.\n",
@@ -648,9 +685,6 @@ def controlled_crossing_grammar():
             else "%d spans classified as specified, and the scan agrees"
                  % (len(unclassified) + len(prohibition_canonical) + len(mechanism_canonical)))
 
-
-check("scope", "every scope crossing parses as a canonical governed construction",
-      controlled_crossing_grammar)
 
 check("scope", "sensitivity and residency are carried and never widened",
       lambda: ("Sensitivity and residency are carried, never relaxed" in plain(STD)
@@ -1333,76 +1367,131 @@ GUARDED_TERM = re.compile(
     r"\b(%s)\b" % "|".join(t.replace(" ", r"\s+") for t in GUARDED_TERMS), re.I)
 
 # A closed function-word vocabulary. Anything outside it is a content word, and a predication
-# linking two guarded objects may carry at most one of those before it stops being a relation
-# the harness can read at all.
+# linking two guarded objects must have every one of its content words in the corpus's own
+# safe-relation vocabulary. There is no silent skip any more: a co-occurrence the grammar
+# cannot prove benign is an offence, however long, parenthetical or pronoun-bearing it is.
 FUNCTION_WORDS = set("""a an the its their his her this these those each every any no some all
 one of to in on at by for from with within under over as into onto per via through between
 among about than is are was were be been being remain remains remained become becomes became
 has have had do does did will would shall should may might can could must not never only also
-still now just simply merely really actually effectively same other another""".split())
-COORDINATION = re.compile(r"\b(?:and|or|nor)\b|[,;:]|—|–|--", re.I)
-BARE_COORDINATION = re.compile(r"(?:,\s*|\s+and\s+|\s+or\s+)")
-PRONOUN = re.compile(r"\b(?:it|its|they|them|which|that|who|whose|what|he|she|we|you|i)\b", re.I)
+still now just simply merely really actually effectively same other another it they them which
+that who whose what he she we you""".split())
 SEPARATION = re.compile(r"\b(?:not|never|neither|nor|no)\b|!=", re.I)
-POSSESSIVE = re.compile(r"^'s$")
-COPULAR_HEAD = re.compile(
+PROPOSITION_BREAK = re.compile("[,;:]|\u2014|\u2013|--|" + r"\b(?:and|or|nor|but)\b", re.I)
+# A predication puts the second term in predicate position, so the link ends where a noun
+# phrase begins: on a determiner, on a bare copula, or on an equals sign. A link ending on a
+# preposition ("artifacts in", "authorised by which") is a list or a different proposition -
+# it never asserts that the two objects are the same thing.
+PREDICATE_TAIL = re.compile(
+    r"\b(?:a|an|the|its|their|this|that|these|those|one|both)\s*$"
+    r"|\b(?:is|are|was|were|be|been|being|remains?|remained|becomes?|became)\s*$"
+    r"|=+\s*$", re.I)
+# An aside may be removed because it interrupts a predication; a LIST may not, because its
+# commas are the structure. An aside is lowercase-led, and a comma-aside is only recognised
+# where the link carries exactly the two commas that delimit it.
+BRACKET_ASIDE = [re.compile(r"\([^()]{0,80}\)"),
+                 re.compile(r"—\s*[a-z][^—]{0,60}—")]
+COMMA_ASIDE = re.compile(r",\s*[a-z][^,]{0,60},")
+# Named only so a controlled weakening can reinstate the silent skip this remediation
+# removed: a pronoun or an aside used to make a co-occurrence invisible.
+PRONOUN_OR_ASIDE = re.compile(r"\b(?:it|they|them|which|that|who|whose)\b|[(),\u2014]", re.I)
+LIST_SEPARATOR = re.compile(r"^[\s,]*(?:and|or|nor)?[\s,]*$", re.I)
+COORDINATED_SUBJECT = re.compile(r"\s*(?:,\s*|\s+(?:and|or)\s+)(?:a|an|the)?\s*")
+# A predication of a coordinated pair: a copula, or a verb taking a determiner. A preposition
+# is not a predication, which is what keeps "Review Profile or Decision Right from the
+# definition" a list rather than an assertion about the pair.
+COPULA_HEAD = re.compile(
     r"^(?:is|are|was|were|be|been|being|remains?|remained|becomes?|became)\b", re.I)
+VERB_WITH_OBJECT = re.compile(r"^([A-Za-z][A-Za-z'-]*)\s+(?:one|a|an|the|both|two|each)\b", re.I)
 SEPARATION_PREDICATE = re.compile(
     r"^(?:is|are|was|were|remains?|becomes?)\s+"
     r"(?:not|never|two|three|distinct|separate|different|independent)\b", re.I)
-# The only relations the committed corpus asserts between two guarded objects, plus the
-# non-identity forms Phase 11 names explicitly. Anything else is unproven, hence rejected.
+# The relations the committed corpus asserts between two guarded objects, measured from it,
+# plus the non-identity forms Phase 11 names explicitly. Anything else is unproven.
 SAFE_RELATIONS = {"records", "recorded", "references", "activates", "requests", "binds",
-                  "execution", "submits", "rewriting"}
+                  "execution", "submits", "rewriting", "produced", "reaching", "satisfied",
+                  "exercise"}
 
 
-def _content_words(gap):
-    return [w for w in re.findall(r"[A-Za-z][A-Za-z'-]*", gap)
+def strip_asides(text):
+    """Remove interrupting asides so the predication underneath can be read.
+
+    Brackets and em-dash asides are removed whenever they are lowercase-led. A comma aside is
+    removed only where the text carries exactly the two commas that delimit it: in a list the
+    commas ARE the structure, and eating them would turn an enumeration into a predication."""
+    previous = None
+    while previous != text:
+        previous = text
+        for pattern in BRACKET_ASIDE:
+            text = pattern.sub(" ", text)
+    if text.count(",") == 2:
+        text = COMMA_ASIDE.sub(" ", text, count=1)
+    return text
+
+
+def _content_words(text):
+    return [w for w in re.findall(r"[A-Za-z][A-Za-z'-]*", text)
             if w.lower() not in FUNCTION_WORDS]
 
 
-def identity_collapses(text):
-    """Spans asserting a relation between two guarded objects that is not proven separation.
+def _coordinated_predication(raw_tail):
+    """The predicate made of a coordinated guarded pair, or None if none is made."""
+    tail = strip_asides(raw_tail).strip()
+    if re.match(r"(?:and|or|nor)\b", tail, re.I):
+        return None                                  # the enumeration simply continues
+    if COPULA_HEAD.match(tail):
+        return tail
+    verb = VERB_WITH_OBJECT.match(tail)
+    if verb and verb.group(1).lower() not in FUNCTION_WORDS:
+        return tail
+    return None                                      # not a predication of the pair at all
 
-    Two shapes are read. A RELATIONAL span links the pair directly, with at most one content
-    word between them. A COORDINATED span names the pair as one subject and then predicates
-    something of it. Anything the grammar cannot prove safe is reported - it does not need to
-    recognise the verb."""
+
+def identity_collapses(text):
+    """Guarded-pair co-occurrences the grammar cannot prove benign.
+
+    Every co-occurrence of a guarded pair inside one proposition is an offence unless the span
+    proves an explicit separation, a possessive or compound reference, an enumeration, a
+    different proposition on each side, or a relation drawn entirely from the corpus's own safe
+    vocabulary. Length, parentheses, pronouns and relative clauses are no longer reasons to
+    skip - the aside is removed and the predication underneath is read."""
     found = []
     for span in re.split(r"[.;|\n]", text):
         marks = [(re.sub(r"\s+", " ", hit.group(0).upper()), hit.start(), hit.end())
                  for hit in GUARDED_TERM.finditer(span)]
-        for index, (first, _fs, first_end) in enumerate(marks):
+        for index, (first, _start, first_end) in enumerate(marks):
             for second, second_start, second_end in marks[index + 1:]:
                 if (first, second) not in GUARDED_PAIRS:
                     continue
                 gap = span[first_end:second_start]
-                if len(gap) > 40:
-                    continue
-                if COORDINATION.search(gap):
-                    # X and Y <predication>: safe only as an explicit separation.
-                    if not BARE_COORDINATION.fullmatch(gap):
+                if SEPARATION.search(gap):
+                    continue                          # an explicit denial
+                if gap.strip() in ("", "'s"):
+                    continue                          # a compound name or a possessive
+                if COORDINATED_SUBJECT.fullmatch(gap):
+                    predicate = _coordinated_predication(span[second_end:])
+                    if predicate is None:
                         continue
-                    tail = span[second_end:].strip()
-                    head = re.match(r"[A-Za-z][A-Za-z'-]*", tail)
-                    if not head or re.match(r"(?:and|or|nor)\b", tail, re.I):
+                    if SEPARATION_PREDICATE.match(predicate) or SEPARATION.search(
+                            predicate[:60]):
                         continue
-                    if head.group(0).lower() in FUNCTION_WORDS and not COPULAR_HEAD.match(tail):
-                        continue
-                    if SEPARATION_PREDICATE.match(tail) or SEPARATION.search(tail[:60]):
-                        continue
-                    found.append("%s / %s: %s" % (first, second, tail[:60]))
+                    found.append("%s + %s: %s" % (first, second, predicate[:60]))
                     continue
-                if PRONOUN.search(gap) or not gap.strip():
+                if LIST_SEPARATOR.fullmatch(gap):
+                    continue                          # a bare list separator
+                link = strip_asides(gap)
+                if SEPARATION.search(link):
                     continue
-                if SEPARATION.search(gap) or POSSESSIVE.match(gap.strip()):
+                if PROPOSITION_BREAK.search(link):
+                    continue                          # the terms sit in different propositions
+                if GUARDED_TERM.search(link):
+                    continue                          # a third guarded term: this is a list
+                if not PREDICATE_TAIL.search(link):
+                    continue                          # the second term is not in predicate position
+                words = _content_words(link)
+                if words and all(w.lower() in SAFE_RELATIONS for w in words):
                     continue
-                content = _content_words(gap)
-                if len(content) > 1:
-                    continue
-                if content and content[0].lower() in SAFE_RELATIONS:
-                    continue
-                found.append("%s / %s: %s" % (first, second, gap.strip()[:60]))
+                found.append("%s / %s: %s" % (first, second, link.strip()[:60]))
     return found
 
 
@@ -1435,6 +1524,19 @@ def identity_collapse_scan_is_driven():
     verbs the harness enumerates nowhere - that is the point of reading co-occurrence rather
     than vocabulary."""
     collapses = [
+        # The v11 bypasses: long, parenthetical, pronoun-bearing or multi-content-word
+        # relations that the previous heuristics skipped in silence.
+        "A Role has exactly the same governance identity as an Agent Instance.",
+        "A Role should be treated in all respects as an Agent Instance.",
+        "A Role, for every operational purpose, constitutes an Agent Instance.",
+        "A Role is functionally indistinguishable from an Agent Instance.",
+        "A Role, which the runtime creates, is an Agent Instance.",
+        "The Router and the Orchestrator, taken together, are one component.",
+        # Other aside shapes: brackets, an em-dash aside, a very long interruption.
+        "A Role (as the runtime sees it) is an Agent Instance.",
+        "A Role \u2014 in every respect that matters \u2014 is an Agent Instance.",
+        "A Role, in the view of every operator who has ever looked at one, is an Agent "
+        "Instance.",
         # The v10 bypasses.
         "A Role is effectively an Agent Instance.",
         "A Role constitutes an Agent Instance.",
@@ -1443,7 +1545,6 @@ def identity_collapse_scan_is_driven():
         "A Decision Right collapses into a Decision Record.",
         "ROLE == AGENT INSTANCE",
         "The Router doubles as the Orchestrator.",
-        # Named in the audit alongside them.
         "Role functions as an Agent Instance.",
         "Orchestrator serves as the Router.",
         "A Review Profile and Review Instance are effectively one object.",
@@ -1453,15 +1554,16 @@ def identity_collapse_scan_is_driven():
         "A Runtime Event qualifies as an Audit Event.",
         "The Task coincides with the Work Item.",
         "A Decision Right reduces to a Decision Record.",
-        # The plain forms the earlier enumeration already caught, kept as regression.
+        # The plain forms the earliest enumeration already caught, kept as regression.
         "ROLE = AGENT INSTANCE",
         "A Role is an Agent Instance.",
         "ROUTER = ORCHESTRATOR",
         "The Router is the Orchestrator.",
         "Router and Orchestrator are the same component.",
-        # Formatting is not semantics.
+        # Formatting is not semantics: emphasis, code spans and a comment splitting a term.
         "**ROLE** = **AGENT INSTANCE**",
         "The `Router` is *indistinguishable* from the Orchestrator.",
+        "A Ro<!--x-->le is an Agent Instance.",
     ]
     benign = [
         "ROLE != AGENT INSTANCE",
@@ -1478,6 +1580,8 @@ def identity_collapse_scan_is_driven():
         "Task, Work Item and Assignment",
         "The orchestrator's role",
         "The orchestrator submits a Model Invocation Request",
+        "Reviews stay in review, decisions in decision, knowledge in knowledge, routing in "
+        "routing, artifacts in artifact",
     ]
     problems = []
     for text in collapses:
@@ -1597,8 +1701,115 @@ check("identity", "the guarded-pair set is the full closure of every denial chai
       denied_pair_closure)
 
 
+def chain_closure_independently_verified():
+    """Closure proved again, by a third path that touches neither of the other two.
+
+    This check calls neither `denied_pair_closure()` nor `denial_chains()`. It finds the
+    longest denial line itself, splits it on the operator with `re.split`, and builds the
+    closure with `itertools.combinations`. Two checks that shared a helper would fail together
+    and prove nothing about each other."""
+    lines = [ln for doc in NORMATIVE.values() for ln in plain(doc).splitlines() if "!=" in ln]
+    if not lines:
+        return (False, "no denial line found at all")
+    problems = []
+    universe = set()
+    for line in lines:
+        terms = [" ".join(part.split()) for part in re.split(r"\s*!=\s*", line)]
+        terms[0] = " ".join(re.findall(r"[A-Z][A-Z ]*$", terms[0].rstrip()) or [""]).strip()
+        terms[-1] = " ".join(re.findall(r"^[A-Z][A-Z ]*", terms[-1].lstrip()) or [""]).strip()
+        terms = [t for t in terms if 2 <= len(t) <= 30]
+        universe |= set(frozenset(c) for c in itertools.combinations(dict.fromkeys(terms), 2))
+    produced = set(frozenset(pair) for pair in IDENTITY_PAIRS)
+    if universe != produced:
+        problems.append("independent closure differs: %d expected, %d produced, %d missing"
+                        % (len(universe), len(produced), len(universe - produced)))
+    # The separation chain itself: every one of its pairs, not only the adjacent ones.
+    chain = max((re.split(r"\s*!=\s*", ln) for ln in lines), key=len)
+    chain = [" ".join(p.split()) for p in chain]
+    chain[0] = " ".join(re.findall(r"[A-Z][A-Z ]*$", chain[0].rstrip()) or [""]).strip()
+    chain = [t for t in chain if re.fullmatch(r"[A-Z][A-Z ]*", t)]
+    if len(chain) != len(SEPARATED):
+        problems.append("the separation chain parsed as %d terms, not %d"
+                        % (len(chain), len(SEPARATED)))
+    expected_pairs = len(chain) * (len(chain) - 1) // 2
+    chain_closure = set(frozenset(c) for c in itertools.combinations(chain, 2))
+    if len(chain_closure) != expected_pairs:
+        problems.append("chain closure arithmetic is wrong")
+    if not chain_closure <= produced:
+        problems.append("%d of the chain's %d pairs are missing from the production set"
+                        % (len(chain_closure - produced), expected_pairs))
+    # A pair from the two ends of the chain is the one an adjacent-only derivation loses first.
+    for distant in (("ROLE", "HUMAN AUTHORITY"), ("ROLE", "CREDENTIAL"),
+                    ("AGENT INSTANCE", "DECISION RECORD")):
+        if frozenset(distant) not in produced:
+            problems.append("a distant pair is absent: %s" % (distant,))
+    # The arithmetic, on a synthetic chain with a hand-computed answer.
+    synthetic = [" ".join(p.split()) for p in re.split(r"\s*!=\s*", "ALPHA != BETA != GAMMA != DELTA")]
+    if len(set(frozenset(c) for c in itertools.combinations(synthetic, 2))) != 6:
+        problems.append("closure of a 4-term chain is not 6 pairs")
+    return (not problems, str(problems)[:300] if problems
+            else "%d pairs proved by a third independent path, %d in the chain's own closure"
+                 % (len(universe), expected_pairs))
+
+
+check("identity", "the closure is proved again by an independent path",
+      chain_closure_independently_verified)
+
+
+def closure_checks_reject_a_weakened_pair_set():
+    """Negative control: both closure checks must FAIL when the pair set is weakened.
+
+    The committed set is correct, so a closure check that simply returned success would pass
+    unnoticed. Here the guarded-pair set is deliberately corrupted three ways and each closure
+    check is required to reject it. A check replaced by an unconditional success fails here,
+    and so does an oracle aliased to the production output it is meant to audit."""
+    global IDENTITY_PAIRS
+    original = IDENTITY_PAIRS
+    chains = denial_chains(NORMATIVE)
+    adjacent = []
+    for terms in chains:
+        unique = list(dict.fromkeys(terms))
+        adjacent += list(zip(unique, unique[1:]))
+    weakenings = {
+        "adjacent pairs only": sorted(set(adjacent)),
+        "one pair removed": original[:-1],
+        "an undenied pair added": original + [("ALPHA", "OMEGA")],
+        "the set emptied": [],
+    }
+    problems = []
+    try:
+        for label, weakened in weakenings.items():
+            IDENTITY_PAIRS = weakened
+            for name, closure_check in (("denied_pair_closure", denied_pair_closure),
+                                        ("chain_closure_independently_verified",
+                                         chain_closure_independently_verified)):
+                accepted, _evidence = closure_check()
+                if accepted:
+                    problems.append("%s accepted a pair set with %s" % (name, label))
+    finally:
+        IDENTITY_PAIRS = original
+    if len(IDENTITY_PAIRS) != len(original):
+        problems.append("the negative control did not restore the guarded-pair set")
+    return (not problems, str(problems)[:300] if problems
+            else "%d weakened pair sets, each rejected by both closure checks"
+                 % len(weakenings))
+
+
+check("identity", "a weakened guarded-pair set is rejected by both closure checks",
+      closure_checks_reject_a_weakened_pair_set)
+
+
+
 check("identity", "an identity collapse is detected even where the denial also stands",
       identity_collapse_scan_is_driven)
+
+
+# Registered here rather than beside their definitions: both read `semantic_text`, which is
+# defined above this point and not above the scope grammar. `main()` groups results by label,
+# so they still print under [scope].
+check("scope", "no scope crossing is implicit", no_implicit_scope_crossing)
+check("scope", "every scope crossing parses as a canonical governed construction",
+      controlled_crossing_grammar)
 
 
 def named_stale_record(text):

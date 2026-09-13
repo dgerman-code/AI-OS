@@ -808,6 +808,107 @@ closure oracle, `scope` unchanged at 9 with its check replaced rather than added
 remains `PROPOSED`; human approval is pending.**
 
 
+## Remediation — rendered scope discovery, fail-closed identity, and a closure oracle that can fail
+
+Three gaps from the v11 re-audit on `15e349f`. The controlled normative grammar stays; what
+changed is what the grammar is allowed to *not look at*.
+
+### 1. Discovery reads rendered text, like everything else
+
+`crossing_spans()` scanned `plain()` before looking for `cross`, so syntax the rendered-text
+normaliser already supports could hide the predicate from discovery entirely: `cr*oss*` and
+`c<!--x-->ross` both read as **cross** to a person, and the scan saw neither.
+
+Discovery now uses `semantic_text()` — the same reader the identity invariants use. There is
+one semantic reader in this file, and every invariant that reads visible text goes through it.
+`semantic_text` is defined below the scope grammar, so the two scope checks that depend on it
+are registered after it; `main()` groups results by label, so they still print under `[scope]`.
+
+Seven rendering forms are guarded, each required to discover **exactly** what the plain
+sentence discovers: emphasis and strong emphasis splitting the verb, an HTML comment splitting
+it, a code span, an inline tag, a numeric entity inside the word, and a Markdown link around it.
+Two governed constructions carrying emphasis must stay governed. One case is deliberately
+absent: `cr_oss_` is not a hidden crossing, because an intra-word underscore is not emphasis in
+Markdown and the normaliser preserves it on purpose — the declared vocabulary depends on that.
+
+### 2. Guarded identity co-occurrence no longer skips the hard cases
+
+The contract was right and the implementation still had escape hatches: a co-occurrence was
+*skipped* when the gap was long, parenthetical, pronoun-bearing, or carried more than one
+content word. Six audit examples walked straight through, including
+`A Role, which the runtime creates, is an Agent Instance.` and
+`The Router and the Orchestrator, taken together, are one component.`
+
+Silent skipping is gone. A co-occurrence inside one proposition is an **offence** unless the
+span proves one of:
+
+| Proof | Example |
+|---|---|
+| explicit separation | `ROLE != AGENT INSTANCE`, `is not the Router`, `carries no Role` |
+| compound name or possessive | `Model Router`, `the orchestrator's role` |
+| a bare list separator, or an enumeration that continues | `Task, Work Item and Assignment` |
+| the terms sit in different propositions | a comma, colon, dash or `and` survives inside the link |
+| a third guarded term inside the link | the span is a list of governed objects |
+| the second term is not in predicate position | the link ends on a preposition: `artifacts in` |
+| every content word is in the corpus's own safe vocabulary | `records the exercise of a`, `is an execution of a` |
+
+Asides are **removed, not skipped**: bracket and em-dash asides whenever they are lowercase-led,
+and a comma aside only where the link carries exactly the two commas that delimit it — in a list
+the commas *are* the structure, and eating them would turn an enumeration into a predication.
+Once the aside is gone, the predication underneath is read.
+
+All of that was measured against the committed corpus first, and the corpus reports **zero**
+unproven co-occurrences with no architecture text edited. The safe-relation vocabulary grew by
+exactly what the corpus needs: `produced`, `reaching`, `satisfied`, `exercise`.
+
+Thirty-two collapses must be detected and fifteen denials and descriptions left alone — among
+them the corpus's own `Reviews stay in review, decisions in decision, knowledge in knowledge,
+routing in routing, artifacts in artifact`.
+
+### 3. A closure oracle that can itself fail
+
+The audit replaced `denied_pair_closure()` with an immediate success and still got
+`158/158 PASS`. Two registered checks now stand behind it.
+
+`chain_closure_independently_verified()` calls **neither** `denied_pair_closure()` nor
+`denial_chains()`: it finds the denial lines itself, splits them with `re.split` on the
+operator, and builds the closure with `itertools.combinations`. It asserts the separation chain
+parses to 21 terms, that all 210 of its pairs are in the production set, that specific *distant*
+pairs — the first casualties of an adjacent-only derivation — are present, and that a synthetic
+four-term chain closes to exactly six.
+
+`closure_checks_reject_a_weakened_pair_set()` is the negative control the audit's mutation
+needed: it corrupts the guarded-pair set four ways — adjacent pairs only, one pair removed, an
+undenied pair added, the set emptied — and requires **both** closure checks to reject each one.
+A check replaced by an unconditional success fails here, and so does an oracle aliased to the
+production output it is meant to audit. Two checks sharing a helper would fail together and
+prove nothing about each other, which is why the two paths share none.
+
+One limit stated plainly: mutating the negative control *itself* into an unconditional success
+is caught only by the harness's source-level vacuity check, not by a third behavioural guard.
+
+### Probes and weakenings
+
+Twelve controlled weakenings, **exit 1 each**: scope discovery reverted to `plain()` · the
+rendered-text normaliser disabled so emphasis and comment splits are ignored · identity
+long-span co-occurrence skipped · identity parenthetical co-occurrence skipped · an unknown
+guarded-pair relation treated as benign · specimen fencing suppressing identity contradiction ·
+the production pair builder reduced to adjacent pairs · `denied_pair_closure()` replaced by
+immediate success · the independent closure checker replaced by immediate success · the
+independent oracle aliased to the production output · the identity document scan bypassed · a
+vacuous boolean mutation.
+
+The v10 weakening family was re-run against the repaired file — all twelve still fail — and so
+was the rendering family.
+
+### Scope
+
+**No architecture content changed** — `orchestration/` and `architecture/` are byte-for-byte
+identical, so no stop-and-report was required. Suite **158 → 160**; `identity` 10 → 12 for the
+independent closure path and its negative control, `scope` unchanged at 9. **Phase 11 remains
+`PROPOSED`; human approval is pending.**
+
+
 ---
 
 ## A note on the specimen fence
