@@ -6,19 +6,25 @@ This module is the structured-data layer of the Phase 12 MVP. Its job is to make
 Phase 1-11 governance model *representable* and to make the collapses the architecture denies
 *unrepresentable*, so that assurance stops depending on reading prose.
 
-Two design rules run through the whole file.
+Four design rules run through the file. The first two were there from the foundation; the last
+two are the answer to the independent audit, which found that the first two were not enough on
+their own because the reference layer still trusted whatever a caller handed it.
 
-1. **Every governed identity is its own type.** The twenty-one-object separation chain is not a
-   naming convention here; a `RoleRef` and an `AgentInstanceRef` carrying the same string are
-   different objects and cannot be substituted for one another. `require()` raises rather than
-   coercing.
-2. **Authority is never inferred.** Nothing in this module derives an approval, a review
-   outcome or a Decision Record from anything else. Those objects exist only when a governed
-   party creates them, and the orchestrator records them by reference.
+1. **Every governed identity is its own type.** A `RoleRef` and an `AgentInstanceRef` carrying
+   the same string are different objects. `require()` raises rather than coercing.
+2. **Authority is never inferred.** Nothing here derives an approval, a review outcome or a
+   Decision Record from anything else.
+3. **Every governed object validates its own references at construction.** Not when some
+   downstream method happens to look: a malformed governed object never exists at all.
+4. **Lineage is bound, not asserted.** A Work Item carries the definition, version, task and
+   run it was created from, and every later act is checked against that binding rather than
+   against an argument the caller passes at the time.
 
 Standard library only. No provider SDK, no I/O, no clock of its own.
 """
 
+import dataclasses
+import typing
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, FrozenSet, List, Optional, Sequence, Tuple
@@ -37,12 +43,24 @@ class IdentityError(GovernanceError):
     """One governed identity was offered where another is required."""
 
 
+class LineageError(GovernanceError):
+    """An object was offered that does not belong to the governed lineage in hand."""
+
+
+class EvidenceError(GovernanceError):
+    """Evidence was offered that does not answer the requirement it was offered for."""
+
+
 class TransitionError(GovernanceError):
     """A run-phase transition the approved state machine does not allow."""
 
 
 class AppendOnlyError(GovernanceError):
     """An attempt to rewrite recorded history."""
+
+
+class StateAccessError(GovernanceError):
+    """An attempt to change governed run state from outside the orchestrator."""
 
 
 # ===========================================================================================
@@ -165,12 +183,28 @@ class RoutingDecisionRef(Ref):
     KIND = "routing_decision"
 
 
+class RoutingRequestRef(Ref):
+    KIND = "routing_request"
+
+
 class ScopeTransferRef(Ref):
     KIND = "scope_transfer"
 
 
 class InterventionRef(Ref):
     KIND = "intervention"
+
+
+class GateRequirementRef(Ref):
+    KIND = "gate_requirement"
+
+
+class HumanWorkRef(Ref):
+    KIND = "human_work"
+
+
+class PrerequisiteRef(Ref):
+    KIND = "governed_prerequisite"
 
 
 #: The approved separation chain, in order, as the types that carry it.
@@ -193,6 +227,60 @@ def require(value, expected: type, what: str = ""):
             % (what or expected.KIND, expected.KIND,
                getattr(type(value), "KIND", type(value).__name__)))
     return value
+
+
+def _declared_ref_type(annotation):
+    """(reference type, optional?) a field declares, or (None, False) if it declares none."""
+    if isinstance(annotation, type) and issubclass(annotation, Ref):
+        return annotation, False
+    if typing.get_origin(annotation) is typing.Union:
+        args = typing.get_args(annotation)
+        optional = type(None) in args
+        named = [a for a in args if a is not type(None)]
+        if len(named) == 1 and isinstance(named[0], type) and issubclass(named[0], Ref):
+            return named[0], optional
+    return None, False
+
+
+_HINTS_CACHE: Dict[type, Dict[str, object]] = {}
+
+
+def enforce_reference_types(instance) -> None:
+    """Validate every governed reference field of `instance` against its declared type.
+
+    Called from each governed object's `__post_init__`, so a malformed governed object never
+    comes into existence. The independent audit's first finding was precisely that these types
+    were only checked where a downstream method happened to call `require()`; a field declared
+    as a governed reference is now checked at construction, every time, for every object."""
+    cls = type(instance)
+    hints = _HINTS_CACHE.get(cls)
+    if hints is None:
+        hints = typing.get_type_hints(cls)
+        _HINTS_CACHE[cls] = hints
+    for f in dataclasses.fields(instance):
+        expected, optional = _declared_ref_type(hints.get(f.name, f.type))
+        if expected is None:
+            continue
+        value = getattr(instance, f.name)
+        if value is None:
+            # A field that declares a governed reference without `Optional` must carry one:
+            # `None` in a required identity slot is an absent identity, not a permitted one.
+            if optional:
+                continue
+            raise IdentityError("%s.%s requires %s, got nothing"
+                                % (cls.__name__, f.name, expected.KIND))
+        if expected is Ref:
+            # A field declared as the base type accepts any governed reference, and nothing
+            # else: this is how an execution event names whatever it is about.
+            if not isinstance(value, Ref):
+                raise IdentityError("%s.%s requires a governed reference, got %r"
+                                    % (cls.__name__, f.name, type(value).__name__))
+            continue
+        if type(value) is not expected:
+            raise IdentityError(
+                "%s.%s requires %s, got %s"
+                % (cls.__name__, f.name, expected.KIND,
+                   getattr(type(value), "KIND", type(value).__name__)))
 
 
 # ===========================================================================================
@@ -245,8 +333,6 @@ class GovernancePosture(Enum):
     AUTHORITY_ABSENT = "AUTHORITY_ABSENT"
 
 
-#: Which terminal outcome each posture permits. `GATE_UNSATISFIED` and `AUTHORITY_ABSENT`
-#: permit no completion at all - that is the whole point of the axis.
 POSTURE_PERMITS_COMPLETION: Dict[GovernancePosture, FrozenSet[TerminalOutcome]] = {
     GovernancePosture.GOVERNANCE_CLEAR: frozenset({TerminalOutcome.COMPLETED}),
     GovernancePosture.OPEN_ITEMS_CARRIED: frozenset({TerminalOutcome.COMPLETED_WITH_OPEN_ITEMS}),
@@ -254,8 +340,6 @@ POSTURE_PERMITS_COMPLETION: Dict[GovernancePosture, FrozenSet[TerminalOutcome]] 
     GovernancePosture.AUTHORITY_ABSENT: frozenset(),
 }
 
-#: Terminal outcomes that are stops rather than completions. They are reachable under any
-#: posture, because stopping is always permitted; only *completing* is governed.
 NON_COMPLETION_TERMINALS: FrozenSet[TerminalOutcome] = frozenset({
     TerminalOutcome.CANCELLED, TerminalOutcome.TERMINATED,
     TerminalOutcome.FAILED, TerminalOutcome.SUPERSEDED,
@@ -283,8 +367,6 @@ ALLOWED_TRANSITIONS: Dict[RunPhase, FrozenSet[RunPhase]] = {
                                    RunPhase.REWORK_REQUIRED}),
 }
 
-#: Phases from which each terminal outcome may be reached, from the same table. Terminal
-#: outcomes are held separately from Axis A because they are a different axis.
 TERMINAL_REACHABLE_FROM: Dict[TerminalOutcome, FrozenSet[RunPhase]] = {
     TerminalOutcome.COMPLETED: frozenset({RunPhase.RUNNING}),
     TerminalOutcome.COMPLETED_WITH_OPEN_ITEMS: frozenset({RunPhase.RUNNING}),
@@ -326,8 +408,6 @@ class GateOutcome(Enum):
     NO_APPLICABLE_DECISION_RIGHT = "NO_APPLICABLE_DECISION_RIGHT"
 
 
-#: The only two outcomes that let a run continue past a gate. Everything else - a deferral, an
-#: escalation, an expiry, an absent Right - is explicitly not an approval.
 CONTINUING_GATE_OUTCOMES: FrozenSet[GateOutcome] = frozenset({
     GateOutcome.SATISFIED, GateOutcome.SATISFIED_WITH_OPEN_ITEMS,
 })
@@ -352,14 +432,11 @@ class RetryClass(Enum):
     IDEMPOTENT_AT_LEAST_ONCE = "IDEMPOTENT_AT_LEAST_ONCE"
 
 
-#: Classes the orchestrator may retry without a further governed act.
 AUTOMATICALLY_RETRYABLE: FrozenSet[RetryClass] = frozenset({
     RetryClass.SAFE_AUTOMATIC_RETRY, RetryClass.RETRY_REQUIRING_REVALIDATION,
     RetryClass.REPLAYABLE_READ_ONLY, RetryClass.IDEMPOTENT_AT_LEAST_ONCE,
 })
 
-#: Classes that are never re-executed automatically, for two different reasons: a governed act
-#: was performed once by a governed party, and an external effect already left the system.
 NEVER_AUTOMATICALLY_RETRYABLE: FrozenSet[RetryClass] = frozenset({
     RetryClass.NON_RETRYABLE_GOVERNED_ACT,
     RetryClass.NON_REPLAYABLE_EXTERNAL_SIDE_EFFECT,
@@ -375,8 +452,6 @@ class RaceOutcome(Enum):
 
 
 class Origin(Enum):
-    """Where a produced content came from. A model produces a suggestion, never canon."""
-
     AI_GENERATED = "AI_GENERATED"
     HUMAN_AUTHORED = "HUMAN_AUTHORED"
 
@@ -393,7 +468,7 @@ class Canonicality(Enum):
 
 @dataclass(frozen=True)
 class ScopeBinding:
-    """Exactly one governed scope per execution, bound at intake.
+    """Exactly one governed scope per execution, bound at intake and never mutated.
 
     Sensitivity is an unordered multi-label set, as Phase 8 defines it: there is no ceiling to
     compare, so narrowing is subset containment and widening is anything else."""
@@ -403,7 +478,7 @@ class ScopeBinding:
     residency: str
 
     def __post_init__(self):
-        require(self.scope, ScopeRef, "scope binding")
+        enforce_reference_types(self)
         if not isinstance(self.sensitivity, frozenset):
             raise GovernanceError("sensitivity must be an unordered label set")
         if not self.residency:
@@ -411,9 +486,42 @@ class ScopeBinding:
 
     def narrows_to(self, other: "ScopeBinding") -> bool:
         """True when `other` is a narrowing of this binding, and only then."""
-        return (other.scope == self.scope
+        return (isinstance(other, ScopeBinding)
+                and other.scope == self.scope
                 and other.sensitivity <= self.sensitivity
                 and other.residency == self.residency)
+
+
+@dataclass(frozen=True)
+class ScopeTransferAuthorisation:
+    """Governed evidence that one specific crossing was approved.
+
+    A bare `HandoffRef` or `ScopeTransferRef` proves nothing - the audit's eighth finding. The
+    approved mechanism is an object binding the mechanism at a version to the source run and
+    scope, the target scope, and the Decision Record by which a human authorised it."""
+
+    mechanism: Ref
+    mechanism_version: str
+    source_run: WorkflowRunRef
+    source_scope: ScopeRef
+    target_scope: ScopeRef
+    authorised_by: HumanAuthorityRef
+    decision_record: DecisionRecordRef
+
+    def __post_init__(self):
+        enforce_reference_types(self)
+        if type(self.mechanism) not in (HandoffRef, ScopeTransferRef):
+            raise IdentityError(
+                "an approved crossing mechanism is a Phase 6 handoff or a Phase 8 scope "
+                "transfer, got %s"
+                % getattr(type(self.mechanism), "KIND", type(self.mechanism).__name__))
+        if not self.mechanism_version:
+            raise GovernanceError("an approved mechanism must be named at a version")
+
+    def authorises(self, run: "WorkflowRun", target: ScopeBinding) -> bool:
+        return (self.source_run == run.ref
+                and self.source_scope == run.scope.scope
+                and self.target_scope == target.scope)
 
 
 # ===========================================================================================
@@ -423,22 +531,39 @@ class ScopeBinding:
 
 @dataclass(frozen=True)
 class GateRequirement:
-    """A gate the definition declares, named by the governed object that can satisfy it."""
+    """One gate the definition declares, with its own stable identity.
 
+    Identity matters: two Decision gates on one Work Item are two requirements, and collapsing
+    them into a `(work_item, kind)` key - the audit's fourth finding - let evidence for one
+    satisfy the other."""
+
+    ref: GateRequirementRef
     kind: GateKind
     review_profile: Optional[ReviewProfileRef] = None
     decision_right: Optional[DecisionRightRef] = None
+    human_work: Optional[HumanWorkRef] = None
+    prerequisite: Optional[PrerequisiteRef] = None
+    independence_class: str = ""
     description: str = ""
 
     def __post_init__(self):
-        if self.kind is GateKind.REVIEW and self.review_profile is None:
-            raise GovernanceError("a review gate must name its Review Profile")
-        if self.kind is GateKind.DECISION and self.decision_right is None:
-            raise GovernanceError("a decision gate must name its Decision Right")
-        if self.review_profile is not None:
-            require(self.review_profile, ReviewProfileRef, "review gate")
-        if self.decision_right is not None:
-            require(self.decision_right, DecisionRightRef, "decision gate")
+        enforce_reference_types(self)
+        if not isinstance(self.kind, GateKind):
+            raise GovernanceError("a gate requirement needs one of the four approved kinds")
+        named = {
+            GateKind.REVIEW: self.review_profile,
+            GateKind.DECISION: self.decision_right,
+            GateKind.HUMAN_WORK: self.human_work,
+            GateKind.GOVERNED_PREREQUISITE: self.prerequisite,
+        }
+        if named[self.kind] is None:
+            raise GovernanceError("a %s gate must name what satisfies it" % self.kind.value)
+        for kind, value in named.items():
+            if kind is not self.kind and value is not None:
+                raise GovernanceError(
+                    "a %s gate may not also name a %s subject" % (self.kind.value, kind.value))
+        if self.kind is GateKind.REVIEW and not self.independence_class:
+            raise GovernanceError("a review gate must declare its independence class")
 
 
 @dataclass(frozen=True)
@@ -450,12 +575,14 @@ class Task:
     required_role: RoleRef
     retry_class: RetryClass
     gates: Tuple[GateRequirement, ...] = ()
-    needs_model: bool = False
     capability: str = ""
 
     def __post_init__(self):
-        require(self.ref, TaskRef, "task")
-        require(self.required_role, RoleRef, "task role requirement")
+        enforce_reference_types(self)
+        if not isinstance(self.retry_class, RetryClass):
+            raise GovernanceError("a task must declare one of the seven retry classes")
+        if len({g.ref for g in self.gates}) != len(self.gates):
+            raise GovernanceError("each gate requirement needs its own identity")
 
 
 @dataclass(frozen=True)
@@ -468,30 +595,82 @@ class WorkflowDefinition:
     scope: ScopeBinding
 
     def __post_init__(self):
-        require(self.ref, WorkflowRef, "workflow definition")
+        enforce_reference_types(self)
         if not self.version:
             raise GovernanceError("a workflow definition must be versioned")
         if not self.tasks:
             raise GovernanceError("a workflow definition needs at least one task")
+        if len({t.ref for t in self.tasks}) != len(self.tasks):
+            raise GovernanceError("each task in a definition needs its own identity")
+
+    def task(self, ref: TaskRef) -> Task:
+        """The declared Task with this reference, or a refusal.
+
+        Lookup rather than acceptance: an undeclared Task cannot be activated, and a Task
+        object from another definition is never taken on trust."""
+        require(ref, TaskRef, "task lookup")
+        for declared in self.tasks:
+            if declared.ref == ref:
+                return declared
+        raise LineageError("%s is not declared by %s @ %s" % (ref, self.ref, self.version))
 
 
 # ===========================================================================================
-# Run-side objects
+# Run-side objects, each carrying its lineage
 # ===========================================================================================
 
 
 @dataclass(frozen=True)
 class WorkItem:
-    """A unit of ASSIGNMENT, created by a run from a Task. Distinct from the Task itself."""
+    """A unit of ASSIGNMENT, created by a run from a declared Task.
+
+    It carries the whole lineage it was created under - workflow, version, task, run - and its
+    retry class, copied from the Task at creation. Later acts are checked against this, not
+    against a Task the caller supplies at the time."""
 
     ref: WorkItemRef
     task: TaskRef
     run: WorkflowRunRef
+    workflow: WorkflowRef
+    workflow_version: str
+    retry_class: RetryClass
+    required_role: RoleRef
+    capability: str = ""
 
     def __post_init__(self):
-        require(self.ref, WorkItemRef, "work item")
-        require(self.task, TaskRef, "work item task")
-        require(self.run, WorkflowRunRef, "work item run")
+        enforce_reference_types(self)
+        if not isinstance(self.retry_class, RetryClass):
+            raise GovernanceError("a work item carries its task's retry class")
+        if not self.workflow_version:
+            raise GovernanceError("a work item carries the definition version it came from")
+
+
+@dataclass(frozen=True)
+class GateInstance:
+    """A declared requirement, instantiated against one run and one Work Item."""
+
+    requirement: GateRequirement
+    run: WorkflowRunRef
+    work_item: WorkItemRef
+    outcome: Optional[GateOutcome] = None
+    satisfied_by: Optional[Ref] = None
+
+    def __post_init__(self):
+        enforce_reference_types(self)
+        if not isinstance(self.requirement, GateRequirement):
+            raise GovernanceError("a gate instance instantiates a declared requirement")
+        if self.outcome is not None and not isinstance(self.outcome, GateOutcome):
+            raise GovernanceError("a gate outcome is one of the seven approved outcomes")
+
+    @property
+    def kind(self) -> GateKind:
+        return self.requirement.kind
+
+    def is_continuing(self) -> bool:
+        return self.outcome in CONTINUING_GATE_OUTCOMES
+
+    def resolved(self, outcome: GateOutcome, satisfied_by: Optional[Ref]) -> "GateInstance":
+        return GateInstance(self.requirement, self.run, self.work_item, outcome, satisfied_by)
 
 
 @dataclass(frozen=True)
@@ -499,23 +678,18 @@ class Assignment:
     """One attempt to bind a Role - and, where permitted, an Agent Instance - to a Work Item.
 
     An assignment carries no authority of its own. It does not make its holder a reviewer and
-    it does not make them a Decision Right holder; both of those are separate governed objects
-    naming separate parties."""
+    it does not make them a Decision Right holder."""
 
     work_item: WorkItemRef
     role: RoleRef
     agent_instance: Optional[AgentInstanceRef] = None
     attempt: int = 1
-    valid: bool = True
 
     def __post_init__(self):
-        require(self.work_item, WorkItemRef, "assignment")
-        require(self.role, RoleRef, "assignment role")
-        if self.agent_instance is not None:
-            require(self.agent_instance, AgentInstanceRef, "assignment agent instance")
+        enforce_reference_types(self)
+        if self.attempt < 1:
+            raise GovernanceError("an assignment attempt is numbered from one")
 
-    # An assignment grants no review or decision authority. These are methods rather than
-    # comments so the property is testable rather than merely asserted.
     def grants_review_authority(self) -> bool:
         return False
 
@@ -532,18 +706,22 @@ class AgentInstance:
     run: WorkflowRunRef
 
     def __post_init__(self):
-        require(self.ref, AgentInstanceRef, "agent instance")
-        require(self.role, RoleRef, "agent instance role")
-        require(self.run, WorkflowRunRef, "agent instance run")
+        enforce_reference_types(self)
+
+
+# ------------------------------------------------------------------ routing
 
 
 @dataclass(frozen=True)
 class RoutingRequest:
     """What the orchestrator may ask the Router.
 
-    It carries requirements and constraints. It carries no chosen model, no relaxed constraint
-    and no pre-filtered candidate set - those would make the orchestrator the Router."""
+    It carries requirements and constraints, and its own identity so that the answer can be
+    bound back to it. It carries no chosen model, no relaxed constraint and no pre-filtered
+    candidate set - those would make the orchestrator the Router."""
 
+    ref: RoutingRequestRef
+    run: WorkflowRunRef
     work_item: WorkItemRef
     capability: str
     scope: ScopeBinding
@@ -551,7 +729,7 @@ class RoutingRequest:
     independence_class: str = ""
 
     def __post_init__(self):
-        require(self.work_item, WorkItemRef, "routing request")
+        enforce_reference_types(self)
         if not self.capability:
             raise GovernanceError("a routing request must declare a capability requirement")
         if not self.routing_policy:
@@ -560,51 +738,60 @@ class RoutingRequest:
 
 @dataclass(frozen=True)
 class RoutingDecision:
-    """What the Router returns. A different object from the request, by a different party."""
+    """What the Router returns, bound to the exact request it answers."""
 
     ref: RoutingDecisionRef
-    request_work_item: WorkItemRef
+    request: RoutingRequestRef
+    run: WorkflowRunRef
+    work_item: WorkItemRef
     outcome: RouterOutcome
+    decided_by: RouterRef
     model: Optional[ModelRef] = None
     model_profile: Optional[ModelProfileRef] = None
-    decided_by: Optional[RouterRef] = None
 
     def __post_init__(self):
-        require(self.ref, RoutingDecisionRef, "routing decision")
+        enforce_reference_types(self)
+        if not isinstance(self.outcome, RouterOutcome):
+            raise GovernanceError("a routing decision carries one of the router outcomes")
         if self.outcome is RouterOutcome.ELIGIBLE_CANDIDATE:
             require(self.model, ModelRef, "routing decision model")
             require(self.model_profile, ModelProfileRef, "routing decision model profile")
-        elif self.model is not None:
+        elif self.model is not None or self.model_profile is not None:
             raise GovernanceError("a non-eligible routing outcome may not name a model")
+
+    def answers(self, request: RoutingRequest) -> bool:
+        return (self.request == request.ref and self.run == request.run
+                and self.work_item == request.work_item)
 
 
 @dataclass(frozen=True)
 class ModelInvocationRequest:
-    """A request to execute a model that a Routing Decision already selected.
+    """A request to execute the model a recorded Routing Decision selected."""
 
-    The orchestrator may not name the model itself; it passes the Routing Decision through."""
-
+    run: WorkflowRunRef
     work_item: WorkItemRef
     routing_decision: RoutingDecisionRef
     model: ModelRef
     prompt_context: str = ""
 
     def __post_init__(self):
-        require(self.routing_decision, RoutingDecisionRef, "model invocation request")
-        require(self.model, ModelRef, "model invocation request")
+        enforce_reference_types(self)
 
 
 @dataclass(frozen=True)
 class ModelResult:
     """Model output. Always a suggestion, never an approval and never canonical knowledge."""
 
+    run: WorkflowRunRef
     work_item: WorkItemRef
+    routing_decision: RoutingDecisionRef
     model: ModelRef
     content: str
     origin: Origin = Origin.AI_GENERATED
     canonicality: Canonicality = Canonicality.AI_SUGGESTION
 
     def __post_init__(self):
+        enforce_reference_types(self)
         if self.origin is not Origin.AI_GENERATED:
             raise GovernanceError("a model result is AI_GENERATED by construction")
         if self.canonicality is not Canonicality.AI_SUGGESTION:
@@ -615,64 +802,117 @@ class ModelResult:
         return False
 
 
+# ------------------------------------------------------------------ gate evidence
+
+
 @dataclass(frozen=True)
 class ReviewRequest:
     """The orchestrator's whole part in a review gate: detect, and ask."""
 
+    requirement: GateRequirementRef
+    run: WorkflowRunRef
     work_item: WorkItemRef
     review_profile: ReviewProfileRef
     independence_class: str
 
     def __post_init__(self):
-        require(self.review_profile, ReviewProfileRef, "review request")
+        enforce_reference_types(self)
+        if not self.independence_class:
+            raise GovernanceError("a review request must carry its independence class")
 
 
 @dataclass(frozen=True)
 class ReviewInstance:
-    """A review that happened, by a reviewer, under a Profile. Produced by Phase 6, not here."""
+    """A review that happened, by a reviewer, under a Profile. Produced by Phase 6."""
 
     ref: ReviewInstanceRef
-    request_work_item: WorkItemRef
+    requirement: GateRequirementRef
+    run: WorkflowRunRef
+    work_item: WorkItemRef
     review_profile: ReviewProfileRef
     outcome: GateOutcome
     reviewer: HumanAuthorityRef
     independence_class: str
 
     def __post_init__(self):
-        require(self.ref, ReviewInstanceRef, "review instance")
-        require(self.review_profile, ReviewProfileRef, "review instance profile")
-        require(self.reviewer, HumanAuthorityRef, "review instance reviewer")
+        enforce_reference_types(self)
+        if not isinstance(self.outcome, GateOutcome):
+            raise GovernanceError("a review instance carries one of the seven outcomes")
+        if not self.independence_class:
+            raise GovernanceError("a review instance records the independence it was done at")
 
 
 @dataclass(frozen=True)
 class DecisionRequest:
     """The orchestrator's whole part in a decision gate: detect, name the Right, and ask."""
 
+    requirement: GateRequirementRef
+    run: WorkflowRunRef
     work_item: WorkItemRef
     decision_right: DecisionRightRef
     question: str = ""
 
     def __post_init__(self):
-        require(self.decision_right, DecisionRightRef, "decision request")
+        enforce_reference_types(self)
 
 
 @dataclass(frozen=True)
 class DecisionRecord:
-    """A Right exercised by an eligible human. Produced by Phase 7, recorded here by reference.
-
-    A Decision Record requires an explicit human authority reference. There is no path in this
-    module that creates one from a model result, a timeout or an orchestrator inference."""
+    """A Right exercised by an eligible human, bound to the exact request it answers."""
 
     ref: DecisionRecordRef
-    request_work_item: WorkItemRef
+    requirement: GateRequirementRef
+    run: WorkflowRunRef
+    work_item: WorkItemRef
     decision_right: DecisionRightRef
     outcome: GateOutcome
     decided_by: HumanAuthorityRef
 
     def __post_init__(self):
-        require(self.ref, DecisionRecordRef, "decision record")
-        require(self.decision_right, DecisionRightRef, "decision record right")
-        require(self.decided_by, HumanAuthorityRef, "decision record human authority")
+        enforce_reference_types(self)
+        if not isinstance(self.outcome, GateOutcome):
+            raise GovernanceError("a decision record carries one of the seven outcomes")
+
+
+@dataclass(frozen=True)
+class HumanWorkCompletion:
+    """A human completing requested work. Not a review, and not a decision."""
+
+    requirement: GateRequirementRef
+    run: WorkflowRunRef
+    work_item: WorkItemRef
+    human_work: HumanWorkRef
+    outcome: GateOutcome
+    completed_by: HumanAuthorityRef
+
+    def __post_init__(self):
+        enforce_reference_types(self)
+
+
+@dataclass(frozen=True)
+class PrerequisiteEvidence:
+    """Evidence that a Phase 8-10 governed prerequisite is met. Not a human act."""
+
+    requirement: GateRequirementRef
+    run: WorkflowRunRef
+    work_item: WorkItemRef
+    prerequisite: PrerequisiteRef
+    outcome: GateOutcome
+    evaluated_against: StorageRecordRef
+
+    def __post_init__(self):
+        enforce_reference_types(self)
+
+
+#: The evidence contract per gate kind. Anything else offered at a gate is refused outright,
+#: which is what keeps a Review Instance out of a HUMAN_WORK gate and a Decision Record out of
+#: a GOVERNED_PREREQUISITE gate.
+EVIDENCE_CONTRACT: Dict[GateKind, type] = {
+    GateKind.REVIEW: ReviewInstance,
+    GateKind.DECISION: DecisionRecord,
+    GateKind.HUMAN_WORK: HumanWorkCompletion,
+    GateKind.GOVERNED_PREREQUISITE: PrerequisiteEvidence,
+}
 
 
 @dataclass(frozen=True)
@@ -686,27 +926,13 @@ class HumanInterventionRecord:
     reason: str
 
     def __post_init__(self):
-        require(self.ref, InterventionRef, "intervention")
-        require(self.by, HumanAuthorityRef, "intervention authority")
+        enforce_reference_types(self)
         if not self.reason:
             raise GovernanceError("an intervention record must state a reason")
 
 
-@dataclass(frozen=True)
-class GateState:
-    """The recorded state of one gate on one Work Item."""
-
-    work_item: WorkItemRef
-    kind: GateKind
-    outcome: Optional[GateOutcome] = None
-    satisfied_by: Optional[Ref] = None
-
-    def is_continuing(self) -> bool:
-        return self.outcome in CONTINUING_GATE_OUTCOMES
-
-
 # ===========================================================================================
-# Execution events - append-only by construction
+# Append-only stores
 # ===========================================================================================
 
 
@@ -720,30 +946,44 @@ class ExecutionEvent:
     detail: str = ""
     reference: Optional[Ref] = None
 
+    def __post_init__(self):
+        enforce_reference_types(self)
+
 
 class ExecutionEventLog:
     """Append-only history.
 
-    There is no update, no delete and no reordering, and the exposed sequence is a copy, so a
-    caller that mutates what it is given changes nothing that was recorded."""
+    There is no update, no delete and no reordering. The backing list is held in a closure
+    rather than on the instance, so there is no attribute for a caller to reach for and
+    rewrite - the audit's ninth finding was that an underscore-private list is not a boundary."""
 
     def __init__(self):
-        self._events: List[ExecutionEvent] = []
+        events: List[ExecutionEvent] = []
+
+        def _append(run, kind, detail, reference):
+            event = ExecutionEvent(len(events) + 1, run, kind, detail, reference)
+            events.append(event)
+            return event
+
+        def _read():
+            return tuple(events)
+
+        object.__setattr__(self, "_ExecutionEventLog__append", _append)
+        object.__setattr__(self, "_ExecutionEventLog__read", _read)
 
     def append(self, run: WorkflowRunRef, kind: str, detail: str = "",
                reference: Optional[Ref] = None) -> ExecutionEvent:
-        event = ExecutionEvent(len(self._events) + 1, run, kind, detail, reference)
-        self._events.append(event)
-        return event
+        require(run, WorkflowRunRef, "execution event run")
+        return self.__append(run, kind, detail, reference)
 
     def events(self) -> Sequence[ExecutionEvent]:
-        return tuple(self._events)
+        return self.__read()
 
     def kinds(self) -> Tuple[str, ...]:
-        return tuple(e.kind for e in self._events)
+        return tuple(e.kind for e in self.__read())
 
     def __len__(self) -> int:
-        return len(self._events)
+        return len(self.__read())
 
     def __setitem__(self, index, value):
         raise AppendOnlyError("execution history cannot be rewritten")
@@ -751,47 +991,228 @@ class ExecutionEventLog:
     def __delitem__(self, index):
         raise AppendOnlyError("execution history cannot be deleted")
 
+    def __setattr__(self, name, value):
+        raise AppendOnlyError("the execution log has no settable attributes")
+
+
+class RecordStore:
+    """An append-only store of governed records, keyed by their own identities.
+
+    Records are never replaced by Work Item id. A second Decision Record for the same Work Item
+    is a second record: the first stands in governed history, which is what the architecture
+    requires of a late or repeated governed act."""
+
+    def __init__(self, name: str):
+        records: List[object] = []
+
+        def _add(record):
+            records.append(record)
+            return record
+
+        def _read():
+            return tuple(records)
+
+        object.__setattr__(self, "_RecordStore__add", _add)
+        object.__setattr__(self, "_RecordStore__read", _read)
+        object.__setattr__(self, "_RecordStore__name", name)
+
+    def add(self, record):
+        return self.__add(record)
+
+    def all(self) -> Tuple[object, ...]:
+        return self.__read()
+
+    def for_work_item(self, work_item: WorkItemRef) -> Tuple[object, ...]:
+        return tuple(r for r in self.__read() if getattr(r, "work_item", None) == work_item)
+
+    def latest_for_work_item(self, work_item: WorkItemRef):
+        found = self.for_work_item(work_item)
+        return found[-1] if found else None
+
+    def contains(self, record) -> bool:
+        """Identity membership: this exact recorded object, not one that merely equals it."""
+        return any(r is record for r in self.__read())
+
+    def __len__(self) -> int:
+        return len(self.__read())
+
+    def __setattr__(self, name, value):
+        raise AppendOnlyError("%s is append-only" % self.__name)
+
+    def __setitem__(self, index, value):
+        raise AppendOnlyError("%s is append-only" % self.__name)
+
+    def __delitem__(self, index):
+        raise AppendOnlyError("%s is append-only" % self.__name)
+
 
 # ===========================================================================================
-# The run
+# The run - governed state behind a token
 # ===========================================================================================
 
 
-@dataclass
+class _RunState:
+    """The mutable part of a run, reachable only by the holder of the run's token."""
+
+    def __init__(self, scope: ScopeBinding):
+        self.phase = RunPhase.CREATED
+        self.terminal: Optional[TerminalOutcome] = None
+        self.wait_reason: Optional[WaitReason] = None
+        self.wait_subject: Optional[Ref] = None
+        self.posture = GovernancePosture.GOVERNANCE_CLEAR
+        self.scope = scope
+        self.work_items: Dict[str, WorkItem] = {}
+        self.gates: Dict[str, GateInstance] = {}
+        self.attempts: Dict[str, int] = {}
+
+
 class WorkflowRun:
     """One governed execution of one Workflow Definition at one version.
 
-    The run holds the four axes. It does not transition itself: `orchestrator.py` owns the
-    transitions so that every state change goes through one validated place."""
+    The four axes are readable and not writable. `run.phase = RunPhase.RUNNING` raises, and so
+    does assignment to posture, scope, gates or any governed collection: the audit's third
+    finding was that a caller could set the state that `complete()` then consulted. State moves
+    only through the orchestrator that created the run and holds its token."""
 
-    ref: WorkflowRunRef
-    workflow: WorkflowRef
-    workflow_version: str
-    scope: ScopeBinding
-    phase: RunPhase = RunPhase.CREATED
-    terminal: Optional[TerminalOutcome] = None
-    wait_reason: Optional[WaitReason] = None
-    wait_subject: Optional[Ref] = None
-    posture: GovernancePosture = GovernancePosture.GOVERNANCE_CLEAR
-    work_items: Dict[str, WorkItem] = field(default_factory=dict)
-    assignments: Dict[str, Assignment] = field(default_factory=dict)
-    gates: Dict[Tuple[str, str], GateState] = field(default_factory=dict)
-    attempts: Dict[str, int] = field(default_factory=dict)
-    decision_records: Dict[str, DecisionRecord] = field(default_factory=dict)
-    review_instances: Dict[str, ReviewInstance] = field(default_factory=dict)
-    routing_decisions: Dict[str, RoutingDecision] = field(default_factory=dict)
-    model_results: Dict[str, ModelResult] = field(default_factory=dict)
-    interventions: List[HumanInterventionRecord] = field(default_factory=list)
+    _GOVERNED = frozenset({"phase", "terminal", "wait_reason", "wait_subject", "posture",
+                           "scope", "work_items", "gates", "attempts", "ref", "definition",
+                           "workflow", "workflow_version"})
 
-    def __post_init__(self):
-        require(self.ref, WorkflowRunRef, "workflow run")
-        require(self.workflow, WorkflowRef, "workflow run definition")
+    def __init__(self, ref: WorkflowRunRef, definition: WorkflowDefinition,
+                 scope: ScopeBinding, token: object):
+        require(ref, WorkflowRunRef, "workflow run")
+        if not isinstance(definition, WorkflowDefinition):
+            raise LineageError("a run binds to a governed Workflow Definition")
+        if not isinstance(scope, ScopeBinding):
+            raise GovernanceError("a run binds to exactly one governed scope")
+        object.__setattr__(self, "_WorkflowRun__ref", ref)
+        object.__setattr__(self, "_WorkflowRun__definition", definition)
+        object.__setattr__(self, "_WorkflowRun__token", token)
+        object.__setattr__(self, "_WorkflowRun__state", _RunState(scope))
+        object.__setattr__(self, "_WorkflowRun__decisions", RecordStore("decision records"))
+        object.__setattr__(self, "_WorkflowRun__reviews", RecordStore("review instances"))
+        object.__setattr__(self, "_WorkflowRun__human_work", RecordStore("human work"))
+        object.__setattr__(self, "_WorkflowRun__prerequisites", RecordStore("prerequisites"))
+        object.__setattr__(self, "_WorkflowRun__routing_requests", RecordStore("routing requests"))
+        object.__setattr__(self, "_WorkflowRun__routing", RecordStore("routing decisions"))
+        object.__setattr__(self, "_WorkflowRun__model_results", RecordStore("model results"))
+        object.__setattr__(self, "_WorkflowRun__assignments", RecordStore("assignments"))
+        object.__setattr__(self, "_WorkflowRun__interventions", RecordStore("interventions"))
+
+    # -- the boundary itself -------------------------------------------------------------
+
+    def __setattr__(self, name, value):
+        raise StateAccessError(
+            "governed run state is not settable from outside the orchestrator (%s)" % name)
+
+    def __delattr__(self, name):
+        raise StateAccessError("governed run state cannot be deleted")
+
+    def _state(self, token: object) -> _RunState:
+        """The mutable state, for the orchestrator that created this run and nobody else."""
+        if token is not self.__token:
+            raise StateAccessError("only the orchestrator that created this run may change it")
+        return self.__state
+
+    def _store(self, token: object, name: str) -> RecordStore:
+        if token is not self.__token:
+            raise StateAccessError("only the orchestrator that created this run may record")
+        return getattr(self, "_WorkflowRun__" + name)
+
+    # -- read-only view ------------------------------------------------------------------
+
+    @property
+    def ref(self) -> WorkflowRunRef:
+        return self.__ref
+
+    @property
+    def definition(self) -> WorkflowDefinition:
+        return self.__definition
+
+    @property
+    def workflow(self) -> WorkflowRef:
+        return self.__definition.ref
+
+    @property
+    def workflow_version(self) -> str:
+        return self.__definition.version
+
+    @property
+    def phase(self) -> RunPhase:
+        return self.__state.phase
+
+    @property
+    def terminal(self) -> Optional[TerminalOutcome]:
+        return self.__state.terminal
+
+    @property
+    def wait_reason(self) -> Optional[WaitReason]:
+        return self.__state.wait_reason
+
+    @property
+    def wait_subject(self) -> Optional[Ref]:
+        return self.__state.wait_subject
+
+    @property
+    def posture(self) -> GovernancePosture:
+        return self.__state.posture
+
+    @property
+    def scope(self) -> ScopeBinding:
+        return self.__state.scope
 
     @property
     def is_terminal(self) -> bool:
-        return self.terminal is not None
+        return self.__state.terminal is not None
 
-    def axes(self) -> Tuple[RunPhase, Optional[TerminalOutcome], Optional[WaitReason],
-                            GovernancePosture]:
-        """The four axes, read together. Useful in tests, which assert on all four."""
-        return (self.phase, self.terminal, self.wait_reason, self.posture)
+    def work_items(self) -> Tuple[WorkItem, ...]:
+        return tuple(self.__state.work_items.values())
+
+    def work_item(self, ref: WorkItemRef) -> WorkItem:
+        require(ref, WorkItemRef, "work item lookup")
+        found = self.__state.work_items.get(ref.id)
+        if found is None:
+            raise LineageError("%s was not created by %s" % (ref, self.__ref))
+        return found
+
+    def gates(self) -> Tuple[GateInstance, ...]:
+        return tuple(self.__state.gates.values())
+
+    def gate(self, requirement: GateRequirementRef) -> GateInstance:
+        require(requirement, GateRequirementRef, "gate lookup")
+        found = self.__state.gates.get(requirement.id)
+        if found is None:
+            raise LineageError("%s is not a gate of %s" % (requirement, self.__ref))
+        return found
+
+    def attempts(self, work_item: WorkItemRef) -> int:
+        return self.__state.attempts.get(work_item.id, 0)
+
+    def decision_records(self) -> Tuple[DecisionRecord, ...]:
+        return self.__decisions.all()
+
+    def review_instances(self) -> Tuple[ReviewInstance, ...]:
+        return self.__reviews.all()
+
+    def routing_decisions(self) -> Tuple[RoutingDecision, ...]:
+        return self.__routing.all()
+
+    def routing_requests(self) -> Tuple[RoutingRequest, ...]:
+        return self.__routing_requests.all()
+
+    def model_results(self) -> Tuple[ModelResult, ...]:
+        return self.__model_results.all()
+
+    def assignments(self) -> Tuple[Assignment, ...]:
+        return self.__assignments.all()
+
+    def interventions(self) -> Tuple[HumanInterventionRecord, ...]:
+        return self.__interventions.all()
+
+    def axes(self):
+        state = self.__state
+        return (state.phase, state.terminal, state.wait_reason, state.posture)
+
+    def __repr__(self):
+        return "<WorkflowRun %s %s/%s>" % (self.__ref.id, self.phase.value,
+                                           self.posture.value)

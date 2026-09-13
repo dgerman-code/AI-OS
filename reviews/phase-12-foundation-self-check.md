@@ -13,6 +13,11 @@ It is not an independent audit.
 
 ---
 
+> **Revision — structural binding remediation.** This document was updated after the
+> independent Phase 12 MVP audit found ten structural governance bypasses in the reference
+> layer. All ten are closed; sections 2, 4a and 6 below record the current state, and section
+> 4b records what the audit found and how each finding was answered.
+
 ## 1. What was built
 
 A minimal, offline, standard-library reference implementation of the approved control model:
@@ -36,18 +41,26 @@ discouraged.** A `RoleRef` and an `AgentInstanceRef` carrying the same string ar
 
 ```
 python3 -m unittest discover -s implementation/phase-12/tests
-Ran 65 tests — OK
+Ran 82 tests — OK
 
-python3 validation/phase_12_validation.py            === 33/33 PASS ===   exit 0
-python3 validation/phase_12_validation.py --verbose   === 33/33 PASS ===   exit 0
-python3 validation/phase_12_validation.py --json      total 33, passed 33, 33 results
+python3 validation/phase_12_validation.py            === 37/37 PASS ===   exit 0
+python3 validation/phase_12_validation.py --verbose   === 37/37 PASS ===   exit 0
+python3 validation/phase_12_validation.py --json      total 37, passed 37, 37 results
 
 python3 implementation/phase-12/examples/governed_run.py   exit 0, run COMPLETED / GOVERNANCE_CLEAR
-python3 implementation/phase-12/examples/blocked_run.py    exit 0, four paths stopped
+python3 implementation/phase-12/examples/blocked_run.py    exit 0, four governance stops and
+                                                            ten structural bypasses refused
 ```
 
-Validator groups: `structure` 4 · `containment` 6 · `domain` 7 · `assurance` 13 ·
+Validator groups: `structure` 4 · `containment` 6 · `domain` 7 · `assurance` 17 ·
 `suite` 2 · `inventory` 1.
+
+**Controlled weakenings: 20, each caught by both the test suite and the validator.** Every
+load-bearing structural guard was removed in turn — construction-time reference enforcement,
+the run-state boundary, the state token, task lookup, gate identity, each of the five evidence
+bindings, both routing bindings, the retry-class binding, both scope-authorisation checks, the
+record store's append-only behaviour, the event log's attribute guard, and both completion
+conditions. None of them passed silently.
 
 ## 3. Regression
 
@@ -62,14 +75,18 @@ Validator groups: `structure` 4 · `containment` 6 · `domain` 7 · `assurance` 
 are byte-for-byte unchanged since the base approval commit; the Phase 12 validator asserts this
 rather than claiming it.
 
-## 4. What the structured layer now enforces that prose previously carried
+## 4a. What the structured layer enforces
 
 | Approved rule | Enforcement |
 |---|---|
 | Role ID cannot be used where an Agent Instance ID is required | `require()` raises `IdentityError` on the type |
 | Model Profile cannot satisfy a Review Instance or Decision Record field | constructor raises |
 | A Decision Record requires an explicit human authority | constructor raises on any other reference kind |
-| Router output cannot set a gate state | `satisfy_gate_with` accepts only the gate's own governed object |
+| Router output cannot set a gate state | `satisfy_gate_with` accepts only the gate kind's own evidence type |
+| Evidence must answer the exact requirement | run, Work Item, requirement id, Profile or Right, independence class, holder standing, and the evidence's own outcome are all checked |
+| A fabricated Routing Decision cannot reach a model | model invocation requires identity membership in this run's recorded Router output |
+| Lineage cannot be substituted | Tasks are looked up in the run's bound definition; Work Items, gates and retry classes come from what the run recorded |
+| Governed run state cannot be set from outside | `WorkflowRun.__setattr__` raises; mutation needs the token the creating orchestrator holds |
 | Missing Decision Right cannot transition to a continuing state | outcome → BLOCKED + ESCALATED + `AUTHORITY_ABSENT`, and **no Decision Record is produced at all** |
 | A model result cannot mutate canonical state | `ModelResult` admits only `AI_GENERATED` / `AI_SUGGESTION`, and `satisfies_gate()` is `False` |
 | Cross-scope transition requires an approved transfer or handoff | only `HandoffRef` or `ScopeTransferRef` are accepted; anything else blocks |
@@ -77,6 +94,21 @@ rather than claiming it.
 | Retries cannot replay a non-replayable governed act | classes 4 and 6 escalate and dispatch nothing |
 | Execution history is append-only | write and delete raise `AppendOnlyError` |
 | Timeout is not approval | `EXPIRED` escalates and is not in `CONTINUING_GATE_OUTCOMES` |
+
+### 4b. The ten audit findings, and how each was closed
+
+| # | Finding | Answer |
+|---|---|---|
+| 1 | Identity types were only checked where a downstream method called `require()` | `enforce_reference_types()` runs in every governed object's `__post_init__`, driven by the declared annotations; a required reference slot also refuses `None` |
+| 2 | The orchestrator trusted caller-supplied replacement objects | A run binds the `WorkflowDefinition` object; `activate_stage` takes a `TaskRef` and looks it up; a `WorkItem` carries workflow, version, task, run, role, capability and retry class |
+| 3 | Public mutation of phase, posture, gates and scope bypassed the transitions | `WorkflowRun` exposes read-only properties; `__setattr__` raises `StateAccessError`; state moves only through the creating orchestrator's token |
+| 4 | Gates keyed by `(work_item, kind)` collapsed distinct requirements | `GateRequirement` has a `GateRequirementRef`; `GateInstance` binds it to one run and Work Item; two Decision gates stay two |
+| 5 | Evidence was accepted on a vaguely compatible type | `EVIDENCE_CONTRACT` gives one admissible type per gate kind, and `validate_evidence` checks every binding including the holder's standing and the adapter tuple against its own record |
+| 6 | Router output was not bound to a request | `RoutingRequest` has an identity and is recorded; a decision must `answers()` it; model invocation requires identity membership in the recorded store |
+| 7 | Retry class came from a caller-supplied Task | `retry()` has no task parameter; the class is read from the Work Item's lineage |
+| 8 | A bare mechanism reference proved a crossing was approved | `ScopeTransferAuthorisation` binds mechanism-at-version, source run and scope, target scope, human authority and Decision Record; the crossing creates a **new** execution and rewrites no binding |
+| 9 | Governed records were overwritten by Work Item id | `RecordStore` is append-only with the backing list in a closure; repeated Decision and Review records both stand |
+| 10 | Tests proved object creation, not relationships | 82 tests, including one class per finding, plus the 20 controlled weakenings above |
 
 Two checks compare the implementation against the architecture **documents** rather than
 against itself: the transition table is parsed from
@@ -122,12 +154,18 @@ Each of these is an MVP limitation, not an architecture defect.
    act.
 6. **`SUPERSEDED` and run-supersession linking** are in the state model but not exercised by an
    example.
-7. **No mutation-testing harness for the implementation.** The Phase 11 controlled-weakening
-   discipline was not reproduced here; the tests assert raises rather than proving that
-   removing a guard fails the suite. This is the most significant assurance gap in Phase 12 and
-   is the obvious next increment.
+7. **The run-state boundary is a reference-implementation boundary, not an operating-system
+   one.** `WorkflowRun.__setattr__` raises and the mutable state sits behind a token, but
+   Python has no true privacy: `object.__setattr__` and name-mangled attribute access still
+   exist for anyone determined to reach them. The claim made here is that no *ordinary* caller
+   path can set governed state, and that every orchestrator act consults state the orchestrator
+   recorded. A production implementation would put this boundary in a process or a database,
+   not in a class.
 8. **The `inventory` self-check counts this document's stated total**, not its prose. A wrong
    description here would not fail the validator; a wrong number would.
+9. **The 20 controlled weakenings are run from a scratch harness, not committed.** They are
+   reproducible by editing a guard and re-running the suite, and each is named in section 2,
+   but the mutation runner itself is not part of the repository.
 
 ## 7. Statements this document does not make
 

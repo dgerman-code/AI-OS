@@ -6,12 +6,16 @@ Everything the approved architecture treats as *outside* the orchestrator lives 
 adapter here: the Router, the reviewer desk, the decision authority, and model execution. Each
 adapter is a narrow protocol with an in-memory reference implementation.
 
-No network, no provider SDK, no credentials, no live model call. The stubs return recorded
+No network, no provider SDK, no credential, no live model call. The stubs return recorded
 fixtures. That is deliberate: the MVP's claim is about the control model, and a real provider
 would prove nothing about it while coupling governance objects to a vendor.
+
+Every object an adapter returns is bound to the request it answers — run, Work Item, gate
+requirement — so that the orchestrator can check it against its own recorded lineage rather
+than taking the adapter's word for it.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from domain import (
     Canonicality, DecisionRecord, DecisionRecordRef, DecisionRequest, DecisionRightRef,
@@ -31,7 +35,8 @@ class RouterAdapter:
     """Answers exactly one question: which execution capability is eligible and preferred.
 
     It never sets a gate state, never decides whether work is done, and never sees the run's
-    phase. The orchestrator asks; the Router answers; the answer is a separate object."""
+    phase. The orchestrator asks; the Router answers; the answer is a separate object bound to
+    the request."""
 
     def route(self, request: RoutingRequest) -> RoutingDecision:  # pragma: no cover - protocol
         raise NotImplementedError
@@ -59,17 +64,16 @@ class InMemoryRouter(RouterAdapter):
         self.requests.append(request)
         self._serial += 1
         ref = RoutingDecisionRef("rd-%d" % self._serial)
+        common = dict(ref=ref, request=request.ref, run=request.run,
+                      work_item=request.work_item, decided_by=self.ref)
         if request.capability in self.missing_right_for:
-            return RoutingDecision(ref, request.work_item,
-                                   RouterOutcome.NO_APPLICABLE_DECISION_RIGHT,
-                                   decided_by=self.ref)
+            return RoutingDecision(outcome=RouterOutcome.NO_APPLICABLE_DECISION_RIGHT, **common)
         candidate = self.eligible.get(request.capability)
         if candidate is None:
-            return RoutingDecision(ref, request.work_item, RouterOutcome.NO_ELIGIBLE_MODEL,
-                                   decided_by=self.ref)
+            return RoutingDecision(outcome=RouterOutcome.NO_ELIGIBLE_MODEL, **common)
         model, profile = candidate
-        return RoutingDecision(ref, request.work_item, RouterOutcome.ELIGIBLE_CANDIDATE,
-                               model=model, model_profile=profile, decided_by=self.ref)
+        return RoutingDecision(outcome=RouterOutcome.ELIGIBLE_CANDIDATE, model=model,
+                               model_profile=profile, **common)
 
 
 # ===========================================================================================
@@ -94,8 +98,8 @@ class StubModel(ModelAdapter):
 
     def execute(self, request: ModelInvocationRequest) -> ModelResult:
         self.invocations.append(request)
-        return ModelResult(request.work_item, request.model, self.text,
-                           origin=Origin.AI_GENERATED,
+        return ModelResult(request.run, request.work_item, request.routing_decision,
+                           request.model, self.text, origin=Origin.AI_GENERATED,
                            canonicality=Canonicality.AI_SUGGESTION)
 
 
@@ -113,7 +117,9 @@ class InMemoryReviewerDesk(ReviewerAdapter):
     """A reviewer desk holding pre-recorded review outcomes by Review Profile.
 
     A reviewer is a human authority. There is no code path here that lets an Agent Instance or
-    a model stand in for one: `ReviewInstance` requires a `HumanAuthorityRef`."""
+    a model stand in for one: `ReviewInstance` requires a `HumanAuthorityRef`. The independence
+    class the reviewer actually worked at is recorded on the instance and checked by the
+    orchestrator against the class the gate declared."""
 
     def __init__(self, outcomes: Dict[str, Tuple[GateOutcome, HumanAuthorityRef, str]]):
         self.outcomes = outcomes
@@ -130,8 +136,9 @@ class InMemoryReviewerDesk(ReviewerAdapter):
                 % request.review_profile)
         outcome, reviewer, independence = recorded
         self._serial += 1
-        return ReviewInstance(ReviewInstanceRef("ri-%d" % self._serial), request.work_item,
-                              request.review_profile, outcome, reviewer, independence)
+        return ReviewInstance(ReviewInstanceRef("ri-%d" % self._serial), request.requirement,
+                              request.run, request.work_item, request.review_profile,
+                              outcome, reviewer, independence)
 
 
 # ===========================================================================================
@@ -143,19 +150,30 @@ class DecisionAuthorityAdapter:
     def decide(self, request: DecisionRequest):  # pragma: no cover - protocol
         raise NotImplementedError
 
+    def holders(self, right: DecisionRightRef) -> FrozenSet[HumanAuthorityRef]:
+        raise NotImplementedError  # pragma: no cover - protocol
+
 
 class InMemoryDecisionDesk(DecisionAuthorityAdapter):
     """Holds the approved Decision Rights and the humans who hold them.
 
+    `holders()` is the approved decision path, and the orchestrator checks every Decision
+    Record's author against it: a record signed by someone who holds no such Right satisfies
+    nothing, however well-formed it is.
+
     When no approved Right covers the act, the desk returns `NO_APPLICABLE_DECISION_RIGHT` and
     **no Decision Record at all**. That absence is the point: there is nothing for the
-    orchestrator to mistake for an approval, and the run goes to BLOCKED and ESCALATED with
-    posture AUTHORITY_ABSENT."""
+    orchestrator to mistake for an approval."""
 
     def __init__(self, rights: Dict[str, Tuple[HumanAuthorityRef, GateOutcome]]):
         self.rights = rights
         self.requests: List[DecisionRequest] = []
         self._serial = 0
+
+    def holders(self, right: DecisionRightRef) -> FrozenSet[HumanAuthorityRef]:
+        require(right, DecisionRightRef, "decision right holders")
+        held = self.rights.get(right.id)
+        return frozenset() if held is None else frozenset({held[0]})
 
     def decide(self, request: DecisionRequest):
         require(request.decision_right, DecisionRightRef, "decision request")
@@ -165,6 +183,7 @@ class InMemoryDecisionDesk(DecisionAuthorityAdapter):
             return (GateOutcome.NO_APPLICABLE_DECISION_RIGHT, None)
         holder, outcome = held
         self._serial += 1
-        record = DecisionRecord(DecisionRecordRef("dr-%d" % self._serial), request.work_item,
-                                request.decision_right, outcome, holder)
+        record = DecisionRecord(DecisionRecordRef("dr-%d" % self._serial), request.requirement,
+                                request.run, request.work_item, request.decision_right,
+                                outcome, holder)
         return (outcome, record)

@@ -42,14 +42,16 @@ The MVP runs in memory, offline, on the standard library.
 | Axis D — four governance postures | `domain.GovernancePosture` + `POSTURE_PERMITS_COMPLETION` |
 | Approved transition table | `domain.ALLOWED_TRANSITIONS`, reconciled against `orchestration/state-machine-and-transitions.md` by the validator |
 | Four gate kinds, seven outcomes, two of which continue | `domain.GateKind`, `GateOutcome`, `CONTINUING_GATE_OUTCOMES` |
+| A gate requirement is an identified object, not a `(work_item, kind)` key | `domain.GateRequirement` carries a `GateRequirementRef`; `GateInstance` binds it to one run and one Work Item |
+| One admissible evidence type per gate kind | `domain.EVIDENCE_CONTRACT` and `Orchestrator.validate_evidence` |
 | `NO_APPLICABLE_DECISION_RIGHT` → BLOCKED + ESCALATED + `AUTHORITY_ABSENT` | `Orchestrator._apply_gate_outcome` |
 | Seven retry classes; exactly-once claimed nowhere | `domain.RetryClass`, `AUTOMATICALLY_RETRYABLE`, `NEVER_AUTOMATICALLY_RETRYABLE` |
 | Ten races, five outcomes, the late-review / late-Decision asymmetry | `domain.RaceOutcome` and `tests/test_invariants.py::TestLateResultAsymmetry` |
 | `ROUTER != ORCHESTRATOR` | `RoutingRequest` and `RoutingDecision` are different types produced by different parties; the request carries no model |
 | Model output is `AI_SUGGESTION` / `AI_GENERATED` | `domain.ModelResult`, which admits nothing else |
 | One governed scope per execution; narrowing-only sub-runs | `domain.ScopeBinding.narrows_to`, `Orchestrator.open_sub_run` |
-| Cross-scope movement needs an approved Phase 6 handoff or Phase 8 scope transfer | `Orchestrator.cross_scope`, which accepts only `HandoffRef` or `ScopeTransferRef` |
-| Execution history is append-only | `domain.ExecutionEventLog` — append, read a copy, and raises on write or delete |
+| Cross-scope movement needs an approved Phase 6 handoff or Phase 8 scope transfer | `domain.ScopeTransferAuthorisation` — mechanism at a version, source run and scope, target scope, authorising human and Decision Record — consumed by `Orchestrator.transfer_scope`, which creates a **new** execution rather than rewriting a binding |
+| Execution history is append-only | `domain.ExecutionEventLog` and `domain.RecordStore` — the backing list lives in a closure, so there is no attribute to rewrite, and no governed record is replaced by Work Item id |
 | Completion is not approval | `Orchestrator.complete` consults the posture and the open gates, never the operational result |
 
 ## How to run
@@ -72,6 +74,24 @@ python3 validation/phase_12_validation.py --json
 
 No environment variables, no configuration, no network.
 
+## Nothing the caller passes is taken on trust
+
+The independent MVP audit found that typed identities alone were not enough: the reference
+layer still accepted whatever object a caller handed it. Every act is now checked against state
+the orchestrator itself recorded.
+
+| The caller offers | What is actually consulted |
+|---|---|
+| a `Task` | the Task the run's own bound definition declares, looked up by reference |
+| a `WorkItem` | the Work Item this run created, with its lineage and retry class |
+| a `GateRequirement` | the gate instance this run holds for that requirement id |
+| a `DecisionRecord` | its run, Work Item, requirement, Right, outcome and the holder's standing in the approved decision path |
+| a `ReviewInstance` | its run, Work Item, requirement, Profile and independence class |
+| a `RoutingDecision` | identity membership in this run's own recorded Router output |
+| a retry class | nothing — `retry()` takes no task argument; the class comes from the Work Item |
+| a mechanism reference | nothing — a crossing needs a `ScopeTransferAuthorisation` naming this run, this scope and that target |
+| an assignment to `run.phase` | nothing — governed run state is read-only from outside the orchestrator |
+
 ## What the orchestrator may not do
 
 Each of these is a raise in `orchestrator.py`, not a convention: infer or manufacture approval;
@@ -85,5 +105,7 @@ or treat operational success as governance completion.
 Recorded honestly in `reviews/phase-12-foundation-self-check.md`. In short: this is an
 in-memory reference with no persistence, no concurrency, and stub adapters; the ten-race
 concurrency table is represented as vocabulary and asymmetry rather than executed against real
-contention; and the Phase 11 natural-language validator gaps are addressed by moving the
-invariants into structured checks here, not by further regex work there.
+contention; the Phase 11 natural-language validator gaps are addressed by moving the invariants
+into structured checks here, not by further regex work there; and the run-state boundary is a
+reference-implementation boundary, not an operating-system one — Python has no true privacy,
+and the self-check says so plainly.
