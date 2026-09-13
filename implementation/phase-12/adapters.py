@@ -19,10 +19,10 @@ from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from domain import (
     Canonicality, DecisionRecord, DecisionRecordRef, DecisionRequest, DecisionRightRef,
-    GateOutcome, GovernanceError, HumanAuthorityRef, ModelInvocationRequest, ModelProfileRef,
-    ModelRef, ModelResult, Origin, ReviewInstance, ReviewInstanceRef, ReviewProfileRef,
-    ReviewRequest, RouterOutcome, RouterRef, RoutingDecision, RoutingDecisionRef,
-    RoutingRequest, require,
+    GateOutcome, GovernanceError, HandoffRef, HumanAuthorityRef, ModelInvocationRequest,
+    ModelProfileRef, ModelRef, ModelResult, Origin, Ref, ReviewInstance, ReviewInstanceRef,
+    ReviewProfileRef, ReviewRequest, RouterOutcome, RouterRef, RoutingDecision,
+    RoutingDecisionRef, RoutingRequest, ScopeBinding, ScopeTransferRef, require,
 )
 
 
@@ -187,3 +187,39 @@ class InMemoryDecisionDesk(DecisionAuthorityAdapter):
                                 request.run, request.work_item, request.decision_right,
                                 outcome, holder)
         return (outcome, record)
+
+
+# ===========================================================================================
+# Approved-mechanism boundary (Phase 6 handoff / Phase 8 scope transfer)
+# ===========================================================================================
+
+
+class MechanismRegistryAdapter:
+    """Which crossing mechanisms, at which versions, are approved for which crossings."""
+
+    def approves(self, mechanism: Ref, version: str, source: ScopeBinding,
+                 target: ScopeBinding) -> bool:  # pragma: no cover - protocol
+        raise NotImplementedError
+
+
+class InMemoryMechanismRegistry(MechanismRegistryAdapter):
+    """A registry of approved crossings, declared up front.
+
+    A `ScopeTransferAuthorisation` a caller builds is a claim. This registry is what makes it
+    an approved one, and an orchestrator configured with no registry approves no crossing at
+    all - which is the right default for a governance control plane."""
+
+    def __init__(self, approved=None):
+        # {(mechanism kind, mechanism id, version): (source ScopeRef id, target ScopeRef id)}
+        self.approved = dict(approved or {})
+
+    def register(self, mechanism: Ref, version: str, source: ScopeBinding,
+                 target: ScopeBinding) -> None:
+        if type(mechanism) not in (HandoffRef, ScopeTransferRef):
+            raise GovernanceError("only a Phase 6 handoff or a Phase 8 scope transfer")
+        self.approved[(mechanism.KIND, mechanism.id, version)] = (source, target)
+
+    def approves(self, mechanism: Ref, version: str, source: ScopeBinding,
+                 target: ScopeBinding) -> bool:
+        declared = self.approved.get((mechanism.KIND, mechanism.id, version))
+        return declared is not None and declared == (source, target)

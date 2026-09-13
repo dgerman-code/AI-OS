@@ -29,17 +29,24 @@ from adapters import (
 )
 from domain import (
     ALLOWED_TRANSITIONS, Assignment, CONTINUING_GATE_OUTCOMES, DecisionRecord, DecisionRequest,
-    EVIDENCE_CONTRACT, EvidenceError, ExecutionEventLog, GateInstance, GateKind, GateOutcome,
-    GateRequirement, GateRequirementRef, GovernanceError, GovernancePosture,
-    HumanAuthorityRef, HumanInterventionRecord, HumanWorkCompletion, LineageError,
-    ModelInvocationRequest, ModelResult, NEVER_AUTOMATICALLY_RETRYABLE,
+    EVIDENCE_CONTRACT, EvidenceError, ExecutionEventLog, GateInstance, GateInstanceRef,
+    MissingEvidenceError,
+    GateKind, GateOutcome, GateRequirement, GateRequirementRef, GovernanceError,
+    GovernancePosture, HumanAuthorityRef, HumanInterventionRecord, HumanWorkCompletion,
+    LineageError, ModelInvocationRequest, ModelResult, NEVER_AUTOMATICALLY_RETRYABLE,
     NON_COMPLETION_TERMINALS, POSTURE_PERMITS_COMPLETION, PrerequisiteEvidence, Ref,
-    ReviewInstance, ReviewRequest, RetryClass, RoleRef, RouterOutcome, RoutingDecision,
-    RoutingRequest, RoutingRequestRef, RunPhase, ScopeBinding, ScopeTransferAuthorisation,
-    StateAccessError, TERMINAL_REACHABLE_FROM, TaskRef, TerminalOutcome, TransitionError,
-    WaitReason, WorkItem, WorkItemRef, WorkflowDefinition, WorkflowRun, WorkflowRunRef,
-    require,
+    ReviewInstance, ReviewRequest, RetryClass, RoleRef, RouterOutcome, RouterRef,
+    RoutingDecision, RoutingRequest, RoutingRequestRef, RunPhase, ScopeBinding,
+    ScopeTransferAuthorisation, StateAccessError, TERMINAL_REACHABLE_FROM, TaskRef,
+    TerminalOutcome, TransitionError, WaitReason, WorkItem, WorkItemRef, WorkflowDefinition,
+    WorkflowRun, WorkflowRunRef, require,
 )
+
+#: Phases a run may not leave through an ordinary stage API. Leaving them is a governed act,
+#: not a side effect of asking for the next piece of work - the audit found that a run left
+#: BLOCKED and ESCALATED by `NO_APPLICABLE_DECISION_RIGHT` would happily activate another
+#: stage, which is continuation without the authority that was found to be missing.
+HALTED_PHASES = frozenset({RunPhase.BLOCKED, RunPhase.ESCALATED})
 
 
 class Orchestrator:
@@ -47,11 +54,12 @@ class Orchestrator:
 
     def __init__(self, router: RouterAdapter, reviewers: ReviewerAdapter,
                  decisions: DecisionAuthorityAdapter, model: ModelAdapter,
-                 log: Optional[ExecutionEventLog] = None):
+                 log: Optional[ExecutionEventLog] = None, mechanisms=None):
         self.router = router
         self.reviewers = reviewers
         self.decisions = decisions
         self.model = model
+        self.mechanisms = mechanisms
         self.log = log if log is not None else ExecutionEventLog()
         self._tokens: Dict[int, object] = {}
         self._serial = 0
@@ -168,32 +176,75 @@ class Orchestrator:
         """Cross a scope boundary through an approved mechanism, into a NEW execution.
 
         One governed scope per execution: the source run's binding is never rewritten. The
-        crossing produces a new run in the target scope, and it happens only on the strength of
-        a `ScopeTransferAuthorisation` that names this run, this source scope, that target
-        scope, the mechanism at a version, and the Decision Record authorising it. A bare
-        handoff or transfer reference proves nothing and is refused."""
+        crossing happens only when every part of the authorisation is corroborated by the
+        source run's own retained history - a well-shaped object a caller built is not
+        evidence of anything, which was the audit's sixth finding."""
         self._token(run)
-        if not isinstance(authorisation, ScopeTransferAuthorisation):
-            self._transition(run, RunPhase.BLOCKED,
-                             detail="scope crossing without approved authorisation")
-            self._set_posture(run, GovernancePosture.GATE_UNSATISFIED,
-                              "no approved transfer or handoff evidence")
-            raise GovernanceError(
-                "crossing a scope boundary requires an approved mechanism authorisation")
-        if not authorisation.authorises(run, target):
-            self._transition(run, RunPhase.BLOCKED,
-                             detail="authorisation does not cover this crossing")
-            self._set_posture(run, GovernancePosture.GATE_UNSATISFIED,
-                              "the authorisation names a different run, scope or target")
-            raise GovernanceError(
-                "the authorisation does not cover %s -> %s for %s"
-                % (run.scope.scope, target.scope, run.ref))
+        try:
+            self._validate_transfer(run, target, authorisation)
+        except GovernanceError:
+            # Validation refused: nothing is recorded and nothing moves. The refusal is the
+            # whole effect, because a crossing that was never authorised never happened.
+            raise
         self.log.append(run.ref, "scope:transfer_authorised",
                         "%s @ %s" % (authorisation.mechanism, authorisation.mechanism_version),
                         authorisation.decision_record)
         transferred = self._create_run(definition, run_ref, target, authorisation)
         self.log.append(transferred.ref, "scope:transferred_from", str(run.ref), run.ref)
         return transferred
+
+    def _validate_transfer(self, run: WorkflowRun, target: ScopeBinding,
+                           authorisation: ScopeTransferAuthorisation) -> None:
+        """Every clause of an approved crossing, checked against retained governed state."""
+        if not isinstance(authorisation, ScopeTransferAuthorisation):
+            raise GovernanceError(
+                "crossing a scope boundary requires an approved mechanism authorisation")
+        if not isinstance(target, ScopeBinding):
+            raise GovernanceError("a crossing names a complete target scope binding")
+        if not authorisation.covers(run, target):
+            raise GovernanceError(
+                "the authorisation does not cover %s -> %s for %s"
+                % (run.scope.scope, target.scope, run.ref))
+        # The Decision Record must be one this run actually retained, not one named in passing.
+        record = None
+        for retained in run.decision_records():
+            if retained.ref == authorisation.decision_record:
+                record = retained
+                break
+        if record is None:
+            raise GovernanceError(
+                "%s is not in %s's retained decision history"
+                % (authorisation.decision_record, run.ref))
+        if (record.run != run.ref or record.work_item != authorisation.work_item
+                or record.requirement != authorisation.requirement
+                or record.decision_right != authorisation.decision_right):
+            raise GovernanceError(
+                "the retained Decision Record does not answer the act being authorised")
+        if record.outcome not in CONTINUING_GATE_OUTCOMES:
+            raise GovernanceError("the retained Decision Record does not approve anything")
+        if authorisation.authorised_by != record.decided_by:
+            raise GovernanceError(
+                "the authorising human is not the one who exercised the Right")
+        if record.decided_by not in self.decisions.holders(authorisation.decision_right):
+            raise GovernanceError(
+                "%s does not hold %s in the approved decision path"
+                % (record.decided_by, authorisation.decision_right))
+        # The mechanism must be one the source run recognises as approved for this act.
+        if self.mechanisms is None or not self.mechanisms.approves(
+                authorisation.mechanism, authorisation.mechanism_version,
+                run.scope, target):
+            raise GovernanceError(
+                "%s @ %s is not an approved mechanism for this crossing"
+                % (authorisation.mechanism, authorisation.mechanism_version))
+        # Sensitivity and residency are carried, never widened, across the boundary.
+        if not target.sensitivity <= run.scope.sensitivity:
+            raise GovernanceError(
+                "a crossing may not widen sensitivity: %s is not within %s"
+                % (sorted(target.sensitivity), sorted(run.scope.sensitivity)))
+        if target.residency != run.scope.residency:
+            raise GovernanceError(
+                "a crossing may not change residency: %s is not %s"
+                % (target.residency, run.scope.residency))
 
     # ---------------------------------------------------------------- stages and assignment
 
@@ -205,21 +256,53 @@ class Orchestrator:
         require(task_ref, TaskRef, "stage activation")
         task = run.definition.task(task_ref)      # raises LineageError when undeclared
         state = self._state(run)
-        if state.phase in (RunPhase.READY, RunPhase.WAITING, RunPhase.BLOCKED,
-                           RunPhase.ESCALATED, RunPhase.RETRY_PENDING,
-                           RunPhase.REWORK_REQUIRED, RunPhase.PAUSED):
+        # A halted run does not resume by being asked for more work. Leaving BLOCKED or
+        # ESCALATED, or clearing AUTHORITY_ABSENT, is a governed act: see `unblock`.
+        if state.phase in HALTED_PHASES:
+            raise TransitionError(
+                "%s is %s; a stage cannot be activated until the blocking constraint is "
+                "resolved by a governed act" % (run.ref, state.phase.value))
+        if state.posture is GovernancePosture.AUTHORITY_ABSENT:
+            raise GovernanceError(
+                "%s has posture AUTHORITY_ABSENT; no further stage may be activated" % run.ref)
+        # Every remaining phase may reach RUNNING under the approved table, so the halted
+        # check above is the ONLY thing that refuses a halted run - one rule, in one place,
+        # rather than a second mechanism quietly doing the same work.
+        if state.phase is not RunPhase.RUNNING:
             self._transition(run, RunPhase.RUNNING, detail="stage activation")
-        elif state.phase is not RunPhase.RUNNING:
-            raise TransitionError("a stage cannot be activated from %s" % state.phase.value)
         item = WorkItem(WorkItemRef(self._next("wi")), task.ref, run.ref,
                         run.workflow, run.workflow_version, task.retry_class,
                         task.required_role, task.capability)
         state.work_items[item.ref.id] = item
         state.attempts[item.ref.id] = 0
         for requirement in task.gates:
-            state.gates[requirement.ref.id] = GateInstance(requirement, run.ref, item.ref)
+            # Keyed by the INSTANCE identity, so activating the same Task twice, or two Tasks
+            # that reuse a requirement id, produce separate retained gates.
+            instance = GateInstance(GateInstanceRef(self._next("gi")), requirement, run.ref,
+                                    item.ref, requirement.kind)
+            state.gates[instance.ref.id] = instance
         self.log.append(run.ref, "stage:activated", task.name, item.ref)
         return item
+
+    def unblock(self, run: WorkflowRun, intervention: HumanInterventionRecord) -> WorkflowRun:
+        """Leave BLOCKED or ESCALATED, on a recorded human act and nothing else.
+
+        A gate that resolved to a non-continuing outcome still stands: the run does not resume
+        while one remains, and `AUTHORITY_ABSENT` is not cleared by asking nicely."""
+        state = self._state(run)
+        if state.phase not in HALTED_PHASES:
+            raise TransitionError("%s is %s, not halted" % (run.ref, state.phase.value))
+        self.record_intervention(run, intervention)
+        standing = [g for g in run.gates() if g.is_resolved() and not g.is_continuing()]
+        if standing:
+            raise GovernanceError(
+                "%d gate(s) still stand unresolved in favour of continuation; the blocking "
+                "constraint is not satisfied" % len(standing))
+        self._transition(run, RunPhase.RUNNING, detail=intervention.reason)
+        if state.posture is not GovernancePosture.OPEN_ITEMS_CARRIED:
+            self._set_posture(run, GovernancePosture.GOVERNANCE_CLEAR,
+                              "the blocking constraint was resolved by a governed act")
+        return run
 
     def _bound_item(self, run: WorkflowRun, work_item) -> WorkItem:
         """The Work Item this run created, looked up rather than accepted."""
@@ -229,12 +312,15 @@ class Orchestrator:
             raise LineageError("the Work Item offered is not the one %s created" % run.ref)
         return item
 
-    def _bound_gate(self, run: WorkflowRun, item: WorkItem,
-                    requirement) -> GateInstance:
+    def _bound_gate(self, run: WorkflowRun, item: WorkItem, requirement) -> GateInstance:
+        """The gate instance this run holds for that Work Item and that requirement."""
+        if isinstance(requirement, GateInstanceRef):
+            instance = run.gate(requirement)
+            if instance.work_item != item.ref:
+                raise LineageError("%s is not a gate of %s" % (requirement, item.ref))
+            return instance
         ref = requirement.ref if isinstance(requirement, GateRequirement) else requirement
-        instance = run.gate(ref)
-        if instance.work_item != item.ref:
-            raise LineageError("%s is not a gate of %s" % (ref, item.ref))
+        instance = run.gate_instance(item.ref, ref)
         if isinstance(requirement, GateRequirement) and requirement != instance.requirement:
             raise LineageError("the gate requirement offered is not the declared one")
         return instance
@@ -270,15 +356,24 @@ class Orchestrator:
         self.log.append(run.ref, "routing:requested", item.capability, request.ref)
         return request
 
-    def record_routing_decision(self, run: WorkflowRun, request: RoutingRequest,
-                                decision: RoutingDecision) -> RoutingDecision:
-        """Record the Router's answer, bound to the exact request it answers."""
+    def _record_routing_decision(self, run: WorkflowRun, request: RoutingRequest,
+                                 decision: RoutingDecision) -> RoutingDecision:
+        """Record the Router's answer, bound to the exact request it answers.
+
+        Deliberately NOT public. The audit's seventh finding was that a caller could
+        manufacture a Routing Decision and then simply ask for it to be recorded; a Routing
+        Decision now enters governed history only as the object the configured Router returned
+        from `route()` for a request this run issued."""
         if not isinstance(decision, RoutingDecision):
             raise GovernanceError("only a Routing Decision can be recorded as routing")
         if not self._store(run, "routing_requests").contains(request):
             raise LineageError("that routing request was not issued by this run")
         if not decision.answers(request):
             raise LineageError("the routing decision does not answer %s" % request.ref)
+        configured = getattr(self.router, "ref", None)
+        if not isinstance(configured, RouterRef) or decision.decided_by != configured:
+            raise LineageError(
+                "the routing decision was not made by the configured Router (%s)" % configured)
         self._store(run, "routing").add(decision)
         self.log.append(run.ref, "routing:decided", decision.outcome.value, decision.ref)
         if decision.outcome is RouterOutcome.NO_APPLICABLE_DECISION_RIGHT:
@@ -293,9 +388,12 @@ class Orchestrator:
         return decision
 
     def route(self, run: WorkflowRun, work_item, routing_policy: str) -> RoutingDecision:
-        """Ask, then record. Request and decision stay two objects, by two parties."""
+        """Ask the configured Router, then record exactly what it returned.
+
+        This is the only path by which a Routing Decision reaches governed history."""
         request = self.request_routing(run, work_item, routing_policy)
-        return self.record_routing_decision(run, request, self.router.route(request))
+        answer = self.router.route(request)
+        return self._record_routing_decision(run, request, answer)
 
     # ---------------------------------------------------------------- model execution
 
@@ -316,8 +414,13 @@ class Orchestrator:
         request = ModelInvocationRequest(run.ref, item.ref, decision.ref, decision.model,
                                          prompt_context)
         result = self.model.execute(request)
-        if result.model != decision.model or result.routing_decision != decision.ref:
-            raise LineageError("the model result does not answer the recorded Routing Decision")
+        # A model adapter answering for other work is refused before anything is recorded.
+        if not isinstance(result, ModelResult):
+            raise LineageError("the model adapter did not return a Model Result")
+        if (result.run != run.ref or result.work_item != item.ref
+                or result.routing_decision != decision.ref or result.model != decision.model):
+            raise LineageError(
+                "the model result does not answer the recorded Routing Decision for this work")
         self._store(run, "model_results").add(result)
         self.log.append(run.ref, "model:result",
                         "%s / %s" % (result.origin.value, result.canonicality.value),
@@ -326,13 +429,15 @@ class Orchestrator:
 
     # ---------------------------------------------------------------- gates
 
-    def _resolve_gate(self, run: WorkflowRun, instance: GateInstance, outcome: GateOutcome,
-                      satisfied_by: Optional[Ref]) -> GateInstance:
-        state = self._state(run)
-        resolved = instance.resolved(outcome, satisfied_by)
-        state.gates[instance.requirement.ref.id] = resolved
-        self.log.append(run.ref, "gate:%s" % instance.kind.value, outcome.value, satisfied_by)
-        return resolved
+    #: Which governed store retains the evidence that satisfies each gate kind. Evidence that
+    #: satisfies a gate is retained by its own record identity, atomically with the outcome:
+    #: a completion that cannot be explained from history is not explained at all.
+    EVIDENCE_STORE = {
+        GateKind.REVIEW: "reviews",
+        GateKind.DECISION: "decisions",
+        GateKind.HUMAN_WORK: "human_work",
+        GateKind.GOVERNED_PREREQUISITE: "prerequisites",
+    }
 
     def validate_evidence(self, run: WorkflowRun, item: WorkItem, instance: GateInstance,
                           evidence, outcome: GateOutcome) -> None:
@@ -344,8 +449,13 @@ class Orchestrator:
         requirement identity, the named Profile or Right, the declared independence class, and
         for a decision the holder's standing in the approved decision path. Finally the
         evidence's own outcome must equal the outcome being applied - an adapter tuple cannot
-        override the record it came with."""
+        override the record it came with.
+
+        This function only reads. Nothing it touches is mutated, which is what lets every
+        governed act validate fully before anything is committed."""
         requirement = instance.requirement
+        if not isinstance(outcome, GateOutcome):
+            raise EvidenceError("a gate outcome must be one of the seven approved outcomes")
         admissible = EVIDENCE_CONTRACT[requirement.kind]
         if type(evidence) is not admissible:
             raise EvidenceError(
@@ -381,9 +491,36 @@ class Orchestrator:
             if evidence.prerequisite != requirement.prerequisite:
                 raise EvidenceError("the evidence evaluates a different prerequisite")
 
+    def _commit_gate(self, run: WorkflowRun, instance: GateInstance, outcome: GateOutcome,
+                     evidence, *, wait_reason: Optional[WaitReason] = None,
+                     wait_subject: Optional[Ref] = None, detail: str = "") -> GateInstance:
+        """Apply a fully validated gate result. Called only after validation has passed.
+
+        The order is: record that the gate was asked, retain the evidence, resolve the gate,
+        then let the outcome have its declared run effect. Everything before this point is a
+        read, so a refusal leaves the run and its histories exactly as they were."""
+        state = self._state(run)
+        if wait_reason is not None:
+            self._ensure_phase(run, RunPhase.WAITING, detail=detail or "gate requested",
+                               wait_reason=wait_reason, wait_subject=wait_subject)
+        if evidence is not None:
+            self._store(run, self.EVIDENCE_STORE[instance.kind]).add(evidence)
+        satisfied_by = getattr(evidence, "ref", None) if evidence is not None else None
+        resolved = instance.resolved(outcome, satisfied_by)
+        state.gates[instance.ref.id] = resolved
+        self.log.append(run.ref, "gate:%s" % instance.kind.value, outcome.value, satisfied_by)
+        if outcome in CONTINUING_GATE_OUTCOMES and state.phase is RunPhase.WAITING:
+            self._transition(run, RunPhase.RUNNING, detail="gate satisfied")
+        self._apply_gate_outcome(run, outcome, satisfied_by or instance.ref)
+        return resolved
+
     def _apply_gate_outcome(self, run: WorkflowRun, outcome: GateOutcome,
                             subject: Ref) -> None:
-        """The declared run effect of each of the seven outcomes. None of them approve."""
+        """The declared run effect of each of the seven outcomes. None of them approve.
+
+        Every public satisfaction path funnels through here, so `SATISFIED_WITH_OPEN_ITEMS`
+        carries `OPEN_ITEMS_CARRIED` for all four gate kinds - the audit's fifth finding was
+        that only the review path did."""
         if outcome is GateOutcome.SATISFIED:
             return
         if outcome is GateOutcome.SATISFIED_WITH_OPEN_ITEMS:
@@ -419,20 +556,22 @@ class Orchestrator:
 
     def satisfy_gate_with(self, run: WorkflowRun, work_item, requirement,
                           evidence, outcome: Optional[GateOutcome] = None) -> GateInstance:
-        """Record a gate outcome, only on evidence that answers this exact requirement."""
+        """Record a gate outcome, only on evidence that answers this exact requirement.
+
+        The evidence is retained in its governed store as part of the same commit: there is no
+        path here that changes gate state without the record that explains it."""
         item = self._bound_item(run, work_item)
         instance = self._bound_gate(run, item, requirement)
         applied = outcome if outcome is not None else getattr(evidence, "outcome", None)
-        if not isinstance(applied, GateOutcome):
-            raise EvidenceError("a gate outcome must be one of the seven approved outcomes")
         self.validate_evidence(run, item, instance, evidence, applied)
         if applied not in CONTINUING_GATE_OUTCOMES:
             raise EvidenceError("%s does not satisfy a gate" % applied.value)
-        return self._resolve_gate(run, instance, applied, evidence.ref
-                                  if hasattr(evidence, "ref") else None)
+        return self._commit_gate(run, instance, applied, evidence)
 
     def run_review_gate(self, run: WorkflowRun, work_item, requirement) -> ReviewInstance:
-        """Detect, request, record. The orchestrator is not the reviewer."""
+        """Detect, request, record. The orchestrator is not the reviewer.
+
+        The desk is asked, the answer is validated in full, and only then does any state move."""
         item = self._bound_item(run, work_item)
         instance = self._bound_gate(run, item, requirement)
         declared = instance.requirement
@@ -440,58 +579,63 @@ class Orchestrator:
             raise EvidenceError("%s is not a review gate" % declared.ref)
         request = ReviewRequest(declared.ref, run.ref, item.ref, declared.review_profile,
                                 declared.independence_class)
-        self._transition(run, RunPhase.WAITING, detail="review requested",
-                         wait_reason=WaitReason.WAITING_FOR_REVIEW,
-                         wait_subject=declared.review_profile)
         result = self.reviewers.review(request)
         self.validate_evidence(run, item, instance, result, result.outcome)
-        self._store(run, "reviews").add(result)
-        self._resolve_gate(run, instance, result.outcome, result.ref)
-        if result.outcome in CONTINUING_GATE_OUTCOMES:
-            self._transition(run, RunPhase.RUNNING, detail="review satisfied")
-        self._apply_gate_outcome(run, result.outcome, result.ref)
+        self._commit_gate(run, instance, result.outcome, result,
+                          wait_reason=WaitReason.WAITING_FOR_REVIEW,
+                          wait_subject=declared.review_profile, detail="review requested")
         return result
 
     def run_decision_gate(self, run: WorkflowRun, work_item,
                           requirement) -> Tuple[GateOutcome, Optional[DecisionRecord]]:
-        """Detect, name the Right, request, record. The orchestrator is not the decider."""
+        """Detect, name the Right, request, record. The orchestrator is not the decider.
+
+        A continuing outcome with no Decision Record is refused before anything moves: an
+        approval with no record of a human exercising a Right is exactly what this phase
+        exists to make impossible."""
         item = self._bound_item(run, work_item)
         instance = self._bound_gate(run, item, requirement)
         declared = instance.requirement
         if declared.kind is not GateKind.DECISION:
             raise EvidenceError("%s is not a decision gate" % declared.ref)
         request = DecisionRequest(declared.ref, run.ref, item.ref, declared.decision_right)
-        self._transition(run, RunPhase.WAITING, detail="decision requested",
-                         wait_reason=WaitReason.WAITING_FOR_DECISION,
-                         wait_subject=declared.decision_right)
-        outcome, record = self.decisions.decide(request)
-        if record is not None:
-            # The adapter's tuple may not contradict the record it came with.
-            self.validate_evidence(run, item, instance, record, outcome)
-            self._store(run, "decisions").add(record)
-        self._resolve_gate(run, instance, outcome, record.ref if record is not None else None)
+        answer = self.decisions.decide(request)
+        if not (isinstance(answer, tuple) and len(answer) == 2):
+            raise EvidenceError("the decision authority must answer (outcome, record)")
+        outcome, record = answer
+        if not isinstance(outcome, GateOutcome):
+            raise EvidenceError("the decision authority must answer with a gate outcome")
         if outcome in CONTINUING_GATE_OUTCOMES:
-            self._transition(run, RunPhase.RUNNING, detail="decision satisfied")
-            self._apply_gate_outcome(run, outcome, record.ref)
-        else:
-            self._apply_gate_outcome(run, outcome, declared.decision_right)
+            if record is None:
+                raise MissingEvidenceError(
+                    "%s was answered with no Decision Record; an approval with no record of a "
+                    "human exercising a Right is not an approval" % outcome.value)
+            self.validate_evidence(run, item, instance, record, outcome)
+        elif record is not None:
+            self.validate_evidence(run, item, instance, record, outcome)
+        self._commit_gate(run, instance, outcome, record,
+                          wait_reason=WaitReason.WAITING_FOR_DECISION,
+                          wait_subject=declared.decision_right, detail="decision requested")
         return outcome, record
 
     def record_human_work(self, run: WorkflowRun, work_item, requirement,
                           completion: HumanWorkCompletion) -> GateInstance:
+        """A human completing requested work, retained and applied like any other evidence."""
         item = self._bound_item(run, work_item)
         instance = self._bound_gate(run, item, requirement)
         self.validate_evidence(run, item, instance, completion, completion.outcome)
-        self._store(run, "human_work").add(completion)
-        return self._resolve_gate(run, instance, completion.outcome, completion.human_work)
+        return self._commit_gate(run, instance, completion.outcome, completion,
+                                 wait_reason=WaitReason.WAITING_FOR_HUMAN,
+                                 wait_subject=instance.requirement.human_work,
+                                 detail="human work requested")
 
     def record_prerequisite(self, run: WorkflowRun, work_item, requirement,
                             evidence: PrerequisiteEvidence) -> GateInstance:
+        """A Phase 8-10 prerequisite evaluated against recorded state."""
         item = self._bound_item(run, work_item)
         instance = self._bound_gate(run, item, requirement)
         self.validate_evidence(run, item, instance, evidence, evidence.outcome)
-        self._store(run, "prerequisites").add(evidence)
-        return self._resolve_gate(run, instance, evidence.outcome, evidence.prerequisite)
+        return self._commit_gate(run, instance, evidence.outcome, evidence)
 
     # ---------------------------------------------------------------- retry
 

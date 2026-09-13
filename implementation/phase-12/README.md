@@ -44,6 +44,9 @@ The MVP runs in memory, offline, on the standard library.
 | Four gate kinds, seven outcomes, two of which continue | `domain.GateKind`, `GateOutcome`, `CONTINUING_GATE_OUTCOMES` |
 | A gate requirement is an identified object, not a `(work_item, kind)` key | `domain.GateRequirement` carries a `GateRequirementRef`; `GateInstance` binds it to one run and one Work Item |
 | One admissible evidence type per gate kind | `domain.EVIDENCE_CONTRACT` and `Orchestrator.validate_evidence` |
+| Validate, then commit | every governed act reads and validates in full before `Orchestrator._commit_gate` changes anything; a refusal leaves the run and all five record stores identical |
+| Satisfying evidence is retained | `_commit_gate` appends the record to its governed store in the same commit; `run.evidence_for(gate)` reconstructs it |
+| A halted run resumes only by a governed act | `HALTED_PHASES` and `Orchestrator.unblock` |
 | `NO_APPLICABLE_DECISION_RIGHT` → BLOCKED + ESCALATED + `AUTHORITY_ABSENT` | `Orchestrator._apply_gate_outcome` |
 | Seven retry classes; exactly-once claimed nowhere | `domain.RetryClass`, `AUTOMATICALLY_RETRYABLE`, `NEVER_AUTOMATICALLY_RETRYABLE` |
 | Ten races, five outcomes, the late-review / late-Decision asymmetry | `domain.RaceOutcome` and `tests/test_invariants.py::TestLateResultAsymmetry` |
@@ -84,12 +87,13 @@ the orchestrator itself recorded.
 |---|---|
 | a `Task` | the Task the run's own bound definition declares, looked up by reference |
 | a `WorkItem` | the Work Item this run created, with its lineage and retry class |
-| a `GateRequirement` | the gate instance this run holds for that requirement id |
+| a `GateRequirement` | the gate **instance** this run holds for that Work Item and that requirement — instances carry their own identity, so a Task activated twice holds two |
 | a `DecisionRecord` | its run, Work Item, requirement, Right, outcome and the holder's standing in the approved decision path |
 | a `ReviewInstance` | its run, Work Item, requirement, Profile and independence class |
-| a `RoutingDecision` | identity membership in this run's own recorded Router output |
+| a `RoutingDecision` | nothing — there is no public recording path; `route()` asks the configured Router and records the object it returned |
+| a `ModelResult` | its run, Work Item, Routing Decision and model, checked before anything is recorded |
 | a retry class | nothing — `retry()` takes no task argument; the class comes from the Work Item |
-| a mechanism reference | nothing — a crossing needs a `ScopeTransferAuthorisation` naming this run, this scope and that target |
+| a mechanism reference | nothing — a crossing needs a `ScopeTransferAuthorisation` corroborated clause by clause against the source run's retained Decision Record, the Right's holders, an approved-mechanism registry, and the complete source and target bindings |
 | an assignment to `run.phase` | nothing — governed run state is read-only from outside the orchestrator |
 
 ## What the orchestrator may not do

@@ -78,10 +78,12 @@ def main():
            assignment.grants_review_authority(), assignment.grants_decision_authority()))
 
     # 5 router request creation distinct from routing decision, and bound to it
-    request = orch.request_routing(run, item, "routing_policy.default@7")
-    decision = orch.record_routing_decision(run, request, orch.router.route(request))
-    say(5, "RoutingRequest(%s) -> RoutingDecision(%s) %s, answering that exact request: %s"
-        % (request.ref, decision.ref, decision.outcome.value, decision.answers(request)))
+    decision = orch.route(run, item, "routing_policy.default@7")
+    request = run.routing_requests()[-1]
+    say(5, "RoutingRequest(%s) -> RoutingDecision(%s) %s by %s, answering that exact "
+           "request: %s"
+        % (request.ref, decision.ref, decision.outcome.value, decision.decided_by,
+           decision.answers(request)))
 
     # 6 model result recorded as suggestion, not approval
     result = orch.invoke_model(run, item, decision, "draft the note")

@@ -363,14 +363,38 @@ def construction_enforces_reference_types():
          dict(good_routing, decided_by=domain.OrchestratorRef("o"))),
         ("RoutingDecision.decided_by missing", domain.RoutingDecision,
          dict(good_routing, decided_by=None)),
-        ("GateState.work_item", domain.GateInstance, None),
+        ("GateInstance.work_item", domain.GateInstance, None),
+        ("HumanWorkCompletion.outcome as a string", domain.HumanWorkCompletion,
+         dict(ref=domain.HumanWorkRecordRef("hwr"),
+              requirement=domain.GateRequirementRef("g"), run=domain.WorkflowRunRef("r"),
+              work_item=domain.WorkItemRef("wi"), human_work=domain.HumanWorkRef("hw"),
+              outcome="SATISFIED", completed_by=domain.HumanAuthorityRef("h"))),
+        ("PrerequisiteEvidence.outcome as a string", domain.PrerequisiteEvidence,
+         dict(ref=domain.PrerequisiteRecordRef("prr"),
+              requirement=domain.GateRequirementRef("g"), run=domain.WorkflowRunRef("r"),
+              work_item=domain.WorkItemRef("wi"), prerequisite=domain.PrerequisiteRef("pr"),
+              outcome="SATISFIED", evaluated_against=domain.StorageRecordRef("sr"))),
+        ("RoutingRequest.scope as a string", domain.RoutingRequest,
+         dict(ref=domain.RoutingRequestRef("rr"), run=domain.WorkflowRunRef("r"),
+              work_item=domain.WorkItemRef("wi"), capability="cap", scope="project.apollo",
+              routing_policy="p@1")),
+        ("Task.retry_class as a string", domain.Task,
+         dict(ref=domain.TaskRef("t"), name="T", required_role=AUTHOR,
+              retry_class="SAFE_AUTOMATIC_RETRY")),
+        ("WorkflowDefinition.tasks holding a non-task", domain.WorkflowDefinition,
+         dict(ref=domain.WorkflowRef("wf"), version="v1", tasks=("not a task",),
+              scope=SCOPE)),
+        ("ScopeBinding.sensitivity as a list", domain.ScopeBinding,
+         dict(scope=domain.ScopeRef("s"), sensitivity=["A"], residency="EU")),
     ]
     problems = []
     for label, cls, kwargs in cases:
         if kwargs is None:
-            if not _raises(lambda: domain.GateInstance(_decision_gate(),
+            if not _raises(lambda: domain.GateInstance(domain.GateInstanceRef("gi"),
+                                                       _decision_gate(),
                                                        domain.WorkflowRunRef("r"),
-                                                       domain.TaskRef("t")),
+                                                       domain.TaskRef("t"),
+                                                       domain.GateKind.DECISION),
                            domain.IdentityError):
                 problems.append(label)
             continue
@@ -383,8 +407,26 @@ def construction_enforces_reference_types():
             else "%d malformed constructions refused" % len(cases))
 
 
-check("assurance", "every governed object enforces its reference types at construction",
+check("assurance", "every governed object enforces its field types at construction",
       construction_enforces_reference_types)
+
+
+def every_governed_dataclass_enforces_itself():
+    """Structural, not by example: each governed dataclass calls the enforcement itself."""
+    import dataclasses
+    governed = [obj for _name, obj in vars(domain).items()
+                if isinstance(obj, type) and dataclasses.is_dataclass(obj)
+                and obj is not domain.Ref and not issubclass(obj, domain.Ref)]
+    missing = [cls.__name__ for cls in governed
+               if "enforce_field_types" not in getattr(
+                   getattr(cls, "__post_init__", None), "__code__",
+                   type("x", (), {"co_names": ()})).co_names]
+    return (not missing and len(governed) >= 15, str(missing) if missing
+            else "%d governed dataclasses, each enforcing its own fields" % len(governed))
+
+
+check("assurance", "every governed dataclass enforces its own fields",
+      every_governed_dataclass_enforces_itself)
 
 
 def lineage_is_bound():
@@ -544,16 +586,35 @@ def routing_output_is_bound_to_its_request():
     problems = []
     if not _raises(lambda: orch.invoke_model(run, item, fabricated), domain.LineageError):
         problems.append("a fabricated Routing Decision reached model invocation")
+    if hasattr(orch, "record_routing_decision"):
+        problems.append("a public path exists for recording a manufactured Routing Decision")
     request = orch.request_routing(run, item, "policy@1")
     unrelated = domain.RoutingDecision(
         domain.RoutingDecisionRef("rd.y"), domain.RoutingRequestRef("rr.other"), run.ref,
         item.ref, domain.RouterOutcome.ELIGIBLE_CANDIDATE, domain.RouterRef("router.v"),
         domain.ModelRef("m"), domain.ModelProfileRef("p"))
-    if not _raises(lambda: orch.record_routing_decision(run, request, unrelated),
+    if not _raises(lambda: orch._record_routing_decision(run, request, unrelated),
                    domain.LineageError):
         problems.append("a decision answering another request was recorded")
-    recorded = orch.record_routing_decision(run, request, orch.router.route(request))
+    impostor = domain.RoutingDecision(
+        domain.RoutingDecisionRef("rd.i"), request.ref, run.ref, item.ref,
+        domain.RouterOutcome.ELIGIBLE_CANDIDATE, domain.RouterRef("router.other"),
+        domain.ModelRef("m"), domain.ModelProfileRef("p"))
+    if not _raises(lambda: orch._record_routing_decision(run, request, impostor),
+                   domain.LineageError):
+        problems.append("a decision from an unconfigured Router was recorded")
+    recorded = orch.route(run, item, "policy@2")
+    if run.routing_decisions()[-1] is not recorded:
+        problems.append("the recorded decision is not the object the Router returned")
     orch.invoke_model(run, item, recorded)
+    foreign = domain.ModelResult(domain.WorkflowRunRef("run.elsewhere"), item.ref,
+                                 recorded.ref, recorded.model, "t")
+    orch.model.execute = lambda request: foreign
+    before = len(run.model_results())
+    if not _raises(lambda: orch.invoke_model(run, item, recorded), domain.LineageError):
+        problems.append("a model result for another run was accepted")
+    if len(run.model_results()) != before:
+        problems.append("a rejected model result was still recorded")
     return (not problems, str(problems) if problems
             else "only the recorded Router output for this exact request is executable")
 
@@ -586,36 +647,81 @@ check("assurance", "the retry class is bound to the work item and cannot be subs
 
 
 def scope_crossing_needs_governed_evidence():
-    """Finding 8: a bare mechanism reference authorises nothing, and no binding is rewritten."""
+    """A bare reference authorises nothing, and a well-shaped claim is not evidence either.
+
+    Every clause is corroborated against the source run's own retained history: the Decision
+    Record, the human who exercised the Right, the mechanism at its version, the complete
+    source and target bindings, and the carried sensitivity and residency."""
     target = domain.ScopeBinding(domain.ScopeRef("scope.other"), frozenset({"INTERNAL"}), "EU")
     problems = []
-    for label, bare in (("nothing", None), ("a bare transfer id", domain.ScopeTransferRef("st")),
+    for label, bare in (("nothing", None),
+                        ("a bare transfer id", domain.ScopeTransferRef("st")),
                         ("a bare handoff id", domain.HandoffRef("ho"))):
         orch, run, item = _started(_task(), run_id="run.%s" % label.replace(" ", "-"))
         if not _raises(lambda: orch.transfer_scope(run, run.definition,
                                                    domain.WorkflowRunRef("run.x"), target,
                                                    bare)):
             problems.append("%s authorised a crossing" % label)
-    orch, run, item = _started(_task(), run_id="run.auth")
-    wrong = domain.ScopeTransferAuthorisation(
-        domain.ScopeTransferRef("st.1"), "v2", domain.WorkflowRunRef("run.elsewhere"),
-        SCOPE.scope, target.scope, domain.HumanAuthorityRef("h"),
-        domain.DecisionRecordRef("dr.1"))
+
+    def authorised(target_binding, run_id):
+        gate = _decision_gate("gate.tr", "dr.tr")
+        registry = adapters.InMemoryMechanismRegistry()
+        registry.register(domain.ScopeTransferRef("st.1"), "v2", SCOPE, target_binding)
+        orch = _fresh(rights={"dr.tr": (domain.HumanAuthorityRef("h"),
+                                        domain.GateOutcome.SATISFIED)})
+        orch.mechanisms = registry
+        orch, run, item = _started(_task(gates=(gate,)), orch, run_id=run_id)
+        _outcome, record = orch.run_decision_gate(run, item, gate.ref)
+        return orch, run, item, gate, record
+
+    def build_authorisation(run, item, gate, record, target_binding, **overrides):
+        fields = dict(mechanism=domain.ScopeTransferRef("st.1"), mechanism_version="v2",
+                      source_run=run.ref, source_scope=run.scope, target_scope=target_binding,
+                      work_item=item.ref, requirement=gate.ref,
+                      decision_right=domain.DecisionRightRef("dr.tr"),
+                      authorised_by=record.decided_by, decision_record=record.ref)
+        fields.update(overrides)
+        return domain.ScopeTransferAuthorisation(**fields)
+
+    orch, run, item, gate, record = authorised(target, "run.fab")
+    fabricated = build_authorisation(run, item, gate, record, target,
+                                     decision_record=domain.DecisionRecordRef("dr.never"))
     if not _raises(lambda: orch.transfer_scope(run, run.definition,
-                                               domain.WorkflowRunRef("run.y"), target, wrong)):
-        problems.append("an authorisation for another run was accepted")
-    orch2, run2, item2 = _started(_task(), run_id="run.ok")
-    good = domain.ScopeTransferAuthorisation(
-        domain.ScopeTransferRef("st.2"), "v2", run2.ref, SCOPE.scope, target.scope,
-        domain.HumanAuthorityRef("h"), domain.DecisionRecordRef("dr.2"))
-    transferred = orch2.transfer_scope(run2, run2.definition, domain.WorkflowRunRef("run.z"),
-                                       target, good)
-    if run2.scope.scope != SCOPE.scope:
+                                               domain.WorkflowRunRef("run.x"), target,
+                                               fabricated)):
+        problems.append("an authorisation naming an unretained Decision Record was accepted")
+    wrong_human = build_authorisation(run, item, gate, record, target,
+                                      authorised_by=domain.HumanAuthorityRef("human.other"))
+    if not _raises(lambda: orch.transfer_scope(run, run.definition,
+                                               domain.WorkflowRunRef("run.x"), target,
+                                               wrong_human)):
+        problems.append("an authorisation by someone who did not decide was accepted")
+    unknown = build_authorisation(run, item, gate, record, target, mechanism_version="v99")
+    if not _raises(lambda: orch.transfer_scope(run, run.definition,
+                                               domain.WorkflowRunRef("run.x"), target,
+                                               unknown)):
+        problems.append("an unrecognised mechanism version was accepted")
+
+    wider = domain.ScopeBinding(domain.ScopeRef("scope.other"),
+                                frozenset({"INTERNAL", "SECRET"}), "EU")
+    orch_w, run_w, item_w, gate_w, record_w = authorised(wider, "run.wide")
+    if not _raises(lambda: orch_w.transfer_scope(
+            run_w, run_w.definition, domain.WorkflowRunRef("run.w"), wider,
+            build_authorisation(run_w, item_w, gate_w, record_w, wider))):
+        problems.append("a crossing widened sensitivity")
+
+    orch_ok, run_ok, item_ok, gate_ok, record_ok = authorised(target, "run.ok")
+    before = (run_ok.scope, len(orch_ok.log))
+    transferred = orch_ok.transfer_scope(run_ok, run_ok.definition,
+                                         domain.WorkflowRunRef("run.z"), target,
+                                         build_authorisation(run_ok, item_ok, gate_ok,
+                                                             record_ok, target))
+    if run_ok.scope != before[0]:
         problems.append("the source run's scope binding was rewritten")
-    if transferred.scope.scope != target.scope or transferred is run2:
+    if transferred.scope != target or transferred is run_ok:
         problems.append("the crossing did not produce a new execution in the target scope")
-    return (not problems, str(problems) if problems
-            else "a crossing needs governed authorisation and creates a new execution")
+    return (not problems, str(problems)[:300] if problems
+            else "a crossing needs corroborated governed evidence and creates a new execution")
 
 
 check("assurance", "a scope crossing needs governed evidence and rewrites no binding",
@@ -719,6 +825,222 @@ def operational_success_is_not_completion():
 
 check("assurance", "operational success is not governance completion",
       operational_success_is_not_completion)
+
+
+def _snapshot(run, orch):
+    return (run.axes(),
+            tuple((g.ref.id, g.outcome, g.satisfied_by) for g in run.gates()),
+            tuple(r.ref for r in run.decision_records()),
+            tuple(r.ref for r in run.review_instances()),
+            tuple(r.ref for r in run.human_work_records()),
+            tuple(r.ref for r in run.prerequisite_records()),
+            tuple(r.ref for r in run.routing_decisions()),
+            len(run.model_results()), len(orch.log))
+
+
+def gate_instances_keep_their_identities():
+    """Re-audit finding 2: repeated activation and reused requirement ids do not displace."""
+    gate = _decision_gate("gate.shared", "dr.shared")
+    orch = _fresh(rights={"dr.shared": (domain.HumanAuthorityRef("h"),
+                                        domain.GateOutcome.SATISFIED)})
+    orch, run, first = _started(_task(gates=(gate,)), orch)
+    second = orch.activate_stage(run, domain.TaskRef("task.v"))
+    problems = []
+    if len(run.work_items()) != 2 or len(run.gates()) != 2:
+        problems.append("a second activation did not create its own work item and gate")
+    if len({g.ref for g in run.gates()}) != 2:
+        problems.append("two gate instances share one identity")
+    orch.run_decision_gate(run, second, gate.ref)
+    open_gates = orch.unsatisfied_gates(run)
+    if len(open_gates) != 1 or open_gates[0].work_item != first.ref:
+        problems.append("satisfying the second gate displaced the first")
+    if not _raises(lambda: orch.complete(run, domain.TerminalOutcome.COMPLETED)):
+        problems.append("completion was permitted with a gate still open")
+    # Two tasks reusing one requirement id.
+    shared = domain.GateRequirementRef("gate.reused")
+    task_a = domain.Task(domain.TaskRef("task.a"), "A", AUTHOR,
+                         domain.RetryClass.SAFE_AUTOMATIC_RETRY,
+                         gates=(domain.GateRequirement(
+                             shared, domain.GateKind.DECISION,
+                             decision_right=domain.DecisionRightRef("dr.a")),))
+    task_b = domain.Task(domain.TaskRef("task.b"), "B", AUTHOR,
+                         domain.RetryClass.SAFE_AUTOMATIC_RETRY,
+                         gates=(domain.GateRequirement(
+                             shared, domain.GateKind.DECISION,
+                             decision_right=domain.DecisionRightRef("dr.b")),))
+    orch2 = _fresh(rights={"dr.a": (domain.HumanAuthorityRef("h"),
+                                    domain.GateOutcome.SATISFIED)})
+    definition = domain.WorkflowDefinition(domain.WorkflowRef("wf.two"), "v1",
+                                           (task_a, task_b), SCOPE)
+    run2 = orch2.create_run(definition, domain.WorkflowRunRef("run.two"))
+    item_a = orch2.activate_stage(run2, task_a.ref)
+    item_b = orch2.activate_stage(run2, task_b.ref)
+    orch2.run_decision_gate(run2, item_a, shared)
+    remaining = orch2.unsatisfied_gates(run2)
+    if len(remaining) != 1 or remaining[0].work_item != item_b.ref:
+        problems.append("two tasks reusing one requirement id aliased their gates")
+    return (not problems, str(problems)[:300] if problems
+            else "gate instances are identified per run, work item and requirement")
+
+
+check("assurance", "gate instances keep their own identities",
+      gate_instances_keep_their_identities)
+
+
+def a_halted_run_cannot_progress():
+    """Re-audit finding 3: BLOCKED, ESCALATED and AUTHORITY_ABSENT stop ordinary progression."""
+    gate = _decision_gate("gate.absent", "dr.absent")
+    orch, run, item = _started(_task(gates=(gate,)))
+    orch.run_decision_gate(run, item, gate.ref)
+    problems = []
+    if run.posture is not domain.GovernancePosture.AUTHORITY_ABSENT:
+        problems.append("the missing Right did not produce AUTHORITY_ABSENT")
+    if not _raises(lambda: orch.activate_stage(run, domain.TaskRef("task.v")), Exception):
+        problems.append("a halted run activated another stage")
+    if len(run.gates()) != 1 or run.gates()[0].outcome is not \
+            domain.GateOutcome.NO_APPLICABLE_DECISION_RIGHT:
+        problems.append("the original gate was not retained")
+    intervention = domain.HumanInterventionRecord(
+        domain.InterventionRef("iv"), run.ref, domain.HumanAuthorityRef("h"), "unblock",
+        "asking politely")
+    if not _raises(lambda: orch.unblock(run, intervention)):
+        problems.append("a standing unresolved gate did not prevent unblocking")
+    return (not problems, str(problems) if problems
+            else "a halted run resumes only through a governed act, and not while a gate stands")
+
+
+check("assurance", "a blocked or escalated run cannot progress through the stage API",
+      a_halted_run_cannot_progress)
+
+
+def validation_precedes_every_mutation():
+    """Re-audit finding 4: a refusal leaves run state and every history exactly as they were."""
+    problems = []
+    # A continuing decision outcome with no record.
+    gate = _decision_gate("gate.norec", "dr.norec")
+    orch, run, item = _started(_task(gates=(gate,)))
+    orch.decisions.decide = lambda request: (domain.GateOutcome.SATISFIED, None)
+    before = _snapshot(run, orch)
+    if not _raises(lambda: orch.run_decision_gate(run, item, gate.ref), domain.EvidenceError):
+        problems.append("a continuing outcome with no Decision Record was applied")
+    if _snapshot(run, orch) != before:
+        problems.append("the refused decision left state or history changed")
+    # Rejected external evidence.
+    gate2 = _decision_gate("gate.part", "dr.part")
+    orch2 = _fresh(rights={"dr.part": (domain.HumanAuthorityRef("h"),
+                                       domain.GateOutcome.SATISFIED)})
+    orch2, run2, item2 = _started(_task(gates=(gate2,)), orch2, run_id="run.part")
+    forged = domain.DecisionRecord(domain.DecisionRecordRef("dr.forged"), gate2.ref,
+                                   domain.WorkflowRunRef("run.elsewhere"), item2.ref,
+                                   domain.DecisionRightRef("dr.part"),
+                                   domain.GateOutcome.SATISFIED,
+                                   domain.HumanAuthorityRef("h"))
+    before2 = _snapshot(run2, orch2)
+    if not _raises(lambda: orch2.satisfy_gate_with(run2, item2, gate2.ref, forged),
+                   domain.EvidenceError):
+        problems.append("forged evidence satisfied a gate")
+    if _snapshot(run2, orch2) != before2:
+        problems.append("the refused evidence left state or history changed")
+    # A rejected review.
+    gate3 = _review_gate("gate.ind", "rp.ind", "INDEPENDENT")
+    orch3 = _fresh(reviews={"rp.ind": (domain.GateOutcome.SATISFIED,
+                                       domain.HumanAuthorityRef("h"), "NOT_INDEPENDENT")})
+    orch3, run3, item3 = _started(_task(gates=(gate3,)), orch3, run_id="run.rev")
+    before3 = _snapshot(run3, orch3)
+    if not _raises(lambda: orch3.run_review_gate(run3, item3, gate3.ref),
+                   domain.EvidenceError):
+        problems.append("a mismatched review satisfied a gate")
+    if _snapshot(run3, orch3) != before3:
+        problems.append("the refused review left state or history changed")
+    return (not problems, str(problems)[:300] if problems
+            else "three refusals, each leaving run state and every history identical")
+
+
+check("assurance", "validation completes before any state or history is changed",
+      validation_precedes_every_mutation)
+
+
+def open_items_apply_to_every_gate_kind():
+    """Re-audit finding 5: SATISFIED_WITH_OPEN_ITEMS means the same thing everywhere."""
+    problems = []
+    human = domain.GateRequirement(domain.GateRequirementRef("gate.hw"),
+                                   domain.GateKind.HUMAN_WORK,
+                                   human_work=domain.HumanWorkRef("hw"))
+    orch, run, item = _started(_task(gates=(human,)), run_id="run.hw")
+    orch.record_human_work(run, item, human.ref, domain.HumanWorkCompletion(
+        domain.HumanWorkRecordRef("hwr"), human.ref, run.ref, item.ref,
+        domain.HumanWorkRef("hw"), domain.GateOutcome.SATISFIED_WITH_OPEN_ITEMS,
+        domain.HumanAuthorityRef("h")))
+    if run.posture is not domain.GovernancePosture.OPEN_ITEMS_CARRIED:
+        problems.append("HUMAN_WORK did not carry open items")
+    if not _raises(lambda: orch.complete(run, domain.TerminalOutcome.COMPLETED)):
+        problems.append("a run carrying open items completed as GOVERNANCE_CLEAR")
+    orch.complete(run, domain.TerminalOutcome.COMPLETED_WITH_OPEN_ITEMS)
+
+    prereq = domain.GateRequirement(domain.GateRequirementRef("gate.pre"),
+                                    domain.GateKind.GOVERNED_PREREQUISITE,
+                                    prerequisite=domain.PrerequisiteRef("pre"))
+    orch2, run2, item2 = _started(_task(gates=(prereq,)), run_id="run.pre")
+    evidence = domain.PrerequisiteEvidence(
+        domain.PrerequisiteRecordRef("prr"), prereq.ref, run2.ref, item2.ref,
+        domain.PrerequisiteRef("pre"), domain.GateOutcome.SATISFIED_WITH_OPEN_ITEMS,
+        domain.StorageRecordRef("sr"))
+    orch2.satisfy_gate_with(run2, item2, prereq.ref, evidence)
+    if run2.posture is not domain.GovernancePosture.OPEN_ITEMS_CARRIED:
+        problems.append("externally supplied evidence did not carry open items")
+
+    decision = _decision_gate("gate.oi", "dr.oi")
+    orch3 = _fresh(rights={"dr.oi": (domain.HumanAuthorityRef("h"),
+                                     domain.GateOutcome.SATISFIED_WITH_OPEN_ITEMS)})
+    orch3, run3, item3 = _started(_task(gates=(decision,)), orch3, run_id="run.oi")
+    orch3.run_decision_gate(run3, item3, decision.ref)
+    if run3.posture is not domain.GovernancePosture.OPEN_ITEMS_CARRIED:
+        problems.append("DECISION did not carry open items")
+    return (not problems, str(problems) if problems
+            else "open items carry for human work, prerequisites, decisions and reviews")
+
+
+check("assurance", "satisfied-with-open-items carries for every gate kind",
+      open_items_apply_to_every_gate_kind)
+
+
+def satisfying_evidence_is_retained():
+    """Re-audit finding 8: no gate changes state without the record that explains it."""
+    review = _review_gate("gate.r", "rp", "INDEPENDENT")
+    decision = _decision_gate("gate.d", "dr")
+    human = domain.GateRequirement(domain.GateRequirementRef("gate.h"),
+                                   domain.GateKind.HUMAN_WORK,
+                                   human_work=domain.HumanWorkRef("hw"))
+    prereq = domain.GateRequirement(domain.GateRequirementRef("gate.p"),
+                                    domain.GateKind.GOVERNED_PREREQUISITE,
+                                    prerequisite=domain.PrerequisiteRef("pre"))
+    orch = _fresh(reviews={"rp": (domain.GateOutcome.SATISFIED,
+                                  domain.HumanAuthorityRef("h1"), "INDEPENDENT")},
+                  rights={"dr": (domain.HumanAuthorityRef("h2"),
+                                 domain.GateOutcome.SATISFIED)})
+    orch, run, item = _started(_task(gates=(review, decision, human, prereq)), orch)
+    orch.run_review_gate(run, item, review.ref)
+    orch.run_decision_gate(run, item, decision.ref)
+    orch.record_human_work(run, item, human.ref, domain.HumanWorkCompletion(
+        domain.HumanWorkRecordRef("hwr"), human.ref, run.ref, item.ref,
+        domain.HumanWorkRef("hw"), domain.GateOutcome.SATISFIED,
+        domain.HumanAuthorityRef("h3")))
+    evidence = domain.PrerequisiteEvidence(
+        domain.PrerequisiteRecordRef("prr"), prereq.ref, run.ref, item.ref,
+        domain.PrerequisiteRef("pre"), domain.GateOutcome.SATISFIED,
+        domain.StorageRecordRef("sr"))
+    orch.satisfy_gate_with(run, item, prereq.ref, evidence)
+    problems = [g.kind.value for g in run.gates() if run.evidence_for(g) is None]
+    if not _raises(lambda: orch.record_prerequisite(run, item, prereq.ref, evidence),
+                   domain.AppendOnlyError):
+        problems.append("a duplicate record identity was admitted")
+    orch.complete(run, domain.TerminalOutcome.COMPLETED)
+    return (not problems, str(problems) if problems
+            else "all four gate kinds retain their evidence, reconstructable by identity")
+
+
+check("assurance", "every satisfying evidence object is retained in governed history",
+      satisfying_evidence_is_retained)
 
 
 # =========================================================== the suite itself

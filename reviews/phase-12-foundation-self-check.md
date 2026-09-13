@@ -13,7 +13,14 @@ It is not an independent audit.
 
 ---
 
-> **Revision — structural binding remediation.** This document was updated after the
+> **Revision 3 — governed evidence and lineage hardening.** The independent re-audit found
+> nine further structural blockers on the remediated baseline. All nine are closed; section 4c
+> records them. The governing rule is now: *a governed act may change execution state only when
+> the exact requirement, lineage, authority, adapter provenance, evidence object and retained
+> history needed by that act are already valid and recorded* — validate first, commit second,
+> and never partially.
+>
+> **Revision 2 — structural binding remediation.** This document was updated after the
 > independent Phase 12 MVP audit found ten structural governance bypasses in the reference
 > layer. All ten are closed; sections 2, 4a and 6 below record the current state, and section
 > 4b records what the audit found and how each finding was answered.
@@ -41,26 +48,35 @@ discouraged.** A `RoleRef` and an `AgentInstanceRef` carrying the same string ar
 
 ```
 python3 -m unittest discover -s implementation/phase-12/tests
-Ran 82 tests — OK
+Ran 118 tests — OK
 
-python3 validation/phase_12_validation.py            === 37/37 PASS ===   exit 0
-python3 validation/phase_12_validation.py --verbose   === 37/37 PASS ===   exit 0
-python3 validation/phase_12_validation.py --json      total 37, passed 37, 37 results
+python3 validation/phase_12_validation.py            === 43/43 PASS ===   exit 0
+python3 validation/phase_12_validation.py --verbose   === 43/43 PASS ===   exit 0
+python3 validation/phase_12_validation.py --json      total 43, passed 43, 43 results
 
 python3 implementation/phase-12/examples/governed_run.py   exit 0, run COMPLETED / GOVERNANCE_CLEAR
 python3 implementation/phase-12/examples/blocked_run.py    exit 0, four governance stops and
-                                                            ten structural bypasses refused
+                                                            twenty-two structural bypasses refused
 ```
 
-Validator groups: `structure` 4 · `containment` 6 · `domain` 7 · `assurance` 17 ·
+Validator groups: `structure` 4 · `containment` 6 · `domain` 7 · `assurance` 23 ·
 `suite` 2 · `inventory` 1.
 
-**Controlled weakenings: 20, each caught by both the test suite and the validator.** Every
-load-bearing structural guard was removed in turn — construction-time reference enforcement,
-the run-state boundary, the state token, task lookup, gate identity, each of the five evidence
-bindings, both routing bindings, the retry-class binding, both scope-authorisation checks, the
-record store's append-only behaviour, the event log's attribute guard, and both completion
-conditions. None of them passed silently.
+**Controlled weakenings: 32, of which 31 are caught by both the test suite and the validator.**
+Each load-bearing guard was removed in turn and the suite and validator re-run.
+
+The one exception is recorded rather than hidden: removing the `AUTHORITY_ABSENT` check in
+`activate_stage` changes nothing observable, because `AUTHORITY_ABSENT` is only ever set
+together with the `ESCALATED` phase, and the phase guard already refuses. The posture guard is
+kept deliberately, as defence for any future path that sets the posture without halting the
+phase, and `test_authority_absent_always_arrives_with_an_escalated_phase` states that
+coincidence explicitly instead of claiming the guard is independently exercised.
+
+Three earlier redundancies found the same way were removed rather than explained: the stage
+activation path now refuses a halted run in exactly one place; the authorisation-coverage
+check is exercised by source-run and target-binding mismatches that no other check catches; and
+"a continuing outcome with no record" raises its own `MissingEvidenceError`, so the guard is
+load-bearing by type rather than by message.
 
 ## 3. Regression
 
@@ -108,7 +124,21 @@ rather than claiming it.
 | 7 | Retry class came from a caller-supplied Task | `retry()` has no task parameter; the class is read from the Work Item's lineage |
 | 8 | A bare mechanism reference proved a crossing was approved | `ScopeTransferAuthorisation` binds mechanism-at-version, source run and scope, target scope, human authority and Decision Record; the crossing creates a **new** execution and rewrites no binding |
 | 9 | Governed records were overwritten by Work Item id | `RecordStore` is append-only with the backing list in a closure; repeated Decision and Review records both stand |
-| 10 | Tests proved object creation, not relationships | 82 tests, including one class per finding, plus the 20 controlled weakenings above |
+| 10 | Tests proved object creation, not relationships | 121 tests, including one class per finding, plus the 32 controlled weakenings above |
+
+### 4c. The nine re-audit findings, and how each was closed
+
+| # | Finding | Answer |
+|---|---|---|
+| 1 | Construction-time validation covered references only | `enforce_field_types()` validates **every** declared field: Enums by exact type, structured values such as `ScopeBinding` by class, tuples and frozensets element by element, `Optional` distinguished from required, and a plain `str` refused wherever an Enum or a structured value is declared. No coercion anywhere. A sweep test asserts every governed dataclass calls it |
+| 2 | A `GateRequirementRef` is not an instantiated gate identity | `GateInstance` carries a `GateInstanceRef` and its own `kind`; the run keys gates by instance identity, so activating one gated Task twice yields two Work Items and two retained gates, and two Tasks reusing a requirement id do not alias |
+| 3 | A blocked or escalated run could activate another stage | `activate_stage` refuses from `BLOCKED`/`ESCALATED` and under `AUTHORITY_ABSENT`; leaving those states is `unblock()`, which needs a recorded human act and refuses while any gate stands resolved against continuation |
+| 4 | State moved before validation completed | Every governed act is validate-then-commit: the adapter is asked, the answer is validated in full, and `_commit_gate` applies the result. A refusal leaves axes, gate outcomes, all five record stores and the event count identical — asserted by a `snapshot()` helper in four tests. A continuing Decision outcome with no record raises `MissingEvidenceError` before anything moves |
+| 5 | `SATISFIED_WITH_OPEN_ITEMS` applied only on the review path | Every satisfaction path funnels through `_apply_gate_outcome`, so all four gate kinds and `satisfy_gate_with()` carry `OPEN_ITEMS_CARRIED`, and such a run completes only as `COMPLETED_WITH_OPEN_ITEMS` |
+| 6 | A well-shaped authorisation was sufficient | `transfer_scope` corroborates every clause against the source run's retained history: the Decision Record must be retained and must answer the exact run, Work Item, requirement and Right with a continuing outcome; the authorising human must be that record's author and hold the Right; the mechanism at its version must be approved by the configured registry (no registry approves nothing); the complete source and target bindings must match; and sensitivity may not widen nor residency change |
+| 7 | A caller could manufacture a Routing Decision and record it | There is no public recording path — `route()` asks the configured Router and records exactly the object it returned; `decided_by` must equal the configured `RouterRef`; and a `ModelResult` must answer this run, Work Item, Routing Decision and model before it is recorded |
+| 8 | Evidence could satisfy a gate without being retained | `_commit_gate` retains the evidence in its governed store as part of the same commit, keyed by the record's own identity; `RecordStore` refuses a duplicate identity; and `run.evidence_for(gate)` reconstructs what explained a completion |
+| 9 | Adversarial and mutation credibility | 121 tests, 22 executable bypass probes in `examples/blocked_run.py`, and 32 controlled weakenings |
 
 Two checks compare the implementation against the architecture **documents** rather than
 against itself: the transition table is parsed from
@@ -163,7 +193,7 @@ Each of these is an MVP limitation, not an architecture defect.
    not in a class.
 8. **The `inventory` self-check counts this document's stated total**, not its prose. A wrong
    description here would not fail the validator; a wrong number would.
-9. **The 20 controlled weakenings are run from a scratch harness, not committed.** They are
+9. **The 32 controlled weakenings are run from a scratch harness, not committed.** They are
    reproducible by editing a guard and re-running the suite, and each is named in section 2,
    but the mutation runner itself is not part of the repository.
 

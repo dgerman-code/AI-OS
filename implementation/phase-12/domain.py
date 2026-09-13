@@ -51,6 +51,14 @@ class EvidenceError(GovernanceError):
     """Evidence was offered that does not answer the requirement it was offered for."""
 
 
+class MissingEvidenceError(EvidenceError):
+    """A continuing outcome arrived with no governed record behind it.
+
+    Its own class, because it is a different failure from evidence that is merely wrong: there
+    is nothing to examine at all, and an approval with no record of a human exercising a Right
+    is the single thing this phase exists to make impossible."""
+
+
 class TransitionError(GovernanceError):
     """A run-phase transition the approved state machine does not allow."""
 
@@ -207,6 +215,18 @@ class PrerequisiteRef(Ref):
     KIND = "governed_prerequisite"
 
 
+class GateInstanceRef(Ref):
+    KIND = "gate_instance"
+
+
+class HumanWorkRecordRef(Ref):
+    KIND = "human_work_record"
+
+
+class PrerequisiteRecordRef(Ref):
+    KIND = "prerequisite_record"
+
+
 #: The approved separation chain, in order, as the types that carry it.
 SEPARATION_CHAIN: Tuple[type, ...] = (
     RoleRef, AgentInstanceRef, ModelRef, ModelProfileRef, RouterRef, OrchestratorRef,
@@ -229,58 +249,117 @@ def require(value, expected: type, what: str = ""):
     return value
 
 
-def _declared_ref_type(annotation):
-    """(reference type, optional?) a field declares, or (None, False) if it declares none."""
-    if isinstance(annotation, type) and issubclass(annotation, Ref):
-        return annotation, False
-    if typing.get_origin(annotation) is typing.Union:
-        args = typing.get_args(annotation)
-        optional = type(None) in args
-        named = [a for a in args if a is not type(None)]
-        if len(named) == 1 and isinstance(named[0], type) and issubclass(named[0], Ref):
-            return named[0], optional
-    return None, False
-
-
 _HINTS_CACHE: Dict[type, Dict[str, object]] = {}
 
 
-def enforce_reference_types(instance) -> None:
-    """Validate every governed reference field of `instance` against its declared type.
+def _unwrap_optional(annotation):
+    """(annotation without NoneType, optional?)."""
+    if typing.get_origin(annotation) is typing.Union:
+        args = typing.get_args(annotation)
+        named = [a for a in args if a is not type(None)]
+        if len(named) == 1:
+            return named[0], type(None) in args
+    return annotation, False
+
+
+def _describe(value) -> str:
+    return getattr(type(value), "KIND", type(value).__name__)
+
+
+def _check_value(where: str, annotation, value) -> None:
+    """Check one value against one declared annotation, with no coercion anywhere.
+
+    The audit's first finding, second pass: reference fields were validated and everything
+    else was not, so a plain string could sit where a `GateOutcome` or a `ScopeBinding`
+    belongs. Enums are matched exactly, structured governed values by their own class,
+    containers element by element, and a plain `str` where an Enum is declared is exactly the
+    case this exists to refuse."""
+    annotation, optional = _unwrap_optional(annotation)
+    if value is None:
+        if optional:
+            return
+        raise IdentityError("%s requires %s, got nothing"
+                            % (where, getattr(annotation, "__name__", annotation)))
+    origin = typing.get_origin(annotation)
+    if origin in (tuple, Tuple):
+        args = typing.get_args(annotation)
+        if not isinstance(value, tuple):
+            raise IdentityError("%s requires a tuple, got %s" % (where, _describe(value)))
+        if args and args[-1] is Ellipsis:
+            for index, element in enumerate(value):
+                _check_value("%s[%d]" % (where, index), args[0], element)
+        elif args:
+            if len(args) != len(value):
+                raise IdentityError("%s requires %d elements, got %d"
+                                    % (where, len(args), len(value)))
+            for index, (element_annotation, element) in enumerate(zip(args, value)):
+                _check_value("%s[%d]" % (where, index), element_annotation, element)
+        return
+    if origin in (frozenset, FrozenSet):
+        args = typing.get_args(annotation)
+        if not isinstance(value, frozenset):
+            raise IdentityError("%s requires a frozenset, got %s" % (where, _describe(value)))
+        for element in value:
+            _check_value("%s{}" % where, args[0] if args else object, element)
+        return
+    if origin is not None:
+        return                                   # a construct this MVP does not use
+    if annotation is object or annotation is typing.Any:
+        return
+    if annotation is Ref:
+        # A field declared as the base type accepts any governed reference, and nothing else.
+        if not isinstance(value, Ref):
+            raise IdentityError("%s requires a governed reference, got %s"
+                                % (where, _describe(value)))
+        return
+    if isinstance(annotation, type) and issubclass(annotation, Ref):
+        if type(value) is not annotation:
+            raise IdentityError("%s requires %s, got %s"
+                                % (where, annotation.KIND, _describe(value)))
+        return
+    if isinstance(annotation, type) and issubclass(annotation, Enum):
+        if type(value) is not annotation:
+            raise IdentityError("%s requires the %s enum, got %s"
+                                % (where, annotation.__name__, _describe(value)))
+        return
+    if annotation is bool:
+        if type(value) is not bool:
+            raise IdentityError("%s requires a bool, got %s" % (where, _describe(value)))
+        return
+    if annotation is int:
+        if type(value) is not int:
+            raise IdentityError("%s requires an int, got %s" % (where, _describe(value)))
+        return
+    if annotation is str:
+        if not isinstance(value, str):
+            raise IdentityError("%s requires a string, got %s" % (where, _describe(value)))
+        return
+    if isinstance(annotation, type):
+        if not isinstance(value, annotation):
+            raise IdentityError("%s requires %s, got %s"
+                                % (where, annotation.__name__, _describe(value)))
+
+
+def enforce_field_types(instance) -> None:
+    """Validate EVERY declared field of `instance`, not only its governed references.
 
     Called from each governed object's `__post_init__`, so a malformed governed object never
-    comes into existence. The independent audit's first finding was precisely that these types
-    were only checked where a downstream method happened to call `require()`; a field declared
-    as a governed reference is now checked at construction, every time, for every object."""
+    comes into existence."""
     cls = type(instance)
     hints = _HINTS_CACHE.get(cls)
     if hints is None:
         hints = typing.get_type_hints(cls)
         _HINTS_CACHE[cls] = hints
     for f in dataclasses.fields(instance):
-        expected, optional = _declared_ref_type(hints.get(f.name, f.type))
-        if expected is None:
-            continue
-        value = getattr(instance, f.name)
-        if value is None:
-            # A field that declares a governed reference without `Optional` must carry one:
-            # `None` in a required identity slot is an absent identity, not a permitted one.
-            if optional:
-                continue
-            raise IdentityError("%s.%s requires %s, got nothing"
-                                % (cls.__name__, f.name, expected.KIND))
-        if expected is Ref:
-            # A field declared as the base type accepts any governed reference, and nothing
-            # else: this is how an execution event names whatever it is about.
-            if not isinstance(value, Ref):
-                raise IdentityError("%s.%s requires a governed reference, got %r"
-                                    % (cls.__name__, f.name, type(value).__name__))
-            continue
-        if type(value) is not expected:
-            raise IdentityError(
-                "%s.%s requires %s, got %s"
-                % (cls.__name__, f.name, expected.KIND,
-                   getattr(type(value), "KIND", type(value).__name__)))
+        annotation = hints.get(f.name, f.type)
+        if isinstance(annotation, str):
+            continue                             # an unresolved forward reference
+        _check_value("%s.%s" % (cls.__name__, f.name), annotation,
+                     getattr(instance, f.name))
+
+
+#: The former name, kept so the intent reads the same at every call site.
+enforce_reference_types = enforce_field_types
 
 
 # ===========================================================================================
@@ -478,7 +557,7 @@ class ScopeBinding:
     residency: str
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
         if not isinstance(self.sensitivity, frozenset):
             raise GovernanceError("sensitivity must be an unordered label set")
         if not self.residency:
@@ -503,25 +582,29 @@ class ScopeTransferAuthorisation:
     mechanism: Ref
     mechanism_version: str
     source_run: WorkflowRunRef
-    source_scope: ScopeRef
-    target_scope: ScopeRef
+    source_scope: ScopeBinding
+    target_scope: ScopeBinding
+    work_item: WorkItemRef
+    requirement: GateRequirementRef
+    decision_right: DecisionRightRef
     authorised_by: HumanAuthorityRef
     decision_record: DecisionRecordRef
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
         if type(self.mechanism) not in (HandoffRef, ScopeTransferRef):
             raise IdentityError(
                 "an approved crossing mechanism is a Phase 6 handoff or a Phase 8 scope "
-                "transfer, got %s"
-                % getattr(type(self.mechanism), "KIND", type(self.mechanism).__name__))
+                "transfer, got %s" % _describe(self.mechanism))
         if not self.mechanism_version:
             raise GovernanceError("an approved mechanism must be named at a version")
 
-    def authorises(self, run: "WorkflowRun", target: ScopeBinding) -> bool:
+    def covers(self, run: "WorkflowRun", target: ScopeBinding) -> bool:
+        """The authorisation must name THIS run, THIS whole source binding and THAT whole
+        target binding - sensitivity and residency included, not merely the scope id."""
         return (self.source_run == run.ref
-                and self.source_scope == run.scope.scope
-                and self.target_scope == target.scope)
+                and self.source_scope == run.scope
+                and self.target_scope == target)
 
 
 # ===========================================================================================
@@ -547,7 +630,7 @@ class GateRequirement:
     description: str = ""
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
         if not isinstance(self.kind, GateKind):
             raise GovernanceError("a gate requirement needs one of the four approved kinds")
         named = {
@@ -578,7 +661,7 @@ class Task:
     capability: str = ""
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
         if not isinstance(self.retry_class, RetryClass):
             raise GovernanceError("a task must declare one of the seven retry classes")
         if len({g.ref for g in self.gates}) != len(self.gates):
@@ -595,7 +678,7 @@ class WorkflowDefinition:
     scope: ScopeBinding
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
         if not self.version:
             raise GovernanceError("a workflow definition must be versioned")
         if not self.tasks:
@@ -638,7 +721,7 @@ class WorkItem:
     capability: str = ""
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
         if not isinstance(self.retry_class, RetryClass):
             raise GovernanceError("a work item carries its task's retry class")
         if not self.workflow_version:
@@ -647,30 +730,37 @@ class WorkItem:
 
 @dataclass(frozen=True)
 class GateInstance:
-    """A declared requirement, instantiated against one run and one Work Item."""
+    """A declared requirement, INSTANTIATED against one run and one Work Item.
 
+    A requirement reference alone is not an instantiated gate: the same Task may be activated
+    twice, and two Tasks may reuse a requirement id. The instance therefore carries its own
+    identity, and the run keys its gates by that identity, so nothing displaces anything."""
+
+    ref: GateInstanceRef
     requirement: GateRequirement
     run: WorkflowRunRef
     work_item: WorkItemRef
+    kind: GateKind
     outcome: Optional[GateOutcome] = None
     satisfied_by: Optional[Ref] = None
 
     def __post_init__(self):
-        enforce_reference_types(self)
-        if not isinstance(self.requirement, GateRequirement):
-            raise GovernanceError("a gate instance instantiates a declared requirement")
-        if self.outcome is not None and not isinstance(self.outcome, GateOutcome):
-            raise GovernanceError("a gate outcome is one of the seven approved outcomes")
-
-    @property
-    def kind(self) -> GateKind:
-        return self.requirement.kind
+        enforce_field_types(self)
+        if self.kind is not self.requirement.kind:
+            raise GovernanceError("a gate instance carries the kind its requirement declares")
 
     def is_continuing(self) -> bool:
         return self.outcome in CONTINUING_GATE_OUTCOMES
 
+    def is_resolved(self) -> bool:
+        return self.outcome is not None
+
+    def addresses(self, work_item: WorkItemRef, requirement: GateRequirementRef) -> bool:
+        return self.work_item == work_item and self.requirement.ref == requirement
+
     def resolved(self, outcome: GateOutcome, satisfied_by: Optional[Ref]) -> "GateInstance":
-        return GateInstance(self.requirement, self.run, self.work_item, outcome, satisfied_by)
+        return GateInstance(self.ref, self.requirement, self.run, self.work_item, self.kind,
+                            outcome, satisfied_by)
 
 
 @dataclass(frozen=True)
@@ -686,7 +776,7 @@ class Assignment:
     attempt: int = 1
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
         if self.attempt < 1:
             raise GovernanceError("an assignment attempt is numbered from one")
 
@@ -706,7 +796,7 @@ class AgentInstance:
     run: WorkflowRunRef
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
 
 
 # ------------------------------------------------------------------ routing
@@ -729,7 +819,7 @@ class RoutingRequest:
     independence_class: str = ""
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
         if not self.capability:
             raise GovernanceError("a routing request must declare a capability requirement")
         if not self.routing_policy:
@@ -750,7 +840,7 @@ class RoutingDecision:
     model_profile: Optional[ModelProfileRef] = None
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
         if not isinstance(self.outcome, RouterOutcome):
             raise GovernanceError("a routing decision carries one of the router outcomes")
         if self.outcome is RouterOutcome.ELIGIBLE_CANDIDATE:
@@ -775,7 +865,7 @@ class ModelInvocationRequest:
     prompt_context: str = ""
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
 
 
 @dataclass(frozen=True)
@@ -791,7 +881,7 @@ class ModelResult:
     canonicality: Canonicality = Canonicality.AI_SUGGESTION
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
         if self.origin is not Origin.AI_GENERATED:
             raise GovernanceError("a model result is AI_GENERATED by construction")
         if self.canonicality is not Canonicality.AI_SUGGESTION:
@@ -816,7 +906,7 @@ class ReviewRequest:
     independence_class: str
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
         if not self.independence_class:
             raise GovernanceError("a review request must carry its independence class")
 
@@ -835,7 +925,7 @@ class ReviewInstance:
     independence_class: str
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
         if not isinstance(self.outcome, GateOutcome):
             raise GovernanceError("a review instance carries one of the seven outcomes")
         if not self.independence_class:
@@ -853,7 +943,7 @@ class DecisionRequest:
     question: str = ""
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
 
 
 @dataclass(frozen=True)
@@ -869,7 +959,7 @@ class DecisionRecord:
     decided_by: HumanAuthorityRef
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
         if not isinstance(self.outcome, GateOutcome):
             raise GovernanceError("a decision record carries one of the seven outcomes")
 
@@ -878,6 +968,7 @@ class DecisionRecord:
 class HumanWorkCompletion:
     """A human completing requested work. Not a review, and not a decision."""
 
+    ref: HumanWorkRecordRef
     requirement: GateRequirementRef
     run: WorkflowRunRef
     work_item: WorkItemRef
@@ -886,13 +977,14 @@ class HumanWorkCompletion:
     completed_by: HumanAuthorityRef
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
 
 
 @dataclass(frozen=True)
 class PrerequisiteEvidence:
     """Evidence that a Phase 8-10 governed prerequisite is met. Not a human act."""
 
+    ref: PrerequisiteRecordRef
     requirement: GateRequirementRef
     run: WorkflowRunRef
     work_item: WorkItemRef
@@ -901,7 +993,7 @@ class PrerequisiteEvidence:
     evaluated_against: StorageRecordRef
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
 
 
 #: The evidence contract per gate kind. Anything else offered at a gate is refused outright,
@@ -926,7 +1018,7 @@ class HumanInterventionRecord:
     reason: str
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
         if not self.reason:
             raise GovernanceError("an intervention record must state a reason")
 
@@ -947,7 +1039,7 @@ class ExecutionEvent:
     reference: Optional[Ref] = None
 
     def __post_init__(self):
-        enforce_reference_types(self)
+        enforce_field_types(self)
 
 
 class ExecutionEventLog:
@@ -1006,6 +1098,13 @@ class RecordStore:
         records: List[object] = []
 
         def _add(record):
+            identity = getattr(record, "ref", None)
+            if identity is not None:
+                for existing in records:
+                    if getattr(existing, "ref", None) == identity:
+                        raise AppendOnlyError(
+                            "%s already holds a record with identity %s; ambiguous history is "
+                            "not admitted" % (name, identity))
             records.append(record)
             return record
 
@@ -1178,11 +1277,28 @@ class WorkflowRun:
     def gates(self) -> Tuple[GateInstance, ...]:
         return tuple(self.__state.gates.values())
 
-    def gate(self, requirement: GateRequirementRef) -> GateInstance:
+    def gate_instance(self, work_item: WorkItemRef,
+                      requirement: GateRequirementRef) -> GateInstance:
+        """The gate this run instantiated for that Work Item and that requirement.
+
+        Addressed by the pair, because a requirement id is not unique on its own: the same Task
+        activated twice, and two Tasks sharing a requirement id, each hold their own gates."""
+        require(work_item, WorkItemRef, "gate lookup")
         require(requirement, GateRequirementRef, "gate lookup")
-        found = self.__state.gates.get(requirement.id)
+        found = [g for g in self.__state.gates.values() if g.addresses(work_item, requirement)]
+        if not found:
+            raise LineageError("%s has no gate %s for %s"
+                               % (self.__ref, requirement, work_item))
+        if len(found) > 1:
+            raise LineageError("%s addresses %d gate instances; this is ambiguous"
+                               % (requirement, len(found)))
+        return found[0]
+
+    def gate(self, instance: GateInstanceRef) -> GateInstance:
+        require(instance, GateInstanceRef, "gate lookup")
+        found = self.__state.gates.get(instance.id)
         if found is None:
-            raise LineageError("%s is not a gate of %s" % (requirement, self.__ref))
+            raise LineageError("%s is not a gate of %s" % (instance, self.__ref))
         return found
 
     def attempts(self, work_item: WorkItemRef) -> int:
@@ -1206,8 +1322,28 @@ class WorkflowRun:
     def assignments(self) -> Tuple[Assignment, ...]:
         return self.__assignments.all()
 
+    def human_work_records(self) -> Tuple[HumanWorkCompletion, ...]:
+        return self.__human_work.all()
+
+    def prerequisite_records(self) -> Tuple[PrerequisiteEvidence, ...]:
+        return self.__prerequisites.all()
+
     def interventions(self) -> Tuple[HumanInterventionRecord, ...]:
         return self.__interventions.all()
+
+    def evidence_for(self, instance: "GateInstance"):
+        """The retained governed record that satisfied a gate, found by its own identity.
+
+        Completion has to be explainable from history: given a resolved gate, the object that
+        resolved it is retrievable, rather than merely referenced by an id nobody kept."""
+        if instance.satisfied_by is None:
+            return None
+        for store in (self.__reviews, self.__decisions, self.__human_work,
+                      self.__prerequisites):
+            for record in store.all():
+                if getattr(record, "ref", None) == instance.satisfied_by:
+                    return record
+        return None
 
     def axes(self):
         state = self.__state

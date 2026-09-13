@@ -18,7 +18,8 @@ sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "examples"))
 
 from adapters import (  # noqa: E402
-    InMemoryDecisionDesk, InMemoryReviewerDesk, InMemoryRouter, StubModel,
+    InMemoryDecisionDesk, InMemoryMechanismRegistry, InMemoryReviewerDesk, InMemoryRouter,
+    StubModel,
 )
 from domain import (  # noqa: E402
     ALLOWED_TRANSITIONS, AUTOMATICALLY_RETRYABLE, AgentInstanceRef, AppendOnlyError,
@@ -27,14 +28,15 @@ from domain import (  # noqa: E402
     ExecutionEventLog, GateInstance, GateKind, GateOutcome, GateRequirement,
     GateRequirementRef, GovernanceError, GovernancePosture, HandoffRef, HumanAuthorityRef,
     HumanInterventionRecord, HumanWorkCompletion, HumanWorkRef, IdentityError, InterventionRef,
-    LineageError, ModelProfileRef, ModelRef, ModelResult, NEVER_AUTOMATICALLY_RETRYABLE,
+    LineageError, MissingEvidenceError, ModelProfileRef, ModelRef, ModelResult, NEVER_AUTOMATICALLY_RETRYABLE,
     Origin, OrchestratorRef, POSTURE_PERMITS_COMPLETION, PrerequisiteEvidence, PrerequisiteRef,
     RaceOutcome, RecordStore, RetryClass, ReviewInstance, ReviewInstanceRef, ReviewProfileRef,
     RoleRef, RouterOutcome, RouterRef, RoutingDecision, RoutingDecisionRef, RoutingRequest,
     RoutingRequestRef, RunPhase, RuntimeEventRef, SEPARATION_CHAIN, ScopeBinding, ScopeRef,
     ScopeTransferAuthorisation, ScopeTransferRef, StateAccessError, StorageRecordRef, Task,
     TaskRef, TerminalOutcome, TransitionError, WaitReason, WorkItem, WorkItemRef,
-    WorkflowDefinition, WorkflowRef, WorkflowRunRef, require,
+    WorkflowDefinition, WorkflowRef, WorkflowRunRef, GateInstanceRef, HumanWorkRecordRef,
+    PrerequisiteRecordRef, enforce_field_types, require,
 )
 from orchestrator import Orchestrator  # noqa: E402
 
@@ -58,11 +60,34 @@ def simple_task(gates=(), retry=RetryClass.SAFE_AUTOMATIC_RETRY, capability=""):
     return Task(TASK, "T", AUTHOR, retry, gates=gates, capability=capability)
 
 
-def build(rights=None, reviews=None, eligible=None, missing_right_for=()):
+def build(rights=None, reviews=None, eligible=None, missing_right_for=(), mechanisms=None):
     router = InMemoryRouter(RouterRef("router.phase9"), eligible=eligible or {},
                             missing_right_for=missing_right_for)
     return Orchestrator(router, InMemoryReviewerDesk(reviews or {}),
-                        InMemoryDecisionDesk(rights or {}), StubModel())
+                        InMemoryDecisionDesk(rights or {}), StubModel(),
+                        mechanisms=mechanisms)
+
+
+def human_gate(ref="gate.hw", work="hw"):
+    return GateRequirement(GateRequirementRef(ref), GateKind.HUMAN_WORK,
+                           human_work=HumanWorkRef(work))
+
+
+def prerequisite_gate(ref="gate.pre", prerequisite="pre"):
+    return GateRequirement(GateRequirementRef(ref), GateKind.GOVERNED_PREREQUISITE,
+                           prerequisite=PrerequisiteRef(prerequisite))
+
+
+def snapshot(run, orch):
+    """Everything observable about a run: axes, gate outcomes, histories, event count."""
+    return (run.axes(),
+            tuple((g.ref.id, g.outcome, g.satisfied_by) for g in run.gates()),
+            tuple(r.ref for r in run.decision_records()),
+            tuple(r.ref for r in run.review_instances()),
+            tuple(r.ref for r in run.human_work_records()),
+            tuple(r.ref for r in run.prerequisite_records()),
+            tuple(r.ref for r in run.routing_decisions()),
+            len(run.model_results()), len(orch.log))
 
 
 def started(orch, task, run_id="run.t", workflow="wf.t", version="v1"):
@@ -128,12 +153,15 @@ class TestConstructionTimeTypeEnforcement(unittest.TestCase):
 
     def test_gate_instance_rejects_wrong_reference_types(self):
         requirement = decision_gate()
-        GateInstance(requirement, WorkflowRunRef("r"), WorkItemRef("wi"))
+        GateInstance(GateInstanceRef("gi"), requirement, WorkflowRunRef("r"),
+                     WorkItemRef("wi"), GateKind.DECISION)
         with self.assertRaises(IdentityError):
-            GateInstance(requirement, WorkflowRunRef("r"), TaskRef("t"))
+            GateInstance(GateInstanceRef("gi"), requirement, WorkflowRunRef("r"), TaskRef("t"),
+                         GateKind.DECISION)
         with self.assertRaises(IdentityError):
-            GateInstance(requirement, WorkflowRunRef("r"), WorkItemRef("wi"),
-                         GateOutcome.SATISFIED, "not a reference")
+            GateInstance(GateInstanceRef("gi"), requirement, WorkflowRunRef("r"),
+                         WorkItemRef("wi"), GateKind.DECISION, GateOutcome.SATISFIED,
+                         "not a reference")
 
     def test_every_governed_object_enforces_its_references(self):
         """A sweep, so a new object added without enforcement is noticed."""
@@ -152,13 +180,15 @@ class TestConstructionTimeTypeEnforcement(unittest.TestCase):
                                   outcome=GateOutcome.SATISFIED,
                                   decided_by=HumanAuthorityRef("h")),
              "decided_by", AgentInstanceRef("a")),
-            (HumanWorkCompletion, dict(requirement=GateRequirementRef("g"),
+            (HumanWorkCompletion, dict(ref=HumanWorkRecordRef("hwr"),
+                                       requirement=GateRequirementRef("g"),
                                        run=WorkflowRunRef("r"), work_item=WorkItemRef("wi"),
                                        human_work=HumanWorkRef("hw"),
                                        outcome=GateOutcome.SATISFIED,
                                        completed_by=HumanAuthorityRef("h")),
              "human_work", TaskRef("t")),
-            (PrerequisiteEvidence, dict(requirement=GateRequirementRef("g"),
+            (PrerequisiteEvidence, dict(ref=PrerequisiteRecordRef("prr"),
+                                        requirement=GateRequirementRef("g"),
                                         run=WorkflowRunRef("r"), work_item=WorkItemRef("wi"),
                                         prerequisite=PrerequisiteRef("pr"),
                                         outcome=GateOutcome.SATISFIED,
@@ -425,8 +455,8 @@ class TestEvidenceBinding(unittest.TestCase):
                                  prerequisite=PrerequisiteRef("pre.residency"))
         orch = build()
         run, item = started(orch, simple_task(gates=(prereq,)))
-        evidence = PrerequisiteEvidence(prereq.ref, run.ref, item.ref,
-                                        PrerequisiteRef("pre.residency"),
+        evidence = PrerequisiteEvidence(PrerequisiteRecordRef("prr.1"), prereq.ref, run.ref,
+                                        item.ref, PrerequisiteRef("pre.residency"),
                                         GateOutcome.SATISFIED, StorageRecordRef("sr.1"))
         state = orch.record_prerequisite(run, item, prereq.ref, evidence)
         self.assertTrue(state.is_continuing())
@@ -452,7 +482,7 @@ class TestRoutingBinding(unittest.TestCase):
                                 run.ref, item.ref, RouterOutcome.ELIGIBLE_CANDIDATE,
                                 RouterRef("router.phase9"), ModelRef("m"), ModelProfileRef("p"))
         with self.assertRaises(LineageError):
-            orch.record_routing_decision(run, request, other)
+            orch._record_routing_decision(run, request, other)
 
     def test_a_fabricated_decision_cannot_reach_model_invocation(self):
         orch = build(eligible={"cap": (ModelRef("m"), ModelProfileRef("p"))})
@@ -569,50 +599,134 @@ class TestScopeBinding(unittest.TestCase):
         self.assertFalse(SCOPE.narrows_to(ScopeBinding(SCOPE.scope, frozenset({"INTERNAL"}),
                                                        "US")))
 
+    def _authorised_setup(self, target):
+        """A run that really did take a governed decision to cross, with a registry to match."""
+        gate = decision_gate("gate.tr", "dr.tr")
+        registry = InMemoryMechanismRegistry()
+        registry.register(ScopeTransferRef("st.1"), "v2", SCOPE, target)
+        orch = build(rights={"dr.tr": (HumanAuthorityRef("h"), GateOutcome.SATISFIED)},
+                     mechanisms=registry)
+        run, item = started(orch, simple_task(gates=(gate,)))
+        _outcome, record = orch.run_decision_gate(run, item, gate.ref)
+        return orch, run, item, gate, record
+
+    def _authorisation(self, run, item, gate, record, target, **overrides):
+        fields = dict(mechanism=ScopeTransferRef("st.1"), mechanism_version="v2",
+                      source_run=run.ref, source_scope=run.scope, target_scope=target,
+                      work_item=item.ref, requirement=gate.ref,
+                      decision_right=DecisionRightRef("dr.tr"),
+                      authorised_by=record.decided_by, decision_record=record.ref)
+        fields.update(overrides)
+        return ScopeTransferAuthorisation(**fields)
+
     def test_a_bare_mechanism_reference_does_not_authorise_a_crossing(self):
-        orch = build()
-        run, _ = started(orch, simple_task())
         target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
         for bare in (None, ScopeTransferRef("st.bare"), HandoffRef("ho.bare")):
-            fresh = build()
-            run, _ = started(fresh, simple_task(), "run.%s" % id(bare))
+            orch = build()
+            run, _ = started(orch, simple_task(), "run.%s" % id(bare))
             with self.assertRaises(GovernanceError):
-                fresh.transfer_scope(run, run.definition, WorkflowRunRef("run.x"), target,
-                                     authorisation=bare)
+                orch.transfer_scope(run, run.definition, WorkflowRunRef("run.x"), target,
+                                    authorisation=bare)
 
-    def test_an_authorisation_for_another_run_or_scope_is_refused(self):
-        orch = build()
-        run, _ = started(orch, simple_task())
+    def test_a_fabricated_authorisation_with_no_retained_record_is_refused(self):
         target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
-        wrong_run = ScopeTransferAuthorisation(
-            ScopeTransferRef("st.1"), "v2", WorkflowRunRef("run.elsewhere"), SCOPE.scope,
-            target.scope, HumanAuthorityRef("h"), DecisionRecordRef("dr.1"))
+        orch, run, item, gate, record = self._authorised_setup(target)
+        fabricated = self._authorisation(run, item, gate, record, target,
+                                         decision_record=DecisionRecordRef("dr.never"))
         with self.assertRaises(GovernanceError):
             orch.transfer_scope(run, run.definition, WorkflowRunRef("run.x"), target,
-                                wrong_run)
+                                fabricated)
+
+    def test_an_authorisation_naming_another_run_is_refused(self):
+        target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
+        orch, run, item, gate, record = self._authorised_setup(target)
+        wrong = self._authorisation(run, item, gate, record, target,
+                                    source_run=WorkflowRunRef("run.elsewhere"))
+        with self.assertRaises(GovernanceError):
+            orch.transfer_scope(run, run.definition, WorkflowRunRef("run.x"), target, wrong)
+
+    def test_an_authorisation_naming_another_target_binding_is_refused(self):
+        target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
+        narrower = ScopeBinding(ScopeRef("project.zephyr"), frozenset(), "EU")
+        orch, run, item, gate, record = self._authorised_setup(target)
+        orch.mechanisms.register(ScopeTransferRef("st.1"), "v2", SCOPE, target)
+        # The authorisation covers a different (narrower) target than the one being crossed to.
+        wrong = self._authorisation(run, item, gate, record, narrower)
+        with self.assertRaises(GovernanceError):
+            orch.transfer_scope(run, run.definition, WorkflowRunRef("run.x"), target, wrong)
+
+    def test_the_authorising_human_must_be_the_one_who_exercised_the_right(self):
+        target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
+        orch, run, item, gate, record = self._authorised_setup(target)
+        wrong = self._authorisation(run, item, gate, record, target,
+                                    authorised_by=HumanAuthorityRef("human.someone-else"))
+        with self.assertRaises(GovernanceError):
+            orch.transfer_scope(run, run.definition, WorkflowRunRef("run.x"), target, wrong)
+
+    def test_the_mechanism_must_be_one_the_run_recognises(self):
+        target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
+        orch, run, item, gate, record = self._authorised_setup(target)
+        unknown = self._authorisation(run, item, gate, record, target,
+                                      mechanism_version="v99")
+        with self.assertRaises(GovernanceError):
+            orch.transfer_scope(run, run.definition, WorkflowRunRef("run.x"), target, unknown)
+
+    def test_an_orchestrator_with_no_registry_approves_no_crossing(self):
+        target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
+        orch, run, item, gate, record = self._authorised_setup(target)
+        orch.mechanisms = None
+        authorisation = self._authorisation(run, item, gate, record, target)
+        with self.assertRaises(GovernanceError):
+            orch.transfer_scope(run, run.definition, WorkflowRunRef("run.x"), target,
+                                authorisation)
+
+    def test_a_crossing_may_not_widen_sensitivity_or_change_residency(self):
+        wider = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL", "SECRET"}),
+                             "EU")
+        orch, run, item, gate, record = self._authorised_setup(wider)
+        orch.mechanisms.register(ScopeTransferRef("st.1"), "v2", SCOPE, wider)
+        with self.assertRaises(GovernanceError):
+            orch.transfer_scope(run, run.definition, WorkflowRunRef("run.x"), wider,
+                                self._authorisation(run, item, gate, record, wider))
+        elsewhere = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "US")
+        orch2, run2, item2, gate2, record2 = self._authorised_setup(elsewhere)
+        orch2.mechanisms.register(ScopeTransferRef("st.1"), "v2", SCOPE, elsewhere)
+        with self.assertRaises(GovernanceError):
+            orch2.transfer_scope(run2, run2.definition, WorkflowRunRef("run.y"), elsewhere,
+                                 self._authorisation(run2, item2, gate2, record2, elsewhere))
 
     def test_an_approved_authorisation_creates_a_new_run_and_leaves_the_first_bound(self):
-        orch = build()
-        run, _ = started(orch, simple_task())
         target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
-        authorisation = ScopeTransferAuthorisation(
-            ScopeTransferRef("st.1"), "v2", run.ref, SCOPE.scope, target.scope,
-            HumanAuthorityRef("h"), DecisionRecordRef("dr.1"))
+        orch, run, item, gate, record = self._authorised_setup(target)
+        authorisation = self._authorisation(run, item, gate, record, target)
         transferred = orch.transfer_scope(run, run.definition, WorkflowRunRef("run.x"),
                                           target, authorisation)
-        self.assertEqual(transferred.scope.scope, target.scope)
-        self.assertEqual(run.scope.scope, SCOPE.scope)          # one scope per execution
+        self.assertEqual(transferred.scope, target)
+        self.assertEqual(run.scope, SCOPE)                      # one scope per execution
         self.assertIsNot(transferred, run)
 
-    def test_an_authorisation_needs_a_real_mechanism_kind_and_version(self):
-        with self.assertRaises(IdentityError):
-            ScopeTransferAuthorisation(ArtifactRef("art"), "v1", WorkflowRunRef("r"),
-                                       ScopeRef("a"), ScopeRef("b"), HumanAuthorityRef("h"),
-                                       DecisionRecordRef("dr"))
+    def test_a_refused_crossing_records_nothing(self):
+        target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
+        orch, run, item, gate, record = self._authorised_setup(target)
+        before = snapshot(run, orch)
         with self.assertRaises(GovernanceError):
-            ScopeTransferAuthorisation(ScopeTransferRef("st"), "", WorkflowRunRef("r"),
-                                       ScopeRef("a"), ScopeRef("b"), HumanAuthorityRef("h"),
-                                       DecisionRecordRef("dr"))
+            orch.transfer_scope(run, run.definition, WorkflowRunRef("run.x"), target,
+                                self._authorisation(run, item, gate, record, target,
+                                                    decision_record=DecisionRecordRef("dr.no")))
+        self.assertEqual(before, snapshot(run, orch))
+
+    def test_an_authorisation_needs_a_real_mechanism_kind_and_version(self):
+        common = dict(source_run=WorkflowRunRef("r"), source_scope=SCOPE, target_scope=SCOPE,
+                      work_item=WorkItemRef("wi"), requirement=GateRequirementRef("g"),
+                      decision_right=DecisionRightRef("d"),
+                      authorised_by=HumanAuthorityRef("h"),
+                      decision_record=DecisionRecordRef("dr"))
+        with self.assertRaises(IdentityError):
+            ScopeTransferAuthorisation(mechanism=ArtifactRef("art"), mechanism_version="v1",
+                                       **common)
+        with self.assertRaises(GovernanceError):
+            ScopeTransferAuthorisation(mechanism=ScopeTransferRef("st"), mechanism_version="",
+                                       **common)
 
 
 class TestAppendOnlyHistory(unittest.TestCase):
@@ -827,6 +941,395 @@ class TestCompletion(unittest.TestCase):
         orch.invoke_model(run, item, decision)
         with self.assertRaises(GovernanceError):
             orch.complete(run, TerminalOutcome.COMPLETED)
+
+
+class TestConstructionTimeCompleteness(unittest.TestCase):
+    """Re-audit finding 1: every declared field, not only the governed references."""
+
+    def test_a_string_cannot_stand_where_an_enum_is_declared(self):
+        with self.assertRaises(IdentityError):
+            HumanWorkCompletion(HumanWorkRecordRef("hwr"), GateRequirementRef("g"),
+                                WorkflowRunRef("r"), WorkItemRef("wi"), HumanWorkRef("hw"),
+                                "SATISFIED", HumanAuthorityRef("h"))
+        with self.assertRaises(IdentityError):
+            PrerequisiteEvidence(PrerequisiteRecordRef("prr"), GateRequirementRef("g"),
+                                 WorkflowRunRef("r"), WorkItemRef("wi"), PrerequisiteRef("pr"),
+                                 "SATISFIED", StorageRecordRef("sr"))
+        with self.assertRaises(IdentityError):
+            Task(TASK, "T", AUTHOR, "SAFE_AUTOMATIC_RETRY")
+
+    def test_a_string_cannot_stand_where_a_structured_value_is_declared(self):
+        with self.assertRaises(IdentityError):
+            RoutingRequest(RoutingRequestRef("rr"), WorkflowRunRef("r"), WorkItemRef("wi"),
+                           "cap", "project.apollo", "p@1")
+        with self.assertRaises(IdentityError):
+            WorkflowDefinition(WorkflowRef("wf"), "v1", (simple_task(),), "project.apollo")
+
+    def test_a_string_cannot_stand_where_a_string_is_not_declared(self):
+        with self.assertRaises(IdentityError):
+            ScopeBinding(ScopeRef("s"), frozenset({"A"}), 7)
+        with self.assertRaises(IdentityError):
+            Task(TASK, 7, AUTHOR, RetryClass.SAFE_AUTOMATIC_RETRY)
+
+    def test_container_elements_are_checked(self):
+        with self.assertRaises(IdentityError):
+            WorkflowDefinition(WorkflowRef("wf"), "v1", ("not a task",), SCOPE)
+        with self.assertRaises(IdentityError):
+            Task(TASK, "T", AUTHOR, RetryClass.SAFE_AUTOMATIC_RETRY, gates=("not a gate",))
+        with self.assertRaises(IdentityError):
+            ScopeBinding(ScopeRef("s"), frozenset({7}), "EU")
+        with self.assertRaises(IdentityError):
+            ScopeBinding(ScopeRef("s"), {"A"}, "EU")
+
+    def test_no_coercion_happens_anywhere(self):
+        """A rejected value is rejected, never quietly converted."""
+        binding = ScopeBinding(ScopeRef("s"), frozenset({"A"}), "EU")
+        self.assertIsInstance(binding.sensitivity, frozenset)
+        with self.assertRaises(IdentityError):
+            ScopeBinding(ScopeRef("s"), ["A"], "EU")
+
+    def test_the_enforcement_covers_every_governed_dataclass(self):
+        """A sweep: a new governed object that forgets to enforce is noticed here."""
+        import dataclasses
+        import domain as domain_module
+        governed = [obj for name, obj in vars(domain_module).items()
+                    if dataclasses.is_dataclass(obj) and isinstance(obj, type)
+                    and obj is not domain_module.Ref
+                    and not issubclass(obj, domain_module.Ref)]
+        self.assertGreaterEqual(len(governed), 15)
+        for cls in governed:
+            source = cls.__post_init__.__code__.co_names if hasattr(cls, "__post_init__") else ()
+            self.assertIn("enforce_field_types", source,
+                          "%s does not enforce its field types" % cls.__name__)
+
+
+class TestGateInstanceIdentity(unittest.TestCase):
+    """Re-audit finding 2: a requirement reference is not an instantiated gate identity."""
+
+    def test_activating_one_gated_task_twice_keeps_both_gates(self):
+        gate = decision_gate("gate.shared", "dr.shared")
+        orch = build(rights={"dr.shared": (HumanAuthorityRef("h"), GateOutcome.SATISFIED)})
+        run, first = started(orch, simple_task(gates=(gate,)))
+        second = orch.activate_stage(run, TASK)
+        self.assertNotEqual(first.ref, second.ref)
+        self.assertEqual(len(run.work_items()), 2)
+        self.assertEqual(len(run.gates()), 2)
+        self.assertEqual(len({g.ref for g in run.gates()}), 2)
+
+    def test_satisfying_the_second_leaves_the_first_open(self):
+        gate = decision_gate("gate.shared", "dr.shared")
+        orch = build(rights={"dr.shared": (HumanAuthorityRef("h"), GateOutcome.SATISFIED)})
+        run, first = started(orch, simple_task(gates=(gate,)))
+        second = orch.activate_stage(run, TASK)
+        orch.run_decision_gate(run, second, gate.ref)
+        open_gates = orch.unsatisfied_gates(run)
+        self.assertEqual(len(open_gates), 1)
+        self.assertEqual(open_gates[0].work_item, first.ref)
+        with self.assertRaises(GovernanceError):
+            orch.complete(run, TerminalOutcome.COMPLETED)
+
+    def test_two_tasks_reusing_one_requirement_id_do_not_alias(self):
+        shared = GateRequirementRef("gate.reused")
+        first = Task(TaskRef("task.a"), "A", AUTHOR, RetryClass.SAFE_AUTOMATIC_RETRY,
+                     gates=(GateRequirement(shared, GateKind.DECISION,
+                                            decision_right=DecisionRightRef("dr.a")),))
+        second = Task(TaskRef("task.b"), "B", AUTHOR, RetryClass.SAFE_AUTOMATIC_RETRY,
+                      gates=(GateRequirement(shared, GateKind.DECISION,
+                                             decision_right=DecisionRightRef("dr.b")),))
+        orch = build(rights={"dr.a": (HumanAuthorityRef("h"), GateOutcome.SATISFIED)})
+        definition = WorkflowDefinition(WorkflowRef("wf.two"), "v1", (first, second), SCOPE)
+        run = orch.create_run(definition, WorkflowRunRef("run.two"))
+        item_a = orch.activate_stage(run, first.ref)
+        item_b = orch.activate_stage(run, second.ref)
+        self.assertEqual(len(run.gates()), 2)
+        orch.run_decision_gate(run, item_a, shared)
+        still_open = orch.unsatisfied_gates(run)
+        self.assertEqual(len(still_open), 1)
+        self.assertEqual(still_open[0].work_item, item_b.ref)
+
+    def test_a_gate_instance_carries_its_own_identity(self):
+        gate = decision_gate()
+        orch = build()
+        run, item = started(orch, simple_task(gates=(gate,)))
+        instance = run.gate_instance(item.ref, gate.ref)
+        self.assertIsInstance(instance.ref, GateInstanceRef)
+        self.assertEqual(instance.run, run.ref)
+        self.assertEqual(instance.work_item, item.ref)
+        self.assertIs(instance.kind, GateKind.DECISION)
+
+
+class TestHaltedRunCannotProgress(unittest.TestCase):
+    """Re-audit finding 3: a blocked or escalated run does not resume by being asked."""
+
+    def _halted(self):
+        gate = decision_gate("gate.absent", "dr.absent")
+        orch = build(rights={})
+        run, item = started(orch, simple_task(gates=(gate,)))
+        orch.run_decision_gate(run, item, gate.ref)
+        return orch, run, item, gate
+
+    def test_the_exact_audit_chain_is_refused(self):
+        orch, run, item, gate = self._halted()
+        self.assertIs(run.phase, RunPhase.ESCALATED)
+        self.assertIs(run.posture, GovernancePosture.AUTHORITY_ABSENT)
+        with self.assertRaises(GovernanceError):
+            orch.activate_stage(run, TASK)
+        self.assertEqual(len(run.gates()), 1)
+        self.assertIs(run.gates()[0].outcome, GateOutcome.NO_APPLICABLE_DECISION_RIGHT)
+
+    def test_a_blocked_run_cannot_activate_a_stage(self):
+        orch = build(eligible={})
+        run, item = started(orch, simple_task(capability="cap"))
+        orch.route(run, item, "policy@1")
+        self.assertIs(run.phase, RunPhase.BLOCKED)
+        self.assertIs(run.posture, GovernancePosture.GATE_UNSATISFIED)
+        with self.assertRaises(TransitionError):
+            orch.activate_stage(run, TASK)
+
+    def test_authority_absent_always_arrives_with_an_escalated_phase(self):
+        """Two guards, one reachable state.
+
+        `activate_stage` refuses on the phase AND on the posture. Today the posture guard is
+        unreachable on its own, because `AUTHORITY_ABSENT` is only ever set together with
+        `ESCALATED`; the test records that coincidence rather than pretending the second guard
+        is independently exercised. It is kept as defence for any future path that sets the
+        posture without halting the phase."""
+        gate = decision_gate("gate.absent", "dr.absent")
+        orch = build(rights={})
+        run, item = started(orch, simple_task(gates=(gate,)))
+        orch.run_decision_gate(run, item, gate.ref)
+        self.assertIs(run.posture, GovernancePosture.AUTHORITY_ABSENT)
+        self.assertIs(run.phase, RunPhase.ESCALATED)
+        with self.assertRaises(GovernanceError):
+            orch.activate_stage(run, TASK)
+
+    def test_unblocking_needs_a_recorded_human_act_and_a_resolved_constraint(self):
+        orch, run, item, gate = self._halted()
+        intervention = HumanInterventionRecord(InterventionRef("iv"), run.ref,
+                                               HumanAuthorityRef("h"), "unblock",
+                                               "the Right was created in Phase 7")
+        with self.assertRaises(GovernanceError):
+            orch.unblock(run, intervention)          # the gate still stands unresolved
+        self.assertIs(run.phase, RunPhase.ESCALATED)
+
+    def test_unblocking_a_run_whose_constraint_is_resolved_resumes_it(self):
+        orch = build(eligible={})
+        run, item = started(orch, simple_task(capability="cap"))
+        orch.route(run, item, "policy@1")
+        intervention = HumanInterventionRecord(InterventionRef("iv"), run.ref,
+                                               HumanAuthorityRef("h"), "unblock",
+                                               "an eligible deployment was registered")
+        orch.unblock(run, intervention)
+        self.assertIs(run.phase, RunPhase.RUNNING)
+        self.assertIs(run.posture, GovernancePosture.GOVERNANCE_CLEAR)
+
+
+class TestEvidenceBeforeMutation(unittest.TestCase):
+    """Re-audit finding 4: validate, then commit. A refusal leaves nothing behind."""
+
+    def test_a_continuing_outcome_with_no_record_is_refused_before_any_mutation(self):
+        gate = decision_gate("gate.norec", "dr.norec")
+        orch = build(rights={})
+        run, item = started(orch, simple_task(gates=(gate,)))
+        orch.decisions.decide = lambda request: (GateOutcome.SATISFIED, None)
+        before = snapshot(run, orch)
+        # Its own error class: "no record at all" is a different failure from "wrong record".
+        with self.assertRaises(MissingEvidenceError):
+            orch.run_decision_gate(run, item, gate.ref)
+        self.assertEqual(before, snapshot(run, orch))
+
+    def test_rejected_evidence_leaves_state_and_history_unchanged(self):
+        gate = decision_gate("gate.part", "dr.part")
+        orch = build(rights={"dr.part": (HumanAuthorityRef("h"), GateOutcome.SATISFIED)})
+        run, item = started(orch, simple_task(gates=(gate,)))
+        forged = DecisionRecord(DecisionRecordRef("dr.forged"), gate.ref,
+                                WorkflowRunRef("run.elsewhere"), item.ref,
+                                DecisionRightRef("dr.part"), GateOutcome.SATISFIED,
+                                HumanAuthorityRef("h"))
+        before = snapshot(run, orch)
+        with self.assertRaises(EvidenceError):
+            orch.satisfy_gate_with(run, item, gate.ref, forged)
+        self.assertEqual(before, snapshot(run, orch))
+
+    def test_a_rejected_review_leaves_state_and_history_unchanged(self):
+        gate = review_gate(profile="rp.ind", independence="INDEPENDENT")
+        orch = build(reviews={"rp.ind": (GateOutcome.SATISFIED, HumanAuthorityRef("h"),
+                                         "NOT_INDEPENDENT")})
+        run, item = started(orch, simple_task(gates=(gate,)))
+        before = snapshot(run, orch)
+        with self.assertRaises(EvidenceError):
+            orch.run_review_gate(run, item, gate.ref)
+        self.assertEqual(before, snapshot(run, orch))
+
+    def test_a_rejected_model_result_leaves_nothing_recorded(self):
+        orch = build(eligible={"cap": (ModelRef("m"), ModelProfileRef("p"))})
+        run, item = started(orch, simple_task(capability="cap"))
+        decision = orch.route(run, item, "policy@1")
+        orch.model.execute = lambda request: ModelResult(
+            WorkflowRunRef("run.elsewhere"), item.ref, decision.ref, ModelRef("m"), "t")
+        before = snapshot(run, orch)
+        with self.assertRaises(LineageError):
+            orch.invoke_model(run, item, decision)
+        self.assertEqual(before, snapshot(run, orch))
+
+    def test_an_adapter_answer_that_is_not_a_pair_is_refused(self):
+        gate = decision_gate("gate.bad", "dr.bad")
+        orch = build(rights={})
+        run, item = started(orch, simple_task(gates=(gate,)))
+        orch.decisions.decide = lambda request: GateOutcome.SATISFIED
+        before = snapshot(run, orch)
+        with self.assertRaises(EvidenceError):
+            orch.run_decision_gate(run, item, gate.ref)
+        self.assertEqual(before, snapshot(run, orch))
+
+
+class TestOpenItemsSemantics(unittest.TestCase):
+    """Re-audit finding 5: SATISFIED_WITH_OPEN_ITEMS means the same thing everywhere."""
+
+    def _carry(self, gate, evidence, record):
+        orch = build()
+        run, item = started(orch, simple_task(gates=(gate,)))
+        record(orch, run, item)
+        return orch, run
+
+    def test_human_work_carries_open_items(self):
+        gate = human_gate("gate.hw2", "hw.2")
+        orch = build()
+        run, item = started(orch, simple_task(gates=(gate,)))
+        completion = HumanWorkCompletion(HumanWorkRecordRef("hwr"), gate.ref, run.ref,
+                                         item.ref, HumanWorkRef("hw.2"),
+                                         GateOutcome.SATISFIED_WITH_OPEN_ITEMS,
+                                         HumanAuthorityRef("h"))
+        orch.record_human_work(run, item, gate.ref, completion)
+        self.assertIs(run.posture, GovernancePosture.OPEN_ITEMS_CARRIED)
+        with self.assertRaises(GovernanceError):
+            orch.complete(run, TerminalOutcome.COMPLETED)
+        orch.complete(run, TerminalOutcome.COMPLETED_WITH_OPEN_ITEMS)
+
+    def test_prerequisite_carries_open_items(self):
+        gate = prerequisite_gate("gate.pre2", "pre.2")
+        orch = build()
+        run, item = started(orch, simple_task(gates=(gate,)))
+        evidence = PrerequisiteEvidence(PrerequisiteRecordRef("prr"), gate.ref, run.ref,
+                                        item.ref, PrerequisiteRef("pre.2"),
+                                        GateOutcome.SATISFIED_WITH_OPEN_ITEMS,
+                                        StorageRecordRef("sr"))
+        orch.record_prerequisite(run, item, gate.ref, evidence)
+        self.assertIs(run.posture, GovernancePosture.OPEN_ITEMS_CARRIED)
+        with self.assertRaises(GovernanceError):
+            orch.complete(run, TerminalOutcome.COMPLETED)
+
+    def test_externally_supplied_evidence_carries_open_items(self):
+        gate = prerequisite_gate("gate.pre3", "pre.3")
+        orch = build()
+        run, item = started(orch, simple_task(gates=(gate,)))
+        evidence = PrerequisiteEvidence(PrerequisiteRecordRef("prr3"), gate.ref, run.ref,
+                                        item.ref, PrerequisiteRef("pre.3"),
+                                        GateOutcome.SATISFIED_WITH_OPEN_ITEMS,
+                                        StorageRecordRef("sr"))
+        orch.satisfy_gate_with(run, item, gate.ref, evidence)
+        self.assertIs(run.posture, GovernancePosture.OPEN_ITEMS_CARRIED)
+
+    def test_decision_carries_open_items(self):
+        gate = decision_gate("gate.oi", "dr.oi")
+        orch = build(rights={"dr.oi": (HumanAuthorityRef("h"),
+                                       GateOutcome.SATISFIED_WITH_OPEN_ITEMS)})
+        run, item = started(orch, simple_task(gates=(gate,)))
+        orch.run_decision_gate(run, item, gate.ref)
+        self.assertIs(run.posture, GovernancePosture.OPEN_ITEMS_CARRIED)
+
+
+class TestEvidenceRetention(unittest.TestCase):
+    """Re-audit finding 8: evidence that satisfies a gate is retained, by its own identity."""
+
+    def test_externally_supplied_evidence_is_retained(self):
+        gate = prerequisite_gate("gate.ret", "pre.ret")
+        orch = build()
+        run, item = started(orch, simple_task(gates=(gate,)))
+        evidence = PrerequisiteEvidence(PrerequisiteRecordRef("prr.ret"), gate.ref, run.ref,
+                                        item.ref, PrerequisiteRef("pre.ret"),
+                                        GateOutcome.SATISFIED, StorageRecordRef("sr"))
+        instance = orch.satisfy_gate_with(run, item, gate.ref, evidence)
+        self.assertIn(evidence, run.prerequisite_records())
+        self.assertIs(run.evidence_for(instance), evidence)
+
+    def test_every_gate_kind_retains_its_evidence(self):
+        review = review_gate("gate.r", "rp")
+        decision = decision_gate("gate.d", "dr")
+        human = human_gate("gate.h", "hw")
+        prereq = prerequisite_gate("gate.p", "pre")
+        orch = build(reviews={"rp": (GateOutcome.SATISFIED, HumanAuthorityRef("h1"),
+                                     "INDEPENDENT")},
+                     rights={"dr": (HumanAuthorityRef("h2"), GateOutcome.SATISFIED)})
+        run, item = started(orch, simple_task(gates=(review, decision, human, prereq)))
+        orch.run_review_gate(run, item, review.ref)
+        orch.run_decision_gate(run, item, decision.ref)
+        orch.record_human_work(run, item, human.ref, HumanWorkCompletion(
+            HumanWorkRecordRef("hwr"), human.ref, run.ref, item.ref, HumanWorkRef("hw"),
+            GateOutcome.SATISFIED, HumanAuthorityRef("h3")))
+        orch.record_prerequisite(run, item, prereq.ref, PrerequisiteEvidence(
+            PrerequisiteRecordRef("prr"), prereq.ref, run.ref, item.ref, PrerequisiteRef("pre"),
+            GateOutcome.SATISFIED, StorageRecordRef("sr")))
+        for instance in run.gates():
+            self.assertIsNotNone(run.evidence_for(instance),
+                                 "%s has no retained evidence" % instance.kind.value)
+        orch.complete(run, TerminalOutcome.COMPLETED)
+
+    def test_a_duplicate_record_identity_is_refused(self):
+        gate = prerequisite_gate("gate.dup", "pre.dup")
+        orch = build()
+        run, item = started(orch, simple_task(gates=(gate,)))
+        evidence = PrerequisiteEvidence(PrerequisiteRecordRef("prr.dup"), gate.ref, run.ref,
+                                        item.ref, PrerequisiteRef("pre.dup"),
+                                        GateOutcome.SATISFIED, StorageRecordRef("sr"))
+        orch.record_prerequisite(run, item, gate.ref, evidence)
+        with self.assertRaises(AppendOnlyError):
+            orch.record_prerequisite(run, item, gate.ref, evidence)
+
+    def test_review_independence_is_recorded_not_assumed(self):
+        review = review_gate("gate.r", "rp", "INDEPENDENT")
+        orch = build(reviews={"rp": (GateOutcome.SATISFIED, HumanAuthorityRef("h"),
+                                     "INDEPENDENT")})
+        run, item = started(orch, simple_task(gates=(review,)))
+        instance = orch.run_review_gate(run, item, review.ref)
+        retained = run.evidence_for(run.gate_instance(item.ref, review.ref))
+        self.assertIs(retained, instance)
+        self.assertEqual(retained.independence_class, "INDEPENDENT")
+
+
+class TestRoutingProvenance(unittest.TestCase):
+    """Re-audit finding 7: a Routing Decision enters history only from the configured Router."""
+
+    def test_there_is_no_public_recording_path(self):
+        orch = build()
+        self.assertFalse(hasattr(orch, "record_routing_decision"))
+
+    def test_a_decision_from_another_router_is_refused(self):
+        orch = build(eligible={"cap": (ModelRef("m"), ModelProfileRef("p"))})
+        run, item = started(orch, simple_task(capability="cap"))
+        request = orch.request_routing(run, item, "policy@1")
+        impostor = RoutingDecision(RoutingDecisionRef("rd.imp"), request.ref, run.ref,
+                                   item.ref, RouterOutcome.ELIGIBLE_CANDIDATE,
+                                   RouterRef("router.other"), ModelRef("m"),
+                                   ModelProfileRef("p"))
+        with self.assertRaises(LineageError):
+            orch._record_routing_decision(run, request, impostor)
+
+    def test_the_recorded_decision_is_the_object_the_router_returned(self):
+        orch = build(eligible={"cap": (ModelRef("m"), ModelProfileRef("p"))})
+        run, item = started(orch, simple_task(capability="cap"))
+        decision = orch.route(run, item, "policy@1")
+        self.assertIs(run.routing_decisions()[-1], decision)
+
+    def test_a_model_result_for_another_run_is_refused(self):
+        orch = build(eligible={"cap": (ModelRef("m"), ModelProfileRef("p"))})
+        run, item = started(orch, simple_task(capability="cap"))
+        decision = orch.route(run, item, "policy@1")
+        orch.model.execute = lambda request: ModelResult(
+            run.ref, WorkItemRef("wi.elsewhere"), decision.ref, ModelRef("m"), "t")
+        with self.assertRaises(LineageError):
+            orch.invoke_model(run, item, decision)
+        self.assertEqual(len(run.model_results()), 0)
 
 
 class TestExamplesRun(unittest.TestCase):
