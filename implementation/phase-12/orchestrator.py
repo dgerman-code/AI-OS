@@ -63,6 +63,7 @@ class Orchestrator:
         self.mechanisms = mechanisms
         self.log = log if log is not None else ExecutionEventLog()
         self._tokens: Dict[int, object] = {}
+        self._run_refs = set()
         self._serial = 0
 
     # ---------------------------------------------------------------- token and state
@@ -147,6 +148,28 @@ class Orchestrator:
         """Create a run bound to a governed definition and to exactly one scope."""
         return self._create_run(definition, run_ref, scope)
 
+    def _preflight_run_creation(self, definition: WorkflowDefinition, run_ref: WorkflowRunRef,
+                                scope: Optional[ScopeBinding] = None,
+                                authorisation: Optional[ScopeTransferAuthorisation] = None
+                                ) -> ScopeBinding:
+        """Everything about creating a run that can refuse. Reads only; mutates nothing.
+
+        This is the single definition of the conditions, so no path can validate a run
+        creation differently from the path that commits it. It answers with the scope binding
+        the committing half will use, so the two cannot disagree about that either."""
+        if not isinstance(definition, WorkflowDefinition):
+            raise LineageError("a run is created from a governed Workflow Definition")
+        require(run_ref, WorkflowRunRef, "run creation")
+        if run_ref in self._run_refs:
+            raise LineageError("%s already identifies a run of this orchestrator" % run_ref)
+        if scope is not None and not isinstance(scope, ScopeBinding):
+            raise GovernanceError("a run is bound to a complete scope binding")
+        binding = definition.scope if scope is None else scope
+        if (binding is not definition.scope and not definition.scope.narrows_to(binding)
+                and authorisation is None):
+            raise GovernanceError("a run may narrow the definition's scope, never widen it")
+        return binding
+
     def _create_run(self, definition: WorkflowDefinition, run_ref: WorkflowRunRef,
                     scope: Optional[ScopeBinding] = None,
                     authorisation: Optional[ScopeTransferAuthorisation] = None
@@ -156,16 +179,14 @@ class Orchestrator:
         A run's scope is the definition's, or a narrowing of it. The single exception is a
         crossing that a `ScopeTransferAuthorisation` already covers - checked by the caller
         against the source run - which is how an approved mechanism moves work to another
-        scope without any run's binding ever being rewritten."""
-        if not isinstance(definition, WorkflowDefinition):
-            raise LineageError("a run is created from a governed Workflow Definition")
-        binding = definition.scope if scope is None else scope
-        if (binding is not definition.scope and not definition.scope.narrows_to(binding)
-                and authorisation is None):
-            raise GovernanceError("a run may narrow the definition's scope, never widen it")
+        scope without any run's binding ever being rewritten.
+
+        Every refusal lives in `_preflight_run_creation`; what remains here only commits."""
+        binding = self._preflight_run_creation(definition, run_ref, scope, authorisation)
         token = object()
         run = WorkflowRun(run_ref, definition, binding, token)
         self._tokens[id(run)] = token
+        self._run_refs.add(run_ref)
         self.log.append(run.ref, "run:created",
                         "%s @ %s" % (definition.ref, definition.version), definition.ref)
         self.log.append(run.ref, "scope:bound", "%s %s %s"
@@ -203,6 +224,11 @@ class Orchestrator:
             # Validation refused: nothing is recorded and nothing moves. The refusal is the
             # whole effect, because a crossing that was never authorised never happened.
             raise
+        # The target side must be known creatable BEFORE the source side records anything.
+        # The audit found an authorisation event left behind by a transfer whose target
+        # definition or run identity was unusable; the preflight is the same helper the
+        # committing path uses, so the two cannot diverge.
+        self._preflight_run_creation(definition, run_ref, target, authorisation)
         self.log.append(run.ref, "scope:transfer_authorised",
                         "%s @ %s" % (authorisation.mechanism, authorisation.mechanism_version),
                         authorisation.decision_record)
@@ -310,18 +336,14 @@ class Orchestrator:
             raise TransitionError("%s is terminal" % run.ref)
         if state.phase not in HALTED_PHASES:
             raise TransitionError("%s is %s, not halted" % (run.ref, state.phase.value))
-        if not isinstance(intervention, HumanInterventionRecord):
-            raise GovernanceError("recovery needs a recorded human intervention")
-        if intervention.run != run.ref:
-            raise LineageError("the intervention names another run")
-        require(intervention.by, HumanAuthorityRef, "intervention")
+        self._validate_intervention(run, intervention)
         standing = [g for g in run.gates() if g.is_resolved() and not g.is_continuing()]
         if standing:
             raise GovernanceError(
                 "%d gate(s) still stand unresolved in favour of continuation; the blocking "
                 "constraint is not satisfied" % len(standing))
         self._store(run, "interventions").validate_add(intervention)
-        self._preflight_phases(run, (RunPhase.RUNNING,))
+        self._preflight_phases(run, (RunPhase.RUNNING,), allow_noop=False)
         self._record_intervention(run, intervention)
         self._transition(run, RunPhase.RUNNING, detail=intervention.reason)
         if state.posture is not GovernancePosture.OPEN_ITEMS_CARRIED:
@@ -362,9 +384,14 @@ class Orchestrator:
             raise GovernanceError("%s is not the Role the task requires (%s)"
                                   % (role, item.required_role))
         state = self._state(run)
-        state.attempts[item.ref.id] = state.attempts.get(item.ref.id, 0) + 1
-        assignment = Assignment(item.ref, role, agent_instance,
-                                attempt=state.attempts[item.ref.id])
+        # ---- preflight. The attempt number is computed, not applied: constructing the
+        # Assignment is what validates the Agent Instance reference, and an attempt counter
+        # that has already moved when that construction raises is a partial mutation.
+        attempt = state.attempts.get(item.ref.id, 0) + 1
+        assignment = Assignment(item.ref, role, agent_instance, attempt=attempt)
+        self._store(run, "assignments").validate_add(assignment)
+        # ---- commit
+        state.attempts[item.ref.id] = attempt
         self._store(run, "assignments").add(assignment)
         self.log.append(run.ref, "assignment:created",
                         "attempt %d" % assignment.attempt, item.ref)
@@ -372,23 +399,43 @@ class Orchestrator:
 
     # ---------------------------------------------------------------- routing
 
+    def _build_routing_request(self, run: WorkflowRun, work_item,
+                               routing_policy: str) -> RoutingRequest:
+        """Build a PROSPECTIVE Routing Request. Nothing is recorded and no state moves.
+
+        The serial it consumes is the only trace it leaves, and a serial is an identifier
+        supply, not governed history: a refused routing leaves no Routing Request behind."""
+        item = self._bound_item(run, work_item)
+        return RoutingRequest(RoutingRequestRef(self._next("rr")), run.ref, item.ref,
+                              item.capability, run.scope, routing_policy)
+
     def request_routing(self, run: WorkflowRun, work_item,
                         routing_policy: str) -> RoutingRequest:
-        """Create and RECORD the Routing Request. The orchestrator may not choose the model."""
+        """Create and RECORD the Routing Request. The orchestrator may not choose the model.
+
+        This remains a governed act in its own right; `route()` no longer goes through it,
+        because recording a request before the Router has answered is a mutation that a
+        malformed answer cannot undo."""
         self._require_progressible(run, "routing")
-        item = self._bound_item(run, work_item)
-        request = RoutingRequest(RoutingRequestRef(self._next("rr")), run.ref, item.ref,
-                                 item.capability, run.scope, routing_policy)
+        request = self._build_routing_request(run, work_item, routing_policy)
+        self._store(run, "routing_requests").validate_add(request)
         self._store(run, "routing_requests").add(request)
-        self.log.append(run.ref, "routing:requested", item.capability, request.ref)
+        self.log.append(run.ref, "routing:requested", request.capability, request.ref)
         return request
 
     def _validate_router_answer(self, run: WorkflowRun, request: RoutingRequest,
-                                decision: RoutingDecision) -> None:
-        """Validate the configured Router's direct answer without recording it."""
+                                decision: RoutingDecision, *, recorded: bool = True) -> None:
+        """Validate the configured Router's direct answer without recording it.
+
+        `recorded` distinguishes the two shapes of the same invariant: the decision must
+        answer a Routing Request this run owns. For a request already in governed history
+        that is the store; for the prospective request `route()` just built and has not yet
+        committed, it is the request's own binding to this run."""
         if not isinstance(decision, RoutingDecision):
             raise GovernanceError("only a Routing Decision can be recorded as routing")
-        if not self._store(run, "routing_requests").contains(request):
+        if not isinstance(request, RoutingRequest) or request.run != run.ref:
+            raise LineageError("that routing request does not belong to this run")
+        if recorded and not self._store(run, "routing_requests").contains(request):
             raise LineageError("that routing request was not issued by this run")
         if not decision.answers(request):
             raise LineageError("the routing decision does not answer %s" % request.ref)
@@ -401,9 +448,13 @@ class Orchestrator:
         """Ask the configured Router, then record exactly what it returned.
 
         This is the only path by which a Routing Decision reaches governed history."""
-        request = self.request_routing(run, work_item, routing_policy)
+        self._require_progressible(run, "routing")
+        # ---- preflight. The request is prospective until the answer is known good: a
+        # malformed or foreign Router answer must leave neither a Routing Request nor a
+        # routing event in this run's history.
+        request = self._build_routing_request(run, work_item, routing_policy)
         answer = self.router.route(request)
-        self._validate_router_answer(run, request, answer)
+        self._validate_router_answer(run, request, answer, recorded=False)
         # Preflight every resulting phase before recording the answer. A malformed state cannot
         # leave a Routing Decision in history without its declared state effect.
         phases = ()
@@ -412,7 +463,11 @@ class Orchestrator:
         elif answer.outcome is not RouterOutcome.ELIGIBLE_CANDIDATE:
             phases = (RunPhase.BLOCKED,)
         self._preflight_phases(run, phases)
+        self._store(run, "routing_requests").validate_add(request)
         self._store(run, "routing").validate_add(answer)
+        # ---- commit. Request, decision and both events are one act.
+        self._store(run, "routing_requests").add(request)
+        self.log.append(run.ref, "routing:requested", request.capability, request.ref)
         self._store(run, "routing").add(answer)
         self.log.append(run.ref, "routing:decided", answer.outcome.value, answer.ref)
         if answer.outcome is RouterOutcome.NO_APPLICABLE_DECISION_RIGHT:
@@ -473,15 +528,20 @@ class Orchestrator:
         GateKind.GOVERNED_PREREQUISITE: "prerequisites",
     }
 
-    def _preflight_phases(self, run: WorkflowRun, phases) -> None:
-        """Prove a phase sequence is legal without changing the run or its log."""
+    def _preflight_phases(self, run: WorkflowRun, phases, *, allow_noop: bool = True) -> None:
+        """Prove a phase sequence is legal without changing the run or its log.
+
+        `allow_noop` must match how the caller will commit. A caller that commits through
+        `_ensure_phase` treats "already there" as a no-op, so the preflight does too; a caller
+        that commits through `_transition` does not, and a preflight that were more permissive
+        than its own commit would pass an act that then fails half-applied."""
         state = self._state(run)
         if state.terminal is not None:
             raise TransitionError("run %s is terminal as %s and cannot move again"
                                   % (run.ref, state.terminal.value))
         current = state.phase
         for phase in phases:
-            if phase is current:
+            if phase is current and allow_noop:
                 continue
             if phase not in ALLOWED_TRANSITIONS[current]:
                 raise TransitionError("%s -> %s is not an approved transition"
@@ -767,21 +827,38 @@ class Orchestrator:
                             intervention: HumanInterventionRecord) -> HumanInterventionRecord:
         """A human act on the run. The human is recorded first; automation refuses after."""
         self._require_progressible(run, "recording an intervention")
+        self._validate_intervention(run, intervention)
+        self._store(run, "interventions").validate_add(intervention)
         return self._record_intervention(run, intervention)
 
-    def _record_intervention(self, run: WorkflowRun,
-                             intervention: HumanInterventionRecord) -> HumanInterventionRecord:
-        """The unguarded form, used by the governed recovery path and by stopping a run."""
+    def _validate_intervention(self, run: WorkflowRun,
+                               intervention: HumanInterventionRecord) -> None:
+        """Everything about an intervention that can refuse. Reads only."""
+        if not isinstance(intervention, HumanInterventionRecord):
+            raise GovernanceError("a human act on a run is recorded as an intervention")
         require(intervention.by, HumanAuthorityRef, "intervention")
         if intervention.run != run.ref:
             raise LineageError("the intervention names another run")
+
+    def _record_intervention(self, run: WorkflowRun,
+                             intervention: HumanInterventionRecord) -> HumanInterventionRecord:
+        """The commit half. Called only once every fallible check has passed."""
         self._store(run, "interventions").add(intervention)
         self.log.append(run.ref, "intervention:recorded", intervention.act, intervention.ref)
         return intervention
 
     def pause(self, run: WorkflowRun, intervention: HumanInterventionRecord) -> WorkflowRun:
+        """Suspend the run by a human act, atomically.
+
+        A second pause on an already-PAUSED run has no legal transition, and the audit found
+        that the intervention and its event were appended before the transition refused. Every
+        fallible check - the intervention, its identity in the store, and the transition
+        itself - now happens before the first mutation."""
         self._require_progressible(run, "pausing the run")
-        self.record_intervention(run, intervention)
+        self._validate_intervention(run, intervention)
+        self._store(run, "interventions").validate_add(intervention)
+        self._preflight_phases(run, (RunPhase.PAUSED,), allow_noop=False)
+        self._record_intervention(run, intervention)
         return self._transition(run, RunPhase.PAUSED, detail=intervention.reason)
 
     # ---------------------------------------------------------------- completion

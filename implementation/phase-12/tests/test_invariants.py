@@ -1441,6 +1441,207 @@ class TestRoutingProvenance(unittest.TestCase):
         self.assertEqual(run.model_results(), (result,))
 
 
+class TestLateFailureAtomicity(unittest.TestCase):
+    """A governed act that refuses leaves the run observationally identical.
+
+    The fourth audit found four acts that mutated before their last fallible check: the
+    assignment attempt counter, `pause`, the scope-transfer authorisation event, and the
+    Routing Request. Each test below asserts the whole observable state - axes, gate
+    outcomes, every governed record store, and the execution-event count - is unchanged by
+    the refusal, not merely that the refusal happened.
+    """
+
+    # -------------------------------------------------------------- assignment
+
+    def test_invalid_assignment_does_not_increment_attempt_or_append_history(self):
+        orch = build()
+        run, item = started(orch, simple_task())
+        before = snapshot(run, orch)
+        with self.assertRaises((IdentityError, GovernanceError)):
+            orch.assign(run, item, AUTHOR, agent_instance="agent.0001")
+        self.assertEqual(snapshot(run, orch), before)
+        # The counter did not move: the next assignment that succeeds is still attempt 1.
+        self.assertEqual(orch.assign(run, item, AUTHOR).attempt, 1)
+
+    def test_a_refused_assignment_does_not_disturb_a_counter_already_in_use(self):
+        orch = build()
+        run, item = started(orch, simple_task())
+        self.assertEqual(orch.assign(run, item, AUTHOR).attempt, 1)
+        before = snapshot(run, orch)
+        with self.assertRaises((IdentityError, GovernanceError)):
+            orch.assign(run, item, AUTHOR, agent_instance=object())
+        self.assertEqual(snapshot(run, orch), before)
+        self.assertEqual(orch.assign(run, item, AUTHOR).attempt, 2)
+
+    def test_an_assignment_of_the_wrong_role_is_atomic(self):
+        orch = build()
+        run, item = started(orch, simple_task())
+        before = snapshot(run, orch)
+        with self.assertRaises(GovernanceError):
+            orch.assign(run, item, RoleRef("role.someone-else"))
+        self.assertEqual(snapshot(run, orch), before)
+        self.assertEqual(orch.assign(run, item, AUTHOR).attempt, 1)
+
+    # -------------------------------------------------------------- pause
+
+    def _intervention(self, run, ref, act="pause", reason="stand down"):
+        return HumanInterventionRecord(InterventionRef(ref), run.ref,
+                                       HumanAuthorityRef("h"), act, reason)
+
+    def test_second_pause_failure_is_atomic(self):
+        orch = build()
+        run, _item = started(orch, simple_task())
+        orch.pause(run, self._intervention(run, "iv.1"))
+        self.assertIs(run.axes()[0], RunPhase.PAUSED)
+        before = snapshot(run, orch)
+        # PAUSED -> PAUSED is not an approved transition. The second intervention and its
+        # event must not reach history on the way to discovering that.
+        with self.assertRaises(TransitionError):
+            orch.pause(run, self._intervention(run, "iv.2"))
+        self.assertEqual(snapshot(run, orch), before)
+        self.assertEqual(tuple(r.ref.id for r in run.interventions()), ("iv.1",))
+
+    def test_a_pause_naming_another_run_is_atomic(self):
+        orch = build()
+        run, _item = started(orch, simple_task())
+        other = HumanInterventionRecord(InterventionRef("iv.x"),
+                                        WorkflowRunRef("run.elsewhere"),
+                                        HumanAuthorityRef("h"), "pause", "stand down")
+        before = snapshot(run, orch)
+        with self.assertRaises(LineageError):
+            orch.pause(run, other)
+        self.assertEqual(snapshot(run, orch), before)
+
+    def test_a_repeated_intervention_identity_is_atomic(self):
+        orch = build()
+        run, _item = started(orch, simple_task())
+        intervention = self._intervention(run, "iv.1", act="note")
+        orch.record_intervention(run, intervention)
+        before = snapshot(run, orch)
+        with self.assertRaises(AppendOnlyError):
+            orch.record_intervention(run, intervention)
+        self.assertEqual(snapshot(run, orch), before)
+
+    # -------------------------------------------------------------- scope transfer
+
+    def _transfer_setup(self, target):
+        gate = decision_gate("gate.tr", "dr.tr")
+        registry = InMemoryMechanismRegistry()
+        registry.register(ScopeTransferRef("st.1"), "v2", SCOPE, target,
+                          DecisionRightRef("dr.tr"), "scope_transfer")
+        orch = build(rights={"dr.tr": (HumanAuthorityRef("h"), GateOutcome.SATISFIED)},
+                     mechanisms=registry)
+        run, item = started(orch, simple_task(gates=(gate,)))
+        _outcome, record = orch.run_decision_gate(run, item, gate.ref)
+        authorisation = ScopeTransferAuthorisation(
+            mechanism=ScopeTransferRef("st.1"), mechanism_version="v2", source_run=run.ref,
+            source_scope=run.scope, target_scope=target, work_item=item.ref,
+            requirement=gate.ref, decision_right=DecisionRightRef("dr.tr"),
+            authorised_act="scope_transfer", authorised_by=record.decided_by,
+            decision_record=record.ref)
+        return orch, run, authorisation
+
+    def test_invalid_target_definition_transfer_is_atomic(self):
+        target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
+        orch, run, authorisation = self._transfer_setup(target)
+        before = snapshot(run, orch)
+        with self.assertRaises(LineageError):
+            orch.transfer_scope(run, "wf.not-a-definition", WorkflowRunRef("run.x"),
+                                target, authorisation)
+        self.assertEqual(snapshot(run, orch), before)
+        events = tuple(e.kind for e in orch.log.events())
+        self.assertNotIn("scope:transfer_authorised", events)
+
+    def test_a_transfer_to_a_colliding_run_identity_is_atomic(self):
+        target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
+        orch, run, authorisation = self._transfer_setup(target)
+        before = snapshot(run, orch)
+        with self.assertRaises(LineageError):
+            # `run.ref` already identifies a run of this orchestrator.
+            orch.transfer_scope(run, run.definition, run.ref, target, authorisation)
+        self.assertEqual(snapshot(run, orch), before)
+        self.assertNotIn("scope:transfer_authorised",
+                         tuple(e.kind for e in orch.log.events()))
+
+    def test_a_transfer_whose_target_identity_is_not_a_run_reference_is_atomic(self):
+        target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
+        orch, run, authorisation = self._transfer_setup(target)
+        before = snapshot(run, orch)
+        with self.assertRaises((IdentityError, GovernanceError, LineageError)):
+            orch.transfer_scope(run, run.definition, "run.x", target, authorisation)
+        self.assertEqual(snapshot(run, orch), before)
+        self.assertNotIn("scope:transfer_authorised",
+                         tuple(e.kind for e in orch.log.events()))
+
+    def test_an_authorised_transfer_still_creates_the_target_run(self):
+        """The preflight refuses nothing that was previously allowed."""
+        target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
+        orch, run, authorisation = self._transfer_setup(target)
+        transferred = orch.transfer_scope(run, run.definition, WorkflowRunRef("run.x"),
+                                          target, authorisation)
+        self.assertEqual(transferred.scope, target)
+        self.assertIn("scope:transfer_authorised", tuple(e.kind for e in orch.log.events()))
+
+    # -------------------------------------------------------------- routing
+
+    def test_malformed_router_answer_leaves_no_request_or_event(self):
+        orch = build()
+        run, item = started(orch, simple_task(capability="draft"))
+        orch.router.route = lambda request: "not a routing decision"
+        before = snapshot(run, orch)
+        with self.assertRaises(GovernanceError):
+            orch.route(run, item, "policy")
+        self.assertEqual(snapshot(run, orch), before)
+        self.assertEqual(run.routing_requests(), ())
+        self.assertNotIn("routing:requested", tuple(e.kind for e in orch.log.events()))
+
+    def test_a_router_answer_for_another_request_leaves_no_request_or_event(self):
+        orch = build()
+        run, item = started(orch, simple_task(capability="draft"))
+
+        def foreign(request):
+            return RoutingDecision(ref=RoutingDecisionRef("rd.foreign"),
+                                   request=RoutingRequestRef("rr.elsewhere"),
+                                   run=request.run, work_item=request.work_item,
+                                   outcome=RouterOutcome.NO_ELIGIBLE_MODEL,
+                                   decided_by=orch.router.ref)
+
+        orch.router.route = foreign
+        before = snapshot(run, orch)
+        with self.assertRaises(LineageError):
+            orch.route(run, item, "policy")
+        self.assertEqual(snapshot(run, orch), before)
+        self.assertEqual(run.routing_requests(), ())
+
+    def test_a_router_answer_from_another_router_leaves_no_request_or_event(self):
+        orch = build()
+        run, item = started(orch, simple_task(capability="draft"))
+
+        def impostor(request):
+            return RoutingDecision(ref=RoutingDecisionRef("rd.impostor"),
+                                   request=request.ref, run=request.run,
+                                   work_item=request.work_item,
+                                   outcome=RouterOutcome.NO_ELIGIBLE_MODEL,
+                                   decided_by=RouterRef("router.impostor"))
+
+        orch.router.route = impostor
+        before = snapshot(run, orch)
+        with self.assertRaises(LineageError):
+            orch.route(run, item, "policy")
+        self.assertEqual(snapshot(run, orch), before)
+        self.assertEqual(run.routing_requests(), ())
+
+    def test_a_good_router_answer_still_records_request_decision_and_events(self):
+        orch = build(eligible={"draft": (ModelRef("m"), ModelProfileRef("mp"))})
+        run, item = started(orch, simple_task(capability="draft"))
+        decision = orch.route(run, item, "policy")
+        self.assertEqual(len(run.routing_requests()), 1)
+        self.assertTrue(decision.answers(run.routing_requests()[0]))
+        kinds = tuple(e.kind for e in orch.log.events())
+        self.assertIn("routing:requested", kinds)
+        self.assertIn("routing:decided", kinds)
+
+
 class TestExamplesRun(unittest.TestCase):
     """The two synthetic cases are executed, not merely shipped."""
 

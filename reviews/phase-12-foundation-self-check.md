@@ -13,6 +13,11 @@ It is not an independent audit.
 
 ---
 
+> **Revision 5 — late-failure atomicity.** The v4 re-audit found four ordinary governed
+> acts that still mutated before their last fallible check: the assignment attempt counter,
+> `pause`, the scope-transfer authorisation event, and the Routing Request in `route()`. All
+> four now validate everything fallible first and commit afterwards; section 4e records them.
+>
 > **Revision 4 — halted-run, atomic commit, provenance and committed mutation assurance.**
 > The v3 re-audit rated the implementation substantially stronger but NOT READY, on five
 > load-bearing families plus harness credibility. All are closed; section 4d records them. The
@@ -54,21 +59,21 @@ discouraged.** A `RoleRef` and an `AgentInstanceRef` carrying the same string ar
 
 ```
 python3 -m unittest discover -s implementation/phase-12/tests
-Ran 131 tests — OK
+Ran 145 tests — OK
 
-python3 validation/phase_12_validation.py            === 50/50 PASS ===   exit 0
-python3 validation/phase_12_validation.py --verbose   === 50/50 PASS ===   exit 0
-python3 validation/phase_12_validation.py --json      total 50, passed 50, 50 results
+python3 validation/phase_12_validation.py            === 52/52 PASS ===   exit 0
+python3 validation/phase_12_validation.py --verbose   === 52/52 PASS ===   exit 0
+python3 validation/phase_12_validation.py --json      total 52, passed 52, 52 results
 
 python3 implementation/phase-12/examples/governed_run.py   exit 0, run COMPLETED / GOVERNANCE_CLEAR
 python3 implementation/phase-12/examples/blocked_run.py    exit 0, four governance stops and
                                                             twenty-two structural bypasses refused
 ```
 
-Validator groups: `structure` 4 · `containment` 6 · `domain` 7 · `assurance` 28 ·
-`suite` 4 · `inventory` 1.
+Validator groups: `structure` 4 · `containment` 6 · `domain` 7 · `assurance` 29 ·
+`suite` 5 · `inventory` 1.
 
-**Controlled weakenings: 12, committed and executed.**
+**Controlled weakenings: 16, committed and executed.**
 `implementation/phase-12/tests/test_mutation_guards.py` removes each load-bearing guard from
 the module **source in memory**, executes a fresh copy of the implementation, and re-runs the
 scenario that guard protects. Nothing on disk is edited, so the runner is reproducible from a
@@ -76,7 +81,7 @@ clean checkout and runs as part of the ordinary suite. The Phase 12 validator bo
 the harness is committed and re-derives every classification itself, so a weakening that
 quietly stopped biting is a validator failure rather than a stale comment.
 
-Eleven of the twelve are classified `DETECTED` — removing the guard changes observable
+Fifteen of the sixteen are classified `DETECTED` — removing the guard changes observable
 governed behaviour. One is classified `REDUNDANT` and says so in the file: removing the Model
 Result identity **preflight** changes nothing observable, because nothing has mutated between
 the preflight and the append, so the store's own identity check still refuses. That store check
@@ -133,7 +138,7 @@ rather than claiming it.
 | 7 | Retry class came from a caller-supplied Task | `retry()` has no task parameter; the class is read from the Work Item's lineage |
 | 8 | A bare mechanism reference proved a crossing was approved | `ScopeTransferAuthorisation` binds mechanism-at-version, source run and scope, target scope, human authority and Decision Record; the crossing creates a **new** execution and rewrites no binding |
 | 9 | Governed records were overwritten by Work Item id | `RecordStore` is append-only with the backing list in a closure; repeated Decision and Review records both stand |
-| 10 | Tests proved object creation, not relationships | 131 tests, including one class per finding, plus the committed weakenings above |
+| 10 | Tests proved object creation, not relationships | 145 tests, including one class per finding, plus the committed weakenings above |
 
 ### 4c. The nine re-audit findings, and how each was closed
 
@@ -147,7 +152,7 @@ rather than claiming it.
 | 6 | A well-shaped authorisation was sufficient | `transfer_scope` corroborates every clause against the source run's retained history: the Decision Record must be retained and must answer the exact run, Work Item, requirement and Right with a continuing outcome; the authorising human must be that record's author and hold the Right; the mechanism at its version must be approved by the configured registry for that exact Right (no registry approves nothing); the complete source and target bindings must match; and sensitivity may not widen nor residency change |
 | 7 | A caller could manufacture a Routing Decision and record it | There is no recording method — `route()` invokes the configured Router and directly records exactly the object it returned; `decided_by` must equal the configured `RouterRef`; and a `ModelResult` must carry its own record identity and answer this run, Work Item, Routing Decision, model and Model Profile before it is recorded |
 | 8 | Evidence could satisfy a gate without being retained | `_commit_gate` retains the evidence in its governed store as part of the same commit, keyed by the record's own identity; `RecordStore` refuses a duplicate identity; and `run.evidence_for(gate)` reconstructs what explained a completion |
-| 9 | Adversarial and mutation credibility | 131 tests, 22 executable bypass probes in `examples/blocked_run.py`, and the committed weakening harness |
+| 9 | Adversarial and mutation credibility | 145 tests, 22 executable bypass probes in `examples/blocked_run.py`, and the committed weakening harness |
 
 Two checks compare the implementation against the architecture **documents** rather than
 against itself: the transition table is parsed from
@@ -166,6 +171,25 @@ from the approved architecture fails without anyone editing the validator.
 | Mechanism approval too coarse | An approval binds mechanism, version, both complete bindings, the **exact Decision Right** and the **authorised act**. An unrelated Right and a mismatched act are each refused, without mutation |
 | ModelResult lacked identity and profile lineage | `ModelResultRef` is part of `ModelResult`, alongside the selected `model_profile`; `invoke_model` verifies both against the recorded Routing Decision and preflights the identity before recording |
 | Harness credibility LOW | The weakening runner is committed at `implementation/phase-12/tests/test_mutation_guards.py`, runs in the ordinary suite, and the validator re-derives every classification independently |
+
+### 4e. The v4 re-audit findings, and how each was closed
+
+| Finding | Answer |
+|---|---|
+| The assignment attempt counter moved before the Agent Instance reference was validated, so a refused assignment consumed an attempt | `assign()` computes the attempt number as a local, constructs the `Assignment` (which is what validates the Agent Instance) and preflights the store insert; only then does it write the counter, append the record and log the event. There is no decrement-on-exception anywhere: the design is validate-then-commit, not mutate-then-rollback |
+| A second `pause()` on an already-PAUSED run appended the intervention and its event before the transition refused | Intervention validation is split into a read-only `_validate_intervention()` and a commit-only `_record_intervention()`, shared with `unblock()` so the two paths cannot diverge. `pause()` validates, preflights the store insert, preflights the transition, and only then commits. `_preflight_phases` gained `allow_noop`, so a preflight is never more permissive than the commit it stands in for: `_ensure_phase` callers tolerate "already there", `_transition` callers do not |
+| A scope transfer appended `scope:transfer_authorised` before the target run was known creatable | `_preflight_run_creation()` holds every condition that can refuse a run creation — governed definition, run-reference type, run-identity collision against this orchestrator's issued references, complete target binding, and the narrowing rule with its authorisation exemption. `_create_run()` calls it and then only commits, and `transfer_scope()` calls the same helper before it records anything. One definition of the conditions, two call sites, no divergent semantics |
+| `route()` recorded the Routing Request before the Router's answer was validated | The request is built prospectively by `_build_routing_request()` and recorded nowhere. The Router is asked with that exact object, the answer is fully validated, both store inserts and the phase plan are preflighted, and request, decision and both events commit as one act. `request_routing()` remains a governed act in its own right, and `route()` no longer goes through it. No caller-injectable Routing Decision path was reintroduced |
+
+Four named regression tests hold these: `test_invalid_assignment_does_not_increment_attempt_or_append_history`,
+`test_second_pause_failure_is_atomic`, `test_invalid_target_definition_transfer_is_atomic` and
+`test_malformed_router_answer_leaves_no_request_or_event`, with nearby variants for a
+wrong-Role assignment, a repeated intervention identity, a colliding target run identity, and
+a Router answer that is well-formed but answers another request or comes from another Router.
+Each compares the full observable state — axes, gate outcomes, every governed record store and
+the execution-event count — before and after the refusal. The validator loads the four by name
+through `unittest` rather than by grep, so a renamed or commented-out test fails it. Four new
+weakenings move each mutation back in front of its check and are classified `DETECTED`.
 
 ## 5. Deferred Phase 11 validator hardening
 
@@ -224,8 +248,8 @@ Each of these is an MVP limitation, not an architecture defect.
 
 ## 6a. Harness credibility, self-assessed
 
-**MEDIUM-HIGH, and the gap is named.** What supports it: 131 committed tests; 22 executable
-bypass probes; a committed weakening runner whose eleven detected weakenings are re-derived by
+**MEDIUM-HIGH, and the gap is named.** What supports it: 145 committed tests; 22 executable
+bypass probes; a committed weakening runner whose fifteen detected weakenings are re-derived by
 the validator; and two checks that compare the implementation against the architecture
 *documents* rather than against itself. What holds it back from HIGH: this is a single-process
 in-memory reference with no persistence and no concurrency, so a whole class of governed

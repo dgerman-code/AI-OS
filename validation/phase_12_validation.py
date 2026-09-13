@@ -1343,6 +1343,155 @@ check("assurance", "a Model Result carries its identity and its selection lineag
       model_results_carry_identity_and_profile_lineage)
 
 
+def late_failures_leave_no_partial_mutation():
+    """Re-audit v4 finding: four ordinary acts mutated before their last fallible check.
+
+    Every act is exercised at its late-failure point and the whole observable state - axes,
+    gate outcomes, every governed record store, and the execution-event count - is compared
+    before and after the refusal."""
+    problems = []
+
+    # 1. assignment: the attempt counter and the assignment history.
+    orch, run, item = _started(_task(), run_id="run.at1")
+    before = _snapshot(run, orch)
+    if not _raises(lambda: orch.assign(run, item, AUTHOR, agent_instance="agent.not-a-ref"),
+                   Exception):
+        problems.append("an unreferenced Agent Instance was assigned")
+    if _snapshot(run, orch) != before:
+        problems.append("a refused assignment left a partial mutation behind")
+    if orch.assign(run, item, AUTHOR).attempt != 1:
+        problems.append("a refused assignment moved the attempt counter")
+
+    # 2. pause: a second pause has no approved transition.
+    orch, run, _item = _started(_task(), run_id="run.at2")
+
+    def intervention(ref):
+        return domain.HumanInterventionRecord(domain.InterventionRef(ref), run.ref,
+                                              domain.HumanAuthorityRef("h"), "pause", "stop")
+
+    orch.pause(run, intervention("iv.1"))
+    before = _snapshot(run, orch)
+    if not _raises(lambda: orch.pause(run, intervention("iv.2")), Exception):
+        problems.append("a second pause was admitted on an already-paused run")
+    if _snapshot(run, orch) != before:
+        problems.append("a refused pause left a partial mutation behind")
+
+    # 3. scope transfer: an unusable target must not leave an authorisation event.
+    target = domain.ScopeBinding(domain.ScopeRef("scope.other"), frozenset({"INTERNAL"}), "EU")
+    gate = _decision_gate("gate.tr", "dr.tr")
+    registry = adapters.InMemoryMechanismRegistry()
+    registry.register(domain.ScopeTransferRef("st.1"), "v2", SCOPE, target,
+                      domain.DecisionRightRef("dr.tr"), "scope_transfer")
+    orch = _fresh(rights={"dr.tr": (domain.HumanAuthorityRef("h"),
+                                    domain.GateOutcome.SATISFIED)})
+    orch.mechanisms = registry
+    orch, run, item = _started(_task(gates=(gate,)), orch, run_id="run.at3")
+    _outcome, record = orch.run_decision_gate(run, item, gate.ref)
+    authorisation = domain.ScopeTransferAuthorisation(
+        mechanism=domain.ScopeTransferRef("st.1"), mechanism_version="v2", source_run=run.ref,
+        source_scope=run.scope, target_scope=target, work_item=item.ref, requirement=gate.ref,
+        decision_right=domain.DecisionRightRef("dr.tr"), authorised_act="scope_transfer",
+        authorised_by=record.decided_by, decision_record=record.ref)
+    before = _snapshot(run, orch)
+    for label, bad_definition, bad_ref in (
+            ("an ungoverned target definition", "wf.not-a-definition",
+             domain.WorkflowRunRef("run.x")),
+            ("a colliding target run identity", run.definition, run.ref)):
+        if not _raises(lambda: orch.transfer_scope(run, bad_definition, bad_ref, target,
+                                                   authorisation), Exception):
+            problems.append("a transfer with %s was admitted" % label)
+    if _snapshot(run, orch) != before:
+        problems.append("a refused transfer left a partial mutation behind")
+    if "scope:transfer_authorised" in tuple(e.kind for e in orch.log.events()):
+        problems.append("a refused transfer recorded a scope transfer authorisation")
+    # The control: the same authorisation, with a usable target, still crosses.
+    transferred = orch.transfer_scope(run, run.definition, domain.WorkflowRunRef("run.at3b"),
+                                      target, authorisation)
+    if transferred.scope != target:
+        problems.append("the preflight refused a crossing that was previously approved")
+
+    # 4. routing: the Routing Request is prospective until the answer is validated.
+    orch = _fresh(eligible={"cap": (domain.ModelRef("m"), domain.ModelProfileRef("p"))})
+    orch, run, item = _started(_task(capability="cap"), orch, run_id="run.at4")
+    answers = {"malformed": lambda request: "not a routing decision",
+               "for another request": lambda request: domain.RoutingDecision(
+                   domain.RoutingDecisionRef("rd.foreign"),
+                   domain.RoutingRequestRef("rr.elsewhere"), request.run, request.work_item,
+                   domain.RouterOutcome.NO_ELIGIBLE_MODEL, orch.router.ref),
+               "from another Router": lambda request: domain.RoutingDecision(
+                   domain.RoutingDecisionRef("rd.impostor"), request.ref, request.run,
+                   request.work_item, domain.RouterOutcome.NO_ELIGIBLE_MODEL,
+                   domain.RouterRef("router.impostor"))}
+    before = _snapshot(run, orch)
+    genuine = orch.router.route
+    for label, answer in answers.items():
+        orch.router.route = answer
+        if not _raises(lambda: orch.route(run, item, "policy@1"), Exception):
+            problems.append("a Router answer %s was accepted" % label)
+    if _snapshot(run, orch) != before:
+        problems.append("a refused routing left a partial mutation behind")
+    if run.routing_requests():
+        problems.append("a refused routing left a Routing Request in governed history")
+    orch.router.route = genuine
+    decision = orch.route(run, item, "policy@1")
+    if len(run.routing_requests()) != 1 or not decision.answers(run.routing_requests()[0]):
+        problems.append("a good Router answer no longer records its request")
+    return (not problems, str(problems)[:400] if problems
+            else "assignment, pause, scope transfer and routing all refuse atomically")
+
+
+check("assurance", "a late failure in an ordinary governed act leaves no partial mutation",
+      late_failures_leave_no_partial_mutation)
+
+
+ATOMICITY_TESTS = (
+    "test_invalid_assignment_does_not_increment_attempt_or_append_history",
+    "test_second_pause_failure_is_atomic",
+    "test_invalid_target_definition_transfer_is_atomic",
+    "test_malformed_router_answer_leaves_no_request_or_event",
+)
+
+
+def the_atomicity_regressions_are_in_the_committed_suite():
+    """Named, committed and actually executed - not merely present as text.
+
+    The names are loaded through unittest, so a test that was renamed, commented out or
+    left outside a discovered TestCase fails this check rather than passing on a grep."""
+    tests_dir = os.path.join(PKG, "tests")
+    sys.path.insert(0, tests_dir)
+    loader = unittest.TestLoader()
+    suite = loader.discover(tests_dir, pattern="test_*.py", top_level_dir=tests_dir)
+
+    def names(item):
+        if isinstance(item, unittest.TestSuite):
+            for child in item:
+                for name in names(child):
+                    yield name
+        else:
+            yield item.id().rsplit(".", 1)[-1]
+
+    discovered = set(names(suite))
+    missing = [name for name in ATOMICITY_TESTS if name not in discovered]
+    if missing:
+        return False, "not in the discovered suite: %s" % missing
+    selected = loader.loadTestsFromNames(
+        ["test_invariants.TestLateFailureAtomicity.%s" % name for name in ATOMICITY_TESTS])
+    stream = io.StringIO()
+    captured, sys.stdout = sys.stdout, io.StringIO()
+    try:
+        result = unittest.TextTestRunner(stream=stream, verbosity=0).run(selected)
+    finally:
+        sys.stdout = captured
+    return (result.wasSuccessful() and result.testsRun == len(ATOMICITY_TESTS),
+            "%d/%d atomicity regressions executed and passed"
+            % (result.testsRun - len(result.failures) - len(result.errors),
+               len(ATOMICITY_TESTS)))
+
+
+check("suite", "the four named late-failure atomicity regressions run in the suite",
+      the_atomicity_regressions_are_in_the_committed_suite)
+
+
 # =========================================================== the suite itself
 
 

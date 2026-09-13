@@ -329,6 +329,78 @@ def a_healthy_crossing_still_works(env):
         raise AssertionError("the approved crossing did not produce a new bound execution")
 
 
+def a_refused_assignment_does_not_move_the_attempt_counter(env):
+    """The attempt number is computed in preflight and applied only after the commit point."""
+    d = env.domain
+    orch = orchestrator(env)
+    run, item = started(env, orch, task(env))
+    before = snapshot(run, orch)
+    if not refuses(lambda: orch.assign(run, item, d.RoleRef("role.m"),
+                                       agent_instance="agent.not-a-reference")):
+        raise AssertionError("an unreferenced Agent Instance was assigned")
+    if snapshot(run, orch) != before:
+        raise AssertionError("a refused assignment left a partial mutation behind")
+    if len(run.assignments()) != 0:
+        raise AssertionError("a refused assignment entered governed history")
+    attempt = orch.assign(run, item, d.RoleRef("role.m")).attempt
+    if attempt != 1:
+        raise AssertionError("the attempt counter moved on a refused assignment: %d" % attempt)
+
+
+def a_refused_second_pause_leaves_no_intervention(env):
+    """PAUSED -> PAUSED is not an approved transition, and discovering that is not an act."""
+    d = env.domain
+    orch = orchestrator(env)
+    run, _item = started(env, orch, task(env))
+
+    def intervention(ref):
+        return d.HumanInterventionRecord(d.InterventionRef(ref), run.ref,
+                                         d.HumanAuthorityRef("h"), "pause", "stand down")
+
+    orch.pause(run, intervention("iv.1"))
+    before = snapshot(run, orch)
+    recorded = tuple(r.ref for r in run.interventions())
+    if not refuses(lambda: orch.pause(run, intervention("iv.2"))):
+        raise AssertionError("a second pause was admitted on an already-paused run")
+    if snapshot(run, orch) != before:
+        raise AssertionError("a refused pause left a partial mutation behind")
+    if tuple(r.ref for r in run.interventions()) != recorded:
+        raise AssertionError("a refused pause left an intervention in governed history")
+
+
+def a_refused_transfer_leaves_no_authorisation_event(env):
+    """A target that cannot be created means the crossing was never authorised."""
+    orch, run, item, gate, record, target = _crossing_fixture(env)
+    authorisation = _authorisation(env, run, item, gate, record, target)
+    before = snapshot(run, orch)
+    if not refuses(lambda: orch.transfer_scope(run, "wf.not-a-definition",
+                                               env.domain.WorkflowRunRef("run.x"), target,
+                                               authorisation)):
+        raise AssertionError("a transfer to an ungoverned target definition was admitted")
+    if snapshot(run, orch) != before:
+        raise AssertionError("a refused transfer left a partial mutation behind")
+    kinds = tuple(event.kind for event in orch.log.events())
+    if "scope:transfer_authorised" in kinds:
+        raise AssertionError("a refused transfer recorded a scope transfer authorisation")
+
+
+def a_malformed_router_answer_leaves_no_routing_request(env):
+    """The Routing Request is prospective until the Router's answer is known good."""
+    d = env.domain
+    orch = orchestrator(env, eligible={"cap": (d.ModelRef("m"), d.ModelProfileRef("p"))})
+    run, item = started(env, orch, task(env, capability="cap"))
+    orch.router.route = lambda request: "not a routing decision"
+    before = snapshot(run, orch)
+    if not refuses(lambda: orch.route(run, item, "policy@1")):
+        raise AssertionError("a malformed Router answer was accepted")
+    if snapshot(run, orch) != before:
+        raise AssertionError("a refused routing left a partial mutation behind")
+    if run.routing_requests():
+        raise AssertionError("a refused routing left a Routing Request in governed history")
+    if "routing:requested" in tuple(event.kind for event in orch.log.events()):
+        raise AssertionError("a refused routing recorded a routing request event")
+
+
 # ===========================================================================================
 # The weakenings themselves
 # ===========================================================================================
@@ -425,6 +497,41 @@ WEAKENINGS = [
        "        self._preflight_phases(run, self._gate_phase_plan(run, outcome, wait_reason))",
        "        pass")],
      duplicate_evidence_leaves_no_partial_mutation, "REDUNDANT"),
+
+    ("the assignment attempt counter is incremented before validation",
+     [("orchestrator",
+       "        attempt = state.attempts.get(item.ref.id, 0) + 1\n"
+       "        assignment = Assignment(item.ref, role, agent_instance, attempt=attempt)",
+       "        attempt = state.attempts.get(item.ref.id, 0) + 1\n"
+       "        state.attempts[item.ref.id] = attempt\n"
+       "        assignment = Assignment(item.ref, role, agent_instance, attempt=attempt)")],
+     a_refused_assignment_does_not_move_the_attempt_counter, "DETECTED"),
+
+    ("the pause intervention is appended before the transition is preflighted",
+     [("orchestrator",
+       "        self._preflight_phases(run, (RunPhase.PAUSED,), allow_noop=False)\n"
+       "        self._record_intervention(run, intervention)",
+       "        self._record_intervention(run, intervention)\n"
+       "        self._preflight_phases(run, (RunPhase.PAUSED,), allow_noop=False)")],
+     a_refused_second_pause_leaves_no_intervention, "DETECTED"),
+
+    ("the transfer authorisation event is emitted before the target is preflighted",
+     [("orchestrator",
+       "        self._preflight_run_creation(definition, run_ref, target, authorisation)\n"
+       '        self.log.append(run.ref, "scope:transfer_authorised",',
+       '        self.log.append(run.ref, "scope:transfer_authorised",')],
+     a_refused_transfer_leaves_no_authorisation_event, "DETECTED"),
+
+    ("the Routing Request is committed before the Router answer is validated",
+     [("orchestrator",
+       "        request = self._build_routing_request(run, work_item, routing_policy)\n"
+       "        answer = self.router.route(request)",
+       "        request = self._build_routing_request(run, work_item, routing_policy)\n"
+       '        self._store(run, "routing_requests").add(request)\n'
+       '        self.log.append(run.ref, "routing:requested", request.capability,\n'
+       "                        request.ref)\n"
+       "        answer = self.router.route(request)")],
+     a_malformed_router_answer_leaves_no_routing_request, "DETECTED"),
 ]
 
 
