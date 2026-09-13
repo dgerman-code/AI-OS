@@ -415,7 +415,9 @@ ADVERBIAL = (r"(?:only|also|then|still|now|ever|freely|simply|merely|directly|in
              r"under any circumstances|in any circumstances)")
 # Prohibition, attached to the crossing predicate: the phrase must end where the crossing verb
 # begins, adverbs aside. Prohibitive wording anywhere else - another clause, another predicate -
-# is never consulted.
+# is never consulted. `refuses to cross` is deliberately NOT here: it inverts under a negation
+# that sits outside the phrase ("will not refuse to cross"), and an unrecognised form that
+# fails closed is safer than a recognised one that can be flipped.
 PROHIBITION_ATTACHED = re.compile(
     r"\b(?:must under no circumstances|must not|must never|may not|may never|"
     r"cannot|can't|can not|can never|shall not|shall never|will not|will never|would not|"
@@ -423,7 +425,7 @@ PROHIBITION_ATTACHED = re.compile(
     r"is not permitted to|are not permitted to|is not allowed to|are not allowed to|"
     r"not permitted to|not allowed to|is forbidden to|are forbidden to|is forbidden from|"
     r"are forbidden from|is prohibited from|are prohibited from|is barred from|"
-    r"are barred from|is precluded from|are precluded from|refuses to|refuse to|never)"
+    r"are barred from|is precluded from|are precluded from|never)"
     r"(?:\s+" + ADVERBIAL + r"\b)*\s*$", re.I)
 # Diagnostic only. The verdict never branches on this: a PERMITTED and an UNKNOWN crossing are
 # governed identically, which is what makes the reading safe against unseen phrasings.
@@ -438,11 +440,21 @@ WITHOUT_MECHANISM = re.compile(
     r"\b(?:without|absent|lacking|waiv(?:e|es|ing|ed)|bypass(?:es|ing|ed)?|"
     r"dispens(?:e|es|ing|ed) with)\b[^.;\n]{0,40}?\b(?:approved mechanism|scope transfer|"
     r"handoff|mechanism|authorisation|authorization|approval)\b", re.I)
-# A clause ends where a new predicate begins. The mechanism that governs a crossing has to sit
-# in the crossing's own clause; one named next door governs its neighbour.
+# A crossing CONSTRUCTION ends where a new predicate begins. The mechanism that governs a
+# crossing has to sit inside that construction; one named next door governs its neighbour.
+# Punctuation boundaries include the dashes, which an audit found were being read straight
+# through ("a Phase 6 handoff is discussed - the run may cross a scope boundary").
 CLAUSE_BREAK = re.compile(
-    r"[,;:]|\b(?:but|and|or|while|yet|then|however|although|though|because|whereas|"
-    r"nevertheless)\b", re.I)
+    "[,;:]|\u2014|\u2013|--|"
+    r"\b(?:but|and|or|nor|while|yet|then|however|although|though|because|whereas|"
+    r"nevertheless|so|therefore|hence|thus|since|unless|except|save|provided|providing|"
+    r"if|when|whenever|where|wherever|until|before|after|once|assuming)\b", re.I)
+# A prohibition that an exception or condition re-opens is a conditional PERMISSION, and a
+# permission needs its mechanism. `and`, `but` or a comma introduce a neighbouring statement,
+# not an exception, so a prohibition followed by one of those still stands on its own.
+QUALIFIER = re.compile(
+    r"^(?:unless|except|save|provided|providing|if|when|whenever|where|wherever|until|"
+    r"once|assuming)$", re.I)
 
 
 def _sentence_around(text, index):
@@ -453,8 +465,12 @@ def _sentence_around(text, index):
     return text[start:end]
 
 
-def crossing_clause(sentence, crossing_at):
-    """The crossing predicate's OWN clause, and the crossing's index inside it."""
+def crossing_construction(sentence, crossing_at):
+    """The crossing's own construction: the clause carrying the crossing predicate.
+
+    Returns the construction text, the crossing's index inside it, and the boundary token that
+    terminated it - the token that says whether what follows is a neighbouring statement or an
+    exception that re-opens the crossing."""
     match = CROSSING.match(sentence, crossing_at) or CROSSING.search(sentence, crossing_at)
     after = match.end() if match else crossing_at
     start = 0
@@ -463,24 +479,25 @@ def crossing_clause(sentence, crossing_at):
             start = brk.end()
         else:
             break
-    stop = len(sentence)
+    stop, terminator = len(sentence), ""
     for brk in CLAUSE_BREAK.finditer(sentence, after):
-        stop = brk.start()
+        stop, terminator = brk.start(), brk.group(0)
         break
-    return sentence[start:stop], crossing_at - start
+    return sentence[start:stop], crossing_at - start, terminator.strip()
 
 
 def crossing_modality(sentence, crossing_at):
-    """PROHIBITED, PERMITTED or UNKNOWN for the modal phrase governing THIS crossing verb.
+    """PROHIBITED, CONDITIONAL, PERMITTED or UNKNOWN for THIS crossing predicate.
 
-    Read from the crossing's own clause only, so a prohibition belonging to an earlier
-    predicate ("never waits and may cross", "cannot be delayed but may cross") cannot lend its
-    polarity to `cross`. UNKNOWN is the honest answer for wording the harness does not
-    recognise - and it is governed exactly as a permission is, never more leniently."""
-    clause, at = crossing_clause(sentence, crossing_at)
-    governing = clause[:at]
+    Read from the crossing's own construction only, so a prohibition belonging to an earlier
+    predicate ("never waits and may cross") cannot lend its polarity to `cross`. PROHIBITED is
+    reserved for an UNQUALIFIED prohibition: one that an `unless`, `except` or `until` clause
+    does not turn back into a permission. UNKNOWN is the honest answer for wording the harness
+    does not recognise, and it is governed exactly as a permission is, never more leniently."""
+    construction, at, terminator = crossing_construction(sentence, crossing_at)
+    governing = construction[:at]
     if PROHIBITION_ATTACHED.search(governing):
-        return "PROHIBITED"
+        return "CONDITIONAL" if QUALIFIER.match(terminator) else "PROHIBITED"
     if PERMISSION_ATTACHED.search(governing):
         return "PERMITTED"
     return "UNKNOWN"
@@ -489,15 +506,16 @@ def crossing_modality(sentence, crossing_at):
 def scope_crossing_verdict(sentence, crossing_at):
     """ALLOW or REJECT for one crossing occurrence, decided fail-closed.
 
-    ALLOW only when a prohibition is attached to this crossing predicate, or when the
-    crossing's own clause names an approved mechanism and nothing in the sentence waives it.
-    Everything else - including wording the harness cannot classify - REJECTs."""
-    clause, at = crossing_clause(sentence, crossing_at)
-    if PROHIBITION_ATTACHED.search(clause[:at]):
-        return "ALLOW"                      # a prohibition needs no mechanism
+    ALLOW only when an UNQUALIFIED prohibition is attached to this crossing predicate, or when
+    the crossing's own construction names an approved mechanism and nothing in the sentence
+    waives it. Everything else - a prohibition an exception re-opens, and any wording the
+    harness cannot classify - REJECTs."""
+    construction, _at, _term = crossing_construction(sentence, crossing_at)
+    if crossing_modality(sentence, crossing_at) == "PROHIBITED":
+        return "ALLOW"                      # an unqualified prohibition needs no mechanism
     if WITHOUT_MECHANISM.search(sentence):
         return "REJECT"                     # the mechanism is explicitly dispensed with
-    return "ALLOW" if APPROVED_MECHANISM.search(clause) else "REJECT"
+    return "ALLOW" if APPROVED_MECHANISM.search(construction) else "REJECT"
 
 
 def scope_crossing_offences(text):
@@ -567,14 +585,17 @@ def scope_negation_grammar():
         "never reassigns; the stage might cross":
             "The orchestrator never reassigns the Role, and the stage might cross a project "
             "boundary.",
-        # Same clause, different predicate: only an ANCHORED reading tells these from a real
-        # prohibition, because the prohibitive words are inside the crossing's own clause.
-        "cannot be paused so it may cross":
-            "The stage cannot be paused so it may cross a project boundary.",
-        "does not wait before it may cross":
-            "The run does not wait before it may cross a scope boundary.",
-        "is never idle since it may cross":
-            "The orchestrator is never idle since it may cross a scope boundary.",
+        # Same construction, different predicate, and no boundary between them: only an
+        # ANCHORED reading tells these from a real prohibition. Each one asserts that the
+        # crossing happens, so each must REJECT without a mechanism.
+        "does not hesitate to cross":
+            "The run does not hesitate to cross a scope boundary.",
+        "cannot be stopped from crossing":
+            "The stage cannot be stopped from crossing a project boundary.",
+        "will not refuse to cross":
+            "The orchestrator will not refuse to cross a scope boundary.",
+        "may not be prevented from crossing":
+            "The run may not be prevented from crossing a project boundary.",
     }
     # Permissions attached to the crossing predicate, with no mechanism in the crossing clause.
     permissive = {
@@ -630,8 +651,59 @@ def scope_negation_grammar():
         "descriptive, mechanism after an aside":
             "A cross-scope movement, when it occurs, uses an approved mechanism.",
     }
+    # Boundaries the construction must respect: a mechanism on the far side of a dash, a colon
+    # or a causal connective belongs to the neighbouring statement, not to the crossing.
+    boundary = {
+        "em dash before the crossing":
+            "A Phase 6 handoff is discussed \u2014 the run may cross a scope boundary.",
+        "en dash before the crossing":
+            "A Phase 6 handoff is discussed \u2013 the run may cross a scope boundary.",
+        "colon before the crossing":
+            "A Phase 6 handoff is discussed: the run may cross a scope boundary.",
+        "double hyphen before the crossing":
+            "A Phase 6 handoff is discussed -- the run may cross a scope boundary.",
+        "`so` starts a consequence clause":
+            "The run may cross a scope boundary so a Phase 6 handoff can be recorded later.",
+        "`therefore` starts a consequence clause":
+            "The run may cross a scope boundary therefore a Phase 6 handoff is recorded.",
+        "`hence` starts a consequence clause":
+            "The run may cross a scope boundary hence a Phase 6 handoff is recorded.",
+        "`since` starts a neighbouring clause":
+            "The run may cross a project boundary since a Phase 6 handoff exists.",
+    }
+    # Prohibitions an exception or condition re-opens. These are conditional PERMISSIONS, and a
+    # permission needs its mechanism inside the crossing construction.
+    qualified = {
+        "`unless` re-opens a prohibition":
+            "The run would not cross a project boundary unless an operator requested it.",
+        "`except when` re-opens a prohibition":
+            "The run is forbidden to cross a project boundary except when an operator "
+            "requests it.",
+        "`unless` re-opens `never crosses`":
+            "The run never crosses a project boundary unless the operator asks.",
+        "`except if` re-opens a prohibition":
+            "The stage must not cross a scope boundary except if an operator requests it.",
+        "`except` re-opens a prohibition":
+            "The orchestrator may not cross a scope boundary except on operator request.",
+        "`unless and until` re-opens a prohibition":
+            "The run may not cross a project boundary unless and until the operator asks.",
+        "`provided that` re-opens a prohibition":
+            "The run must not cross a scope boundary provided that the operator agrees.",
+        "`until` re-opens a prohibition":
+            "The stage cannot cross a project boundary until the operator asks.",
+        # The mechanism sits in a separate clause: it cannot satisfy the conditional permission.
+        "conditional prohibition, mechanism in a separate clause":
+            "The run never crosses a project boundary unless the operator asks, and an "
+            "approved scope transfer is recorded.",
+    }
     # Prohibitions genuinely attached to the crossing predicate: no mechanism required.
     prohibited = {
+        # An unrelated trailing clause does not re-open the crossing, so the exemption stands.
+        "prohibition with an unrelated trailing clause":
+            "The run must not cross a project boundary, and the refusal is recorded.",
+        "prohibition followed by an escalation":
+            "The orchestrator never crosses a scope boundary, and the stage escalates "
+            "instead.",
         "must not cross": "The orchestrator must not cross a scope boundary.",
         "must never cross": "The run must never cross a project boundary.",
         "must under no circumstances cross":
@@ -678,7 +750,8 @@ def scope_negation_grammar():
         "crossing through scope transfer":
             "A cross-scope movement uses Phase 8 scope transfer.",
     }
-    cases = [(lbl, txt, "REJECT") for group in (contrastive, permissive, unrecognised, borrowed)
+    cases = [(lbl, txt, "REJECT")
+             for group in (contrastive, permissive, unrecognised, borrowed, boundary, qualified)
              for lbl, txt in group.items()]
     cases += [(lbl, txt, "ALLOW") for group in (prohibited, governed)
               for lbl, txt in group.items()]
@@ -700,6 +773,9 @@ def scope_negation_grammar():
         ("The orchestrator must not cross a scope boundary.", "PROHIBITED"),
         ("A cross-scope movement uses an approved mechanism or does not happen.", "UNKNOWN"),
         ("It falls to the run to cross a project boundary.", "UNKNOWN"),
+        ("The run never crosses a project boundary unless the operator asks.", "CONDITIONAL"),
+        ("The run must not cross a project boundary, and the refusal is recorded.",
+         "PROHIBITED"),
     ]
     for sentence, expected in modality_cases:
         match = CROSSING.search(sentence)
@@ -725,6 +801,17 @@ def scope_negation_grammar():
     if [scope_crossing_verdict(two_governed, m.start())
             for m in CROSSING.finditer(two_governed)] != ["ALLOW", "ALLOW"]:
         wrong.append("a governed second crossing was rejected in a prohibiting sentence")
+    # Differently qualified crossings in one sentence, in both orders: a correct occurrence
+    # must not hide a weakened one, whichever side of the sentence it sits on.
+    for order, sentence, expected in (
+            ("unqualified first", "The run must not cross a scope boundary, and it never "
+             "crosses a project boundary unless the operator asks.", ["ALLOW", "REJECT"]),
+            ("conditional first", "The run never crosses a scope boundary unless the operator "
+             "asks, and it must not cross a project boundary.", ["REJECT", "ALLOW"])):
+        got = [scope_crossing_verdict(sentence, m.start())
+               for m in CROSSING.finditer(sentence)]
+        if got != expected:
+            wrong.append("%s: %s, expected %s" % (order, got, expected))
 
     # Drive the SCAN as well, on synthetic documents. A weakening that bypasses the verdict
     # inside the scan leaves the verdict helper correct, so testing the helper alone misses it.
@@ -738,12 +825,20 @@ def scope_negation_grammar():
         "## Sub-runs\n\nA Phase 6 handoff is discussed, but the run has permission to cross a "
         "scope boundary.\n",
         "## Sub-runs\n\nIt falls to the run to cross a project boundary.\n",
+        "## Sub-runs\n\nA Phase 6 handoff is discussed \u2014 the run may cross a scope "
+        "boundary.\n",
+        "## Sub-runs\n\nThe run may cross a scope boundary so a Phase 6 handoff can be "
+        "recorded later.\n",
+        "## Sub-runs\n\nThe run never crosses a project boundary unless the operator "
+        "asks.\n",
     ]
     clean_documents = [
         "## Sub-runs\n\nA cross-scope movement uses an approved mechanism or does not "
         "happen.\n",
         "## Sub-runs\n\nThe orchestrator must not cross a scope boundary.\n",
         "## Sub-runs\n\nThe run is forbidden to cross a project boundary.\n",
+        "## Sub-runs\n\nThe run must not cross a project boundary, and the refusal is "
+        "recorded.\n",
         "## Sub-runs\n\nThe run may cross a scope boundary only through an approved scope "
         "transfer.\n",
     ]
@@ -1408,6 +1503,149 @@ def assertive_text(doc):
     exactly as the sentence means it. Only an explicit specimen fence is dropped, and only a
     review record quoting rejected wordings has any reason to open one."""
     return semantic_text(SPECIMEN_FENCE.sub(" ", doc))
+
+
+# =========================================================== identity contradiction
+
+# A required denial being present says nothing about whether the corpus also asserts the
+# collapse it denies. The pairs are DERIVED from the denials themselves rather than listed, so
+# a denial added to the architecture is guarded the moment it is written.
+def denied_identity_pairs(docs):
+    """Every pair of objects Phase 11 asserts to be distinct, read out of its `!=` denials."""
+    pairs = set()
+    for doc in docs.values():
+        for line in plain(doc).splitlines():
+            for seq in re.findall(r"[A-Z][A-Z ]*(?:!=\s*[A-Z][A-Z ]*)+",
+                                  line.replace(" !=", "!=")):
+                terms = [t.strip() for t in seq.split("!=") if 2 <= len(t.strip()) <= 30]
+                for i, first in enumerate(terms):
+                    for second in terms[i + 1:]:
+                        if first != second:
+                            pairs.add((first, second))
+    return sorted(pairs)
+
+
+ARTICLE = r"(?:a|an|the)\s+"
+NO_NEGATION = r"(?!\s*(?:not|never|no|nor)\b)"
+SAMENESS = (r"(?:the\s+same(?:\s+(?:as|thing|object|component|concept|idea))?|"
+            r"identical(?:\s+to)?|interchangeable|one\s+and\s+the\s+same|"
+            r"equivalent(?:\s+to)?|synonymous(?:\s+with)?)")
+
+
+def _collapse_patterns(first, second):
+    """The ways a document can positively assert that two governed objects are one."""
+    x = re.escape(first).replace("\\ ", r"\s+")
+    y = re.escape(second).replace("\\ ", r"\s+")
+    return [
+        # X = Y, but never the denial X != Y, and never X == Y
+        re.compile(r"\b%s\s*(?<![!<>=])=(?!=)\s*%s\b" % (x, y), re.I),
+        # X is Y / X is the same as Y / X is merely a Y
+        re.compile(r"\b(?:%s)?%s\s+(?:is|are|was|were|becomes?|remains?)\b%s"
+                   r"(?:\s+(?:just|simply|merely|really|actually|in\s+fact))?"
+                   r"(?:\s+%s)?\s+(?:%s)?%s\b"
+                   % (ARTICLE, x, NO_NEGATION, SAMENESS, ARTICLE, y), re.I),
+        # X and Y are the same thing / are interchangeable
+        re.compile(r"\b(?:%s)?%s\s+and\s+(?:%s)?%s\s+(?:are|were)\b%s\s+%s"
+                   % (ARTICLE, x, ARTICLE, y, NO_NEGATION, SAMENESS), re.I),
+        # X equals Y / X means Y
+        re.compile(r"\b(?:%s)?%s\s+(?:equals?|means?)\b%s\s+(?:%s)?%s\b"
+                   % (ARTICLE, x, NO_NEGATION, ARTICLE, y), re.I),
+    ]
+
+
+IDENTITY_PAIRS = denied_identity_pairs(NORMATIVE)
+COLLAPSE_PATTERNS = [pat for first, second in IDENTITY_PAIRS
+                     for ordered in ((first, second), (second, first))
+                     for pat in _collapse_patterns(*ordered)]
+
+
+def identity_collapses(text):
+    """Positive assertions that two objects Phase 11 holds apart are the same thing."""
+    return [" ".join(m.group(0).split())
+            for pat in COLLAPSE_PATTERNS for m in pat.finditer(text)]
+
+
+def identity_collapse_offences(docs):
+    """Collapse assertions in a corpus, named so the guard can drive the SCAN, not the helper.
+
+    Read through `semantic_text` rather than `assertive_text`: the specimen fence is a
+    review-record device, and letting it silence this scan would hand normative content a way
+    to assert a collapse inside a fence. Normative artifacts may not open one at all."""
+    return ["%s: %s" % (rel, hit)
+            for rel, doc in docs.items() for hit in identity_collapses(semantic_text(doc))]
+
+
+def no_identity_collapse_asserted():
+    """A denial elsewhere does not cancel a collapse asserted here."""
+    bad = identity_collapse_offences(NORMATIVE)
+    return (not bad, str(bad)[:300] if bad
+            else "%d denied pairs, no positive collapse asserted" % len(IDENTITY_PAIRS))
+
+
+check("identity", "no normative artifact asserts a denied identity collapse",
+      no_identity_collapse_asserted)
+
+
+def identity_collapse_scan_is_driven():
+    """The contradiction scan, executed rather than described.
+
+    The committed corpus asserts no collapse, so the corpus scan above passes whether or not
+    the scan works. These probes are what make deleting it fail."""
+    collapses = [
+        "ROLE = AGENT INSTANCE",
+        "A Role is an Agent Instance.",
+        "ROUTER = ORCHESTRATOR",
+        "The Router is the Orchestrator.",
+        "Router and Orchestrator are the same component.",
+        # Further load-bearing collapses from the twenty-one-object chain.
+        "DECISION RIGHT = DECISION RECORD",
+        "A Workflow is a Workflow Run.",
+        "A Runtime Event is an Audit Event.",
+        "The Credential is the Human Authority.",
+        "Review Profile and Review Instance are interchangeable.",
+        "A Task means a Work Item.",
+        "The Orchestrator is simply the Human Authority.",
+        # Formatting is not semantics: a collapse cannot hide behind emphasis or code spans.
+        "**ROLE** = **AGENT INSTANCE**",
+        "The `Router` is the *Orchestrator*.",
+    ]
+    benign = [
+        "ROLE != AGENT INSTANCE",
+        "ROUTER != ORCHESTRATOR",
+        "The orchestrator is not the Router.",
+        "A Role is never an Agent Instance.",
+        "A Router and an Orchestrator are two components, not one.",
+        "The Router selects a deployment; the orchestrator sequences stages.",
+        "A Workflow Run is an execution of a Workflow.",
+        "The Decision Record records the exercise of a Decision Right.",
+        "An Agent Instance carries no Role of its own.",
+    ]
+    problems = []
+    for text in collapses:
+        if not identity_collapses(semantic_text(text)):
+            problems.append("collapse not detected: %s" % text)
+    for text in benign:
+        hits = identity_collapses(semantic_text(text))
+        if hits:
+            problems.append("denial or description read as a collapse: %s -> %s" % (text, hits))
+    # Drive the corpus scan itself, on synthetic documents shaped like normative artifacts.
+    offending = "# Roles\n\nROLE = AGENT INSTANCE\n\nThe stage activates it.\n"
+    fenced = ("# Roles\n\n<!-- stale-specimen -->\nROUTER = ORCHESTRATOR\n"
+              "<!-- /stale-specimen -->\n")
+    clean = "# Roles\n\nROLE != AGENT INSTANCE, and a Role is never an Agent Instance.\n"
+    if not identity_collapse_offences({"orchestration/synthetic.md": offending}):
+        problems.append("the document scan missed an asserted collapse")
+    if not identity_collapse_offences({"orchestration/synthetic.md": fenced}):
+        problems.append("a specimen fence hid a collapse from the normative scan")
+    if identity_collapse_offences({"orchestration/synthetic.md": clean}):
+        problems.append("the document scan rejected canonical denial prose")
+    return (not problems, str(problems)[:300] if problems
+            else "%d collapses detected, %d denials and descriptions left alone"
+                 % (len(collapses), len(benign)))
+
+
+check("identity", "an identity collapse is detected even where the denial also stands",
+      identity_collapse_scan_is_driven)
 
 
 def named_stale_record(text):
@@ -2404,14 +2642,19 @@ def main():
     if as_json:
         print(json.dumps({"total": len(RESULTS), "passed": passed, "results": RESULTS}, indent=2))
     else:
-        group = None
+        # Grouped by label in order of first appearance, so a check registered later in the
+        # file - the identity-contradiction scan needs the rendered-text helpers - still
+        # prints under its own group once rather than reopening it.
+        order = []
         for r in RESULTS:
-            if r["group"] != group:
-                group = r["group"]
-                print("\n[%s]" % group)
-            print("  %s  %s" % ("PASS" if r["pass"] else "FAIL", r["name"]))
-            if (verbose or not r["pass"]) and r["evidence"]:
-                print("        %s" % r["evidence"])
+            if r["group"] not in order:
+                order.append(r["group"])
+        for group in order:
+            print("\n[%s]" % group)
+            for r in [x for x in RESULTS if x["group"] == group]:
+                print("  %s  %s" % ("PASS" if r["pass"] else "FAIL", r["name"]))
+                if (verbose or not r["pass"]) and r["evidence"]:
+                    print("        %s" % r["evidence"])
         print("\n=== %d/%d PASS ===" % (passed, len(RESULTS)))
     return 0 if passed == len(RESULTS) else 1
 

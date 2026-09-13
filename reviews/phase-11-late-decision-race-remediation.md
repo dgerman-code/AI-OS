@@ -599,6 +599,98 @@ identical, so no stop-and-report was required. The suite total is unchanged at *
 **Phase 11 remains `PROPOSED`; human approval is pending.**
 
 
+## Remediation — scope qualifiers, and identity contradictions
+
+Two enforcement gaps, from the re-audit on `f5a919e`. The scope rule was materially right and
+still had two holes; the identity rule checked that the denials were present and never that the
+corpus agreed with them.
+
+### Blocker 1 — the crossing construction, and qualified prohibitions
+
+Mechanism-free crossings still passed for two different reasons.
+
+*Boundaries the grammar did not know.* `A Phase 6 handoff is discussed — the run may cross a
+scope boundary.` and `The run may cross a scope boundary so a Phase 6 handoff can be recorded
+later.` read straight through an em dash and through `so`, so the crossing borrowed a mechanism
+from its neighbour. The clause reading is now a **crossing construction**, bounded by `,` `;`
+`:` the em dash, the en dash and `--`, and by `but` `and` `or` `nor` `while` `yet` `then`
+`however` `although` `though` `because` `whereas` `nevertheless` `so` `therefore` `hence` `thus`
+`since` `unless` `except` `save` `provided` `providing` `if` `when` `whenever` `where`
+`wherever` `until` `before` `after` `once` `assuming`.
+
+*Prohibitions that were not prohibitions.* `The run would not cross a project boundary unless an
+operator requested it.` is a **conditional permission wearing a prohibition**, and the exemption
+for an attached prohibition let it through. The exemption now requires the prohibition to be
+**unqualified**: when the boundary that closes the construction is itself an exception or
+condition — `unless` `except` `save` `provided` `providing` `if` `when` `whenever` `where`
+`wherever` `until` `once` `assuming` — the modality is `CONDITIONAL`, and a conditional
+permission needs its mechanism like any other. A boundary that merely introduces a neighbouring
+statement (`,` `and` `but`) does not qualify anything, so
+`The run must not cross a project boundary, and the refusal is recorded.` still stands.
+
+`refuses to cross` was **removed** from the prohibition vocabulary. It inverts under a negation
+that sits outside the phrase (`will not refuse to cross`), and an unrecognised form that fails
+closed is safer than a recognised one that can be flipped.
+
+### Blocker 2 — a denial does not prove the absence of the collapse
+
+The identity checks asserted that `ROLE != AGENT INSTANCE` and its eight siblings were
+*present*. Nothing asserted that the corpus did not **also** say `ROLE = AGENT INSTANCE`
+somewhere else. A contradiction of exactly that shape would have passed.
+
+The guarded pairs are **derived, not listed**: every `A != B != C` sequence in normative content
+contributes every pair among its terms, which yields **212 pairs over 23 objects** — the
+twenty-one-object chain plus `AUDIT EVENT` and `WORK ITEM` from the denial table. A denial added
+to the architecture is guarded the moment it is written, and the list cannot fall behind.
+
+Four collapse forms are recognised in both directions per pair: `X = Y` (never `X != Y`, never
+`X == Y`), `X is / are / becomes / remains (the same as | identical to | equivalent to) Y`,
+`X and Y are the same / interchangeable / one and the same`, and `X equals / means Y`. A
+negation immediately after the copula suppresses the reading, so `The orchestrator is not the
+Router` and `A Role is never an Agent Instance` stay legitimate.
+
+The scan reads through `semantic_text`, **not** `assertive_text`: the specimen fence is a
+review-record device, and letting it silence this scan would hand normative content a way to
+assert a collapse inside a fence.
+
+### Probes
+
+Scope: **82** sentences verdict as specified, now including eight boundary cases (em dash, en
+dash, colon, `--`, `so`, `therefore`, `hence`, `since`), nine qualified prohibitions, and
+unqualified prohibitions with unrelated trailing clauses as controls. Four modality assertions
+cover `PROHIBITED`, `CONDITIONAL`, `PERMITTED` and `UNKNOWN`. Sentences carrying two crossings
+are checked in both orders — unqualified first and conditional first — so a correct occurrence
+cannot hide a weakened one. The document scan is driven with nine violating and five governed
+synthetic documents.
+
+Identity: **14** collapses must be detected, including `ROLE = AGENT INSTANCE`,
+`A Role is an Agent Instance.`, `ROUTER = ORCHESTRATOR`, `The Router is the Orchestrator.`,
+`Router and Orchestrator are the same component.`, four further load-bearing collapses from the
+chain, and two hidden behind Markdown emphasis and a code span. **9** denials and benign
+descriptions must be left alone, among them `A Workflow Run is an execution of a Workflow.` and
+`The Decision Record records the exercise of a Decision Right.` The corpus scan itself is
+driven with three synthetic normative documents, one of which hides its collapse in a specimen
+fence.
+
+Eleven controlled weakenings, **exit 1 each**: mechanism search widened to the sentence ·
+conditional-qualification detection removed · dashes no longer boundaries · causal connectives
+no longer boundaries · construction boundaries removed entirely · prohibition attachment
+unanchored · the scope scan bypassing the verdict · the collapse scan returning nothing · the
+collapse pairs no longer derived from the denials · the `X is Y` form dropped · the specimen
+fence allowed to silence the collapse scan.
+
+The rendering family was re-run and still bites. The specimen-fence limit recorded earlier
+stands unchanged for its own check, though the collapse scan now reads through fences in
+normative content, so that particular hiding place is closed for identity.
+
+### Scope
+
+**No architecture content changed** — `orchestration/` and `architecture/` are byte-for-byte
+identical, so no stop-and-report was required. Suite **155 → 157**; `identity` 7 → 9, and the
+producer self-check states the new totals. **Phase 11 remains `PROPOSED`; human approval is
+pending.**
+
+
 ---
 
 ## A note on the specimen fence

@@ -16,13 +16,13 @@ python3 validation/phase_11_validation.py
 
 Python 3 standard library and `git` only. No network, no third-party packages, no writes. Deterministic; exit code 0 on pass, non-zero on any failure. `--verbose` prints each check's evidence; `--json` emits machine-readable results. Conventions are in `validation/README.md`.
 
-**Current result: `=== 155/155 PASS ===`.** Normal, `--verbose` and `--json` modes all report the same total. The harness asserts that this document states the total and the group counts the suite actually emits, so a stale number here is a failure rather than a cosmetic slip.
+**Current result: `=== 157/157 PASS ===`.** Normal, `--verbose` and `--json` modes all report the same total. The harness asserts that this document states the total and the group counts the suite actually emits, so a stale number here is a failure rather than a cosmetic slip.
 
-**Scope boundary.** These 155 are **offline, deterministic checks over committed content**. Remote repository state and the configuration of any engine, queue, database or forge are **not provable offline and are not claimed**.
+**Scope boundary.** These 157 are **offline, deterministic checks over committed content**. Remote repository state and the configuration of any engine, queue, database or forge are **not provable offline and are not claimed**.
 
 | Group | Checks | Covers |
 |---|---:|---|
-| `identity` | 7 | The 21-object chain verbatim; each named collapse denied **with its consequence**; the eight load-bearing denials individually; Role activated not instantiated; **no seniority variants**; runtime ID ≠ governance identity; router and orchestrator remain two components |
+| `identity` | 9 | The 21-object chain verbatim; each named collapse denied **with its consequence**; the eight load-bearing denials individually; Role activated not instantiated; **no seniority variants**; runtime ID ≠ governance identity; router and orchestrator remain two components; **no normative artifact asserts a denied collapse**, with the 212 guarded pairs derived from the denials themselves; the contradiction scan driven by its own collapse and denial probes |
 | `authority` | 10 | The may / may-never table populated on both sides; **a pattern scan proving no artifact grants the orchestrator a governed power**; completion ≠ approval; absence of a Right ≠ permission; timeout ≠ approval; `DEFER`/`ESCALATE` never become `APPROVE`; no self-satisfied gate; confidence ≠ authority; a model result is `AI_SUGGESTION`; a credential grants nothing |
 | `state` | 10 | Four orthogonal axes rather than one enum; 10 phases, 6 terminals, 5 wait reasons, 4 postures, each parsed; **completion gated on posture, not on stages finishing**; **no waiting, paused or blocked state reaches completion**; terminals have no outgoing edges; a block is not resumed by retry; postures compose strictly |
 | `scope` | 9 | Every boundary named; one scope per run, bound at intake; crossing needs an approved mechanism; a sub-run narrows and never widens; scope mismatch stops the run; **a scan reading every scope-crossing sentence by its predicate** — a prohibition is allowed however worded, a permission only when it names an approved mechanism and does not dispense with one — plus a twelve-case guard on that verdict function; sensitivity carried never widened; **no scalar sensitivity ceiling** |
