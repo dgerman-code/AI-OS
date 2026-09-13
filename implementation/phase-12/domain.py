@@ -64,6 +64,13 @@ class TransitionError(GovernanceError):
     """A run-phase transition the approved state machine does not allow."""
 
 
+class HaltedRunError(GovernanceError):
+    """A halted run was asked to progress or to append governed history.
+
+    Its own class because it is the single answer every ordinary API gives once a run is
+    terminal, BLOCKED, ESCALATED or carrying AUTHORITY_ABSENT: one guard, and one way out."""
+
+
 class AppendOnlyError(GovernanceError):
     """An attempt to rewrite recorded history."""
 
@@ -589,7 +596,8 @@ class ScopeTransferAuthorisation:
 
     A bare `HandoffRef` or `ScopeTransferRef` proves nothing - the audit's eighth finding. The
     approved mechanism is an object binding the mechanism at a version to the source run and
-    scope, the target scope, and the Decision Record by which a human authorised it."""
+    scope, the target scope, the exact Decision Right the act requires, the act itself, and
+    the Decision Record by which a human exercised that Right."""
 
     mechanism: Ref
     mechanism_version: str
@@ -599,6 +607,7 @@ class ScopeTransferAuthorisation:
     work_item: WorkItemRef
     requirement: GateRequirementRef
     decision_right: DecisionRightRef
+    authorised_act: str
     authorised_by: HumanAuthorityRef
     decision_record: DecisionRecordRef
 
@@ -610,6 +619,8 @@ class ScopeTransferAuthorisation:
                 "transfer, got %s" % _describe(self.mechanism))
         if not self.mechanism_version:
             raise GovernanceError("an approved mechanism must be named at a version")
+        if not self.authorised_act:
+            raise GovernanceError("an authorisation must name the act it authorises")
 
     def covers(self, run: "WorkflowRun", target: ScopeBinding) -> bool:
         """The authorisation must name THIS run, THIS whole source binding and THAT whole

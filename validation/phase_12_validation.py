@@ -680,7 +680,7 @@ def scope_crossing_needs_governed_evidence():
         gate = _decision_gate("gate.tr", "dr.tr")
         registry = adapters.InMemoryMechanismRegistry()
         registry.register(domain.ScopeTransferRef("st.1"), "v2", SCOPE, target_binding,
-                          domain.DecisionRightRef("dr.tr"))
+                          domain.DecisionRightRef("dr.tr"), "scope_transfer")
         orch = _fresh(rights={"dr.tr": (domain.HumanAuthorityRef("h"),
                                         domain.GateOutcome.SATISFIED)})
         orch.mechanisms = registry
@@ -693,6 +693,7 @@ def scope_crossing_needs_governed_evidence():
                       source_run=run.ref, source_scope=run.scope, target_scope=target_binding,
                       work_item=item.ref, requirement=gate.ref,
                       decision_right=domain.DecisionRightRef("dr.tr"),
+                      authorised_act="scope_transfer",
                       authorised_by=record.decided_by, decision_record=record.ref)
         fields.update(overrides)
         return domain.ScopeTransferAuthorisation(**fields)
@@ -1137,7 +1138,254 @@ check("assurance", "every satisfying evidence object is retained in governed his
       satisfying_evidence_is_retained)
 
 
+def a_halted_run_refuses_every_ordinary_api():
+    """One guard, every API. The re-audit found it in one place and absent from eleven."""
+    gate = _decision_gate("gate.absent", "dr.absent")
+    orch, run, item = _started(_task(gates=(gate,)), run_id="run.halt")
+    orch.run_decision_gate(run, item, gate.ref)
+    if run.posture is not domain.GovernancePosture.AUTHORITY_ABSENT:
+        return (False, "the missing Right did not produce AUTHORITY_ABSENT")
+    prereq = domain.GateRequirement(domain.GateRequirementRef("gate.p"),
+                                    domain.GateKind.GOVERNED_PREREQUISITE,
+                                    prerequisite=domain.PrerequisiteRef("pre"))
+    evidence = domain.PrerequisiteEvidence(
+        domain.PrerequisiteRecordRef("prr.h"), prereq.ref, run.ref, item.ref,
+        domain.PrerequisiteRef("pre"), domain.GateOutcome.SATISFIED,
+        domain.StorageRecordRef("sr"))
+    intervention = domain.HumanInterventionRecord(
+        domain.InterventionRef("iv.h"), run.ref, domain.HumanAuthorityRef("h"), "note",
+        "while halted")
+    apis = {
+        "activate a stage": lambda: orch.activate_stage(run, domain.TaskRef("task.v")),
+        "assign": lambda: orch.assign(run, item, AUTHOR),
+        "request routing": lambda: orch.request_routing(run, item, "policy@1"),
+        "route": lambda: orch.route(run, item, "policy@1"),
+        "run a review gate": lambda: orch.run_review_gate(run, item, gate.ref),
+        "run a decision gate": lambda: orch.run_decision_gate(run, item, gate.ref),
+        "satisfy a gate": lambda: orch.satisfy_gate_with(run, item, prereq.ref, evidence),
+        "record human work": lambda: orch.record_human_work(run, item, prereq.ref, evidence),
+        "record a prerequisite": lambda: orch.record_prerequisite(run, item, prereq.ref,
+                                                                  evidence),
+        "retry": lambda: orch.retry(run, item),
+        "record an intervention": lambda: orch.record_intervention(run, intervention),
+        "pause": lambda: orch.pause(run, intervention),
+        "complete": lambda: orch.complete(run, domain.TerminalOutcome.COMPLETED),
+        "open a sub-run": lambda: orch.open_sub_run(run, run.definition,
+                                                    domain.WorkflowRunRef("run.sub"),
+                                                    run.scope),
+        "transfer scope": lambda: orch.transfer_scope(run, run.definition,
+                                                      domain.WorkflowRunRef("run.tx"),
+                                                      run.scope, None),
+    }
+    before = _snapshot(run, orch)
+    permitted = [name for name, call in apis.items() if not _raises(call, Exception)]
+    problems = ["%s was permitted while halted" % name for name in permitted]
+    if _snapshot(run, orch) != before:
+        problems.append("a refused API left state or history changed")
+    # And the one governed way out still refuses while the gate stands.
+    if not _raises(lambda: orch.unblock(run, intervention)):
+        problems.append("unblock resumed a run whose gate still stands")
+    return (not problems, str(problems)[:300] if problems
+            else "%d ordinary APIs refused, state and history unchanged, unblock refused"
+                 % len(apis))
+
+
+check("assurance", "a halted run refuses every ordinary API through one guard",
+      a_halted_run_refuses_every_ordinary_api)
+
+
+def a_halted_run_may_still_be_stopped_and_recovered():
+    """Stopping is always permitted; recovery is a governed act with its own conditions."""
+    orch, run, item = _started(_task(capability="cap"), run_id="run.stop")
+    orch.route(run, item, "policy@1")                      # no eligible model -> BLOCKED
+    problems = []
+    if run.phase is not domain.RunPhase.BLOCKED:
+        problems.append("the routing block did not reach BLOCKED")
+    intervention = domain.HumanInterventionRecord(
+        domain.InterventionRef("iv.s"), run.ref, domain.HumanAuthorityRef("h"), "unblock",
+        "an eligible deployment was registered")
+    orch.unblock(run, intervention)
+    if run.phase is not domain.RunPhase.RUNNING:
+        problems.append("the governed recovery path did not resume the run")
+    orch2, run2, item2 = _started(_task(capability="cap"), run_id="run.stop2")
+    orch2.route(run2, item2, "policy@1")
+    stop = domain.HumanInterventionRecord(
+        domain.InterventionRef("iv.c"), run2.ref, domain.HumanAuthorityRef("h"), "cancel",
+        "the work is not wanted")
+    orch2.complete(run2, domain.TerminalOutcome.CANCELLED, intervention=stop)
+    if run2.terminal is not domain.TerminalOutcome.CANCELLED:
+        problems.append("a halted run could not be cancelled")
+    return (not problems, str(problems) if problems
+            else "a halted run stops freely and resumes only through unblock()")
+
+
+check("assurance", "a halted run may still be stopped, and recovers only through unblock",
+      a_halted_run_may_still_be_stopped_and_recovered)
+
+
+def routing_origin_is_not_caller_assertable():
+    """There is no callable path that admits a Routing Decision the Router did not return."""
+    orch, run, item = _started(_task(capability="cap"), run_id="run.prov")
+    orch.router.eligible["cap"] = (domain.ModelRef("m"), domain.ModelProfileRef("p"))
+    problems = []
+    for name in ("record_routing_decision", "_record_routing_decision"):
+        if hasattr(orch, name):
+            problems.append("a recording path still exists: %s" % name)
+    request = orch.request_routing(run, item, "policy@1")
+    fabricated = domain.RoutingDecision(
+        domain.RoutingDecisionRef("rd.fake"), request.ref, run.ref, item.ref,
+        domain.RouterOutcome.ELIGIBLE_CANDIDATE, orch.router.ref,
+        domain.ModelRef("model.chosen"), domain.ModelProfileRef("profile.chosen"))
+    if not _raises(lambda: orch.invoke_model(run, item, fabricated), domain.LineageError):
+        problems.append("a fabricated Routing Decision reached model invocation")
+    if any(r.ref == fabricated.ref for r in run.routing_decisions()):
+        problems.append("a fabricated Routing Decision entered governed history")
+    calls = len(orch.router.requests)
+    recorded = orch.route(run, item, "policy@2")
+    if len(orch.router.requests) != calls + 1:
+        problems.append("routing recorded without invoking the configured Router")
+    if run.routing_decisions()[-1] is not recorded:
+        problems.append("the recorded decision is not the object the Router returned")
+    return (not problems, str(problems)[:300] if problems
+            else "routing enters history only as the configured Router's own answer")
+
+
+check("assurance", "a Routing Decision's origin cannot be asserted by a caller",
+      routing_origin_is_not_caller_assertable)
+
+
+def a_crossing_binds_the_right_and_the_act():
+    """Mechanism and bindings are not enough: the Right and the act are part of the approval."""
+    target = domain.ScopeBinding(domain.ScopeRef("scope.other"), frozenset({"INTERNAL"}), "EU")
+
+    def fixture(right="dr.tr", act="scope_transfer", run_id="run.act"):
+        gate = _decision_gate("gate.tr", "dr.tr")
+        registry = adapters.InMemoryMechanismRegistry()
+        registry.register(domain.ScopeTransferRef("st.1"), "v2", SCOPE, target,
+                          domain.DecisionRightRef(right), act)
+        orch = _fresh(rights={"dr.tr": (domain.HumanAuthorityRef("h"),
+                                        domain.GateOutcome.SATISFIED)})
+        orch.mechanisms = registry
+        orch, run, item = _started(_task(gates=(gate,)), orch, run_id=run_id)
+        _outcome, record = orch.run_decision_gate(run, item, gate.ref)
+        return orch, run, item, gate, record
+
+    def authorisation(run, item, gate, record, **overrides):
+        fields = dict(mechanism=domain.ScopeTransferRef("st.1"), mechanism_version="v2",
+                      source_run=run.ref, source_scope=run.scope, target_scope=target,
+                      work_item=item.ref, requirement=gate.ref,
+                      decision_right=domain.DecisionRightRef("dr.tr"),
+                      authorised_act="scope_transfer", authorised_by=record.decided_by,
+                      decision_record=record.ref)
+        fields.update(overrides)
+        return domain.ScopeTransferAuthorisation(**fields)
+
+    problems = []
+    orch, run, item, gate, record = fixture(right="dr.unrelated", run_id="run.act1")
+    if not _raises(lambda: orch.transfer_scope(run, run.definition,
+                                               domain.WorkflowRunRef("run.x"), target,
+                                               authorisation(run, item, gate, record))):
+        problems.append("an unrelated Decision Right authorised a registered crossing")
+    orch, run, item, gate, record = fixture(act="evidence_export", run_id="run.act2")
+    if not _raises(lambda: orch.transfer_scope(run, run.definition,
+                                               domain.WorkflowRunRef("run.x"), target,
+                                               authorisation(run, item, gate, record))):
+        problems.append("a crossing registered for another act was approved")
+    orch, run, item, gate, record = fixture(run_id="run.act3")
+    before = _snapshot(run, orch)
+    if not _raises(lambda: orch.transfer_scope(
+            run, run.definition, domain.WorkflowRunRef("run.x"), target,
+            authorisation(run, item, gate, record, authorised_act="something_else"))):
+        problems.append("a mismatched authorised act was accepted")
+    if _snapshot(run, orch) != before:
+        problems.append("a refused crossing left state or history changed")
+    transferred = orch.transfer_scope(run, run.definition, domain.WorkflowRunRef("run.ok"),
+                                      target, authorisation(run, item, gate, record))
+    if transferred.scope != target or run.scope == target:
+        problems.append("the approved crossing did not produce a new bound execution")
+    return (not problems, str(problems)[:300] if problems
+            else "a crossing binds mechanism, version, bindings, Right and act")
+
+
+check("assurance", "a scope crossing binds the exact Decision Right and authorised act",
+      a_crossing_binds_the_right_and_the_act)
+
+
+def model_results_carry_identity_and_profile_lineage():
+    """A result is a governed record: it has an identity, and it names what was selected."""
+    orch = _fresh(eligible={"cap": (domain.ModelRef("m"), domain.ModelProfileRef("p"))})
+    orch, run, item = _started(_task(capability="cap"), orch, run_id="run.mr")
+    decision = orch.route(run, item, "policy@1")
+    first = orch.invoke_model(run, item, decision)
+    problems = []
+    if not isinstance(first.ref, domain.ModelResultRef):
+        problems.append("a model result carries no governed identity")
+    if first.model != decision.model or first.model_profile != decision.model_profile:
+        problems.append("the retained result does not reconstruct the selection lineage")
+    before = _snapshot(run, orch)
+    orch.model.execute = lambda request: first                 # a duplicate identity
+    if not _raises(lambda: orch.invoke_model(run, item, decision), Exception):
+        problems.append("a duplicate Model Result identity was admitted")
+    if _snapshot(run, orch) != before:
+        problems.append("a refused duplicate left a partial mutation behind")
+    orch.model.execute = lambda request: domain.ModelResult(
+        domain.ModelResultRef("mr.wrong"), run.ref, item.ref, decision.ref, decision.model,
+        domain.ModelProfileRef("profile.somethingelse"), "t")
+    if not _raises(lambda: orch.invoke_model(run, item, decision), domain.LineageError):
+        problems.append("a result under a different Model Profile was accepted")
+    if _snapshot(run, orch) != before:
+        problems.append("a refused profile mismatch left a partial mutation behind")
+    return (not problems, str(problems)[:300] if problems
+            else "model results carry identity, profile lineage and duplicate refusal")
+
+
+check("assurance", "a Model Result carries its identity and its selection lineage",
+      model_results_carry_identity_and_profile_lineage)
+
+
 # =========================================================== the suite itself
+
+
+MUTATION_HARNESS = "implementation/phase-12/tests/test_mutation_guards.py"
+
+check("suite", "the controlled-weakening harness is committed",
+      lambda: (os.path.exists(os.path.join(REPO, MUTATION_HARNESS))
+               and "WEAKENINGS" in read(MUTATION_HARNESS), MUTATION_HARNESS))
+
+
+def mutation_harness_classifications_hold():
+    """Run the committed weakenings here too, and check the classification independently.
+
+    The harness classifies each weakening DETECTED or REDUNDANT. This check re-derives the
+    classification from the runner itself rather than trusting the label, so a weakening that
+    quietly stopped biting is a validator failure and not merely a comment."""
+    sys.path.insert(0, os.path.join(PKG, "tests"))
+    captured, sys.stdout = sys.stdout, io.StringIO()
+    try:
+        import test_mutation_guards as harness
+        results = {}
+        for name, mutations, scenario, expectation in harness.WEAKENINGS:
+            with harness.implementation(mutations) as env:
+                try:
+                    scenario(env)
+                    detected = False
+                except AssertionError:
+                    detected = True
+            results[name] = ("DETECTED" if detected else "REDUNDANT", expectation)
+    finally:
+        sys.stdout = captured
+    wrong = ["%s: observed %s, classified %s" % (name, observed, claimed)
+             for name, (observed, claimed) in results.items() if observed != claimed]
+    detected = [n for n, (observed, _c) in results.items() if observed == "DETECTED"]
+    if len(detected) < 10:
+        wrong.append("only %d weakenings actually bite" % len(detected))
+    return (not wrong, str(wrong)[:300] if wrong
+            else "%d weakenings, %d detected, every classification reproduced"
+                 % (len(results), len(detected)))
+
+
+check("suite", "every committed weakening behaves as the harness classifies it",
+      mutation_harness_classifications_hold)
 
 
 def tests_pass():

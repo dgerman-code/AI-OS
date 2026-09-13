@@ -259,7 +259,8 @@ def bypass_fabricated_scope_authorisation():
     target = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "EU")
     fabricated = ScopeTransferAuthorisation(
         ScopeTransferRef("st.fab"), "v9", run.ref, run.scope, target, item.ref, gate.ref,
-        DecisionRightRef("dr.tr"), HumanAuthorityRef("h"), DecisionRecordRef("dr.never"))
+        DecisionRightRef("dr.tr"), "scope_transfer", HumanAuthorityRef("h"),
+        DecisionRecordRef("dr.never"))
     return "fabricated scope authorisation", _refused_any(
         lambda: orch.transfer_scope(run, run.definition, WorkflowRunRef("run.byp.17a"),
                                     target, fabricated))[:88]

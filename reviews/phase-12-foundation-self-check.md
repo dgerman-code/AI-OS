@@ -13,6 +13,12 @@ It is not an independent audit.
 
 ---
 
+> **Revision 4 — halted-run, atomic commit, provenance and committed mutation assurance.**
+> The v3 re-audit rated the implementation substantially stronger but NOT READY, on five
+> load-bearing families plus harness credibility. All are closed; section 4d records them. The
+> mutation runner is now **committed and executed by the validator**, so the credibility claim
+> rests on evidence in the repository rather than on a scratch file.
+>
 > **Revision 3 — governed evidence and lineage hardening.** The independent re-audit found
 > nine further structural blockers on the remediated baseline. All nine are closed; section 4c
 > records them. The governing rule is now: *a governed act may change execution state only when
@@ -48,35 +54,38 @@ discouraged.** A `RoleRef` and an `AgentInstanceRef` carrying the same string ar
 
 ```
 python3 -m unittest discover -s implementation/phase-12/tests
-Ran 126 tests — OK
+Ran 131 tests — OK
 
-python3 validation/phase_12_validation.py            === 43/43 PASS ===   exit 0
-python3 validation/phase_12_validation.py --verbose   === 43/43 PASS ===   exit 0
-python3 validation/phase_12_validation.py --json      total 43, passed 43, 43 results
+python3 validation/phase_12_validation.py            === 50/50 PASS ===   exit 0
+python3 validation/phase_12_validation.py --verbose   === 50/50 PASS ===   exit 0
+python3 validation/phase_12_validation.py --json      total 50, passed 50, 50 results
 
 python3 implementation/phase-12/examples/governed_run.py   exit 0, run COMPLETED / GOVERNANCE_CLEAR
 python3 implementation/phase-12/examples/blocked_run.py    exit 0, four governance stops and
                                                             twenty-two structural bypasses refused
 ```
 
-Validator groups: `structure` 4 · `containment` 6 · `domain` 7 · `assurance` 23 ·
-`suite` 2 · `inventory` 1.
+Validator groups: `structure` 4 · `containment` 6 · `domain` 7 · `assurance` 28 ·
+`suite` 4 · `inventory` 1.
 
-**Controlled weakenings: 32, of which 31 are caught by both the test suite and the validator.**
-Each load-bearing guard was removed in turn and the suite and validator re-run.
+**Controlled weakenings: 12, committed and executed.**
+`implementation/phase-12/tests/test_mutation_guards.py` removes each load-bearing guard from
+the module **source in memory**, executes a fresh copy of the implementation, and re-runs the
+scenario that guard protects. Nothing on disk is edited, so the runner is reproducible from a
+clean checkout and runs as part of the ordinary suite. The Phase 12 validator both checks that
+the harness is committed and re-derives every classification itself, so a weakening that
+quietly stopped biting is a validator failure rather than a stale comment.
 
-The one exception is recorded rather than hidden: removing the `AUTHORITY_ABSENT` check in
-`activate_stage` changes nothing observable, because `AUTHORITY_ABSENT` is only ever set
-together with the `ESCALATED` phase, and the phase guard already refuses. The posture guard is
-kept deliberately, as defence for any future path that sets the posture without halting the
-phase, and `test_authority_absent_always_arrives_with_an_escalated_phase` states that
-coincidence explicitly instead of claiming the guard is independently exercised.
+Eleven of the twelve are classified `DETECTED` — removing the guard changes observable
+governed behaviour. One is classified `REDUNDANT` and says so in the file: removing the Model
+Result identity **preflight** changes nothing observable, because nothing has mutated between
+the preflight and the append, so the store's own identity check still refuses. That store check
+is itself weakened separately, and is detected.
 
-Three earlier redundancies found the same way were removed rather than explained: the stage
-activation path now refuses a halted run in exactly one place; the authorisation-coverage
-check is exercised by source-run and target-binding mismatches that no other check catches; and
-"a continuing outcome with no record" raises its own `MissingEvidenceError`, so the guard is
-load-bearing by type rather than by message.
+Three earlier redundancies were removed rather than explained: the stage activation path
+refuses a halted run in exactly one place; the authorisation-coverage check is exercised by
+source-run and target-binding mismatches that no other check catches; and "a continuing outcome
+with no record" raises its own `MissingEvidenceError`, so the guard is load-bearing by type
 
 ## 3. Regression
 
@@ -124,7 +133,7 @@ rather than claiming it.
 | 7 | Retry class came from a caller-supplied Task | `retry()` has no task parameter; the class is read from the Work Item's lineage |
 | 8 | A bare mechanism reference proved a crossing was approved | `ScopeTransferAuthorisation` binds mechanism-at-version, source run and scope, target scope, human authority and Decision Record; the crossing creates a **new** execution and rewrites no binding |
 | 9 | Governed records were overwritten by Work Item id | `RecordStore` is append-only with the backing list in a closure; repeated Decision and Review records both stand |
-| 10 | Tests proved object creation, not relationships | 126 tests, including one class per finding, plus the 32 controlled weakenings above |
+| 10 | Tests proved object creation, not relationships | 131 tests, including one class per finding, plus the committed weakenings above |
 
 ### 4c. The nine re-audit findings, and how each was closed
 
@@ -138,13 +147,25 @@ rather than claiming it.
 | 6 | A well-shaped authorisation was sufficient | `transfer_scope` corroborates every clause against the source run's retained history: the Decision Record must be retained and must answer the exact run, Work Item, requirement and Right with a continuing outcome; the authorising human must be that record's author and hold the Right; the mechanism at its version must be approved by the configured registry for that exact Right (no registry approves nothing); the complete source and target bindings must match; and sensitivity may not widen nor residency change |
 | 7 | A caller could manufacture a Routing Decision and record it | There is no recording method — `route()` invokes the configured Router and directly records exactly the object it returned; `decided_by` must equal the configured `RouterRef`; and a `ModelResult` must carry its own record identity and answer this run, Work Item, Routing Decision, model and Model Profile before it is recorded |
 | 8 | Evidence could satisfy a gate without being retained | `_commit_gate` retains the evidence in its governed store as part of the same commit, keyed by the record's own identity; `RecordStore` refuses a duplicate identity; and `run.evidence_for(gate)` reconstructs what explained a completion |
-| 9 | Adversarial and mutation credibility | 126 tests, 22 executable bypass probes in `examples/blocked_run.py`, and 32 controlled weakenings |
+| 9 | Adversarial and mutation credibility | 131 tests, 22 executable bypass probes in `examples/blocked_run.py`, and the committed weakening harness |
 
 Two checks compare the implementation against the architecture **documents** rather than
 against itself: the transition table is parsed from
 `orchestration/state-machine-and-transitions.md` and reconciled row by row, and the separation
 chain is parsed from `architecture/orchestrator-architecture.md`. An implementation that drifts
 from the approved architecture fails without anyone editing the validator.
+
+### 4d. The v3 re-audit findings, and how each was closed
+
+| Family | Answer |
+|---|---|
+| Halted-run refusal applied in one place only | `_require_progressible()` is the one guard, called by every ordinary API — stage activation, assignment, routing request, route, model invocation, review, decision, external gate satisfaction, human work, prerequisite, retry, intervention, pause, sub-run, scope transfer and completion. It also refuses a terminal run. Stopping a halted run (CANCELLED, TERMINATED) stays permitted, because stopping is always permitted; only completing is governed |
+| `unblock()` must be the only way back | It is the only method that does not call the guard, and it earns that by being harder: a validated human intervention naming this run, no gate still standing against continuation, and every fallible check preflighted before the first mutation |
+| Validate-then-commit not atomic | Every fallible check now precedes the first mutation: evidence appends through `RecordStore.validate_add`, the whole planned phase sequence through `_preflight_phases`, and the Model Result identity before the model result is recorded. Four snapshot tests assert bit-for-bit equality of axes, gate outcomes, every record store and the event count after a refusal |
+| Routing origin caller-assertable | There is no recording path at all: `route()` asks the configured Router and records exactly the object returned, and the validator asserts that neither `record_routing_decision` nor `_record_routing_decision` exists on the orchestrator |
+| Mechanism approval too coarse | An approval binds mechanism, version, both complete bindings, the **exact Decision Right** and the **authorised act**. An unrelated Right and a mismatched act are each refused, without mutation |
+| ModelResult lacked identity and profile lineage | `ModelResultRef` is part of `ModelResult`, alongside the selected `model_profile`; `invoke_model` verifies both against the recorded Routing Decision and preflights the identity before recording |
+| Harness credibility LOW | The weakening runner is committed at `implementation/phase-12/tests/test_mutation_guards.py`, runs in the ordinary suite, and the validator re-derives every classification independently |
 
 ## 5. Deferred Phase 11 validator hardening
 
@@ -193,9 +214,23 @@ Each of these is an MVP limitation, not an architecture defect.
    not in a class.
 8. **The `inventory` self-check counts this document's stated total**, not its prose. A wrong
    description here would not fail the validator; a wrong number would.
-9. **The 32 controlled weakenings are run from a scratch harness, not committed.** They are
-   reproducible by editing a guard and re-running the suite, and each is named in section 2,
-   but the mutation runner itself is not part of the repository.
+9. **The weakening harness is committed and runs in-process.** It executes copies of the
+   implementation with guards removed; it does not fork, sandbox or time-limit them. A
+   weakening that hung rather than failing would hang the suite.
+10. **One weakening is honestly classified `REDUNDANT`**, and one earlier finding remains so:
+   removing the `AUTHORITY_ABSENT` posture check in the halted guard changes nothing
+   observable today, because that posture is only ever set together with `ESCALATED`. Both are
+   kept as defence for future paths and are recorded rather than claimed.
+
+## 6a. Harness credibility, self-assessed
+
+**MEDIUM-HIGH, and the gap is named.** What supports it: 131 committed tests; 22 executable
+bypass probes; a committed weakening runner whose eleven detected weakenings are re-derived by
+the validator; and two checks that compare the implementation against the architecture
+*documents* rather than against itself. What holds it back from HIGH: this is a single-process
+in-memory reference with no persistence and no concurrency, so a whole class of governed
+behaviour — version-pinned writes, real contention, the ten-race table — is represented rather
+than executed. A producer self-assessment is also not an audit.
 
 ## 7. Statements this document does not make
 

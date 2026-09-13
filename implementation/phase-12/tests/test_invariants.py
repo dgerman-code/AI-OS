@@ -26,7 +26,8 @@ from domain import (  # noqa: E402
     ArtifactRef, CONTINUING_GATE_OUTCOMES, Canonicality, CanonicalRecordRef, CredentialRef,
     DecisionRecord, DecisionRecordRef, DecisionRightRef, EVIDENCE_CONTRACT, EvidenceError,
     ExecutionEventLog, GateInstance, GateKind, GateOutcome, GateRequirement,
-    GateRequirementRef, GovernanceError, GovernancePosture, HandoffRef, HumanAuthorityRef,
+    GateRequirementRef, GovernanceError, GovernancePosture, HaltedRunError, HandoffRef,
+    HumanAuthorityRef,
     HumanInterventionRecord, HumanWorkCompletion, HumanWorkRef, IdentityError, InterventionRef,
     LineageError, MissingEvidenceError, ModelProfileRef, ModelRef, ModelResult, ModelResultRef, NEVER_AUTOMATICALLY_RETRYABLE,
     Origin, OrchestratorRef, POSTURE_PERMITS_COMPLETION, PrerequisiteEvidence, PrerequisiteRef,
@@ -613,7 +614,7 @@ class TestScopeBinding(unittest.TestCase):
         gate = decision_gate("gate.tr", "dr.tr")
         registry = InMemoryMechanismRegistry()
         registry.register(ScopeTransferRef("st.1"), "v2", SCOPE, target,
-                          DecisionRightRef("dr.tr"))
+                          DecisionRightRef("dr.tr"), "scope_transfer")
         orch = build(rights={"dr.tr": (HumanAuthorityRef("h"), GateOutcome.SATISFIED)},
                      mechanisms=registry)
         run, item = started(orch, simple_task(gates=(gate,)))
@@ -625,6 +626,7 @@ class TestScopeBinding(unittest.TestCase):
                       source_run=run.ref, source_scope=run.scope, target_scope=target,
                       work_item=item.ref, requirement=gate.ref,
                       decision_right=DecisionRightRef("dr.tr"),
+                      authorised_act="scope_transfer",
                       authorised_by=record.decided_by, decision_record=record.ref)
         fields.update(overrides)
         return ScopeTransferAuthorisation(**fields)
@@ -660,7 +662,7 @@ class TestScopeBinding(unittest.TestCase):
         narrower = ScopeBinding(ScopeRef("project.zephyr"), frozenset(), "EU")
         orch, run, item, gate, record = self._authorised_setup(target)
         orch.mechanisms.register(ScopeTransferRef("st.1"), "v2", SCOPE, target,
-                                 DecisionRightRef("dr.tr"))
+                                 DecisionRightRef("dr.tr"), "scope_transfer")
         # The authorisation covers a different (narrower) target than the one being crossed to.
         wrong = self._authorisation(run, item, gate, record, narrower)
         with self.assertRaises(GovernanceError):
@@ -705,14 +707,14 @@ class TestScopeBinding(unittest.TestCase):
                              "EU")
         orch, run, item, gate, record = self._authorised_setup(wider)
         orch.mechanisms.register(ScopeTransferRef("st.1"), "v2", SCOPE, wider,
-                                 DecisionRightRef("dr.tr"))
+                                 DecisionRightRef("dr.tr"), "scope_transfer")
         with self.assertRaises(GovernanceError):
             orch.transfer_scope(run, run.definition, WorkflowRunRef("run.x"), wider,
                                 self._authorisation(run, item, gate, record, wider))
         elsewhere = ScopeBinding(ScopeRef("project.zephyr"), frozenset({"INTERNAL"}), "US")
         orch2, run2, item2, gate2, record2 = self._authorised_setup(elsewhere)
         orch2.mechanisms.register(ScopeTransferRef("st.1"), "v2", SCOPE, elsewhere,
-                                  DecisionRightRef("dr.tr"))
+                                  DecisionRightRef("dr.tr"), "scope_transfer")
         with self.assertRaises(GovernanceError):
             orch2.transfer_scope(run2, run2.definition, WorkflowRunRef("run.y"), elsewhere,
                                  self._authorisation(run2, item2, gate2, record2, elsewhere))
@@ -740,7 +742,7 @@ class TestScopeBinding(unittest.TestCase):
     def test_an_authorisation_needs_a_real_mechanism_kind_and_version(self):
         common = dict(source_run=WorkflowRunRef("r"), source_scope=SCOPE, target_scope=SCOPE,
                       work_item=WorkItemRef("wi"), requirement=GateRequirementRef("g"),
-                      decision_right=DecisionRightRef("d"),
+                      decision_right=DecisionRightRef("d"), authorised_act="scope_transfer",
                       authorised_by=HumanAuthorityRef("h"),
                       decision_record=DecisionRecordRef("dr"))
         with self.assertRaises(IdentityError):
@@ -1107,7 +1109,7 @@ class TestHaltedRunCannotProgress(unittest.TestCase):
         orch.route(run, item, "policy@1")
         self.assertIs(run.phase, RunPhase.BLOCKED)
         self.assertIs(run.posture, GovernancePosture.GATE_UNSATISFIED)
-        with self.assertRaises(TransitionError):
+        with self.assertRaises(HaltedRunError):
             orch.activate_stage(run, TASK)
 
     def test_every_ordinary_progression_api_refuses_after_missing_authority(self):

@@ -32,6 +32,7 @@ from domain import (
     EVIDENCE_CONTRACT, EvidenceError, ExecutionEventLog, GateInstance, GateInstanceRef,
     MissingEvidenceError,
     GateKind, GateOutcome, GateRequirement, GateRequirementRef, GovernanceError,
+    HaltedRunError,
     GovernancePosture, HumanAuthorityRef, HumanInterventionRecord, HumanWorkCompletion,
     LineageError, ModelInvocationRequest, ModelResult, NEVER_AUTOMATICALLY_RETRYABLE,
     NON_COMPLETION_TERMINALS, POSTURE_PERMITS_COMPLETION, PrerequisiteEvidence, Ref,
@@ -83,10 +84,18 @@ class Orchestrator:
         return "%s-%d" % (prefix, self._serial)
 
     def _require_progressible(self, run: WorkflowRun, act: str) -> None:
-        """Refuse every ordinary progression API while governance has halted the run."""
+        """The one guard every ordinary API calls before it changes anything.
+
+        A run that is terminal, BLOCKED, ESCALATED, or carrying AUTHORITY_ABSENT does not
+        progress and does not append governed history. `unblock()` is the only way back, and it
+        is a governed act in its own right. Calling `self._state` also proves the run belongs
+        to this orchestrator, so the guard doubles as the ownership check every API needs."""
         state = self._state(run)
+        if state.terminal is not None:
+            raise HaltedRunError("%s is terminal as %s; %s is not available"
+                                 % (run.ref, state.terminal.value, act))
         if state.phase in HALTED_PHASES or state.posture is GovernancePosture.AUTHORITY_ABSENT:
-            raise TransitionError(
+            raise HaltedRunError(
                 "%s is %s / %s; %s requires governed unblock/reconciliation first"
                 % (run.ref, state.phase.value, state.posture.value, act))
 
@@ -169,7 +178,7 @@ class Orchestrator:
     def open_sub_run(self, parent: WorkflowRun, definition: WorkflowDefinition,
                      run_ref: WorkflowRunRef, scope: ScopeBinding) -> WorkflowRun:
         """A sub-run may narrow what it sees. It may not widen it."""
-        self._token(parent)                      # the parent must be this orchestrator's
+        self._require_progressible(parent, "opening a sub-run")
         if not parent.scope.narrows_to(scope):
             raise GovernanceError(
                 "a sub-run may narrow the parent scope, never widen it: %s is not within %s"
@@ -187,7 +196,7 @@ class Orchestrator:
         crossing happens only when every part of the authorisation is corroborated by the
         source run's own retained history - a well-shaped object a caller built is not
         evidence of anything, which was the audit's sixth finding."""
-        self._token(run)
+        self._require_progressible(run, "transferring scope")
         try:
             self._validate_transfer(run, target, authorisation)
         except GovernanceError:
@@ -240,10 +249,12 @@ class Orchestrator:
         # The mechanism must be one the source run recognises as approved for this act.
         if self.mechanisms is None or not self.mechanisms.approves(
                 authorisation.mechanism, authorisation.mechanism_version,
-                run.scope, target, authorisation.decision_right):
+                run.scope, target, authorisation.decision_right,
+                authorisation.authorised_act):
             raise GovernanceError(
-                "%s @ %s is not an approved mechanism for this crossing"
-                % (authorisation.mechanism, authorisation.mechanism_version))
+                "%s @ %s is not approved for %s with %s on this crossing"
+                % (authorisation.mechanism, authorisation.mechanism_version,
+                   authorisation.authorised_act, authorisation.decision_right))
         # Sensitivity and residency are carried, never widened, across the boundary.
         if not target.sensitivity <= run.scope.sensitivity:
             raise GovernanceError(
@@ -261,18 +272,10 @@ class Orchestrator:
 
         The Task is looked up in the bound definition rather than accepted as an argument, so
         an undeclared Task, or one from another workflow or version, cannot be activated."""
+        self._require_progressible(run, "activating a stage")
         require(task_ref, TaskRef, "stage activation")
         task = run.definition.task(task_ref)      # raises LineageError when undeclared
         state = self._state(run)
-        # A halted run does not resume by being asked for more work. Leaving BLOCKED or
-        # ESCALATED, or clearing AUTHORITY_ABSENT, is a governed act: see `unblock`.
-        if state.phase in HALTED_PHASES:
-            raise TransitionError(
-                "%s is %s; a stage cannot be activated until the blocking constraint is "
-                "resolved by a governed act" % (run.ref, state.phase.value))
-        if state.posture is GovernancePosture.AUTHORITY_ABSENT:
-            raise GovernanceError(
-                "%s has posture AUTHORITY_ABSENT; no further stage may be activated" % run.ref)
         # Every remaining phase may reach RUNNING under the approved table, so the halted
         # check above is the ONLY thing that refuses a halted run - one rule, in one place,
         # rather than a second mechanism quietly doing the same work.
@@ -296,16 +299,30 @@ class Orchestrator:
         """Leave BLOCKED or ESCALATED, on a recorded human act and nothing else.
 
         A gate that resolved to a non-continuing outcome still stands: the run does not resume
-        while one remains, and `AUTHORITY_ABSENT` is not cleared by asking nicely."""
+        while one remains, and `AUTHORITY_ABSENT` is not cleared by asking nicely.
+
+        This is the ONE method that does not call `_require_progressible`, and it earns the
+        exemption by being harder rather than easier: a validated human intervention naming
+        this run, no gate still standing against continuation, and every fallible check made
+        before the first mutation."""
         state = self._state(run)
+        if state.terminal is not None:
+            raise TransitionError("%s is terminal" % run.ref)
         if state.phase not in HALTED_PHASES:
             raise TransitionError("%s is %s, not halted" % (run.ref, state.phase.value))
-        self.record_intervention(run, intervention)
+        if not isinstance(intervention, HumanInterventionRecord):
+            raise GovernanceError("recovery needs a recorded human intervention")
+        if intervention.run != run.ref:
+            raise LineageError("the intervention names another run")
+        require(intervention.by, HumanAuthorityRef, "intervention")
         standing = [g for g in run.gates() if g.is_resolved() and not g.is_continuing()]
         if standing:
             raise GovernanceError(
                 "%d gate(s) still stand unresolved in favour of continuation; the blocking "
                 "constraint is not satisfied" % len(standing))
+        self._store(run, "interventions").validate_add(intervention)
+        self._preflight_phases(run, (RunPhase.RUNNING,))
+        self._record_intervention(run, intervention)
         self._transition(run, RunPhase.RUNNING, detail=intervention.reason)
         if state.posture is not GovernancePosture.OPEN_ITEMS_CARRIED:
             self._set_posture(run, GovernancePosture.GOVERNANCE_CLEAR,
@@ -437,6 +454,7 @@ class Orchestrator:
                 or result.model_profile != decision.model_profile):
             raise LineageError(
                 "the model result does not answer the recorded Routing Decision for this work")
+        self._store(run, "model_results").validate_add(result)
         self._store(run, "model_results").add(result)
         self.log.append(run.ref, "model:result",
                         "%s / %s" % (result.origin.value, result.canonicality.value),
@@ -748,6 +766,12 @@ class Orchestrator:
     def record_intervention(self, run: WorkflowRun,
                             intervention: HumanInterventionRecord) -> HumanInterventionRecord:
         """A human act on the run. The human is recorded first; automation refuses after."""
+        self._require_progressible(run, "recording an intervention")
+        return self._record_intervention(run, intervention)
+
+    def _record_intervention(self, run: WorkflowRun,
+                             intervention: HumanInterventionRecord) -> HumanInterventionRecord:
+        """The unguarded form, used by the governed recovery path and by stopping a run."""
         require(intervention.by, HumanAuthorityRef, "intervention")
         if intervention.run != run.ref:
             raise LineageError("the intervention names another run")
@@ -756,6 +780,7 @@ class Orchestrator:
         return intervention
 
     def pause(self, run: WorkflowRun, intervention: HumanInterventionRecord) -> WorkflowRun:
+        self._require_progressible(run, "pausing the run")
         self.record_intervention(run, intervention)
         return self._transition(run, RunPhase.PAUSED, detail=intervention.reason)
 
@@ -771,6 +796,10 @@ class Orchestrator:
 
         Everything consulted here - phase, posture, open gates - is state this orchestrator
         recorded through its own token. A caller cannot set it and then complete."""
+        if outcome not in NON_COMPLETION_TERMINALS:
+            # A halted run may still be cancelled or terminated - stopping is always
+            # permitted - but it may not COMPLETE.
+            self._require_progressible(run, "completing the run")
         state = self._state(run)
         if state.terminal is not None:
             raise TransitionError("run %s is already terminal" % run.ref)
@@ -795,7 +824,8 @@ class Orchestrator:
                     "%d gate(s) are not satisfied; completion is not available"
                     % len(outstanding))
         if intervention is not None:
-            self.record_intervention(run, intervention)
+            self._store(run, "interventions").validate_add(intervention)
+            self._record_intervention(run, intervention)
         state.terminal = outcome
         self.log.append(run.ref, "terminal:%s" % outcome.value, cause)
         return run

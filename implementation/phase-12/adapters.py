@@ -202,8 +202,8 @@ class MechanismRegistryAdapter:
     """Which crossing mechanisms, at which versions, are approved for which crossings."""
 
     def approves(self, mechanism: Ref, version: str, source: ScopeBinding,
-                 target: ScopeBinding,
-                 decision_right: DecisionRightRef) -> bool:  # pragma: no cover - protocol
+                 target: ScopeBinding, decision_right: DecisionRightRef,
+                 authorised_act: str) -> bool:  # pragma: no cover - protocol
         raise NotImplementedError
 
 
@@ -216,18 +216,28 @@ class InMemoryMechanismRegistry(MechanismRegistryAdapter):
 
     def __init__(self, approved=None):
         # {(mechanism kind, mechanism id, version):
-        #      (source binding, target binding, exact authorising Decision Right)}
+        #      (source binding, target binding, exact Decision Right, authorised act)}
         self.approved = dict(approved or {})
 
     def register(self, mechanism: Ref, version: str, source: ScopeBinding,
-                 target: ScopeBinding, decision_right: DecisionRightRef) -> None:
+                 target: ScopeBinding, decision_right: DecisionRightRef,
+                 authorised_act: str = "scope_transfer") -> None:
         if type(mechanism) not in (HandoffRef, ScopeTransferRef):
             raise GovernanceError("only a Phase 6 handoff or a Phase 8 scope transfer")
         require(decision_right, DecisionRightRef, "scope-transfer decision right")
+        if not authorised_act:
+            raise GovernanceError("an approval must name the act it approves")
         self.approved[(mechanism.KIND, mechanism.id, version)] = (
-            source, target, decision_right)
+            source, target, decision_right, authorised_act)
 
     def approves(self, mechanism: Ref, version: str, source: ScopeBinding,
-                 target: ScopeBinding, decision_right: DecisionRightRef) -> bool:
+                 target: ScopeBinding, decision_right: DecisionRightRef,
+                 authorised_act: str) -> bool:
+        """An approval binds mechanism, version, both bindings, the Right AND the act.
+
+        Mechanism and bindings alone were too coarse: the re-audit showed that any retained
+        Decision Record could then authorise a registered crossing, and that a crossing
+        registered for one act would serve for another."""
         declared = self.approved.get((mechanism.KIND, mechanism.id, version))
-        return declared is not None and declared == (source, target, decision_right)
+        return declared is not None and declared == (source, target, decision_right,
+                                                     authorised_act)

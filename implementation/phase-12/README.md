@@ -66,7 +66,7 @@ python3 implementation/phase-12/examples/governed_run.py
 # four prohibited paths and where each stops
 python3 implementation/phase-12/examples/blocked_run.py
 
-# the invariant tests
+# the invariant tests, including the committed controlled weakenings
 python3 -m unittest discover -s implementation/phase-12/tests -v
 
 # the Phase 12 validator
@@ -90,7 +90,7 @@ the orchestrator itself recorded.
 | a `GateRequirement` | the gate **instance** this run holds for that Work Item and that requirement — instances carry their own identity, so a Task activated twice holds two |
 | a `DecisionRecord` | its run, Work Item, requirement, Right, outcome and the holder's standing in the approved decision path |
 | a `ReviewInstance` | its run, Work Item, requirement, Profile and independence class |
-| a `RoutingDecision` | nothing — there is no public recording path; `route()` asks the configured Router and records the object it returned |
+| a `RoutingDecision` | nothing — there is **no** recording path, public or private; `route()` asks the configured Router and records exactly the object it returned |
 | a `ModelResult` | its own record identity, run, Work Item, Routing Decision, model and Model Profile, checked before anything is recorded |
 | a retry class | nothing — `retry()` takes no task argument; the class comes from the Work Item |
 | a mechanism reference | nothing — a crossing needs a `ScopeTransferAuthorisation` corroborated clause by clause against the source run's retained Decision Record, the exact Right and its holders, an approved-mechanism registry bound to that Right, and the complete source and target bindings |
