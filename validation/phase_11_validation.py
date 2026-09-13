@@ -842,14 +842,33 @@ SPECIMEN_FENCE = re.compile(
 # vocabulary while `_Record_` is still normalised away.
 INTRAWORD_SAFE_UNDERSCORE = re.compile(r"(?<![A-Za-z0-9])_|_(?![A-Za-z0-9])")
 
+# A Markdown inline link renders as its visible text; the destination is syntax nobody reads.
+# `[Record](#term)` therefore reads as `Record`, and a link around half the subject must not
+# be able to split it.
+MARKDOWN_LINK = re.compile(r"!?\[([^\]\n]*)\]\((?:[^()\n]|\([^()\n]*\))*\)")
+MARKDOWN_REFERENCE_LINK = re.compile(r"!?\[([^\]\n]*)\]\[[^\]\n]*\]")
+
+# An inline HTML tag wraps text; the tag is presentation and the text is what is asserted.
+# Removed rather than matched as a pair, so an unclosed or mismatched tag cannot survive as a
+# token splitter either. This normaliser is scoped to one invariant, so deleting an angle
+# placeholder such as an <id> marker costs nothing and can fabricate no assertion.
+INLINE_HTML_TAG = re.compile(r"</?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>\n]*)?/?>")
+
 
 def semantic_text(text):
-    """Markdown inline markers removed, enclosed text preserved exactly.
+    """The text as it renders: presentation removed, visible content preserved exactly.
 
-    Covers inline code, *emphasis*, _emphasis_, **strong**, __strong__ and ~~strikethrough~~,
-    including mixed and nested forms, because the markers are removed rather than matched as
-    pairs - an unbalanced or overlapping marker therefore cannot survive as a token splitter."""
-    out = text.replace("`", "")
+    Covers inline code, *emphasis*, _emphasis_, **strong**, __strong__, ~~strikethrough~~,
+    Markdown inline and reference links, and inline HTML tags - including mixed and nested
+    forms, because wrappers are removed rather than matched as pairs, so an unbalanced or
+    overlapping one cannot survive as a token splitter.
+
+    Every transformation here removes presentation and keeps visible text. None removes
+    content, so normalisation can only join tokens that formatting split - never hide any."""
+    out = MARKDOWN_LINK.sub(r"\1", text)
+    out = MARKDOWN_REFERENCE_LINK.sub(r"\1", out)
+    out = INLINE_HTML_TAG.sub("", out)
+    out = out.replace("`", "")
     for marker in ("~~", "**", "__"):
         out = out.replace(marker, "")
     out = out.replace("*", "")
@@ -1038,6 +1057,24 @@ def stale_predication_grammar():
             ("The *Decision Record* is not _stale_.", False, False),
         "declared vocabulary survives normalisation":
             ("IGNORE_AS_STALE and NON_RETRYABLE_GOVERNED_ACT are unaffected", False, False),
+        # --- A link or an inline HTML tag renders away; it must not split the subject either.
+        "subject in a link": ("The Decision [Record](#term) is stale.", True, True),
+        "whole subject in a link": ("The [Decision Record](#term) is stale.", True, True),
+        "predicate in a link": ("The Decision Record is [stale](#status).", True, True),
+        "subject in <em>": ("The Decision <em>Record</em> is stale.", True, True),
+        "subject in <strong>": ("The Decision <strong>Record</strong> is stale.", True, True),
+        "subject in <code>": ("The Decision <code>Record</code> is stale.", True, True),
+        "subject in <span>": ("The Decision <span>Record</span> is stale.", True, True),
+        "html across subject and predicate":
+            ("The <em>Decision</em> <code>Record</code> is <strong>stale</strong>.", True, True),
+        "markdown, html and inline code mixed":
+            ("The *Decision* <code>Record</code> is `stale`.", True, True),
+        "link, html and emphasis mixed":
+            ("The [Decision](#a) <em>Record</em> is ~~stale~~.", True, True),
+        "html attached negation":
+            ("The <em>Decision Record</em> is not <code>stale</code>.", False, False),
+        "benign link making no assertion":
+            ("See [the race table](#races) for the outcome vocabulary.", False, False),
         # --- Markdown inline code must not hide an assertion. These are written exactly as
         # they would appear in a document, and are read through the same normalisation the
         # Phase-11-wide scan applies. Deleting code spans - the behaviour this remediation
@@ -1115,10 +1152,29 @@ def formatting_is_not_an_exemption():
     # The authoritative row's own reading path must normalise too. Asserted through the real
     # helper, so reverting it to a weaker normaliser fails here rather than passing unnoticed
     # because the committed row happens to carry no formatted stale text.
-    synthetic = "| 6 | Decision result after cancellation | RECONCILE |" \
-                " The Decision *Record* is ~~stale~~ |"
-    if not stale_characterisations(" ".join(race_row_cells(synthetic))):
-        problems.append("the authoritative row's reading path does not normalise formatting")
+    for label, wrapped in {
+        "emphasis": "The Decision *Record* is ~~stale~~",
+        "link": "The Decision [Record](#term) is stale",
+        "inline HTML": "The Decision <em>Record</em> is stale",
+    }.items():
+        synthetic = "| 6 | Decision result after cancellation | RECONCILE | %s |" % wrapped
+        if not stale_characterisations(" ".join(race_row_cells(synthetic))):
+            problems.append("the row's reading path does not normalise %s" % label)
+    # Rendering rules, asserted directly rather than only through phrase examples.
+    if semantic_text("see [the visible text](#anchor-target)") != "see the visible text":
+        problems.append("a link did not render to its visible text alone")
+    if semantic_text("see [the visible text][ref]") != "see the visible text":
+        problems.append("a reference link did not render to its visible text alone")
+    if semantic_text('a <span class="x">wrapped phrase</span> here') \
+            != "a wrapped phrase here":
+        problems.append("an inline HTML tag was not removed, or ate its inner text")
+    if semantic_text("an <em>unclosed wrapper") != "an unclosed wrapper":
+        problems.append("an unbalanced tag survived as a token splitter")
+    # Both scopes must consume the same path: the same input must read identically whether it
+    # arrives as a document or as a row cell.
+    sample = "The Decision <code>Record</code> is [stale](#s)."
+    if assertive_text(sample) != " ".join(race_row_cells("| %s |" % sample)):
+        problems.append("the document scan and the row reading path normalise differently")
     # No architecture document may claim the exemption; it is for review records only.
     misuse = [rel for rel in NORMATIVE if SPECIMEN_FENCE.search(DOCS[rel])]
     if misuse:

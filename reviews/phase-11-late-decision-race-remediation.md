@@ -271,6 +271,63 @@ Every prior suite was re-run: six inline-code probes, twelve stale-wording probe
 
 ---
 
+# Rendered-text remediation — links and inline HTML render away too
+
+Approval re-audit: architecture semantics correct; **one Markdown/HTML rendering bypass remained.**
+
+**The sixth bypass of the same invariant.** The previous pass normalised inline code, `*`, `_`, `**`, `__` and `~~` — every marker it had been shown. Two rendering mechanisms it had not been shown still split the governed subject:
+
+| Bypass | Why it worked |
+|---|---|
+| <!-- stale-specimen -->`The Decision [Record](#term) is stale.`<!-- /stale-specimen --> | Link syntax survived, so the subject never read as `Decision Record` |
+| <!-- stale-specimen -->`The Decision <em>Record</em> is stale.`<!-- /stale-specimen --> | Inline HTML tags survived |
+| <!-- stale-specimen -->`The Decision <code>Record</code> is stale.`<!-- /stale-specimen --> | Same, and indistinguishable from a code span once rendered |
+
+Six passes, six bypasses, and the shape of the mistake has been constant: **each fix enumerated the wrappers it had been shown, and the next reviewer brought a different one.** A marker list is a word list wearing different clothes.
+
+## The rule
+
+> **For this invariant the validator evaluates rendered semantic text, not raw Markdown. A prose assertion predicating staleness of a Decision Record is rejected regardless of any supported inline presentation wrapper.**
+
+## Implementation
+
+`semantic_text()` gains two transformations, both of the same shape as the existing ones — **remove presentation, keep visible text**:
+
+- **Markdown links**, inline and reference: `[visible text](target)` and `[visible text][ref]` render to `visible text`. Only the destination syntax is discarded, because nobody reads a destination.
+- **Inline HTML tags**: any `<tag …>` or `</tag>` is removed and its inner text kept. Removed rather than matched as pairs, so an unclosed or mismatched tag cannot survive as a token splitter either.
+
+`plain()` is still untouched — it remains the suite's general normaliser for the other 150 checks, and this invariant keeps its own.
+
+Every transformation in `semantic_text()` now satisfies one invariant of its own: **it removes presentation and never removes content.** Normalisation can therefore only join tokens that formatting split; it can hide nothing.
+
+## Self-guards — the reading path, not the phrase list
+
+Twelve rendering cases were added to the grammar table, but the substantive change is that the **rendering rules are now asserted directly** rather than only through example phrases:
+
+- a link must render to its visible text alone, inline and reference forms;
+- an HTML tag must be removed and its inner text kept, attributes included;
+- an **unbalanced** tag must not survive as a splitter;
+- the authoritative row's reading path must normalise emphasis, links **and** inline HTML — three synthetic rows, asserted through the real `race_row_cells()` helper;
+- **both scopes must normalise identically** — the same sample read as a document and as a row cell must produce the same text.
+
+That last one is the guard the earlier passes were missing. The previous remediation discovered, by probe, that reverting the row path alone was invisible; this asserts the two paths agree, so they cannot drift apart at all.
+
+Eleven weakenings were applied and reverted, each failing the harness with **no document edited**: link normalisation removed · inline-HTML normalisation removed · reference-link normalisation removed · row path reverted to raw Markdown · document scan reverted to raw Markdown · specimen widened to ordinary formatting · code-span deletion reintroduced · strikethrough dropped · asterisk emphasis dropped · underscore emphasis dropped · negation reverted to proximity.
+
+## Probes
+
+Nine negative rendering probes in architecture prose — subject in a link, whole subject in a link, predicate in a link, subject in `<em>`, `<strong>`, `<code>` and `<span>`, HTML across subject and predicate, and a mixed Markdown + HTML + inline-code form — **exit 1 each**. Two more against the **authoritative row's** reading path, one link-wrapped and one HTML-wrapped — **exit 1 each**.
+
+Six positive controls — plain attached negation, HTML-wrapped attached negation, unrelated stale evidence, a benign link and inline HTML asserting nothing, late review `IGNORE_AS_STALE` retained against its Review Instance, and an additional allowed specimen fence — **exit 0 each**.
+
+Every prior suite was re-run: eight emphasis/strong/strikethrough probes, six inline-code probes, twelve stale-wording probes, eight contrastive-negation probes and twelve foundation probes including the vacuity probe — **exit 1 each**.
+
+## Scope
+
+**No architecture content changed** — `orchestration/` and `architecture/` are byte-for-byte identical, so no stop-and-report was required. Suite unchanged at **154**. **Phase 11 remains `PROPOSED`; human approval is pending.**
+
+---
+
 ## A note on the specimen fence
 
 This record quotes wordings in order to reject them. Since the inline-code remediation, the
