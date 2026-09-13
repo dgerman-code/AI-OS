@@ -828,14 +828,41 @@ SPECIMEN_FENCE = re.compile(
     r"<!--\s*stale-specimen\s*-->.*?<!--\s*/stale-specimen\s*-->", re.S)
 
 
+# `plain()` is the suite's general normaliser and strips only `**` and backticks, which is all
+# the other 150 checks need. It is deliberately NOT widened here: it is used in roughly a
+# hundred places, and stripping underscores broadly would destroy the vocabulary this
+# architecture is written in - IGNORE_AS_STALE, NON_RETRYABLE_GOVERNED_ACT, GOVERNANCE_CLEAR.
+#
+# So this invariant gets its own normaliser. The re-audit showed why: emphasis and
+# strikethrough markers split the governed subject, and `The Decision *Record* is stale.`
+# passed because nothing removed the asterisks.
+#
+# Every supported marker is removed; NO enclosed text ever is. An underscore between two
+# alphanumerics is an identifier character and is kept, which is what protects the declared
+# vocabulary while `_Record_` is still normalised away.
+INTRAWORD_SAFE_UNDERSCORE = re.compile(r"(?<![A-Za-z0-9])_|_(?![A-Za-z0-9])")
+
+
+def semantic_text(text):
+    """Markdown inline markers removed, enclosed text preserved exactly.
+
+    Covers inline code, *emphasis*, _emphasis_, **strong**, __strong__ and ~~strikethrough~~,
+    including mixed and nested forms, because the markers are removed rather than matched as
+    pairs - an unbalanced or overlapping marker therefore cannot survive as a token splitter."""
+    out = text.replace("`", "")
+    for marker in ("~~", "**", "__"):
+        out = out.replace(marker, "")
+    out = out.replace("*", "")
+    return INTRAWORD_SAFE_UNDERSCORE.sub("", out)
+
+
 def assertive_text(doc):
     """The document's assertions: markup normalised, explicitly fenced specimens removed.
 
-    `plain()` strips emphasis and code markers while keeping their contents, so a wrapped or
-    split word reads exactly as the sentence means it. Only an explicit specimen fence is
-    dropped, and only a review record that is quoting rejected wordings has any reason to
-    open one."""
-    return plain(SPECIMEN_FENCE.sub(" ", doc))
+    Markers are removed while their contents are kept, so a wrapped or split word reads
+    exactly as the sentence means it. Only an explicit specimen fence is dropped, and only a
+    review record quoting rejected wordings has any reason to open one."""
+    return semantic_text(SPECIMEN_FENCE.sub(" ", doc))
 
 
 def named_stale_record(text):
@@ -848,6 +875,16 @@ def stale_characterisations(text):
     """Predications of staleness in `text`, with declared vocabulary tokens scrubbed first."""
     scrubbed = text.replace("IGNORE_AS_STALE", "<declared-outcome-token>")
     return [m.group(0).strip() for m in STALE_PREDICATION.finditer(scrubbed)]
+
+
+def race_row_cells(row):
+    """A race row's cells, read the way the invariant must read them.
+
+    Named rather than inlined so the guard can assert this path normalises formatting too: a
+    controlled weakening showed that reverting just this call to `plain()` was invisible,
+    because the committed row happens to contain no formatted stale text. A guard that only
+    watches the helpers and not the reading path is watching half the rule."""
+    return [semantic_text(c).strip() for c in row.strip().strip("|").split("|")]
 
 
 def late_decision_record_stands():
@@ -866,7 +903,9 @@ def late_decision_record_stands():
         problems.append("expected exactly one late-Decision race row, found %d"
                         % len(decision_rows))
     else:
-        cells = [plain(c).strip() for c in decision_rows[0].strip().strip("|").split("|")]
+        # Same normalisation as the Phase-11-wide scan: formatting may not split the subject
+        # in the authoritative row either.
+        cells = race_row_cells(decision_rows[0])
         if len(cells) != 4:
             problems.append("late-Decision race row does not have four cells")
         else:
@@ -892,7 +931,7 @@ def late_decision_record_stands():
     if len(review_rows) != 1:
         problems.append("expected exactly one late-review race row, found %d" % len(review_rows))
     else:
-        cells = [plain(c).strip() for c in review_rows[0].strip().strip("|").split("|")]
+        cells = race_row_cells(review_rows[0])
         if len(cells) != 4:
             problems.append("late-review race row does not have four cells")
         else:
@@ -977,6 +1016,28 @@ def stale_predication_grammar():
         # which is why the authoritative row - not this net - is the rule that governs.
         "was stale, across a clause boundary":
             ("The Decision Record stands; it was stale by then", True, False),
+        # --- Emphasis and strikethrough must not split the governed subject or predicate.
+        # Each marker class appears at least once, so dropping any one of them from the
+        # normaliser fails this table with no document edited.
+        "subject emphasised with asterisks": ("The Decision *Record* is stale.", True, True),
+        "subject emphasised with underscores": ("The Decision _Record_ is stale.", True, True),
+        "subject strong with asterisks": ("The Decision **Record** is stale.", True, True),
+        "subject strong with underscores": ("The Decision __Record__ is stale.", True, True),
+        "subject struck through": ("The Decision ~~Record~~ is stale.", True, True),
+        "whole subject emphasised": ("The *Decision Record* is stale.", True, True),
+        "whole subject underscored": ("The _Decision Record_ is stale.", True, True),
+        "whole subject struck through": ("The ~~Decision Record~~ is stale.", True, True),
+        "predicate emphasised": ("The Decision Record is *stale*.", True, True),
+        "predicate underscored": ("The Decision Record is _stale_.", True, True),
+        "predicate struck through": ("The Decision Record is ~~stale~~.", True, True),
+        "mixed across subject and predicate":
+            ("The *Decision* _Record_ is ~~stale~~.", True, True),
+        "mixed with inline code":
+            ("The **Decision** `Record` is _stale_.", True, True),
+        "formatted attached negation":
+            ("The *Decision Record* is not _stale_.", False, False),
+        "declared vocabulary survives normalisation":
+            ("IGNORE_AS_STALE and NON_RETRYABLE_GOVERNED_ACT are unaffected", False, False),
         # --- Markdown inline code must not hide an assertion. These are written exactly as
         # they would appear in a document, and are read through the same normalisation the
         # Phase-11-wide scan applies. Deleting code spans - the behaviour this remediation
@@ -1022,18 +1083,42 @@ def formatting_is_not_an_exemption():
 
     Asserted against the real reading path, so that reinstating code-span deletion - or
     widening the fence to accept a typographic marker - fails here directly."""
-    assertion = "The Decision Record is `stale`."
     fenced = ("<!-- stale-specimen -->The Decision Record is `stale`."
               "<!-- /stale-specimen -->")
     problems = []
-    if not named_stale_record(assertive_text(assertion)):
-        problems.append("inline code hid an assertion: markup is being deleted, not normalised")
+    # Every supported marker class, asserted twice: the marker must go, the text must stay,
+    # and an assertion wearing it must still be caught.
+    markers = {
+        "inline code": ("`", "`"),
+        "emphasis (*)": ("*", "*"),
+        "emphasis (_)": ("_", "_"),
+        "strong (**)": ("**", "**"),
+        "strong (__)": ("__", "__"),
+        "strikethrough": ("~~", "~~"),
+    }
+    for label, (opener, closer) in markers.items():
+        wrapped = "a %sformatted span%s here" % (opener, closer)
+        normalised = semantic_text(wrapped)
+        if any(ch in normalised for ch in "`*_~"):
+            problems.append("%s: marker survived normalisation" % label)
+        if "formatted span" not in normalised:
+            problems.append("%s: normalisation dropped the enclosed text" % label)
+        assertion = "The Decision %sRecord%s is stale." % (opener, closer)
+        if not named_stale_record(assertive_text(assertion)):
+            problems.append("%s: formatting hid an assertion" % label)
     if named_stale_record(assertive_text(fenced)):
         problems.append("an explicitly fenced specimen was read as an assertion")
-    if "`" in assertive_text("a `code span`"):
-        problems.append("normalisation left a formatting marker in the text")
-    if "code span" not in assertive_text("a `code span`"):
-        problems.append("normalisation dropped the text a code span wrapped")
+    # Declared vocabulary must survive: an underscore between alphanumerics is an identifier
+    # character, not an emphasis delimiter.
+    if semantic_text("IGNORE_AS_STALE") != "IGNORE_AS_STALE":
+        problems.append("normalisation damaged the declared vocabulary")
+    # The authoritative row's own reading path must normalise too. Asserted through the real
+    # helper, so reverting it to a weaker normaliser fails here rather than passing unnoticed
+    # because the committed row happens to carry no formatted stale text.
+    synthetic = "| 6 | Decision result after cancellation | RECONCILE |" \
+                " The Decision *Record* is ~~stale~~ |"
+    if not stale_characterisations(" ".join(race_row_cells(synthetic))):
+        problems.append("the authoritative row's reading path does not normalise formatting")
     # No architecture document may claim the exemption; it is for review records only.
     misuse = [rel for rel in NORMATIVE if SPECIMEN_FENCE.search(DOCS[rel])]
     if misuse:

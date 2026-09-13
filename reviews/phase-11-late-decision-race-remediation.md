@@ -213,6 +213,64 @@ Eight contrastive-negation probes, twelve prior stale-wording probes and twelve 
 
 ---
 
+# Markdown-formatting remediation — emphasis is not semantics either
+
+Approval re-audit: inline-code, negation-scope and specimen-fence findings resolved; **one Markdown-formatting bypass remained.**
+
+**The fifth bypass of the same invariant.** The previous pass normalised markup instead of deleting it — correct — but normalised only what the suite's shared `plain()` happens to strip: `**` and backticks. Emphasis and strikethrough went untouched, so the governed subject could still be split:
+
+| Bypass | Why it worked |
+|---|---|
+| <!-- stale-specimen -->`The Decision *Record* is stale.`<!-- /stale-specimen --> | Asterisks survived, so the subject never read as `Decision Record` |
+| <!-- stale-specimen -->`The Decision _Record_ is stale.`<!-- /stale-specimen --> | Same, with underscores |
+| <!-- stale-specimen -->`The Decision ~~Record~~ is stale.`<!-- /stale-specimen --> | Same, with strikethrough |
+
+Each earlier fix closed the shape it was shown and left the next rendering open: a word, a distance, a grammatical scope, one rendering, then the rest of them. What was missing throughout was a check on **the reading path itself** rather than on the phrase of the week.
+
+## The rule
+
+> **Formatting is not semantics. A prose assertion predicating staleness of a Decision Record is rejected regardless of any supported Markdown inline formatting around or within its tokens.**
+
+## Implementation
+
+`plain()` is **not** widened. It is the suite's general normaliser, used in roughly a hundred checks, and stripping underscores broadly would destroy the vocabulary this architecture is written in — `IGNORE_AS_STALE`, `NON_RETRYABLE_GOVERNED_ACT`, `GOVERNANCE_CLEAR`. Architecture correctness outranks convenience, so this invariant gets its own narrowly-scoped normaliser.
+
+`semantic_text()` removes every supported marker — inline code, `*…*`, `_…_`, `**…**`, `__…__`, `~~…~~` — and **never removes enclosed text**. Markers are removed rather than matched as pairs, so an unbalanced, overlapping or nested marker cannot survive as a token splitter either. An underscore **between two alphanumerics is an identifier character and is kept**, which is what lets `_Record_` normalise away while `IGNORE_AS_STALE` survives intact.
+
+Both scopes read through it: the Phase-11-wide scan, and — through a named `race_row_cells()` helper — the authoritative row.
+
+## Self-guards
+
+Fifteen formatting cases were added to the grammar table, at least one per marker class plus mixed and nested forms, and the formatting check now asserts each class twice: the marker must go, the enclosed text must stay, and an assertion wearing it must still be caught. The declared vocabulary is asserted to survive normalisation.
+
+Seven weakenings were applied and reverted, each failing the harness with **no document edited**:
+
+| Weakening | Result |
+|---|---|
+| Code-span deletion reintroduced | exit 1 |
+| Specimen fence widened to any code span | exit 1 |
+| Negation reverted to proximity | exit 1 |
+| Strikethrough no longer normalised | exit 1 |
+| Asterisk emphasis no longer normalised | exit 1 |
+| Underscore emphasis no longer normalised | exit 1 |
+| The authoritative row's reading path reverted to `plain()` | exit 1 |
+
+The last one is worth recording honestly: **it passed at first.** The guards watched the helper functions but not the path the row is actually read through, and the committed row carries no formatted stale text, so the revert was invisible. A guard on half the rule is a guard that reports confidence it has not earned — so the reading path was named and is now asserted directly.
+
+## Probes
+
+Eight negative formatting probes — subject split by `*`, `_`, `**`, `__` and `~~`, whole subject emphasised, predicate emphasised, and a mixed form across both — **exit 1 each**.
+
+Four positive controls — formatted attached negation `The *Decision Record* is not _stale_.`, formatted stale **evidence** unrelated to a Decision Record, late review `IGNORE_AS_STALE` retained against its Review Instance, and an additional allowed specimen fence in a review record — **exit 0 each**.
+
+Every prior suite was re-run: six inline-code probes, twelve stale-wording probes, eight contrastive-negation probes and twelve foundation probes including the vacuity probe — **exit 1 each**.
+
+## Scope
+
+**No architecture content changed** — `orchestration/` and `architecture/` are byte-for-byte identical. Suite unchanged at **154**. **Phase 11 remains `PROPOSED`; human approval is pending.**
+
+---
+
 ## A note on the specimen fence
 
 This record quotes wordings in order to reject them. Since the inline-code remediation, the
