@@ -515,6 +515,90 @@ identical, so no stop-and-report was required. The suite total is unchanged at *
 `scope` group remains at 9. **Phase 11 remains `PROPOSED`; human approval is pending.**
 
 
+## Remediation — scope crossing read fail-closed
+
+The predicate-binding fix closed the contrastive hole but kept a permissive escape hatch.
+Independent re-audit found two classes still wrong, and both trace to the same cause: the
+validator tried to **classify English modality first and govern second**.
+
+**False negatives.** An unrecognised permission fell into the descriptive branch, which read the
+mechanism sentence-wide:
+
+- `An approved mechanism exists, and the orchestrator is hereby permitted to cross a scope boundary.`
+- `A Phase 6 handoff is discussed, but the run has permission to cross a scope boundary.`
+
+**False positives.** Genuine prohibitions were not enumerated, so they rejected:
+
+- `The run must under no circumstances cross a project boundary.`
+- `The run is forbidden to cross a project boundary.`
+- `The run can't cross a project boundary.`
+
+An enumeration of permission synonyms can never be finished. The invariant does not require one.
+
+### The rule now executed
+
+> A clause that asserts, permits or describes a scope crossing must name an approved
+> Phase 6 / Phase 8 mechanism **in that clause**. Only a prohibition attached to that same
+> crossing predicate may stand without one. A mechanism named in a neighbouring clause, or
+> elsewhere in the sentence, does not satisfy the crossing clause.
+
+Per crossing occurrence:
+
+1. take the crossing's **own clause**, bounded by `,` `;` `:` and `but` `and` `or` `while` `yet` `then` `however` `although` `though` `because` `whereas` `nevertheless`;
+2. a prohibition **attached** to this crossing predicate — the phrase ending where the crossing verb begins, adverbs aside — ALLOWs;
+3. any waiver of the mechanism anywhere in the sentence REJECTs;
+4. otherwise ALLOW only if the crossing's own clause names the approved mechanism;
+5. everything else REJECTs.
+
+`crossing_modality()` still reports `PROHIBITED` / `PERMITTED` / `UNKNOWN` as a diagnostic, but
+**the verdict never branches on `PERMITTED` or `UNKNOWN`** — they are governed identically. That
+is what makes the reading safe against wording nobody has seen yet, and it is why the earlier
+`NEUTRAL` branch is gone rather than extended.
+
+`PROHIBITION_ATTACHED` now covers `must not` · `must never` · `must under no circumstances` ·
+`cannot` · `can't` · `can not` · `can never` · `may not` · `may never` · `shall not` ·
+`will not` · `would not` · `does not` · `is not permitted to` · `is not allowed to` ·
+`is forbidden to` · `is prohibited from` · `is barred from` · `is precluded from` ·
+`refuses to` · `never`, each anchored to the crossing verb.
+
+### One reading deliberately changed
+
+`A cross-scope movement, when it occurs, uses an approved mechanism.` was ALLOWed by the
+descriptive branch and **REJECTs now**: its mechanism sits past an aside, in a different clause.
+That is the fail-closed rule applied to the case that motivated the old exemption, and the
+committed artifacts contain no such wording — the document scan is unchanged at zero offences.
+
+### Probes
+
+Sixty-three sentences verdict as specified: fourteen contrastive (including three whose
+prohibitive words sit inside the crossing's own clause but govern another predicate — only an
+anchored reading tells those from a real prohibition), seven bare permissions, ten unrecognised
+paraphrases the harness enumerates nowhere, four borrowed-mechanism cases, twenty-one attached
+prohibitions and seven governed crossings. Four assertions run against `crossing_modality()`
+itself, and a sentence carrying **two** crossings proves a prohibition exempts only its own
+predicate (`ALLOW, REJECT`) and does not reject a governed second one (`ALLOW, ALLOW`).
+
+The **document scan** is driven with six violating and four governed synthetic documents.
+
+Eight controlled weakenings, **exit 1 each**: own-clause mechanism widened to the sentence ·
+`UNKNOWN` restored as a permissive escape hatch · prohibition attachment widened to the whole
+subject · clause boundaries removed · approved-mechanism enforcement dropped · waiver detection
+dropped · the prohibition list unanchored from the crossing verb · the scan bypassing the
+verdict.
+
+The prior rendering family was re-run against the repaired file — markdown-link stripping,
+inline-HTML stripping, malformed-opener neutralisation and inline-code normalisation each fail
+the harness when removed. The specimen-fence limit recorded in the previous section still
+stands: that check catches real misuse, not its own deletion.
+
+### Scope
+
+**No architecture content changed** — `orchestration/` and `architecture/` are byte-for-byte
+identical, so no stop-and-report was required. The suite total is unchanged at **155**; the
+`scope` group remains at 9, with the existing check strengthened rather than a new one added.
+**Phase 11 remains `PROPOSED`; human approval is pending.**
+
+
 ---
 
 ## A note on the specimen fence

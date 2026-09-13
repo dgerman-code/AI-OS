@@ -398,32 +398,51 @@ check("scope", "scope mismatch is a stop condition",
 # of the very phrase it was dispensing with - the same substring-coincidence failure that this
 # suite has now hit in three different invariants.
 CROSSING = re.compile(r"cross(?:es|ing|ed)?\b[^.;\n]{0,40}?\b(?:scope|boundar(?:y|ies))", re.I)
-# Polarity is a property of the predicate, not of the sentence. The previous reading searched
-# the whole pre-crossing subject for any prohibitive token, so "the orchestrator never waits and
-# may cross a scope boundary" was read as a prohibition on the strength of a `never` belonging to
-# a different verb. Modality is therefore resolved from the modal phrase that GOVERNS `cross`:
-# the auxiliary sequence immediately adjacent to the crossing predicate, adverbs aside.
+# Scope crossing is read FAIL-CLOSED. Two earlier readings tried to classify English modality
+# first and govern second: the whole-subject search let a `never` belonging to another verb
+# license a later `may cross`, and its replacement still had a permissive escape hatch - an
+# unrecognised permission ("is hereby permitted to", "has permission to") fell through to a
+# descriptive branch that borrowed a mechanism from a neighbouring clause. The invariant does
+# not actually require recognising every permission synonym:
+#
+#   a clause that asserts, permits or describes a scope crossing must name an approved
+#   Phase 6 / Phase 8 mechanism IN THAT CLAUSE; only a prohibition attached to that same
+#   crossing predicate may stand without one.
+#
+# So unrecognised wording fails closed, and a mechanism in a neighbouring clause never counts.
 ADVERBIAL = (r"(?:only|also|then|still|now|ever|freely|simply|merely|directly|instead|"
-             r"already|otherwise|therefore|thus|nonetheless|lawfully|legitimately)")
-PROHIBITIVE_GOVERNOR = re.compile(
-    r"\b(?:must not|must never|may not|may never|can not|cannot|can never|shall not|"
-    r"shall never|will not|will never|would not|does not|do not|did not|is not permitted to|"
-    r"are not permitted to|is not allowed to|are not allowed to|not permitted to|"
-    r"not allowed to|is never permitted to|are never permitted to|never)"
+             r"already|otherwise|therefore|thus|nonetheless|lawfully|legitimately|"
+             r"under any circumstances|in any circumstances)")
+# Prohibition, attached to the crossing predicate: the phrase must end where the crossing verb
+# begins, adverbs aside. Prohibitive wording anywhere else - another clause, another predicate -
+# is never consulted.
+PROHIBITION_ATTACHED = re.compile(
+    r"\b(?:must under no circumstances|must not|must never|may not|may never|"
+    r"cannot|can't|can not|can never|shall not|shall never|will not|will never|would not|"
+    r"does not|do not|did not|is never permitted to|are never permitted to|"
+    r"is not permitted to|are not permitted to|is not allowed to|are not allowed to|"
+    r"not permitted to|not allowed to|is forbidden to|are forbidden to|is forbidden from|"
+    r"are forbidden from|is prohibited from|are prohibited from|is barred from|"
+    r"are barred from|is precluded from|are precluded from|refuses to|refuse to|never)"
     r"(?:\s+" + ADVERBIAL + r"\b)*\s*$", re.I)
-PERMISSIVE_GOVERNOR = re.compile(
-    r"\b(?:may|can|could|might|is permitted to|are permitted to|is allowed to|"
-    r"are allowed to|is free to|are free to|shall|will|must)"
+# Diagnostic only. The verdict never branches on this: a PERMITTED and an UNKNOWN crossing are
+# governed identically, which is what makes the reading safe against unseen phrasings.
+PERMISSION_ATTACHED = re.compile(
+    r"\b(?:may|can|could|might|is permitted to|are permitted to|is allowed to|are allowed to|"
+    r"is free to|are free to|is authorised to|is authorized to|are authorised to|"
+    r"are authorized to|is entitled to|are entitled to|has permission to|have permission to|"
+    r"has authority to|have authority to|shall|will|must)"
     r"(?:\s+" + ADVERBIAL + r"\b)*\s*$", re.I)
 APPROVED_MECHANISM = re.compile(r"\b(?:approved mechanism|scope transfer|handoff)\b", re.I)
 WITHOUT_MECHANISM = re.compile(
-    r"\bwithout\b[^.;\n]{0,40}?\b(?:approved mechanism|scope transfer|handoff|mechanism|"
-    r"authorisation|authorization|approval)\b", re.I)
-# A clause ends where a new predicate begins. The means by which a permitted crossing happens
-# has to sit in the crossing's own clause; a mechanism named in a neighbouring clause governs
-# that neighbour, not this crossing.
+    r"\b(?:without|absent|lacking|waiv(?:e|es|ing|ed)|bypass(?:es|ing|ed)?|"
+    r"dispens(?:e|es|ing|ed) with)\b[^.;\n]{0,40}?\b(?:approved mechanism|scope transfer|"
+    r"handoff|mechanism|authorisation|authorization|approval)\b", re.I)
+# A clause ends where a new predicate begins. The mechanism that governs a crossing has to sit
+# in the crossing's own clause; one named next door governs its neighbour.
 CLAUSE_BREAK = re.compile(
-    r"[,;]|\b(?:but|and|or|while|yet|then|however|although|though|because)\b", re.I)
+    r"[,;:]|\b(?:but|and|or|while|yet|then|however|although|though|because|whereas|"
+    r"nevertheless)\b", re.I)
 
 
 def _sentence_around(text, index):
@@ -434,45 +453,51 @@ def _sentence_around(text, index):
     return text[start:end]
 
 
-def crossing_modality(sentence, crossing_at):
-    """PROHIBITED, PERMITTED or NEUTRAL for the modal phrase governing THIS crossing verb.
-
-    Only the span immediately preceding the crossing predicate is read, so a prohibition that
-    belongs to an earlier predicate ("never waits and may cross", "cannot be delayed but may
-    cross", "may not only log the event but may cross") cannot lend its polarity to `cross`."""
-    governing = sentence[:crossing_at]
-    if PROHIBITIVE_GOVERNOR.search(governing):
-        return "PROHIBITED"
-    if PERMISSIVE_GOVERNOR.search(governing):
-        return "PERMITTED"
-    return "NEUTRAL"
-
-
-def _crossing_clause(sentence, crossing_at):
-    """The crossing predicate's own clause, from the crossing verb to the next clause break."""
+def crossing_clause(sentence, crossing_at):
+    """The crossing predicate's OWN clause, and the crossing's index inside it."""
     match = CROSSING.match(sentence, crossing_at) or CROSSING.search(sentence, crossing_at)
-    tail = sentence[match.end():] if match else sentence[crossing_at:]
-    brk = CLAUSE_BREAK.search(tail)
-    return sentence[crossing_at:match.end() if match else crossing_at] + (
-        tail[:brk.start()] if brk else tail)
+    after = match.end() if match else crossing_at
+    start = 0
+    for brk in CLAUSE_BREAK.finditer(sentence):
+        if brk.end() <= crossing_at:
+            start = brk.end()
+        else:
+            break
+    stop = len(sentence)
+    for brk in CLAUSE_BREAK.finditer(sentence, after):
+        stop = brk.start()
+        break
+    return sentence[start:stop], crossing_at - start
+
+
+def crossing_modality(sentence, crossing_at):
+    """PROHIBITED, PERMITTED or UNKNOWN for the modal phrase governing THIS crossing verb.
+
+    Read from the crossing's own clause only, so a prohibition belonging to an earlier
+    predicate ("never waits and may cross", "cannot be delayed but may cross") cannot lend its
+    polarity to `cross`. UNKNOWN is the honest answer for wording the harness does not
+    recognise - and it is governed exactly as a permission is, never more leniently."""
+    clause, at = crossing_clause(sentence, crossing_at)
+    governing = clause[:at]
+    if PROHIBITION_ATTACHED.search(governing):
+        return "PROHIBITED"
+    if PERMISSION_ATTACHED.search(governing):
+        return "PERMITTED"
+    return "UNKNOWN"
 
 
 def scope_crossing_verdict(sentence, crossing_at):
-    """ALLOW or REJECT for one crossing occurrence, read from its governing modal phrase.
+    """ALLOW or REJECT for one crossing occurrence, decided fail-closed.
 
-    A prohibition attached to `cross` is allowed however the sentence continues. A permission
-    attached to `cross` is allowed only when its own clause names the approved mechanism and
-    the sentence does not dispense with one. A crossing with no modal governing it - a
-    descriptive or nominal mention - is allowed when the sentence names the mechanism."""
-    modality = crossing_modality(sentence, crossing_at)
-    if modality == "PROHIBITED":
-        return "ALLOW"
+    ALLOW only when a prohibition is attached to this crossing predicate, or when the
+    crossing's own clause names an approved mechanism and nothing in the sentence waives it.
+    Everything else - including wording the harness cannot classify - REJECTs."""
+    clause, at = crossing_clause(sentence, crossing_at)
+    if PROHIBITION_ATTACHED.search(clause[:at]):
+        return "ALLOW"                      # a prohibition needs no mechanism
     if WITHOUT_MECHANISM.search(sentence):
-        return "REJECT"                     # permission that dispenses with the mechanism
-    if modality == "PERMITTED":
-        return "ALLOW" if APPROVED_MECHANISM.search(
-            _crossing_clause(sentence, crossing_at)) else "REJECT"
-    return "ALLOW" if APPROVED_MECHANISM.search(sentence) else "REJECT"
+        return "REJECT"                     # the mechanism is explicitly dispensed with
+    return "ALLOW" if APPROVED_MECHANISM.search(clause) else "REJECT"
 
 
 def scope_crossing_offences(text):
@@ -511,13 +536,13 @@ check("scope", "no scope crossing is implicit", no_implicit_scope_crossing)
 
 
 def scope_negation_grammar():
-    """The scope rule, executed rather than described.
+    """The scope rule, executed rather than described, and read fail-closed.
 
-    Permission and prohibition are opposite readings of sentences that share almost every word,
-    so the cases run against the real verdict function and against the real document scan.
-    Each group below is a mutation detector, named in the comment above it."""
-    # Contrastive sentences: a prohibition on ANOTHER predicate, then a permission to cross.
-    # Restoring a whole-subject prohibitive search turns every one of these into ALLOW.
+    Each group below is a mutation detector, named in the comment above it. The cases run
+    against the real verdict function, against the real classifier, and against the real
+    document scan."""
+    # Contrastive: a prohibition on ANOTHER predicate, then a crossing. Restoring a
+    # whole-subject or sentence-wide prohibitive search turns every one of these into ALLOW.
     contrastive = {
         "never waits and may cross":
             "The orchestrator never waits and may cross a scope boundary.",
@@ -533,7 +558,6 @@ def scope_negation_grammar():
             "The run is not blocked and is permitted to cross a project boundary.",
         "never retries, then may cross":
             "The stage never retries, then may cross a scope boundary.",
-        # Independent contrastive variants, not taken from the audit list.
         "will not escalate yet may cross":
             "The stage will not escalate yet may cross a project boundary.",
         "no gate is open although the run can cross":
@@ -543,9 +567,16 @@ def scope_negation_grammar():
         "never reassigns; the stage might cross":
             "The orchestrator never reassigns the Role, and the stage might cross a project "
             "boundary.",
+        # Same clause, different predicate: only an ANCHORED reading tells these from a real
+        # prohibition, because the prohibitive words are inside the crossing's own clause.
+        "cannot be paused so it may cross":
+            "The stage cannot be paused so it may cross a project boundary.",
+        "does not wait before it may cross":
+            "The run does not wait before it may cross a scope boundary.",
+        "is never idle since it may cross":
+            "The orchestrator is never idle since it may cross a scope boundary.",
     }
-    # Bare permissions attached to the crossing predicate. Ignoring permissive modality on
-    # `cross` leaves these to the descriptive branch, which is clause-scoped differently.
+    # Permissions attached to the crossing predicate, with no mechanism in the crossing clause.
     permissive = {
         "may cross without the mechanism":
             "A stage may cross a project boundary without an approved mechanism.",
@@ -561,27 +592,66 @@ def scope_negation_grammar():
             "The run can cross a project boundary.",
         "is permitted to cross, full stop":
             "The stage is permitted to cross a scope boundary.",
-        # The mechanism is named, but it governs a NEIGHBOURING clause, not the crossing.
+    }
+    # Wording the harness does NOT enumerate. These are the fail-closed cases: if an
+    # unrecognised permission could fall through to a lenient branch, every one of them passes.
+    unrecognised = {
+        "hereby permitted, mechanism next door":
+            "An approved mechanism exists, and the orchestrator is hereby permitted to cross "
+            "a scope boundary.",
+        "has permission to cross, handoff next door":
+            "A Phase 6 handoff is discussed, but the run has permission to cross a scope "
+            "boundary.",
+        "is authorized to cross": "The run is authorized to cross a project boundary.",
+        "has authority to cross": "The stage has authority to cross a scope boundary.",
+        "is free to cross": "The orchestrator is free to cross a project boundary.",
+        "is entitled to cross": "The run is entitled to cross a scope boundary.",
+        "may lawfully cross": "The stage may lawfully cross a project boundary.",
+        # Paraphrases the harness enumerates nowhere at all.
+        "it falls to the run to cross":
+            "It falls to the run to cross a project boundary.",
+        "nothing stands in the way of crossing":
+            "Nothing stands in the way of the orchestrator crossing a scope boundary.",
+        "the crossing is at the operator's discretion":
+            "Crossing a project boundary is at the operator's discretion.",
+    }
+    # The mechanism exists, but it governs a neighbouring clause rather than the crossing.
+    borrowed = {
+        "mechanism asserted before the crossing":
+            "An approved mechanism exists, and the orchestrator may cross a scope boundary.",
         "mechanism recorded in another clause":
             "The orchestrator may cross a scope boundary, and an approved mechanism is "
             "recorded elsewhere.",
-        "mechanism asserted before the crossing":
-            "An approved mechanism exists, and the orchestrator may cross a scope boundary.",
+        "handoff available, crossing allowed separately":
+            "A Phase 6 handoff is available, but the stage is allowed to cross a project "
+            "boundary.",
+        # Read as governed until this remediation: a descriptive crossing whose mechanism sits
+        # past an aside. Fail-closed removes the descriptive exemption, so it rejects now.
+        "descriptive, mechanism after an aside":
+            "A cross-scope movement, when it occurs, uses an approved mechanism.",
     }
-    # Prohibitions genuinely attached to `cross`, and governed permissions.
-    allowed = {
+    # Prohibitions genuinely attached to the crossing predicate: no mechanism required.
+    prohibited = {
         "must not cross": "The orchestrator must not cross a scope boundary.",
+        "must never cross": "The run must never cross a project boundary.",
+        "must under no circumstances cross":
+            "The run must under no circumstances cross a project boundary.",
         "cannot cross": "The run cannot cross a project boundary.",
+        "can't cross": "The run can't cross a project boundary.",
+        "can not cross": "The stage can not cross a project boundary.",
         "may not cross": "The stage may not cross a scope boundary.",
+        "may never cross": "The run may never cross a project boundary.",
+        "shall not cross": "The orchestrator shall not cross a scope boundary.",
+        "will not cross": "The run will not cross a project boundary.",
+        "would not cross": "The stage would not cross a scope boundary.",
         "is not permitted to cross":
             "The orchestrator is not permitted to cross a project boundary.",
+        "is not allowed to cross": "The run is not allowed to cross a scope boundary.",
+        "is forbidden to cross": "The run is forbidden to cross a project boundary.",
+        "is prohibited from crossing":
+            "The run is prohibited from crossing a project boundary.",
+        "is barred from crossing": "The run is barred from crossing a project boundary.",
         "never crosses": "The run never crosses a scope boundary.",
-        "may cross only through a scope transfer":
-            "The run may cross a scope boundary only through an approved scope transfer.",
-        "can cross through a handoff":
-            "The stage can cross a project boundary through a Phase 6 handoff.",
-        "mechanism or it does not happen":
-            "A cross-scope movement uses an approved mechanism or does not happen.",
         "must not cross without the mechanism":
             "A stage must not cross a project boundary without an approved mechanism.",
         "cannot cross without the mechanism":
@@ -590,18 +660,28 @@ def scope_negation_grammar():
             "A run may not cross a portfolio boundary without an approved mechanism.",
         "never crosses an organisation boundary":
             "The orchestrator never crosses an organisation boundary.",
+    }
+    # Governed crossings: the mechanism sits in the crossing's own clause.
+    governed = {
+        "may cross through an approved scope transfer":
+            "The run may cross a project boundary through an approved scope transfer.",
+        "may cross via a Phase 6 handoff":
+            "The stage may cross the scope boundary via a Phase 6 handoff.",
+        "may cross only through an approved scope transfer":
+            "The run may cross a scope boundary only through an approved scope transfer.",
+        "can cross through a handoff":
+            "The stage can cross a project boundary through a Phase 6 handoff.",
+        "mechanism or it does not happen":
+            "A cross-scope movement uses an approved mechanism or does not happen.",
         "crossing through a governed handoff":
             "Crossing a project boundary happens through a Phase 6 handoff.",
         "crossing through scope transfer":
             "A cross-scope movement uses Phase 8 scope transfer.",
-        # Descriptive, no modal on the predicate: the mechanism may sit anywhere in the
-        # sentence. Reading this clause-scoped like a permission would reject governed prose.
-        "descriptive, mechanism after an aside":
-            "A cross-scope movement, when it occurs, uses an approved mechanism.",
     }
-    cases = [(label, text, "REJECT") for label, text in contrastive.items()]
-    cases += [(label, text, "REJECT") for label, text in permissive.items()]
-    cases += [(label, text, "ALLOW") for label, text in allowed.items()]
+    cases = [(lbl, txt, "REJECT") for group in (contrastive, permissive, unrecognised, borrowed)
+             for lbl, txt in group.items()]
+    cases += [(lbl, txt, "ALLOW") for group in (prohibited, governed)
+              for lbl, txt in group.items()]
 
     wrong = []
     for label, sentence, expected in cases:
@@ -613,18 +693,38 @@ def scope_negation_grammar():
         if verdict != expected:
             wrong.append("%s: %s, expected %s" % (label, verdict, expected))
 
-    # The modality itself, not only the verdict it feeds: a mutation that stops binding the
-    # modal phrase to `cross` reads these three identically.
+    # The classifier itself. UNKNOWN must be reachable and must still REJECT without an
+    # own-clause mechanism: that is the whole point of reading fail-closed.
     modality_cases = [
         ("The orchestrator never waits and may cross a scope boundary.", "PERMITTED"),
         ("The orchestrator must not cross a scope boundary.", "PROHIBITED"),
-        ("A cross-scope movement uses an approved mechanism or does not happen.", "NEUTRAL"),
+        ("A cross-scope movement uses an approved mechanism or does not happen.", "UNKNOWN"),
+        ("It falls to the run to cross a project boundary.", "UNKNOWN"),
     ]
     for sentence, expected in modality_cases:
         match = CROSSING.search(sentence)
         got = crossing_modality(sentence, match.start()) if match else "NO MATCH"
         if got != expected:
             wrong.append("modality of %r: %s, expected %s" % (sentence[:40], got, expected))
+    unknown_without_mechanism = "It falls to the run to cross a project boundary."
+    if scope_crossing_verdict(unknown_without_mechanism,
+                              CROSSING.search(unknown_without_mechanism).start()) != "REJECT":
+        wrong.append("an unclassifiable crossing did not fail closed")
+
+    # An attached prohibition exempts ONLY its own crossing predicate. Both crossings live in
+    # one sentence, so a rule that exempts per sentence rather than per clause fails here.
+    two_crossings = ("The run must not cross a scope boundary but may cross a project "
+                     "boundary.")
+    verdicts = [scope_crossing_verdict(two_crossings, m.start())
+                for m in CROSSING.finditer(two_crossings)]
+    if verdicts != ["ALLOW", "REJECT"]:
+        wrong.append("a prohibition exempted a second crossing in the same sentence: %s"
+                     % verdicts)
+    two_governed = ("The run must not cross a scope boundary but may cross a project boundary "
+                    "through an approved scope transfer.")
+    if [scope_crossing_verdict(two_governed, m.start())
+            for m in CROSSING.finditer(two_governed)] != ["ALLOW", "ALLOW"]:
+        wrong.append("a governed second crossing was rejected in a prohibiting sentence")
 
     # Drive the SCAN as well, on synthetic documents. A weakening that bypasses the verdict
     # inside the scan leaves the verdict helper correct, so testing the helper alone misses it.
@@ -633,13 +733,17 @@ def scope_negation_grammar():
         "## Sub-runs\n\nThe orchestrator never waits and may cross a scope boundary.\n",
         "## Sub-runs\n\nThe run may not only log the event but may cross a project "
         "boundary.\n",
-        "## Sub-runs\n\nNo approval exists, but the orchestrator may cross a scope "
-        "boundary.\n",
+        "## Sub-runs\n\nAn approved mechanism exists, and the orchestrator is hereby "
+        "permitted to cross a scope boundary.\n",
+        "## Sub-runs\n\nA Phase 6 handoff is discussed, but the run has permission to cross a "
+        "scope boundary.\n",
+        "## Sub-runs\n\nIt falls to the run to cross a project boundary.\n",
     ]
     clean_documents = [
         "## Sub-runs\n\nA cross-scope movement uses an approved mechanism or does not "
         "happen.\n",
         "## Sub-runs\n\nThe orchestrator must not cross a scope boundary.\n",
+        "## Sub-runs\n\nThe run is forbidden to cross a project boundary.\n",
         "## Sub-runs\n\nThe run may cross a scope boundary only through an approved scope "
         "transfer.\n",
     ]
