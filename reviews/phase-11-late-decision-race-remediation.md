@@ -909,6 +909,72 @@ independent closure path and its negative control, `scope` unchanged at 9. **Pha
 `PROPOSED`; human approval is pending.**
 
 
+## Remediation — identity predicate attachment
+
+One blocker from the v12 re-audit on `fdc337e`. The fail-closed co-occurrence rule was reading
+the **whole link** between two guarded terms, so evidence that belonged to one predicate was
+credited to another:
+
+| Wording | Why it escaped |
+|---|---|
+| `A Role is not merely a label but is an Agent Instance.` | the `not` belonged to `a label` |
+| `A Role remains temporary but is an Agent Instance.` | `but` was read as a safe proposition boundary |
+| `A Role is operational today and is an Agent Instance.` | `and` was read the same way |
+| `The Router handles dispatch but is the Orchestrator.` | an earlier unrelated predicate |
+| `A Decision Right is documented and is a Decision Record.` | a coordinated predicate before the copula |
+
+This is the same defect the stale-Decision rule hit long ago, in a different invariant:
+**separation has to govern the relation it is claimed to deny.**
+
+### The rule now executed
+
+`attaching_predicate()` cuts the link at every coordination or punctuation boundary and reads
+only the **last** segment — the one adjacent to the second guarded term, which is the predicate
+that actually relates the pair. Separation, safe-relation and predicate-position tests all run
+against that segment and nothing else.
+
+Where the link was cut, the final segment counts as relating the pair only when it is
+**elliptical**: a copula, an auxiliary or a bare verb still predicating of the first term
+(`… but is an Agent Instance`). A segment opening on a determiner or a preposition introduces
+its own subject or adjunct (`… and the runtime creates an Agent Instance`), so the two terms
+genuinely sit in different propositions and nothing is asserted about the pair. A colon,
+semicolon or surviving dash opens a new proposition outright.
+
+Separation vocabulary gained the explicit non-identity predicates the audit names as safe
+controls — `distinct`, `separate`, `different`, `independent`, `unrelated` — which are denial
+forms, not equivalence forms; no equivalence verb was added anywhere.
+
+### Probes
+
+The identity guard now runs **44** collapses and **20** denials and descriptions. The new cases
+are the five audit bypasses plus seven independent contrastive forms of the same shape
+(`is never edited at runtime but is a Workflow Run`, `is rotated regularly and is the Human
+Authority`, `is declarative yet is a Review Instance`, `is not evidence but constitutes an
+Audit Event`, `is versioned, and is a Work Item`, `has no memory but remains an Agent
+Instance`, `is stateless while being the Orchestrator`), and five new controls: the two
+explicit denials that govern the pair relation, the benign property followed by a *different*
+subject, and two genuinely separate propositions split by a semicolon and by a colon.
+
+Nine controlled weakenings, **exit 1 each**: any earlier negation suppressing the offence ·
+`but` as an unconditional safe boundary · `and` as an unconditional safe boundary · coordinated
+predicates skipped before a later copula · attachment reading the whole link again · a hard
+boundary no longer opening a new proposition · the elliptical-head test removed · the identity
+document scan bypassed · a vacuous boolean mutation. The last three are corpus-level: they make
+the committed corpus itself report offences, which is the strongest evidence the rule is not
+tuned to its probes.
+
+The v10 and v11 weakening families and the rendering family were re-run against the repaired
+file — all still fail.
+
+### Scope
+
+**No architecture content changed** — `orchestration/` and `architecture/` are byte-for-byte
+identical, so no stop-and-report was required. The suite total is unchanged at **160**: the
+existing check was strengthened rather than a new one added, and the producer self-check's
+`identity` description was updated to state the attachment rule. **Phase 11 remains `PROPOSED`;
+human approval is pending.**
+
+
 ---
 
 ## A note on the specimen fence

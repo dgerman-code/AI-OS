@@ -1376,8 +1376,23 @@ among about than is are was were be been being remain remains remained become be
 has have had do does did will would shall should may might can could must not never only also
 still now just simply merely really actually effectively same other another it they them which
 that who whose what he she we you""".split())
-SEPARATION = re.compile(r"\b(?:not|never|neither|nor|no)\b|!=", re.I)
-PROPOSITION_BREAK = re.compile("[,;:]|\u2014|\u2013|--|" + r"\b(?:and|or|nor|but)\b", re.I)
+SEPARATION = re.compile(
+    r"\b(?:not|never|neither|nor|no|distinct|separate|different|independent|unrelated)\b|!=",
+    re.I)
+# The boundary between coordinated or punctuated predicates. The LAST segment is the one that
+# actually relates the pair, because it is the one adjacent to the second guarded term.
+PREDICATE_BOUNDARY = re.compile(
+    "([;:]|\u2014|\u2013|--|" + r"[,]|\b(?:and|or|nor|but|yet|while|whereas|then)\b)", re.I)
+# A colon, a semicolon or a surviving dash opens a new proposition outright; a comma or a
+# coordinator may still be elliptical continuation of the same one.
+HARD_BOUNDARY = re.compile("^(?:[;:]|\u2014|\u2013|--)$")
+# A segment that begins with a function word which is NOT a copula or auxiliary introduces a
+# new subject or an adjunct ("the runtime creates an ...", "in which scope ..."), so the pair
+# is not being related there. One that begins with a copula, an auxiliary or a bare verb is
+# elliptical: it continues to predicate of the first guarded term.
+ELLIPTICAL_HEAD = re.compile(
+    r"^(?:is|are|was|were|be|been|being|remains?|remained|becomes?|became|has|have|had|"
+    r"do|does|did|will|would|shall|should|may|might|can|could|must|not|never)\b", re.I)
 # A predication puts the second term in predicate position, so the link ends where a noun
 # phrase begins: on a determiner, on a bare copula, or on an equals sign. A link ending on a
 # preposition ("artifacts in", "authorised by which") is a list or a different proposition -
@@ -1447,6 +1462,37 @@ def _coordinated_predication(raw_tail):
     return None                                      # not a predication of the pair at all
 
 
+def attaching_predicate(link):
+    """The predicate that actually relates the pair, or None if nothing relates them.
+
+    Separation has to govern the relation it is claimed to deny. Reading the WHOLE link let an
+    unrelated earlier negation or property license a later positive equation - "A Role is not
+    merely a label but is an Agent Instance" carried a `not` that belonged to `a label`, and
+    "A Role remains temporary but is an Agent Instance" was dismissed because a `but` appeared
+    somewhere. The link is therefore cut at each coordination or punctuation boundary and only
+    the LAST segment - the one adjacent to the second guarded term - is read.
+
+    Where the link was cut, that final segment counts as relating the pair only when it is
+    elliptical: a copula, an auxiliary or a bare verb continuing to predicate of the first
+    term. A segment opening on a determiner or a preposition introduces its own subject or
+    adjunct, so the two terms genuinely sit in different propositions."""
+    pieces = PREDICATE_BOUNDARY.split(link)
+    attached = pieces[-1]
+    if len(pieces) > 1:
+        if HARD_BOUNDARY.match(pieces[-2].strip()):
+            return None                       # a new proposition outright
+        head = attached.strip()
+        if not head:
+            return None
+        opening = re.match(r"[A-Za-z][A-Za-z'-]*", head)
+        if opening is None:
+            return None
+        if (opening.group(0).lower() in FUNCTION_WORDS
+                and not ELLIPTICAL_HEAD.match(head)):
+            return None                       # a new subject or an adjunct, not this pair
+    return attached
+
+
 def identity_collapses(text):
     """Guarded-pair co-occurrences the grammar cannot prove benign.
 
@@ -1464,8 +1510,6 @@ def identity_collapses(text):
                 if (first, second) not in GUARDED_PAIRS:
                     continue
                 gap = span[first_end:second_start]
-                if SEPARATION.search(gap):
-                    continue                          # an explicit denial
                 if gap.strip() in ("", "'s"):
                     continue                          # a compound name or a possessive
                 if COORDINATED_SUBJECT.fullmatch(gap):
@@ -1479,11 +1523,11 @@ def identity_collapses(text):
                     continue
                 if LIST_SEPARATOR.fullmatch(gap):
                     continue                          # a bare list separator
-                link = strip_asides(gap)
-                if SEPARATION.search(link):
-                    continue
-                if PROPOSITION_BREAK.search(link):
+                link = attaching_predicate(strip_asides(gap))
+                if link is None:
                     continue                          # the terms sit in different propositions
+                if SEPARATION.search(link):
+                    continue                          # a denial governing THIS relation
                 if GUARDED_TERM.search(link):
                     continue                          # a third guarded term: this is a list
                 if not PREDICATE_TAIL.search(link):
@@ -1524,6 +1568,22 @@ def identity_collapse_scan_is_driven():
     verbs the harness enumerates nowhere - that is the point of reading co-occurrence rather
     than vocabulary."""
     collapses = [
+        # The v12 bypasses: an unrelated earlier negation, property or coordinated predicate
+        # was being read as separation, or as a safe proposition boundary, while a LATER
+        # clause positively equated the pair.
+        "A Role is not merely a label but is an Agent Instance.",
+        "A Role remains temporary but is an Agent Instance.",
+        "A Role is operational today and is an Agent Instance.",
+        "The Router handles dispatch but is the Orchestrator.",
+        "A Decision Right is documented and is a Decision Record.",
+        # Independent contrastive forms of the same shape.
+        "A Workflow is never edited at runtime but is a Workflow Run.",
+        "A Credential is rotated regularly and is the Human Authority.",
+        "A Review Profile is declarative yet is a Review Instance.",
+        "A Runtime Event is not evidence but constitutes an Audit Event.",
+        "The Task is versioned, and is a Work Item.",
+        "A Role has no memory but remains an Agent Instance.",
+        "The Router is stateless while being the Orchestrator.",
         # The v11 bypasses: long, parenthetical, pronoun-bearing or multi-content-word
         # relations that the previous heuristics skipped in silence.
         "A Role has exactly the same governance identity as an Agent Instance.",
@@ -1582,6 +1642,14 @@ def identity_collapse_scan_is_driven():
         "The orchestrator submits a Model Invocation Request",
         "Reviews stay in review, decisions in decision, knowledge in knowledge, routing in "
         "routing, artifacts in artifact",
+        # The denial governs the pair relation itself, so it stands.
+        "The Router is distinct from the Orchestrator.",
+        "The Router is separate from the Orchestrator.",
+        # A property of the first term, then a DIFFERENT subject taking the second term.
+        "A Role remains temporary, and the runtime creates an Agent Instance.",
+        # Genuinely separate propositions.
+        "A Role is temporary; an Agent Instance is a process.",
+        "The Router dispatches work: the Orchestrator sequences stages.",
     ]
     problems = []
     for text in collapses:
