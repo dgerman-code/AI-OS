@@ -251,7 +251,7 @@ question the audit event exists to answer.
 | `VERSION_APPEND` — a new version row | A runtime event, metric, trace or log line |
 | `LINK_APPEND` — an append-only lineage link | A read |
 | `LIFECYCLE_STATE_CHANGE` — including every terminal transition | A `registry_projection` refresh (a projection, not a governed record) |
-| `METADATA_CHANGE` on a `MUT` column | An outbox row (operational; its execution record is governed and does count) |
+| `METADATA_CHANGE` on a `MUT` column | **An outbox row or any of its claim/lease transitions** (operational — Rule P-20a; the governed records of the same act are audited normally) |
 
 ### 7.2 Every governed act, with its exact audit rows
 
@@ -271,10 +271,12 @@ pre-commit refusal behaviour.
 | **activate_stage** | — | Run state, Workflow Definition @v, task | Halted guard, task in definition, phase plan | Run `record_version` | `work_item`, `gate_instance` × *g* | **1 + *g*** | 1 | U11, U13 | Nothing written |
 | **assign** | — | Work Item, bound Task's required Role, attempt counter | Halted guard, role match, agent instance type, insert preflight | Work Item `record_version` | `assignment`, Work Item attempt counter | **2** | 1 | U12 | Counter unchanged; no assignment |
 | **route** | B1 invalid answer | Run, Work Item, Routing Policy @v, candidate universe | Halted guard; answer type, request identity, run and Work Item binding, Router identity, six-part completeness on a selection | Run `record_version` | **0 — no request, no decision** | **0** | 1 (refusal) | — | **Nothing written.** The prospective envelope is discarded |
+| **route** | B1r invalid answer against an already durable request | as B1, plus the durable request and its highest `submission_ordinal` | as B1 | Run `record_version` | **0 — the existing Routing Request is preserved, no decision is created, and `submission_ordinal` is not advanced** | **0** | 1 (refusal) | U6 | **Nothing written.** The prospective envelope is discarded and the run's phase, posture and wait axes are unchanged |
 | **route** | B2 selection, first submission | as B1 | as B1, answer valid and `ELIGIBLE_CANDIDATE` | Run `record_version` | `routing_request`, `routing_decision` | **2** | 2 | U5, U6 | Nothing written |
-| **route** | B3 non-selection, first submission | as B1 | as B1, answer valid and a recorded refusal | Run `record_version` | `routing_request`, `routing_decision` | **2** | 2 | U5, U6 | Nothing written |
-| **route** | B4 re-submission | as B1, plus the durable request | as B1; the request is already durable and the ordinal is next | Run `record_version` | `routing_decision` only | **1** | 1 | U5, U6 | Nothing written |
-| **invoke_model** | S1 local intent | Recorded Routing Decision, Work Item | Halted guard, decision is this run's, outcome eligible. **No provider call occurs in this transaction** | Run `record_version` | `model_invocation` intent, `provider_attempt` at `NOT_ATTEMPTED`, outbox row | **3** | 1 | U8, U22 | Nothing written |
+| **route** | B3 non-selection, first submission | as B1 | as B1, answer valid and a recorded refusal | Run `record_version` | `routing_request`, `routing_decision`, **run state × *s*** — the exact appends, postures and wait subject of Rule Q-17b, in the same transaction | **2 + *s*** | 2 | U5, U6 | Nothing written |
+| **route** | B4s re-submission, selection | as B1, plus the durable request | as B1; the request is already durable and the ordinal is next; answer valid and `ELIGIBLE_CANDIDATE` | Run `record_version` | `routing_decision` only | **1** | 1 | U5, U6 | Nothing written |
+| **route** | B4n re-submission, non-selection | as B4s | as B4s, answer valid and a recorded refusal | Run `record_version` | `routing_decision`, **run state × *s*** — the same appends, postures and wait subject as B3, by Rule Q-17b | **1 + *s*** | 1 | U5, U6 | Nothing written |
+| **invoke_model** | S1 local intent | Recorded Routing Decision, Work Item | Halted guard, decision is this run's, outcome eligible. **No provider call occurs in this transaction** | Run `record_version` | `model_invocation` intent, `provider_attempt` at `NOT_ATTEMPTED` — **plus an outbox row, which is operational (P-20a) and is not audited** | **2** | 1 | U8, U22, O1–O3 | Nothing written |
 | **record_provider_attempt_outcome** | S3 outcome only | Staged attempt, Routing Decision | Attempt is staged; observed outcome is one of the four states | Attempt `record_version` | `provider_attempt` state | **1** | 1 | U22 | Nothing written |
 | **record_provider_attempt_outcome** | S4 outcome + result | as S3 | as S3, outcome `CONFIRMED_APPLIED` with content; five-element lineage equality (M-11); release-identity comparison (M-11a) | Attempt `record_version` | `provider_attempt` state, `model_result` | **2** | 1 | U7, U22 | Nothing written |
 | **reconcile_external_effect** | S5 still unknown | Uncertain attempt, external system under its idempotency key | Attempt is `ATTEMPTED_OUTCOME_UNKNOWN`; the external system cannot answer | Attempt `record_version` | `reconciliation` recording the unresolved determination | **1** | 1 | — | Nothing written; the attempt stays uncertain and escalates |
@@ -287,21 +289,21 @@ pre-commit refusal behaviour.
 | **record_intervention** | — | Run state, interventions | Halted guard; the one intervention contract | Run `record_version` | `human_intervention` | **1** | 1 | U9 | Nothing written |
 | **pause** | — | Run state, interventions | Halted guard, intervention contract, transition preflight (`allow_noop=false`) | Run `record_version` | `human_intervention`, run phase change | **2** | 1 | U9 | Nothing written |
 | **resume** | — | Run state, interventions | Intervention contract; run is `PAUSED`; transition preflight | Run `record_version` | `human_intervention`, run phase change | **2** | 1 | U9 | Nothing written |
-| **unblock** | — | Run state, interventions, standing gates | The five `unblock` conditions (orchestrator O-5) | Run `record_version` | `human_intervention`, run phase change, posture change | **3** | 1 | U9 | Nothing written |
+| **unblock** | — | Run state, interventions, standing gates | The five `unblock` conditions (orchestrator O-5) | Run `record_version` | `human_intervention`, run state → phase **and** posture in one append (P-14g) | **2** | 1 | U9 | Nothing written |
 | **cancel_run** | — | Run state, interventions | Terminal reachability for `CANCELLED`; **the intervention contract**; insert preflight. A human act | Run `record_version` | `human_intervention`, run terminal state | **2** | 1 (`TERMINAL`, human + system identity) | U9 | Nothing written |
 | **terminate_run** | — | Run state, the constraint that would be breached | Terminal reachability for `TERMINATED`; **a named constraint**; acting system identity present. **No intervention is accepted; a supplied one is a refusal** | Run `record_version` | `constraint_stop_record`, run terminal state | **2** | 1 (`TERMINAL`, system identity only, `human_identity_ref` **NULL**) | — | Nothing written |
 | **fail_run** | — | Run state, retry history | Terminal reachability for `FAILED`; a recorded cause; no permitted retry resolved it | Run `record_version` | `failure_record`, run terminal state | **2** | 1 | — | Nothing written |
 | **supersede_run** | — | Both runs | Terminal reachability for `SUPERSEDED`; the superseding run exists and names this one | Run `record_version` | Run terminal state, supersession link | **2** | 1 | — | Nothing written |
 | **complete_run** | — | Run state, gates, posture | Posture permits the outcome; no unsatisfied gate; phase permits; each carried item has an upstream rule | Run `record_version` | Run terminal state | **1** | 1 | — | Nothing written |
-| **retry** | R1 automatic (classes 1, 5) | Work Item bound retry class, attempt history | Halted guard; class permits; attempt limit not reached | Run `record_version` | `retry_attempt`, run phase | **2** | 1 | U23 | Nothing written |
-| **retry** | R2 revalidating (class 2) | as R1, plus preconditions, freshness, scope, sensitivity, eligibility | as R1, **plus** all of those re-evaluated before dispatch | Run `record_version` | `revalidation_record`, `retry_attempt`, run phase | **3** | 2 | U23 | Nothing written |
-| **retry** | R2f revalidation fails (class 2) | as R2 | A re-evaluated precondition no longer holds | Run `record_version` | `revalidation_record`, run phase → `BLOCKED` | **2** | 1 | — | Nothing written |
-| **retry** | R3 awaiting acknowledgement (class 3) | as R1, interventions | No acknowledgement intervention exists yet | Run `record_version` | `retry_hold_record`, run phase → `WAITING` | **2** | 1 | — | Nothing written |
-| **retry** | R3a acknowledged (class 3) | as R3 | An acknowledgement intervention exists | Run `record_version` | `retry_attempt`, run phase → `RUNNING` | **2** | 1 | U23 | Nothing written |
-| **retry** | R4 refused, non-retryable (class 4) | Work Item bound retry class | The request is made at all | Run `record_version` | `retry_refusal_record`, run phase → `BLOCKED`, run phase → `ESCALATED` | **3** | 2 | — | Nothing written. **This branch is never "nothing written": refusing is a governed act** |
-| **retry** | R6 refused, external side effect (class 6) | Work Item class, the attempt's external-effect state | The request is made at all | Run `record_version` | `retry_refusal_record` naming the external-effect state, run phase → `BLOCKED`, run phase → `ESCALATED` | **3** | 2 | — | Nothing written |
-| **retry** | R7 idempotent (class 7) | as R1, the target's deduplication guarantee | The step carries an idempotency key **and** the target deduplicates | Run `record_version` | `retry_attempt`, run phase | **2** | 1 | U23 | Nothing written |
-| **retry** | RX unclassified | Work Item bound lineage | No retry class is declared — non-retryable by default | Run `record_version` | `retry_refusal_record`, run phase → `BLOCKED`, run phase → `ESCALATED` | **3** | 2 | — | Nothing written |
+| **retry** | R1 automatic (classes 1, 5) | Work Item bound retry class, attempt history | Halted guard; class permits; attempt limit not reached | Run `record_version` | `retry_attempt`, run state → `RUNNING`, **posture unchanged** | **2** | 1 | U23 | Nothing written |
+| **retry** | R2 revalidating (class 2) | as R1, plus preconditions, freshness, scope, sensitivity, eligibility | as R1, **plus** all of those re-evaluated before dispatch | Run `record_version` | `revalidation_record`, `retry_attempt`, run state → `RUNNING`, **posture unchanged** | **3** | 2 | U23 | Nothing written |
+| **retry** | R2f revalidation fails (class 2) | as R2 | A re-evaluated precondition no longer holds | Run `record_version` | `revalidation_record`, run state → `BLOCKED` **with posture `GATE_UNSATISFIED`** | **2** | 1 | — | Nothing written |
+| **retry** | R3 awaiting acknowledgement (class 3) | as R1, interventions | No acknowledgement intervention exists yet | Run `record_version` | `retry_hold_record`, run state → `WAITING`, **wait reason `WAITING_FOR_HUMAN`, wait subject the acknowledgement, posture unchanged** | **2** | 1 | — | Nothing written |
+| **retry** | R3a acknowledged (class 3) | as R3 | An acknowledgement intervention exists | Run `record_version` | `retry_attempt`, run state → `RUNNING`, **wait reason and subject cleared, posture unchanged** | **2** | 1 | U23 | Nothing written |
+| **retry** | R4 refused, non-retryable (class 4) | Work Item bound retry class | The request is made at all | Run `record_version` | `retry_refusal_record`, run state → `BLOCKED` **with posture `GATE_UNSATISFIED`**, run state → `ESCALATED` **with posture `GATE_UNSATISFIED`** | **3** | 2 | — | Nothing written. **This branch is never "nothing written": refusing is a governed act** |
+| **retry** | R6 refused, external side effect (class 6) | Work Item class, the attempt's external-effect state | The request is made at all | Run `record_version` | `retry_refusal_record` naming the external-effect state, run state → `BLOCKED` **with posture `GATE_UNSATISFIED`**, run state → `ESCALATED` **with posture `GATE_UNSATISFIED`** | **3** | 2 | — | Nothing written |
+| **retry** | R7 idempotent (class 7) | as R1, the target's deduplication guarantee | The step carries an idempotency key **and** the target deduplicates | Run `record_version` | `retry_attempt`, run state → `RUNNING`, **posture unchanged** | **2** | 1 | U23 | Nothing written |
+| **retry** | RX unclassified | Work Item bound lineage | No retry class is declared — non-retryable by default | Run `record_version` | `retry_refusal_record`, run state → `BLOCKED` **with posture `GATE_UNSATISFIED`**, run state → `ESCALATED` **with posture `GATE_UNSATISFIED`** | **3** | 2 | — | Nothing written |
 | **rework_iteration** | — | Rework loop declaration @v, prior iteration | Entry condition met; `max_iterations` not exhausted | Loop `record_version` | `rework_loop_instance`, `work_item` × *w*, `gate_instance` × *g* | **1 + *w* + *g*** | 1 | U11, U13, U20 | Nothing written |
 | **open_sub_run** | — | Parent run, target scope node | Halted guard; parent scope narrows to child scope (S-8, S-9) | Parent run `record_version` | Child `workflow_run`, child `scope_binding` | **2** | 1 | U14, U18 | Nothing written |
 | **scope_transfer** | — | Source run, retained Decision Records, mechanism registry, target definition | All source-side clauses **and** every target-run creation condition, via one shared preflight | Source run `record_version` | `scope_transfer_authorisation`, target `workflow_run`, target `scope_binding`, provenance link | **4** | 2 | U14, U18 | **No authorisation record, no partial run** |
@@ -317,9 +319,21 @@ pre-commit refusal behaviour.
 | **destroy_governed_content** | — | The target record | — | — | **0 — nothing is ever written** | **0** | 1 (refusal) | — | **Blocked (BA-3).** As above |
 | **apply_destructive_migration** | — | Migration manifest, classifier verdict | Declared class matches the classifier; legal holds absent | — | **0 — nothing is ever written** | **0** | 1 (refusal) | — | **Blocked (BA-4).** As above |
 
-*g* = gate instances created, *w* = work items created, *n* = items the conflict flags. Each is a
+*g* = gate instances created, *w* = work items created, *n* = items the conflict flags, *s* = the
+run-state appends the non-selection outcome requires (Rule Q-17b: **1** for `NO_ELIGIBLE_MODEL`
+and `ACT_REQUIREMENT_OUTSTANDING`, **2** for `CANDIDATE_UNIVERSE_INCOMPLETE` and
+`NO_APPLICABLE_DECISION_RIGHT`). Each is a
 real count, not a placeholder: an act that creates three gate instances writes three audit events
 for them.
+
+**Rule P-14g — a run-state transition is one version append, carrying every axis it
+changes.** Phase, governance posture, wait reason and wait subject are four axes of **one**
+governed record, the `workflow_run`. A transition that changes several of them at once is a
+single `LIFECYCLE_STATE_CHANGE` append and therefore **one** audit event; two *successive*
+transitions — a block and then an escalation — are two appends and two audit events. This is why
+`unblock` writes two records and not three, and why R4 writes three and not two. The exact writes
+column below always names the posture the append carries, so a halted or escalated posture is a
+committed fact and not a remark in prose.
 
 **Rule P-14e — a refused transaction writes no audit event, including the blocked four.** A
 refusal mutates no governed record, so there is none to audit. It produces **one execution
@@ -366,6 +380,8 @@ one.
 
 ## 9. Outbox for external effects
 
+### 9.1 What the outbox is, and what it is not
+
 Where a governed act must both commit locally and cause an external effect:
 
 1. the intent record and an **outbox row** are written **in the same local transaction** as the
@@ -377,9 +393,132 @@ Where a governed act must both commit locally and cause an external effect:
 **Rule P-20 — the outbox is not a queue product.** It is a table and a drain loop. No queue,
 broker, worker framework or event bus is specified, named or required.
 
+**Rule P-20a — an outbox row is an operational record, never a governed one.** It carries no
+authority, satisfies no gate, and is never governance evidence. It is therefore **not** a
+governed-record mutation under Rule P-14d, and writing one produces **no audit event**. The
+governed records of the same act — the invocation intent and the provider attempt — are audited
+normally, and the drain's own activity is execution-event history. This is the approved Phase
+10/11 distinction applied without exception: delivery plumbing is not governance. Every audit
+count in §7.2 is derived on this classification, and the assurance suite asserts it (A48).
+
 **Rule P-21 — the outbox never authorises.** A row in the outbox carries the authorisation
 reference; it does not substitute for one. An outbox row for a class-4 act whose authorisation
 record is absent is refused at insert by a `NOT NULL` foreign key.
+
+### 9.2 The dispatch item — stable identity and durable uniqueness
+
+| # | Field | Is |
+|---:|---|---|
+| 1 | `outbox_ref` | The **stable identity** of one dispatch item, assigned in the enqueuing transaction and never reassigned |
+| 2 | `model_invocation_ref` | The governed intent this dispatch item serves |
+| 3 | `provider_attempt_ref` | The **one** provider attempt this dispatch item resolves |
+| 4 | `provider_idempotency_key` | The key presented to the provider. Stable for the life of the row |
+| 5 | `claim_state` | One of the five values of §9.3 |
+| 6 | `lease_owner` | The claimant service identity holding the current lease, or `NULL` |
+| 7 | `lease_expires_at` | When the current lease stops being valid, or `NULL` |
+| 8 | `claim_token` | The compare-and-swap / OCC token. It changes on **every** claim-state transition |
+| 9 | `dispatch_ordinal` | How many times this item has been claimed. Monotonic, never reset |
+
+The outbox's durable uniqueness constraints are **operational** and are deliberately **not**
+rows of the canonical governed uniqueness inventory of §5.2, because an outbox row is not a
+governed record. They are named `O1`–`O4` so that no count of the `U` inventory changes:
+
+| # | Constraint | Prevents |
+|---:|---|---|
+| O1 | `UNIQUE (outbox_ref)` | A duplicate dispatch identity |
+| O2 | `UNIQUE (provider_attempt_ref)` | Two dispatch items racing to satisfy one provider attempt |
+| O3 | `UNIQUE (provider_idempotency_key)` | Two items presenting one key to the provider |
+| O4 | A partial unique index on `outbox_ref` `WHERE claim_state = 'CLAIMED' AND lease_expires_at > now()` | **Two concurrently valid leases on one dispatch item** |
+
+**Rule P-23 — the provider idempotency key is stable and never regenerated.** It is derived in
+the enqueuing transaction from `(model_invocation_ref, provider_attempt_ref)` and stored. Every
+dispatch of the item — including a redelivery after an expired lease — presents the **same**
+key. Regenerating it on redelivery is the defect that silently converts "the provider
+deduplicates" into "the provider sees a new request".
+
+### 9.3 Claim state vocabulary
+
+`PENDING` · `CLAIMED` · `DISPATCHED` · `SETTLED` · `ABANDONED`
+
+| State | Means | Leaves to |
+|---|---|---|
+| `PENDING` | Enqueued; no claimant | `CLAIMED` |
+| `CLAIMED` | A claimant holds a valid lease; **no call has been made under this claim** | `DISPATCHED`; or back to `PENDING` on lease expiry |
+| `DISPATCHED` | The call was made under this claim; the outcome is not yet durable | `SETTLED`; or `ABANDONED` on lease expiry |
+| `SETTLED` | The provider attempt reached a recorded external-effect state | — |
+| `ABANDONED` | A lease expired at or after dispatch. **The item is never re-dispatched from here** | Reconciliation only |
+
+### 9.4 Claim, lease and compare-and-swap
+
+**Rule P-24 — claiming is one atomic conditional update, or it did not happen.** A claimant
+acquires an item with a single statement whose precondition is
+
+> `claim_state = 'PENDING'` **and** (`lease_expires_at IS NULL` **or** `lease_expires_at <= now()`)
+> **and** `claim_token` equals the token the claimant read
+
+and whose effect is `claim_state = 'CLAIMED'`, `lease_owner` = the claimant service identity,
+`lease_expires_at = now() + lease_duration`, a **new** `claim_token`, and
+`dispatch_ordinal + 1`. Zero rows updated means another claimant won, and the loser does **not**
+call the provider. There is no read-then-write path and no advisory lock substituting for the
+compare-and-swap.
+
+**Rule P-25 — the claimant is a named service identity.** `lease_owner` holds the acting service
+identity of `security-identity-access.md`, never a hostname, a process id or a worker number. A
+lease whose owner does not resolve to a registered service identity is not a valid lease.
+
+**Rule P-26 — at most one valid lease, enforced durably.** Constraint **O4** is the enforcement;
+the drain's control flow is not. Two claimants believing they hold one item is a **failed write**
+for the second, never two provider calls.
+
+**Rule P-27 — an expired lease is a redelivery condition, never a proof.** An item becomes
+claimable again on expiry **only from `CLAIMED`**, because in `CLAIMED` no call was made under
+that claim. From `DISPATCHED`, expiry moves the item to `ABANDONED` and the provider attempt to
+`ATTEMPTED_OUTCOME_UNKNOWN`. **Lease expiry is never evidence that no external effect
+occurred** — Rule F-9a says the same thing from the failure model's side, and it is the single
+place where an optimistic reading would produce a duplicate external effect.
+
+### 9.5 Deduplication at the receiver
+
+**Rule P-28 — where the provider deduplicates, redelivery is at-least-once and safe.** The
+stable key of Rule P-23 is presented on every dispatch, and the provider's own deduplication
+makes a second arrival a no-op. This is `IDEMPOTENT_AT_LEAST_ONCE`, and the guarantee is the
+**receiver's**, not the sender's.
+
+**Rule P-29 — where the provider does not deduplicate, there is no safe redispatch after
+dispatch.** The step is `NON_REPLAYABLE_EXTERNAL_SIDE_EFFECT`. An item that reached `DISPATCHED`
+is never re-dispatched: it becomes `ABANDONED`, its attempt is `ATTEMPTED_OUTCOME_UNKNOWN`, and
+reconciliation (`failure-recovery-race-model.md` §6.1) is **mandatory**. Where reconciliation
+cannot answer, the run `BLOCK`s and `ESCALATE`s, and a retry request against that step is
+branch R6.
+
+**Rule P-30 — no distributed transaction and no exactly-once.** The protocol is at-most-once
+locally (O1–O4 with U8 and U22), at-least-once externally where the provider deduplicates, and
+neither where it does not. Nothing above spans the local database and the provider in one
+transaction, and no delivery guarantee stronger than the receiver's is claimed.
+
+### 9.6 The four crash points
+
+| Crash point | Durable state found | Recovery |
+|---|---|---|
+| **Before the claim** | `PENDING`, no valid lease | Ordinary claim. Nothing left the system |
+| **After the claim, before the call** | `CLAIMED`, lease expired | Re-claimable under Rule P-27. Nothing left the system, because the call happens strictly after the claim commits |
+| **After the call, before the outcome** | `DISPATCHED`, lease expired | `ABANDONED`; the attempt becomes `ATTEMPTED_OUTCOME_UNKNOWN`; **reconciliation, never redispatch** |
+| **After the outcome, before persistence commits** | `DISPATCHED`, lease expired, no outcome row | Identical to the row above, deliberately: an outcome the system did not commit is an outcome the system does not have |
+
+**Rule P-31 — the durable unknown path.** `ATTEMPTED_OUTCOME_UNKNOWN` is written onto the
+provider attempt in its own local transaction by the reclaiming drain — never held in the memory
+of the process that crashed. That state change is a governed-record mutation and **is** audited;
+the accompanying outbox transition to `ABANDONED` is operational and is **not**.
+
+**Rule P-32 — safe redispatch versus mandatory reconciliation, exactly.**
+
+| Condition | Redispatch permitted? |
+|---|---|
+| `claim_state = 'PENDING'` | **Yes** |
+| `claim_state = 'CLAIMED'` with an expired lease | **Yes** — no call was made under that claim |
+| `DISPATCHED` or `ABANDONED`, provider deduplicates on the stable key | **Only** after reconciliation reports `CONFIRMED_NOT_APPLIED` |
+| `DISPATCHED` or `ABANDONED`, provider does not deduplicate | **Never.** Reconciliation is mandatory |
+| Any state, reconciliation unanswerable | **Never.** The run blocks and escalates; undoing a confirmed effect is compensation, its own governed act |
 
 ## 10. Retention, holds and deletion
 

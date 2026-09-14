@@ -148,9 +148,17 @@ rejected at write, not tolerated and back-filled.
 |---|---|
 | `ELIGIBLE_CANDIDATE` | Continue; a Model Invocation may be constructed |
 | `NO_ELIGIBLE_MODEL` | `BLOCKED`, posture `GATE_UNSATISFIED` |
-| `CANDIDATE_UNIVERSE_INCOMPLETE` | `BLOCKED` or `ESCALATED`; never a shrunken universe |
-| `NO_APPLICABLE_DECISION_RIGHT` | `BLOCKED` **and** `ESCALATED`, posture `AUTHORITY_ABSENT` |
-| `ACT_REQUIREMENT_OUTSTANDING` | `WAITING`, with the act requirement as the named wait subject |
+| `CANDIDATE_UNIVERSE_INCOMPLETE` | `BLOCKED`, **then** `ESCALATED`, posture `GATE_UNSATISFIED`; never a shrunken universe |
+| `NO_APPLICABLE_DECISION_RIGHT` | `BLOCKED`, **then** `ESCALATED`, posture `AUTHORITY_ABSENT` |
+| `ACT_REQUIREMENT_OUTSTANDING` | `WAITING`, wait reason `WAITING_FOR_DEPENDENCY`, with the act requirement as the named wait subject |
+
+**Rule M-7a — the orchestrator effect is deterministic and commits with the decision.** "`BLOCKED`
+or `ESCALATED`" was a choice left to an implementation, and an implementation that chose
+`BLOCKED` alone would leave an incomplete candidate universe waiting for someone who was never
+told. Each outcome above has exactly one mapping, the number of run-state appends it requires is
+*s* in `api-command-contracts.md` Rule Q-17b, and the appends commit **in the same transaction as
+the Routing Decision** (Rule Q-17c). No committed state exists in which a non-selection decision
+is durable and the run is still eligible to continue.
 
 ### 5.3 Reproducibility — what is and is not claimed
 
@@ -263,7 +271,7 @@ A model call is an external effect. Its retry class is declared by the step; whe
 arriving from a retry finds the first and fails the write; it does not produce a second result.
 `persistence-and-transaction-model.md` §5.2.
 
-**Rule M-13 — one lifecycle, four branches.** `route()` follows construct → validate →
+**Rule M-13 — one lifecycle, and every branch of it.** `route()` follows construct → validate →
 preflight → commit. The Routing Request is **prospective** until the Router's answer has been
 fully validated (type, request identity, run and Work Item binding, Router identity, six-part
 completeness on a selection); then request, decision and their events commit as **one
@@ -272,15 +280,24 @@ transaction**.
 There is **no separate command that persists a Routing Request.** An earlier revision had one,
 which contradicted this rule in the plainest way: a request could exist that no decision ever
 answered. The prospective envelope is constructed inside `route()` and reaches storage only with
-an answer. The four branches are specified once, in `api-command-contracts.md` §5.4 Rule Q-17,
-and this contract encodes the same ones:
+an answer. The branches are specified once, in `api-command-contracts.md` §5.4 Rule Q-17 —
+and a count is deliberately not stated here, because a stated count is the thing that goes stale
+when a branch is added. This contract encodes the same rows:
 
 | Branch | Answer | Request durable? | Decision written? |
 |---|---|---|---|
-| B1 | Invalid — malformed, foreign Router, identity mismatch, incomplete six-part set | **No** | **No** |
+| B1 | Invalid — malformed, foreign Router, identity mismatch, incomplete six-part set — on a first submission | **No** | **No** |
+| B1r | The same invalidity **after** a request is already durable | Already durable, **unchanged**; the ordinal is **not** advanced | **No** |
 | B2 | Valid `ELIGIBLE_CANDIDATE`, first submission | Yes | Yes |
-| B3 | Valid non-selection — `NO_ELIGIBLE_MODEL`, `CANDIDATE_UNIVERSE_INCOMPLETE`, `NO_APPLICABLE_DECISION_RIGHT`, `ACT_REQUIREMENT_OUTSTANDING` | Yes | Yes |
-| B4 | Any valid answer re-submitted against an already durable request | Already durable | Yes, at the next ordinal |
+| B3 | Valid non-selection — `NO_ELIGIBLE_MODEL`, `CANDIDATE_UNIVERSE_INCOMPLETE`, `NO_APPLICABLE_DECISION_RIGHT`, `ACT_REQUIREMENT_OUTSTANDING` | Yes | Yes, **with the run-state appends of Rule Q-17b** |
+| B4s | Valid `ELIGIBLE_CANDIDATE` re-submitted against an already durable request | Already durable | Yes, at the next ordinal |
+| B4n | A valid non-selection re-submitted against an already durable request | Already durable | Yes, at the next ordinal, **with the same run-state appends as B3**
+
+**Rule M-13d — an invalid answer leaves a durable request exactly as it found it.** B1r writes
+nothing: the Routing Request stands at its current version, no Routing Decision is created, and
+`submission_ordinal` is not advanced, so the next valid submission takes the ordinal the invalid
+answer did not consume. One refusal execution event is appended, and it is coordination history
+rather than evidence (Rule O-25a). Advancing the ordinal would leave a U6 gap no record explains.
 
 **Rule M-13a — a valid refusal is recorded.** Phase 11
 `orchestration/model-router-invocation-boundary.md` §3: "A Routing Decision, **or a refusal.

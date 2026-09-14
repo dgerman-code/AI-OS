@@ -66,9 +66,18 @@ matching is prohibited in every derivation.
 
 ## 3. Adversarial tests — the required set
 
-Each row is a test that must exist and must assert a **refusal plus observational equality**:
-the whole observable state — four axes, gate outcomes, every governed record store, event count,
-attempt counters — is identical before and after.
+Each row is a test that must exist and must assert a **refusal plus observational equality**,
+and observational equality is defined over **governed** state, exactly as Rule O-25 states it:
+the four axes, gate outcomes, every governed record store, every governed history including the
+audit-event count, and the attempt counters are identical before and after.
+
+**Rule T-18 — two assertions, never one conflated.** Where a contract requires a refusal
+execution event — routing B1 and B1r, the four blocked authorities — the test asserts governed
+equality **and separately** asserts that the execution-event store gained exactly that refusal
+event with its expected code. No row in this document requires total execution-event-count
+equality: that would contradict the contract it is testing, and a suite cannot assert both. A
+refusal event is coordination history and is never gate evidence, approval, authority or state
+progress (Rule O-25a).
 
 Each row carries **structured metadata** so the setup and the expectation can be checked against
 each other and against the command contracts, rather than read as prose:
@@ -144,6 +153,14 @@ expectation claims a currently-mapped Right exists.
 | A45 | `Retry` | CURRENT | Retry a class-6 step whose external effect is unknown | Branch R6: refusal record naming the external-effect state, block, escalate. **Never an automatic re-run** |
 | A46 | `Retry` | CURRENT | Retry a step with **no declared class** | Branch RX: non-retryable by default; refusal, block, escalate |
 | A47 | `ApplyConsequentStatusChange` | CURRENT | Downgrade `APPROVED` or `CANONICAL` material as a governed status act | `NO_APPLICABLE_DECISION_RIGHT` — BA-1 fails closed in **both** directions |
+| A48 | `InvokeModel` | CURRENT | Count the outbox row as a governed mutation and expect **3** audit events at stage 1 | There are **2**. The outbox row is operational (P-20a) and produces no audit event |
+| A49 | *outbox drain* | CURRENT | Claim a dispatch item already held under a valid lease | The compare-and-swap updates zero rows and constraint O4 refuses a second valid lease; **no second provider call** |
+| A50 | *outbox drain* | CURRENT | Treat an expired lease on a `DISPATCHED` item as proof no provider effect occurred, and re-dispatch | Refused. The item is `ABANDONED`, the attempt is `ATTEMPTED_OUTCOME_UNKNOWN`, and reconciliation is mandatory (P-27, P-29, P-32) |
+| A51 | *outbox drain* | CURRENT | Regenerate the provider idempotency key on redelivery | Refused. The key is derived once in the enqueuing transaction and is stable for the life of the row (P-23) |
+| A52 | `RecordProviderAttemptOutcome` | CURRENT | Recover from a crash "after stage 3, before stage 4" by writing the Model Result alone | There is no such committed state: stages 3 and 4 are one transaction (Q-22b) |
+| A53 | `Route` | CURRENT | Send a malformed answer after the Routing Request is already durable, and expect the ordinal to advance or the request to change | Branch B1r: the request is preserved, no decision is written, `submission_ordinal` does **not** advance; one refusal execution event |
+| A54 | `Route` | CURRENT | Commit a valid non-selection decision while leaving the run eligible to continue | Refused. The decision and the run-state appends of Rule Q-17b are one transaction (Q-17c) |
+| A55 | `Retry` | CURRENT | Block or escalate a run on R2f, R4, R6 or RX without carrying the posture on the append | Refused. The posture is part of the exact governed writes, not prose (Q-28a) |
 
 ### 3.1 Positive controls
 
@@ -158,8 +175,9 @@ row below must **succeed**, and each is the companion of a refusal above.
 | P-A32 | `TranscribeApprovalState` | CURRENT | Transcribe `reviews/phase-7-final-approval.md` for the eight exemplar Decision Right Cards it names | Succeeds, one row per named subject, with `decision_right_ref` **null** where the record states none; **2 audit events** per subject; **no row** for a subject the record does not name |
 | P-A34 | `RecordNewApprovalState` | CURRENT | Record a new approval whose governed act produced a resolvable Decision Record decided by a human | Succeeds; history row and pointer move in one transaction |
 | P-A38 | `Route` | CURRENT | A valid `ELIGIBLE_CANDIDATE` answer on a first submission | Succeeds. Request **and** decision commit together; **2 audit events**; the six-part set is complete (branch B2) |
-| P-A40 | `Route` | CURRENT | A retry re-submits the same durable request | Succeeds. One new decision at the next ordinal; **1 audit event**; the prior decision is retained and readable |
-| P-A41 | `InvokeModel` | CURRENT | The full staged path: intent → call → `CONFIRMED_APPLIED` → result | Succeeds across **three** transactions, never one. Intent (3 audit events), outcome + result (2), and the result carries `AI_SUGGESTION` / `AI_GENERATED` / `DRAFT` |
+| P-A40 | `Route` | CURRENT | A retry re-submits the same durable request with a selection | Branch B4s succeeds. One new decision at the next ordinal; **1 audit event**; the prior decision is retained and readable |
+| P-A49 | *outbox drain* | CURRENT | A single claimant claims a `PENDING` item, dispatches, and records the outcome | Succeeds. One valid lease, one provider call under the stable key, the attempt settles, and the outbox transitions produce **no** audit events |
+| P-A41 | `InvokeModel` | CURRENT | The full staged path: intent → call → `CONFIRMED_APPLIED` → result | Succeeds across **two** local transactions plus the non-transactional call, never one. Intent (**2** audit events; the outbox row is operational), outcome **and** result together (2), and the result carries `AI_SUGGESTION` / `AI_GENERATED` / `DRAFT` |
 | P-A42 | `ReconcileExternalEffect` | CURRENT | An `ATTEMPTED_OUTCOME_UNKNOWN` attempt that the external system can answer under its idempotency key | Succeeds. The determination is recorded, the attempt resolves, and a Model Result is written only where the effect was applied with retrievable content |
 | P-A44 | `Retry` | CURRENT | A class-1 retry within its attempt limit | Succeeds. `retry_attempt` and the phase change; **2 audit events**; a dispatch record exists |
 

@@ -2068,6 +2068,11 @@ def every_normative_count_matches_its_canonical_inventory():
         "governed commands": len(command_rows()),
         "adversarial tests": len(assurance_inventories()["A"]),
         "positive controls": len(assurance_inventories()["P-A"]),
+        # The V4 miss was a stale count of the transaction table itself, restated in a
+        # historical narrative row. Both of its sizes are derived here so that a document
+        # cannot quote either one from memory.
+        "transaction acts": len(transaction_rows()),
+        "transaction branch rows": len(transaction_branch_rows()),
     }
     subjects = {
         "uniqueness constraints": r"(?:durable\s+)?uniqueness constraints",
@@ -2132,6 +2137,22 @@ def every_normative_count_matches_its_canonical_inventory():
         ),
     }
 
+    #: Forms the two generic passes above cannot see, because the subject is not the phrase
+    #: they key on. Each is a shape the specification actually uses, and the first three are
+    #: exactly the V4 miss: a historical row restating "35 numbered commands" and
+    #: "§7.2 has 35 rows" while every canonical inventory stayed correct.
+    explicit = (
+        (r"([\w-]+) numbered (?:governed )?commands", "governed commands"),
+        (r"(?:§\s*)?7\.2 (?:now )?has ([\w-]+) rows", "transaction branch rows"),
+        (r"transaction table (?:now )?has ([\w-]+) rows", "transaction branch rows"),
+        (r"([\w-]+) branch rows", "transaction branch rows"),
+        (r"([\w-]+) transaction acts", "transaction acts"),
+        (r"([\w-]+) governed acts, keyed", "transaction acts"),
+        (r"\|\s*adversarial tests\s*\|\s*([\w-]+)", "adversarial tests"),
+        (r"\|\s*positive controls\s*\|\s*([\w-]+)", "positive controls"),
+        (r"\|\s*durable uniqueness constraints\s*\|\s*([\w-]+)", "uniqueness constraints"),
+    )
+
     for name in REQUIRED_DOCS:
         lines = spec(name).splitlines()
         for i, line in enumerate(lines, 1):
@@ -2152,6 +2173,15 @@ def every_normative_count_matches_its_canonical_inventory():
                         if value != expected:
                             problems.append("%s:%d states %s for %s, inventory has %d"
                                             % (name, i, stated, subject, expected))
+            for pattern, subject in explicit:
+                expected = derived[subject]
+                for stated in re.findall(pattern, low):
+                    value = value_of(stated)
+                    if value is None:
+                        continue
+                    if value != expected:
+                        problems.append("%s:%d states %s for %s, inventory has %d"
+                                        % (name, i, stated, subject, expected))
     return (not problems, str(problems)[:400] if problems
             else "every stated count agrees: " +
                  " · ".join("%s %d" % (k, v) for k, v in derived.items()))
@@ -2172,11 +2202,11 @@ def the_routing_lifecycle_is_one_contract_across_documents():
     if "request_routing" in txn:
         problems.append("a request_routing transaction contract still exists")
     branches = {cells[TXN["branch"]].split()[0] for cells in txn.get("route", [])}
-    for expected in ("B1", "B2", "B3", "B4"):
+    for expected in ("B1", "B1r", "B2", "B3", "B4s", "B4n"):
         if expected not in branches:
             problems.append("route branch %s is not specified" % expected)
     for cells in txn.get("route", []):
-        if cells[TXN["branch"]].startswith("B1"):
+        if cells[TXN["branch"]].split()[0] in ("B1", "B1r"):
             if cells[TXN["audit"]].replace("*", "") != "0":
                 problems.append("route B1 writes audit events for an invalid answer")
             if "0" not in cells[TXN["writes"]]:
@@ -2184,7 +2214,7 @@ def the_routing_lifecycle_is_one_contract_across_documents():
     if says("api-command-contracts.md", "the Routing Request becomes durable only inside a "
                                         "validated routing act"):
         problems.append("the durability rule is not stated in the API contract")
-    if says("model-router-runtime-contract.md", "one lifecycle, four branches"):
+    if says("model-router-runtime-contract.md", "one lifecycle, and every branch of it"):
         problems.append("the router contract does not encode the same lifecycle")
     if says("model-router-runtime-contract.md", "there is **no separate command that persists a "
                                                 "Routing Request**"):
@@ -2328,6 +2358,428 @@ def ba1_fails_closed_in_both_directions():
 
 check("crossdoc", "BA-1 fails closed for governed downgrade as well as promotion",
       ba1_fails_closed_in_both_directions)
+
+
+
+def retry_branch_rows():
+    """The §5.6 retry branch table, as cell lists keyed by branch id."""
+    body = spec("api-command-contracts.md").split("### 5.6")[1].split("## 6.")[0]
+    rows = {}
+    for line in body.splitlines():
+        if not line.startswith("| **R"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        rows[cells[0].strip("*").split()[0]] = cells
+    return rows
+
+
+def routing_outcome_rows():
+    """Rule Q-17b: non-selection outcome -> (run state written, s, posture, wait)."""
+    body = spec("api-command-contracts.md").split("**Rule Q-17b")[1].split("**Rule Q-17c")[0]
+    rows = {}
+    for line in body.splitlines():
+        m = re.match(r"^\|\s*`(\w+)`\s*\|(.+?)\|\s*\**(\d+)\**\s*\|(.+?)\|(.+?)\|\s*$", line)
+        if m:
+            rows[m.group(1)] = (m.group(2).strip(), int(m.group(3)),
+                                m.group(4).strip(), m.group(5).strip())
+    return rows
+
+
+def the_routing_run_state_consequence_is_atomic_and_complete():
+    """A durable non-selection decision never leaves the run eligible to continue.
+
+    The V4 audit's first blocker: B3 and B4 committed a decision while the run-state
+    consequence lived in prose, and nothing said what an invalid answer does once a request is
+    already durable. This parses the outcome mapping, the branch table and the commit table and
+    compares them to each other rather than looking for a sentence."""
+    problems = []
+    outcomes = routing_outcome_rows()
+    expected_outcomes = {"NO_ELIGIBLE_MODEL": 1, "CANDIDATE_UNIVERSE_INCOMPLETE": 2,
+                         "NO_APPLICABLE_DECISION_RIGHT": 2, "ACT_REQUIREMENT_OUTSTANDING": 1}
+    for outcome, appends in expected_outcomes.items():
+        if outcome not in outcomes:
+            problems.append("Q-17b does not map %s to a run-state consequence" % outcome)
+            continue
+        state, s_value, posture, wait = outcomes[outcome]
+        if s_value != appends:
+            problems.append("Q-17b gives %s s=%d, not %d" % (outcome, s_value, appends))
+        if not state.strip("* "):
+            problems.append("Q-17b writes no run state for %s" % outcome)
+        if outcome == "ACT_REQUIREMENT_OUTSTANDING":
+            if "WAITING_FOR_" not in wait:
+                problems.append("Q-17b does not name an approved wait reason for %s" % outcome)
+            if "WAITING" not in state:
+                problems.append("Q-17b does not put the run in WAITING for %s" % outcome)
+        else:
+            if "BLOCKED" not in state:
+                problems.append("Q-17b does not block the run for %s" % outcome)
+            if "GATE_UNSATISFIED" not in posture and "AUTHORITY_ABSENT" not in posture:
+                problems.append("Q-17b carries no halted posture for %s" % outcome)
+    # The approved wait-reason vocabulary is five values and Phase 14 creates no sixth.
+    approved_waits = {"WAITING_FOR_DEPENDENCY", "WAITING_FOR_REVIEW", "WAITING_FOR_DECISION",
+                      "WAITING_FOR_HUMAN", "WAITING_FOR_EXTERNAL_EVENT"}
+    for doc in ("api-command-contracts.md", "orchestrator-runtime-contract.md",
+                "model-router-runtime-contract.md", "persistence-and-transaction-model.md"):
+        for found in set(re.findall(r"`(WAITING_FOR_\w+)`", spec(doc))):
+            if found not in approved_waits:
+                problems.append("%s invents the wait reason %s" % (doc, found))
+
+    txn = transaction_rows().get("route", [])
+    by_branch = {cells[TXN["branch"]].split()[0]: cells for cells in txn}
+    for branch in ("B3", "B4n"):
+        cells = by_branch.get(branch)
+        if cells is None:
+            problems.append("the transaction table has no %s branch" % branch)
+            continue
+        writes = flat(cells[TXN["writes"]])
+        if "run state" not in writes:
+            problems.append("%s commits a decision with no run-state write" % branch)
+        if "s" not in cells[TXN["audit"]].replace("*", "").replace(" ", ""):
+            problems.append("%s states a fixed audit count for a variable consequence" % branch)
+    b1r = by_branch.get("B1r")
+    if b1r is None:
+        problems.append("there is no contract for an invalid answer after a durable request")
+    else:
+        writes = flat(b1r[TXN["writes"]])
+        if "not advanced" not in writes and "not advance" not in writes:
+            problems.append("B1r does not say the submission ordinal is not advanced")
+        if "preserved" not in writes:
+            problems.append("B1r does not preserve the durable Routing Request")
+        if b1r[TXN["audit"]].replace("*", "") != "0":
+            problems.append("B1r writes audit events")
+    for phrase, doc in (
+            ("an invalid answer never disturbs a durable request", "api-command-contracts.md"),
+            ("a durable non-selection never leaves the run eligible to continue",
+             "api-command-contracts.md"),
+            ("b4 inherits b3's consequence, never a weaker one", "api-command-contracts.md"),
+            ("an invalid answer leaves a durable request exactly as it found it",
+             "model-router-runtime-contract.md"),
+            ("the orchestrator effect is deterministic and commits with the decision",
+             "model-router-runtime-contract.md")):
+        if says(doc, phrase):
+            problems.append("%s: missing %r" % (doc, phrase[:45]))
+    router_outcomes = spec("model-router-runtime-contract.md").split("### 5.2")[1].split("### 5.3")[0]
+    if "blocked` or `escalated" in flat(router_outcomes):
+        problems.append("the router leaves the blocked/escalated choice to an implementation")
+    router_branches = spec("model-router-runtime-contract.md").split("**Rule M-13 ")[1].split("**Rule M-13d")[0]
+    for branch in ("B1r", "B4s", "B4n"):
+        if "| " + branch + " |" not in router_branches:
+            problems.append("the router branch table omits %s" % branch)
+    return (not problems, str(problems)[:400] if problems
+            else "B1r preserves the request and the ordinal; B3 and B4n commit their run state "
+                 "with the decision; %d outcomes mapped" % len(outcomes))
+
+
+check("crossdoc", "the routing run-state consequence is atomic and complete",
+      the_routing_run_state_consequence_is_atomic_and_complete)
+
+
+def the_retry_posture_is_a_committed_write():
+    """A halted posture asserted only in prose is a posture an implementation may not set."""
+    problems = []
+    rows = retry_branch_rows()
+    for branch in ("R1", "R2", "R2f", "R3", "R3a", "R4", "R6", "R7", "RX"):
+        cells = rows.get(branch)
+        if cells is None:
+            problems.append("§5.6 has no %s row" % branch)
+            continue
+        if len(cells) < 12:
+            problems.append("%s does not state the full branch contract (%d columns)"
+                            % (branch, len(cells)))
+            continue
+        phase, posture, wait, writes = cells[3], cells[4], cells[5], cells[6]
+        if "→" not in phase:
+            problems.append("%s does not state phase before and after" % branch)
+        if "→" not in posture:
+            problems.append("%s does not state posture before and after" % branch)
+        if not wait.strip("* "):
+            problems.append("%s states no wait reason or escalation" % branch)
+        if branch in ("R2f", "R4", "R6", "RX"):
+            if "GATE_UNSATISFIED" not in posture:
+                problems.append("%s does not halt with GATE_UNSATISFIED" % branch)
+            if "GATE_UNSATISFIED" not in writes:
+                problems.append("%s leaves its halted posture out of its exact writes" % branch)
+        if branch == "R3" and "WAITING_FOR_HUMAN" not in wait:
+            problems.append("R3 does not name its wait reason")
+    txn = {cells[TXN["branch"]].split()[0]: cells
+           for cells in transaction_rows().get("retry", [])}
+    for branch in ("R2f", "R4", "R6", "RX"):
+        cells = txn.get(branch)
+        if cells is None:
+            problems.append("the transaction table has no %s branch" % branch)
+        elif "GATE_UNSATISFIED" not in cells[TXN["writes"]]:
+            problems.append("%s commits a halt without its posture" % branch)
+    if says("api-command-contracts.md", "the posture is a committed field, not a description"):
+        problems.append("Q-28a is not stated")
+    if says("api-command-contracts.md", "a dispatch occurs only where a dispatch record exists"):
+        problems.append("Q-28b is not stated")
+    if says("persistence-and-transaction-model.md",
+            "a run-state transition is one version append, carrying every axis it"):
+        problems.append("P-14g is not stated")
+    return (not problems, str(problems)[:400] if problems
+            else "%d retry branches, each stating phase, posture, wait and committed writes"
+                 % len(rows))
+
+
+check("crossdoc", "retry branch posture is a committed write, not prose",
+      the_retry_posture_is_a_committed_write)
+
+
+def the_outbox_protocol_is_implementable():
+    """An outbox with no identity, no lease and no claim rule is a diagram, not a protocol."""
+    body = spec("persistence-and-transaction-model.md")
+    section = body.split("## 9. Outbox for external effects")[1].split("## 10.")[0]
+    low = flat(section)
+    problems = []
+    for field in ("outbox_ref", "model_invocation_ref", "provider_attempt_ref",
+                  "provider_idempotency_key", "claim_state", "lease_owner",
+                  "lease_expires_at", "claim_token", "dispatch_ordinal"):
+        if field not in section:
+            problems.append("the dispatch item has no %s" % field)
+    # The label is not the constraint. This probe came back REDUNDANT against an earlier
+    # version of this check, which asked only whether the row existed - so a row reading
+    # "O1 | (no constraint required)" passed. Each row's constraint cell is parsed and must
+    # name a durable uniqueness on the column it exists to protect.
+    declared = {}
+    for line in section.splitlines():
+        m = re.match(r"^\|\s*(O\d)\s*\|(.+?)\|", line)
+        if m:
+            declared[m.group(1)] = flat(m.group(2))
+    required = {"O1": ("unique", "outbox_ref"),
+                "O2": ("unique", "provider_attempt_ref"),
+                "O3": ("unique", "provider_idempotency_key"),
+                "O4": ("unique", "claim_state", "lease_expires_at")}
+    for constraint, tokens in required.items():
+        if constraint not in declared:
+            problems.append("operational uniqueness constraint %s is not declared" % constraint)
+            continue
+        for token in tokens:
+            if token not in declared[constraint]:
+                problems.append("%s does not constrain %s" % (constraint, token))
+    for state in ("PENDING", "CLAIMED", "DISPATCHED", "SETTLED", "ABANDONED"):
+        if state not in section:
+            problems.append("claim state %s is not in the vocabulary" % state)
+    for rule in ("P-23", "P-24", "P-25", "P-26", "P-27", "P-28", "P-29", "P-30",
+                 "P-31", "P-32"):
+        if "Rule " + rule + " " not in section:
+            problems.append("%s is not stated in the outbox protocol" % rule)
+    for phrase in ("claiming is one atomic conditional update",
+                   "at most one valid lease, enforced durably",
+                   "the claimant is a named service identity",
+                   "an expired lease is a redelivery condition, never a proof",
+                   "lease expiry is never evidence that no external effect occurred",
+                   "the provider idempotency key is stable and never regenerated",
+                   "where the provider deduplicates, redelivery is at-least-once and safe",
+                   "there is no safe redispatch after",
+                   "no distributed transaction and no exactly-once",
+                   "safe redispatch versus mandatory reconciliation, exactly"):
+        if flat(phrase) not in low:
+            problems.append("the protocol does not state %r" % phrase[:45])
+    crashes = section.split("### 9.6")[1] if "### 9.6" in section else ""
+    crash_rows = [ln for ln in crashes.splitlines() if ln.startswith("| **")]
+    if len(crash_rows) != 4:
+        problems.append("the protocol states %d crash points, not four" % len(crash_rows))
+    if "compare-and-swap" not in low:
+        problems.append("no compare-and-swap semantics are specified")
+    for vendor in ("kafka", "rabbitmq", "sqs", "celery", "sidekiq", "pub/sub", "temporal"):
+        if vendor in low:
+            problems.append("the protocol names the vendor %s" % vendor)
+    if says("failure-recovery-race-model.md",
+            "the drain protocol is specified once, in persistence"):
+        problems.append("the failure model does not defer to the one protocol")
+    return (not problems, str(problems)[:400] if problems
+            else "stable identity, O1-O4, five claim states, CAS lease, stable key, "
+                 "four crash points, redispatch table")
+
+
+check("crossdoc", "the provider-call outbox protocol is implementable and vendor-free",
+      the_outbox_protocol_is_implementable)
+
+
+def the_outbox_classification_is_one_classification():
+    """Operational or governed - one answer, and every audit count derived from it."""
+    problems = []
+    persistence = spec("persistence-and-transaction-model.md")
+    p14d = persistence.split("**Rule P-14d")[1].split("### 7.2")[0]
+    outbox_row = [ln for ln in p14d.splitlines() if "outbox" in ln.lower()]
+    if not outbox_row:
+        problems.append("P-14d does not say whether an outbox row counts")
+    elif "operational" not in flat(outbox_row[0]):
+        problems.append("P-14d no longer classifies an outbox row as operational")
+    for phrase, doc in (("an outbox row is an operational record, never a governed one",
+                         "persistence-and-transaction-model.md"),
+                        ("operational delivery records produce no audit event",
+                         "audit-provenance-observability.md"),
+                        ("the outbox row is operational and is not audited",
+                         "api-command-contracts.md")):
+        if says(doc, phrase):
+            problems.append("%s: missing %r" % (doc, phrase[:45]))
+    intent = transaction_rows().get("invoke_model", [])
+    if len(intent) != 1:
+        problems.append("invoke_model does not have exactly one intent branch")
+    else:
+        writes = intent[0][TXN["writes"]]
+        audit = intent[0][TXN["audit"]].replace("*", "").strip()
+        governed = [w for w in writes.split(",") if "outbox" not in w.lower()]
+        if not audit.isdigit():
+            problems.append("the intent branch states no exact audit count")
+        elif int(audit) != len(governed):
+            problems.append("the intent branch audits %s of %d governed writes"
+                            % (audit, len(governed)))
+        if "operational" not in flat(writes):
+            problems.append("the intent branch does not mark the outbox row operational")
+    stage1 = [ln for ln in spec("api-command-contracts.md").splitlines()
+              if ln.startswith("| 1 | **Local intent commit**")]
+    if not stage1:
+        problems.append("the staging table has no stage 1 row")
+    elif "| **2** |" not in stage1[0]:
+        problems.append("stage 1 in the API contract does not audit two governed writes")
+    control = [r for r in adversarial_rows() if r[0] == "P-A41"]
+    if control and "3 audit" in control[0][4]:
+        problems.append("the positive control still counts the outbox row")
+    attack = [r for r in adversarial_rows() if r[0] == "A48"]
+    if not attack:
+        problems.append("no adversarial test attacks the outbox audit count")
+    return (not problems, str(problems)[:400] if problems
+            else "operational everywhere; stage 1 writes two governed records and two audits")
+
+
+check("crossdoc", "the outbox is operational in every document that counts it",
+      the_outbox_classification_is_one_classification)
+
+
+def stages_three_and_four_are_one_transaction():
+    """A recovery path for an unreachable state is how the state becomes reachable."""
+    api = spec("api-command-contracts.md")
+    problems = []
+    if says("api-command-contracts.md",
+            "stages 3 and 4 are one transaction, so there is no state between them"):
+        problems.append("Q-22b is not stated")
+    if says("failure-recovery-race-model.md",
+            "stages 3 and 4 have no boundary between them"):
+        problems.append("the failure model does not agree")
+    crash = api.split("**Rule Q-24 ")[1].split("**Rule Q-25")[0]
+    for line in crash.splitlines():
+        if not line.startswith("|"):
+            continue
+        low = flat(line)
+        if "after stage 3" in low and "before stage 4" in low:
+            if "unreachable" not in low:
+                problems.append("the crash table still describes a state between stages 3 and 4")
+        if "between stages 3 and 4" in low and "unreachable" not in low:
+            problems.append("the crash table still recovers from a state that cannot exist")
+    stage4 = [ln for ln in api.splitlines() if ln.startswith("| 4 | **Result recording**")]
+    if not stage4:
+        problems.append("the staging table has no stage 4 row")
+    elif "same transaction as stage 3" not in stage4[0]:
+        problems.append("stage 4 does not declare the same transaction as stage 3")
+    stage_map = spec("failure-recovery-race-model.md")
+    row = [ln for ln in stage_map.splitlines() if ln.startswith("| 4 — result recording")]
+    if row and "same transaction" not in flat(row[0]):
+        problems.append("the stage map does not carry the transaction boundary")
+    if not [r for r in adversarial_rows() if r[0] == "A52"]:
+        problems.append("no adversarial test attacks the removed crash window")
+    return (not problems, str(problems)[:400] if problems
+            else "one transaction; the crash table declares the window unreachable")
+
+
+check("crossdoc", "stages 3 and 4 are one transaction in every document",
+      stages_three_and_four_are_one_transaction)
+
+
+def refusal_events_do_not_break_observational_equality():
+    """Equality over governed state, plus exactly the refusal event the contract names."""
+    orch = spec("orchestrator-runtime-contract.md")
+    problems = []
+    o25 = orch.split("**Rule O-25 ")[1].split("**Rule O-25a")[0]
+    if "execution-event history must remain" in o25:
+        problems.append("O-25 still requires execution-event history to be identical")
+    if "not stated over the total execution-event count" not in flat(o25):
+        problems.append("O-25 does not exclude the execution-event count from equality")
+    if "governed" not in flat(o25):
+        problems.append("O-25 does not state equality over governed state")
+    for phrase, doc in (
+            ("a refusal execution event is permitted, and is never evidence",
+             "orchestrator-runtime-contract.md"),
+            ("how a test asserts this", "orchestrator-runtime-contract.md"),
+            ("two assertions, never one conflated", "test-and-assurance-strategy.md")):
+        if says(doc, phrase):
+            problems.append("%s: missing %r" % (doc, phrase[:45]))
+    o25a = orch.split("**Rule O-25a")[1].split("**Rule O-25b")[0]
+    for denial in ("governance evidence", "authority"):
+        if denial not in flat(o25a):
+            problems.append("O-25a does not deny a refusal event %s" % denial)
+    tests = spec("test-and-assurance-strategy.md")
+    preamble = tests.split("## 3. Adversarial tests")[1].split("| Column |")[0]
+    if "event count" in flat(preamble) and "governed" not in flat(preamble):
+        problems.append("the adversarial preamble still demands total event-count equality")
+    for row in adversarial_rows():
+        expected = flat(row[4])
+        if "execution-event count" in expected and "identical" in expected:
+            problems.append("%s requires execution-event-count equality" % row[0])
+        if "execution event count" in expected and "equal" in expected:
+            problems.append("%s requires execution-event-count equality" % row[0])
+    return (not problems, str(problems)[:400] if problems
+            else "equality is governed state and governed history; the refusal event is "
+                 "asserted separately and is never evidence")
+
+
+check("crossdoc", "a required refusal event never contradicts observational equality",
+      refusal_events_do_not_break_observational_equality)
+
+
+#: Commands this package once had and deliberately removed. A document may say a removed
+#: command is gone; none may present it as a member of a current inventory.
+OBSOLETE_COMMANDS = ("RequestRouting", "RecordApprovalState")
+
+#: Phrases that deny present membership. A line carrying one is recording the removal, which
+#: is exactly what these documents are supposed to do.
+REMOVAL_DENIALS = (
+    "no longer exists", "was removed", "is removed", "not a member of any current inventory",
+    "removed in revision", "no longer a governed command", "there is no separate command",
+    "was, and why it is now two commands",
+)
+
+#: Phrases that turn a mention into a claim of present membership.
+CURRENCY_CLAIMS = (
+    "now has a full contract", "has a full contract", "is now the canonical",
+    "now the canonical governed-command inventory", "numbered commands",
+    "current inventory", "the inventory holds", "each with exactly one transaction contract",
+)
+
+
+def no_obsolete_command_is_claimed_as_current():
+    """The exact V4 miss: a stale narrative row restating a removed command and old totals.
+
+    The canonical inventories were correct; a historical row was not; and nothing compared the
+    two. This derives the current command set from §5.1 and fails any line that both names a
+    removed command and makes a claim of present membership."""
+    current = {c for _n, c, _a, _act in command_rows()}
+    problems = []
+    for obsolete in OBSOLETE_COMMANDS:
+        if obsolete in current:
+            problems.append("%s is back in the canonical inventory" % obsolete)
+    for name in REQUIRED_DOCS:
+        for i, line in enumerate(spec(name).splitlines(), 1):
+            low = flat(line)
+            if any(d in low for d in REMOVAL_DENIALS):
+                continue
+            for obsolete in OBSOLETE_COMMANDS:
+                if obsolete.lower() not in low:
+                    continue
+                claimed = [c for c in CURRENCY_CLAIMS if c in low]
+                if claimed:
+                    problems.append("%s:%d presents %s as current (%r)"
+                                    % (name, i, obsolete, claimed[0][:34]))
+    if says("api-command-contracts.md", "`RequestRouting` no longer exists"):
+        problems.append("the API contract does not record that RequestRouting was removed")
+    return (not problems, str(problems)[:400] if problems
+            else "%d removed commands, none presented as a member of the %d-command inventory"
+                 % (len(OBSOLETE_COMMANDS), len(current)))
+
+
+check("crossdoc", "no removed command is presented as a current inventory member",
+      no_obsolete_command_is_claimed_as_current)
 
 
 # =========================================================== main

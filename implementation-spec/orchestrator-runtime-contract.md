@@ -66,8 +66,12 @@ consumed assignments, routing requests and possibly external effects.
 
 ### 3.3 Axis C — wait reason (5)
 
-Every `WAITING` run names its reason **and its subject**. A wait with no named subject is a
-defect: it cannot be told from a stall.
+`WAITING_FOR_DEPENDENCY` · `WAITING_FOR_REVIEW` · `WAITING_FOR_DECISION` · `WAITING_FOR_HUMAN` ·
+`WAITING_FOR_EXTERNAL_EVENT`
+
+Exactly the five of `orchestration/state-machine-and-transitions.md` §4, and **no sixth is
+created anywhere in this package**. Every `WAITING` run names its reason **and its subject**. A
+wait with no named subject is a defect: it cannot be told from a stall.
 
 ### 3.4 Axis D — governance posture (4)
 
@@ -316,9 +320,35 @@ action is not authority to authorise one.
 
 > **construct → validate → preflight → commit**
 
-**Rule O-25 — the atomicity invariant.** If an ordinary governed act fails, then phase, posture,
-terminal state, Work Item counters, gate outcomes, governed record stores, and execution-event
-history must remain **observationally identical** to their pre-call state.
+**Rule O-25 — the atomicity invariant, stated over governed state.** If an ordinary governed act
+fails or is refused before commit, then phase, posture, wait reason and subject, terminal state,
+Work Item counters, gate outcomes, **every governed record store and every governed history**
+— audit events, Decision Records, Review Instances, Routing Decisions, approval-state history —
+must remain **observationally identical** to their pre-call state. Equality is over governed
+state and governed history. It is **not** stated over the total execution-event count, and an
+earlier revision that stated both at once required two incompatible things of the same act.
+
+**Rule O-25a — a refusal execution event is permitted, and is never evidence.** Where a contract
+explicitly requires one — routing branches B1 and B1r, the four blocked authorities, a refused
+retry that cannot even reach its branch — the act appends **exactly** the refusal execution
+events that contract names, and no others. Such an event:
+
+| Is | Is not |
+|---|---|
+| Coordination history: what was attempted, by whom, and what refused it | Governance evidence of any kind |
+| Readable by operators and by the reconciliation sweep | Gate evidence, approval, or any authority |
+| Counted in execution-event history | State progress: no phase, posture, counter or governed record moves because it exists |
+
+The write-only interface of `audit-provenance-observability.md` Rule V-1 is what makes this
+structural rather than a promise: no governed module can read the store the refusal event lands
+in, so a refusal event cannot become an input to a governed decision even by mistake.
+
+**Rule O-25b — how a test asserts this.** An adversarial test asserts **two separate things**:
+governed state and governed-history counts are equal before and after, **and** the execution-event
+store gained exactly the refusal event the contract specifies, with the expected refusal code. A
+test that instead asserted total execution-event equality would fail every contract that requires
+a refusal event, and a suite that dropped the second assertion would accept an act that refused
+silently. `test-and-assurance-strategy.md` §3 states the same pair from the assurance side.
 
 **Rule O-26 — preflight parity.** A preflight must never be more permissive than the commit it
 stands in for. Where a commit path tolerates "already in that state" as a no-op, its preflight

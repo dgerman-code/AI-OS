@@ -127,6 +127,15 @@ what makes the nullability rule checkable rather than a convention.
 | `POINTER_MOVE` | A current-pointer row was created or re-pointed | **NULL on creation, NOT NULL on a move** | **NOT NULL** |
 | `DESTROY` | A governed record was destroyed | **NOT NULL** | **NULL** — there is no after |
 
+**Rule V-7 — operational delivery records produce no audit event.** An outbox row, its claim,
+its lease and every transition between its claim states are operational records under
+`persistence-and-transaction-model.md` Rule P-20a. They are not governed records, they are not
+governance evidence, and they generate **no** audit event at any `mutation_kind`. The governed
+records written beside them — the invocation intent, the provider attempt and its state changes —
+are audited normally, one event each. This is the same line Rule V-1 draws for execution events,
+drawn once more for delivery plumbing: a system that audited its queue would be claiming its
+queue was governance.
+
 **Rule V-5-matrix — the matrix in this section is the only statement of nullability.** The field
 table above states *conditional on `mutation_kind`* and nothing more; an earlier revision said
 `record_version_after` was mandatory for every successful write, which contradicts `DESTROY`.

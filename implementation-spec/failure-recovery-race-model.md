@@ -141,7 +141,7 @@ states above exactly:
 | 1 — local intent commit | `NOT_ATTEMPTED` |
 | 2 — provider call | unchanged locally; **this is the window where the state on disk and the state of the world can differ** |
 | 3 — observed outcome | `CONFIRMED_APPLIED`, `CONFIRMED_NOT_APPLIED`, or `ATTEMPTED_OUTCOME_UNKNOWN` |
-| 4 — result recording | only from `CONFIRMED_APPLIED` |
+| 4 — result recording | only from `CONFIRMED_APPLIED`, **in the same transaction as stage 3** |
 | 5 — reconciliation | resolves `ATTEMPTED_OUTCOME_UNKNOWN`, or records that it remains unresolved and escalates |
 
 **Rule F-9a — an expired attempt lease reads as unknown, never as not-attempted.** A crash during
@@ -149,6 +149,19 @@ stage 2 leaves the attempt recorded locally as `NOT_ATTEMPTED` while the call ma
 been made. The drain therefore treats an attempt whose lease has expired as
 `ATTEMPTED_OUTCOME_UNKNOWN`. **This is the single place where an optimistic reading would produce
 a duplicate external effect**, and it is why the lease exists.
+
+**Rule F-9c — stages 3 and 4 have no boundary between them.** They are one local transaction
+(`api-command-contracts.md` Rule Q-22b), so this model describes **no** crash state in which an
+outcome is durable and its Model Result is not. A recovery path for that state would be a
+recovery path for a state the system cannot reach, and those are how impossible states become
+reachable.
+
+**Rule F-9d — the drain protocol is specified once, in persistence §9.** Claim state, lease
+owner, lease expiry, the compare-and-swap token, the single-valid-lease constraint, the stable
+provider idempotency key, receiver-side deduplication and the four crash points all live in
+`persistence-and-transaction-model.md` §§9.2–9.6. This section states the governed consequence:
+an item that reached `DISPATCHED` is never re-dispatched, its attempt is
+`ATTEMPTED_OUTCOME_UNKNOWN`, and reconciliation is mandatory.
 
 **Rule F-9b — a timeout is a state, not a verdict.** It does not mean the call failed. Rule F-10
 applies unchanged: neither assumption is permitted.

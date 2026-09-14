@@ -219,8 +219,8 @@ PROBES = [
 
     ("a newly covered governed act stops stating its audit count",
      "persistence-and-transaction-model.md",
-     "posture change | **3** |",
-     "posture change | as needed |",
+     "posture in one append (P-14g) | **2** |",
+     "posture in one append (P-14g) | as needed |",
      "audit cardinality after full command coverage"),
 
     ("a blocked command is allowed a governed write",
@@ -250,19 +250,19 @@ PROBES = [
 
     ("a class-4 retry writes nothing instead of blocking and escalating",
      "persistence-and-transaction-model.md",
-     "| **retry** | R4 refused, non-retryable (class 4) | Work Item bound retry class | The request is made at all | Run `record_version` | `retry_refusal_record`, run phase → `BLOCKED`, run phase → `ESCALATED` | **3** |",
+     "| **retry** | R4 refused, non-retryable (class 4) | Work Item bound retry class | The request is made at all | Run `record_version` | `retry_refusal_record`, run state → `BLOCKED` **with posture `GATE_UNSATISFIED`**, run state → `ESCALATED` **with posture `GATE_UNSATISFIED`** | **3** |",
      "| **retry** | R4 refused, non-retryable (class 4) | Work Item bound retry class | The request is made at all | Run `record_version` | none | **0** |",
      "a refused retry is a governed write"),
 
     ("a class-6 unknown external effect is retried automatically",
      "persistence-and-transaction-model.md",
-     "| **retry** | R6 refused, external side effect (class 6) | Work Item class, the attempt's external-effect state | The request is made at all | Run `record_version` | `retry_refusal_record` naming the external-effect state, run phase → `BLOCKED`, run phase → `ESCALATED` | **3** |",
+     "| **retry** | R6 refused, external side effect (class 6) | Work Item class, the attempt's external-effect state | The request is made at all | Run `record_version` | `retry_refusal_record` naming the external-effect state, run state → `BLOCKED` **with posture `GATE_UNSATISFIED`**, run state → `ESCALATED` **with posture `GATE_UNSATISFIED`** | **3** |",
      "| **retry** | R6 refused, external side effect (class 6) | Work Item class, the attempt's external-effect state | The request is made at all | Run `record_version` | `retry_attempt`, run phase | **2** |",
      "class 6 never becomes a retry"),
 
     ("model invocation claims local atomicity across the provider call",
      "persistence-and-transaction-model.md",
-     "| **invoke_model** | S1 local intent | Recorded Routing Decision, Work Item | Halted guard, decision is this run's, outcome eligible. **No provider call occurs in this transaction** | Run `record_version` | `model_invocation` intent, `provider_attempt` at `NOT_ATTEMPTED`, outbox row | **3** |",
+     "| **invoke_model** | S1 local intent | Recorded Routing Decision, Work Item | Halted guard, decision is this run's, outcome eligible. **No provider call occurs in this transaction** | Run `record_version` | `model_invocation` intent, `provider_attempt` at `NOT_ATTEMPTED` — **plus an outbox row, which is operational (P-20a) and is not audited** | **2** |",
      "| **invoke_model** | S1 local intent | Recorded Routing Decision, Work Item | Halted guard, decision is this run's, outcome eligible | Run `record_version` | `model_invocation`, `model_result` | **2** |",
      "model invocation is staged, not one local commit"),
 
@@ -325,6 +325,80 @@ PROBES = [
      "| **Also blocked: governed downgrade** |",
      "| **Also permitted: governed downgrade** |",
      "BA-1 fails closed in both directions"),
+
+    # ---- revision 5: the seven V4 blockers ------------------------------------------------
+
+    ("B3 commits a durable decision with no run-state append",
+     "persistence-and-transaction-model.md",
+     "`routing_request`, `routing_decision`, **run state \u00d7 *s*** \u2014 the exact appends, postures and wait subject of Rule Q-17b, in the same transaction | **2 + *s***",
+     "`routing_request`, `routing_decision` | **2**",
+     "a durable non-selection never leaves the run eligible to continue"),
+
+    ("B4n loses its run-state consequence",
+     "persistence-and-transaction-model.md",
+     "| **route** | B4n re-submission, non-selection |",
+     "| **route** | B4x re-submission, non-selection |",
+     "every routing branch has a commit contract"),
+
+    ("an invalid answer after a durable request advances the submission ordinal",
+     "persistence-and-transaction-model.md",
+     "**0 \u2014 the existing Routing Request is preserved, no decision is created, and `submission_ordinal` is not advanced**",
+     "**0 governed records; `submission_ordinal` is advanced to reserve the attempt**",
+     "an invalid answer never disturbs a durable request"),
+
+    ("R2f stops stating its posture",
+     "api-command-contracts.md",
+     "| **R2f revalidation fails** | 2 | A re-evaluated precondition no longer holds | `RETRY_PENDING` \u2192 `BLOCKED` | unchanged \u2192 **`GATE_UNSATISFIED`** |",
+     "| **R2f revalidation fails** | 2 | A re-evaluated precondition no longer holds | `RETRY_PENDING` \u2192 `BLOCKED` | unchanged |",
+     "retry posture is a committed write"),
+
+    ("R4 drops the halted posture from its exact governed writes",
+     "persistence-and-transaction-model.md",
+     "`retry_refusal_record`, run state \u2192 `BLOCKED` **with posture `GATE_UNSATISFIED`**, run state \u2192 `ESCALATED` **with posture `GATE_UNSATISFIED`** | **3** | 2 | \u2014 | Nothing written. **This branch is never",
+     "`retry_refusal_record`, run phase \u2192 `BLOCKED`, run phase \u2192 `ESCALATED` | **3** | 2 | \u2014 | Nothing written. **This branch is never",
+     "retry posture is a committed write"),
+
+    ("the outbox loses its stable identity and durable uniqueness",
+     "persistence-and-transaction-model.md",
+     "| O1 | `UNIQUE (outbox_ref)` | A duplicate dispatch identity |",
+     "| O1 | *(no constraint required)* | \u2014 |",
+     "the outbox has a stable identity and durable uniqueness"),
+
+    ("two concurrently valid leases are permitted on one dispatch item",
+     "persistence-and-transaction-model.md",
+     "**Rule P-26 \u2014 at most one valid lease, enforced durably.**",
+     "**Rule P-26 \u2014 leases are advisory.**",
+     "no concurrent valid lease for one dispatch item"),
+
+    ("lease expiry is treated as proof that no provider effect occurred",
+     "persistence-and-transaction-model.md",
+     "**Lease expiry is never evidence that no external effect\noccurred**",
+     "An expired lease establishes that no external effect occurred",
+     "an expired lease is a redelivery condition, never a proof"),
+
+    ("the outbox row is counted as a governed mutation",
+     "persistence-and-transaction-model.md",
+     "`model_invocation` intent, `provider_attempt` at `NOT_ATTEMPTED` \u2014 **plus an outbox row, which is operational (P-20a) and is not audited** | **2** |",
+     "`model_invocation` intent, `provider_attempt` at `NOT_ATTEMPTED`, outbox row | **3** |",
+     "the outbox is operational in every document that counts it"),
+
+    ("a crash window is reintroduced between stages 3 and 4",
+     "api-command-contracts.md",
+     "| Between stages 3 and 4 | **Unreachable.** They are one transaction (Q-22b): there is no committed outcome without its result | \u2014 |",
+     "| After stage 3, before stage 4 | Outcome recorded, no result | Stage 4 completes idempotently under U7 |",
+     "stages 3 and 4 are one transaction"),
+
+    ("a refused-act test requires total execution-event equality",
+     "test-and-assurance-strategy.md",
+     "| A38 | `Route` | CURRENT | Malformed, foreign-Router or identity-mismatched answer | **No Routing Request and no Routing Decision** is committed; zero audit events; one refusal execution event (branch B1) |",
+     "| A38 | `Route` | CURRENT | Malformed, foreign-Router or identity-mismatched answer | **No Routing Request and no Routing Decision** is committed; the execution-event count is identical before and after |",
+     "a required refusal event never contradicts observational equality"),
+
+    ("the self-check restates a stale command/row count and reintroduces RequestRouting",
+     "phase-14-self-check.md",
+     '| 2 | The transaction table claimed exhaustiveness while covering 17 of the governed commands | `api-command-contracts.md` §5.1 became **the** canonical governed-command inventory, each entry carrying an explicit **Act** key naming its transaction contract, and `persistence-and-transaction-model.md` §7.2 was keyed identically. The validator derives both sets and requires exact equality in both directions; duplicate coverage is permitted only through an explicit alias, of which there are currently none. Every previously omitted act — `RecordIntervention`, `ResumeRun`, `UnblockRun`, `SupplyGateEvidence`, `CreateKnowledgeItem`, `AdoptAISuggestion`, `RaiseConflict`, `ApplyConsequentStatusChange`, `CompleteRun` — gained a full contract, as did `RequestReview`, `RequestDecision`, `Retry`, `OpenSubRun`, `OpenReworkIteration`, `SupersedeRun` and the four blocked acts. **This row records what revision 3 did and states no current total**: the inventory sizes it quoted were correct at that revision and are not, and must never be read as, a claim about the package as it now stands — §6 holds the only current counts, and every one of them is derived from its owning table. The `RequestRouting` command named in the revision-3 wording of this row **was removed in revision 4** and is not a member of any current inventory (§10, blocker 1) |',
+     '| 2 | The transaction table claimed exhaustiveness while covering 17 of the governed commands | `api-command-contracts.md` §5.1 is now **the** canonical governed-command inventory — 35 numbered commands, each carrying an explicit **Act** key naming its transaction contract. `persistence-and-transaction-model.md` §7.2 has **35 rows**, keyed identically. The validator derives both sets and requires exact equality in both directions; duplicate coverage is permitted only through an explicit alias, of which there are currently none. Every previously omitted act — `RecordIntervention`, `ResumeRun`, `UnblockRun`, `SupplyGateEvidence`, `CreateKnowledgeItem`, `AdoptAISuggestion`, `RaiseConflict`, `ApplyConsequentStatusChange`, `CompleteRun` — now has a full contract, as do `RequestRouting`, `RequestReview`, `RequestDecision`, `Retry`, `OpenSubRun`, `OpenReworkIteration`, `SupersedeRun` and the four blocked acts |',
+     "every normative count matches its canonical inventory; no removed command is current"),
 ]
 
 

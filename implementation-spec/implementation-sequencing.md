@@ -42,7 +42,7 @@ true.** A milestone that "will be safe once M6 lands" is not complete.
 | **M17** | Supersession | The full `SUPERSEDED` path across runs, records, knowledge, artifacts, policies and registry versions | M11, M14 |
 | **M18** | Security and access | Human/service/agent identity separation; RLS with the separator-boundary predicate; least-privilege grants per component; secrets boundary | M2, M4 |
 | **M19** | Command surface | The command envelope, idempotency, the error vocabulary, the query surface | M7–M18 |
-| **M20** | Assurance completion | **Every ID in each canonical assurance inventory** (`test-and-assurance-strategy.md` §2a), not a range: adversarial (**53**), positive controls (**10**), architecture invariant (**12**), approval-gate (**8**), static CI (**10**). Plus the mutation harness with honest classification | all |
+| **M20** | Assurance completion | **Every ID in each canonical assurance inventory** (`test-and-assurance-strategy.md` §2a), not a range: adversarial (**61**), positive controls (**11**), architecture invariant (**12**), approval-gate (**8**), static CI (**10**). Plus the mutation harness with honest classification | all |
 
 ## 3. Dependency graph, compressed
 
@@ -82,7 +82,7 @@ pressure**, and there is no partial credit.
 | **G-O** | Leaving M16 | Compensation requires its own authorisation; an unauthorised compensation escalates with the effect standing |
 | **G-P** | Leaving M18 | RLS and application scope checks are independently sufficient; no credential grants a Right |
 | **G-Q** | Leaving M19 | No bypass parameter exists anywhere; S8 passes |
-| **G-R** | Leaving M20 | **Every ID in every canonical assurance inventory passes** — adversarial **53**, positive controls **10**, architecture invariant **12**, approval-gate **8**, static CI **10**, all derived from the owning tables and none expressed as a range; mutation classifications re-derived independently; every documented count derived from its canonical inventory |
+| **G-R** | Leaving M20 | **Every ID in every canonical assurance inventory passes** — adversarial **61**, positive controls **11**, architecture invariant **12**, approval-gate **8**, static CI **10**, all derived from the owning tables and none expressed as a range; mutation classifications re-derived independently; every documented count derived from its canonical inventory |
 
 ## 5. Four things that must never be built "temporarily"
 

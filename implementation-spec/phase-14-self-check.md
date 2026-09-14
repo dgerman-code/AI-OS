@@ -139,9 +139,9 @@ authorised. The four most consequential:
 | Item | Count |
 |---|---|
 | Specification documents under `implementation-spec/` | 20 |
-| Validator checks | **90**, in 14 groups: `structure` 6 · `containment` 6 · `invariants` 5 · `knowledge` 6 · `scope` 6 · `routing` 3 · `events` 5 · `authority` 5 · `persistence` 7 · `races` 5 · `approval` 4 · `completeness` 6 · `fidelity` 11 · `crossdoc` 15 |
+| Validator checks | **97**, in 14 groups: `structure` 6 · `containment` 6 · `invariants` 5 · `knowledge` 6 · `scope` 6 · `routing` 3 · `events` 5 · `authority` 5 · `persistence` 7 · `races` 5 · `approval` 4 · `completeness` 6 · `fidelity` 11 · `crossdoc` 22 |
 | Validator | `validation/phase_14_validation.py`, standard library only, deterministic, no network |
-| Adversarial fixture | `validation/phase_14_mutation_probes.py`, **47 committed controlled weakenings**, 47 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
+| Adversarial fixture | `validation/phase_14_mutation_probes.py`, **59 committed controlled weakenings**, 59 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
 | Governed commands | **36**, each with exactly one transaction contract; the two sets are compared and equal |
 | Durable uniqueness constraints | **23** (U1–U23), one canonical inventory, every stated count derived from it |
 | Executable production code, migrations, manifests, SDK dependencies | **0** |
@@ -149,7 +149,7 @@ authorised. The four most consequential:
 | Decision Rights created | **0** |
 | Operations specified as permanently refusing until a Right is mapped | **4** |
 
-Phase 14 validator result: `90/90 PASS` on default, `--verbose` and `--json`.
+Phase 14 validator result: `97/97 PASS` on default, `--verbose` and `--json`.
 
 **Adversarial fixture.** `validation/phase_14_mutation_probes.py` is committed and runs from a
 clean checkout. Each probe weakens one load-bearing rule in a temporary copy of the package and
@@ -166,9 +166,9 @@ Two harness artefacts were found while building it and are recorded rather than 
    checks were added for exactly those rules, and one probe was re-targeted from a
    divergence-table description to the load-bearing statement it was supposed to attack.
 
-Current result: **47 probes, 47 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR`**, each caught by a named
-substantive check. The sixteen added in revision 4 are in §10.1, the twelve from revision 3 in
-§9.1, and the original set is:
+Current result: **59 probes, 59 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR`**, each caught by a named
+substantive check. The twelve added in revision 5 are in §11.1, the sixteen from revision 4 in
+§10.1, the twelve from revision 3 in §9.1, and the original set is:
 
 | Weakening | Caught by |
 |---|---|
@@ -221,7 +221,7 @@ Regression results at this baseline, reported exactly and **not repaired out of 
 | # | Blocker | Closed by |
 |---:|---|---|
 | 1 | A12a–A12f still treated `TerminateRun` as accepting a human intervention and expected `FOREIGN_RUN_LINEAGE` — contradicting the terminal contract repaired in revision 2 | A12a–A12f is split. **A12a** keeps the foreign-lineage attack on the **five** commands that do consume an intervention. **A12b–A12f** attack the actual `TerminateRun` contract: missing named constraint, a smuggled `HumanInterventionRecord`, a missing or wrong-kind system identity, an unreachable source phase, and an already-terminal run. Each asserts full observational equality and **no fabricated human provenance**. **P-A12** is the positive control: a valid constraint-driven termination succeeds with **no** intervention and a `NULL` `human_identity_ref` |
-| 2 | The transaction table claimed exhaustiveness while covering 17 of the governed commands | `api-command-contracts.md` §5.1 is now **the** canonical governed-command inventory — 35 numbered commands, each carrying an explicit **Act** key naming its transaction contract. `persistence-and-transaction-model.md` §7.2 has **35 rows**, keyed identically. The validator derives both sets and requires exact equality in both directions; duplicate coverage is permitted only through an explicit alias, of which there are currently none. Every previously omitted act — `RecordIntervention`, `ResumeRun`, `UnblockRun`, `SupplyGateEvidence`, `CreateKnowledgeItem`, `AdoptAISuggestion`, `RaiseConflict`, `ApplyConsequentStatusChange`, `CompleteRun` — now has a full contract, as do `RequestRouting`, `RequestReview`, `RequestDecision`, `Retry`, `OpenSubRun`, `OpenReworkIteration`, `SupersedeRun` and the four blocked acts |
+| 2 | The transaction table claimed exhaustiveness while covering 17 of the governed commands | `api-command-contracts.md` §5.1 became **the** canonical governed-command inventory, each entry carrying an explicit **Act** key naming its transaction contract, and `persistence-and-transaction-model.md` §7.2 was keyed identically. The validator derives both sets and requires exact equality in both directions; duplicate coverage is permitted only through an explicit alias, of which there are currently none. Every previously omitted act — `RecordIntervention`, `ResumeRun`, `UnblockRun`, `SupplyGateEvidence`, `CreateKnowledgeItem`, `AdoptAISuggestion`, `RaiseConflict`, `ApplyConsequentStatusChange`, `CompleteRun` — gained a full contract, as did `RequestReview`, `RequestDecision`, `Retry`, `OpenSubRun`, `OpenReworkIteration`, `SupersedeRun` and the four blocked acts. **This row records what revision 3 did and states no current total**: the inventory sizes it quoted were correct at that revision and are not, and must never be read as, a claim about the package as it now stands — §6 holds the only current counts, and every one of them is derived from its owning table. The `RequestRouting` command named in the revision-3 wording of this row **was removed in revision 4** and is not a member of any current inventory (§10, blocker 1) |
 | 3 | `RecordApprovalState` was class `H` while the registry said transcription creates no approval and may have null Right lineage | Two commands. **`TranscribeApprovalState`** (`h`) mechanically transcribes an **already-existing** authoritative record, exercises no Right, and may write null `decision_right_ref` **exactly where the source states none**. **`RecordNewApprovalState`** (`H`) persists the result of a **new** governed act and requires its Decision Record to resolve with a human `decided_by`. Neither creates approval, and neither has a parameter through which a decision the source does not contain could be supplied (Q-14, AP-2a, AP-2c). The bootstrap is a bounded, manifested, reviewed `BACKFILL` migration (`migrations-versioning-compatibility.md` §9), not a standing privilege. `security-identity-access.md` X-17a closes the recording-API route explicitly |
 | 4 | The uniqueness count said 20 in milestones while the inventory held 21 | §5.2 is declared **the canonical uniqueness inventory**. Milestone M2 and gate G-B reference it and state the derived number. The validator parses the inventory, computes the count, and fails any document stating a different one |
 | 5 | A17a/A17b said a mapped Right is mocked in *and* that refusal follows because none is mapped | **A17a** (`CURRENT`): under the approved universe no applicable Right is mapped, so `PromoteToCanonical` refuses with **zero governed writes, zero audit events**, one refusal execution event. **A17b** (`HYPOTHETICAL`): presenting an arbitrary or non-applicable Right, or a forged Decision Record, does not satisfy BA-1 — and the row states explicitly that **it is not evidence BA-1 is resolved**. **P-A17** records that there is deliberately **no** positive control. Every adversarial row now carries a `Basis` field, and the validator refuses a `HYPOTHETICAL` row that claims a mapped Right exists |
@@ -277,6 +277,41 @@ A fourth correction: the first version of the trailing patterns required `**` ma
 matching against text that had already had emphasis stripped, so they matched nothing. The
 fixture reported both as `REDUNDANT`, which is what it is for.
 
+## 11. The re-audit V4 blockers, and how each was closed
+
+| # | Blocker | Closed by |
+|---:|---|---|
+| 1 | Routing B1/B3/B4 transactional state semantics were incomplete: no contract for an invalid answer after a durable request, and B3/B4 committed a non-selection decision with the run-state consequence left in prose | **Branch B1r** is specified in the API contract (Q-17a), the router contract (M-13d) and the transaction table: the durable request is preserved, no decision is created, `submission_ordinal` is **not** advanced, zero governed writes, zero audit events, one refusal execution event. **Rule Q-17b** maps each non-selection outcome to its exact run-state appends, postures and wait subject, and defines *s*; **Q-17c** commits those appends in the same transaction as the decision, so no committed state has a durable non-selection decision and a run still eligible to continue; **Q-17d** makes B4n inherit B3's consequence rather than a weaker one. B4 is split into **B4s** and **B4n**. The router's outcome table is now deterministic (M-7a) — `BLOCKED` **then** `ESCALATED`, never "or". Phase 11's same-request / every-decision-recorded semantics and U6 are unchanged |
+| 2 | R2/R2f/R4/R6/RX posture semantics were incomplete, and the halted posture lived only in prose | §5.6 now carries **twelve columns**: phase before → after, **posture before → after**, wait reason · escalation, exact governed writes, audit count, execution count, whether a dispatch occurs and whether a dispatch or escalation record is created — for every one of the nine branches. R2f, R4, R6 and RX name `GATE_UNSATISFIED` **inside their exact governed writes** (Q-28a), and §7.2 states the same writes from the commit side. R3's wait reason is `WAITING_FOR_HUMAN` with the acknowledgement as its subject. **Q-28b** ties dispatch to the existence of a `retry_attempt`. Compensation remains a separate governed act and an unknown external effect is still never auto-replayed (Q-31, O-20c) |
+| 3 | The outbox was three numbered steps with no implementable protocol | `persistence-and-transaction-model.md` §9 is rewritten as **§§9.1–9.6**: the nine-field dispatch item with a stable `outbox_ref`; four **operational** uniqueness constraints `O1`–`O4` (deliberately outside the canonical `U` inventory, so no governed count moves); linkage to `ModelInvocationRef` **and** `ProviderAttemptRef`; the five-value claim vocabulary `PENDING` · `CLAIMED` · `DISPATCHED` · `SETTLED` · `ABANDONED`; the atomic compare-and-swap claim precondition (P-24); the claimant as a **named service identity** (P-25); lease owner, lease expiry and the OCC `claim_token`; **no concurrent valid lease**, enforced by constraint O4 rather than by drain logic (P-26); redelivery after expiry **only from `CLAIMED`** (P-27); the stable provider idempotency key that is never regenerated (P-23); receiver-side deduplication where available (P-28) and its absence (P-29); the **four** crash points; the durable `ATTEMPTED_OUTCOME_UNKNOWN` path (P-31); and the exact redispatch-versus-reconciliation table (P-32). No vendor, no queue product, no distributed transaction, no exactly-once (P-20, P-30) |
+| 4 | The outbox was audited as a governed mutation in one place and classified operational in another | **Operational**, everywhere, preserving the approved Phase 10/11 line that delivery plumbing is not governance. Rule **P-20a** is the single statement; P-14d excludes the row and every claim transition; audit Rule **V-7** repeats it from the audit side; **Q-22a** states it in the API contract. Stage 1 therefore writes **two** governed records and **two** audit events — in §5.5, in §7.2, and in the positive control P-A41. A48 is the adversarial row that fails if the old count returns |
+| 5 | §5.5 said stages 3 and 4 were one transaction **and** described a crash state between them | One transaction, stated once as **Rule Q-22b**. Stage 4's boundary cell now reads "the same transaction as stage 3"; the crash row that described a state between them is replaced by an explicit **Unreachable** row; the failure model says the same thing as **F-9c**; and A52 attacks the removed recovery path. Stage 5 stays a separate transaction, because reconciliation is a separate act |
+| 6 | O-25 required total execution-event equality while contracts require a refusal execution event | **Rule O-25** now states equality over **governed** state and **governed** history — the total execution-event count is explicitly excluded. **Rule O-25a** permits exactly the refusal execution events a contract names and denies them any standing as evidence, gate evidence, approval, authority or state progress, structurally, via the write-only interface of V-1. **Rule O-25b** and **Rule T-18** state the two separate assertions a test makes. No row in the test strategy requires total execution-event-count equality |
+| 7 | The self-check carried stale active claims — 35 commands, 35 rows, and `RequestRouting` as a current inventory member | §9's revision-3 row is rewritten to record what that revision **did** without quoting any current total, and it states that `RequestRouting` was removed in revision 4 and is a member of no current inventory. §6 holds the only current counts and every one is derived from its owning table. The validator now parses the canonical inventories and fails any document — this one included — that states a different command, act, branch, uniqueness or assurance total in digits or in words, leading or trailing; and it fails any claim of current inventory membership for a command that is not in §5.1. Probe **12** of §11.1 reproduces the exact V4 miss |
+
+### 11.1 Assurance added for exactly these failures
+
+Twelve new probes, each detected by a named substantive check:
+
+| # | Weakening | Caught by |
+|---:|---|---|
+| 1 | B3 commits a durable decision with no run-state append | Routing run-state consequence is atomic |
+| 2 | B4n loses its run-state consequence | Routing run-state consequence is atomic |
+| 3 | An invalid answer after a durable request advances the ordinal | Routing run-state consequence is atomic |
+| 4 | R2f stops stating its posture | Retry posture is a committed write |
+| 5 | R4/R6/RX drop the halted posture from their exact writes | Retry posture is a committed write |
+| 6 | The outbox loses its stable identity and uniqueness | The outbox protocol is implementable |
+| 7 | Two concurrent valid leases are permitted | The outbox protocol is implementable |
+| 8 | Lease expiry is treated as proof no effect occurred | The outbox protocol is implementable |
+| 9 | The outbox is counted as a governed mutation | Outbox classification is one classification |
+| 10 | A crash window is reintroduced between stages 3 and 4 | Stages 3 and 4 are one transaction |
+| 11 | A refused-act test requires execution-event equality | Refusal-event observational equality |
+| 12 | The self-check restates a stale command/row count and reintroduces `RequestRouting` | Every normative count matches its canonical inventory · no obsolete command is claimed as current |
+
+Probe 12 is the V4 miss reproduced exactly: it changes **only** this document's counts and
+reintroduces the removed command, leaving every canonical inventory correct. The V4 harness
+passed that mutation. This one does not.
+
 ## 7. Known limitations of this self-check
 
 1. It is a producer self-check. The producer of a specification is the last party who should
@@ -290,11 +325,19 @@ fixture reported both as `REDUNDANT`, which is what it is for.
 4. The four blocked authorities mean an implementation built exactly to this specification would
    hold no canonical positions, destroy nothing, re-parent no scope, and never contract a schema
    against governed data. That is intended and it is also a substantial functional limit.
-5. **A green harness has now three times missed real contradictions.** 74/74, then 81/81 with
-   47 probes' worth of confidence, each coexisted with blockers an independent reader found.
-   Every round the missed defects were cross-document or localized — never inside one table a
-   single check was looking at. The `crossdoc` group has grown from 6 checks to 15 for that
-   reason, and the honest reading is unchanged: it closes what was found.
+5. **A green harness has now four times missed real contradictions.** 74/74, then 81/81, then
+   90/90 with 47 probes' worth of confidence, each coexisted with blockers an independent reader
+   found. Every round the missed defects were cross-document or localized — never inside one
+   table a single check was looking at. The `crossdoc` group has grown from 6 checks to 22 for
+   that reason, and the honest reading is unchanged: **it closes what was found.** 97/97 and
+   59/59 are not evidence that nothing else is wrong, and this package's credibility should not
+   be rated higher merely because the numbers went up.
+
+7. One probe of revision 5 — the outbox losing its stable identity and uniqueness — came back
+   `REDUNDANT` on its first run, because the check it attacked asked whether the constraint rows
+   existed rather than what they constrained. The check now parses each row's constraint cell.
+   That gap was found by the fixture, is recorded here rather than quietly repaired, and is the
+   reason the fixture exists.
 6. **The earlier form of this note said "twice".** 74/74 and 19/19 coexisted with
    six blockers, five of which were cross-document disagreements no single-document check could
    see. The `crossdoc` group exists because of that, and the honest reading is that it closes the
