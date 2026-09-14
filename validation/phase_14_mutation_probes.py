@@ -316,8 +316,8 @@ PROBES = [
 
     ("a normative gate cites an assurance ID that does not exist",
      "implementation-sequencing.md",
-     "| **G-G** | Leaving M8 | Each gate kind admits exactly one evidence type; A1, A2 and A3 pass |",
-     "| **G-G** | Leaving M8 | Each gate kind admits exactly one evidence type; A1, A2, A3 and A99 pass |",
+     "| **G-G** | M8 | A1, A2, A3, A8, A9, A10 |",
+     "| **G-G** | M8 | A1, A2, A3, A8, A9, A10, A99 |",
      "no orphan assurance IDs"),
 
     ("BA-1 stops covering governed downgrade",
@@ -360,20 +360,20 @@ PROBES = [
 
     ("the outbox loses its stable identity and durable uniqueness",
      "persistence-and-transaction-model.md",
-     "| O1 | `UNIQUE (outbox_ref)` | A duplicate dispatch identity |",
+     "| O1 | `PRIMARY KEY (outbox_ref)` | A duplicate dispatch identity. **This is the only identity constraint on the row**; no second constraint restates it |",
      "| O1 | *(no constraint required)* | \u2014 |",
      "the outbox has a stable identity and durable uniqueness"),
 
     ("two concurrently valid leases are permitted on one dispatch item",
      "persistence-and-transaction-model.md",
-     "**Rule P-26 \u2014 at most one valid lease, enforced durably.**",
-     "**Rule P-26 \u2014 leases are advisory.**",
+     "**Rule PO-3 \u2014 every state-changing write is one atomic conditional update, or it did not\nhappen.**",
+     "**Rule PO-3 \u2014 claiming is advisory.**",
      "no concurrent valid lease for one dispatch item"),
 
     ("lease expiry is treated as proof that no provider effect occurred",
      "persistence-and-transaction-model.md",
-     "**Lease expiry is never evidence that no external effect\noccurred**",
-     "An expired lease establishes that no external effect occurred",
+     "**Rule PO-10 \u2014 an expired claim is never proof, and is never treated as one.**",
+     "**Rule PO-10 \u2014 an expired claim establishes that no call occurred.**",
      "an expired lease is a redelivery condition, never a proof"),
 
     ("the outbox row is counted as a governed mutation",
@@ -399,6 +399,92 @@ PROBES = [
      '| 2 | The transaction table claimed exhaustiveness while covering 17 of the governed commands | `api-command-contracts.md` §5.1 became **the** canonical governed-command inventory, each entry carrying an explicit **Act** key naming its transaction contract, and `persistence-and-transaction-model.md` §7.2 was keyed identically. The validator derives both sets and requires exact equality in both directions; duplicate coverage is permitted only through an explicit alias, of which there are currently none. Every previously omitted act — `RecordIntervention`, `ResumeRun`, `UnblockRun`, `SupplyGateEvidence`, `CreateKnowledgeItem`, `AdoptAISuggestion`, `RaiseConflict`, `ApplyConsequentStatusChange`, `CompleteRun` — gained a full contract, as did `RequestReview`, `RequestDecision`, `Retry`, `OpenSubRun`, `OpenReworkIteration`, `SupersedeRun` and the four blocked acts. **This row records what revision 3 did and states no current total**: the inventory sizes it quoted were correct at that revision and are not, and must never be read as, a claim about the package as it now stands — §6 holds the only current counts, and every one of them is derived from its owning table. The `RequestRouting` command named in the revision-3 wording of this row **was removed in revision 4** and is not a member of any current inventory (§10, blocker 1) |',
      '| 2 | The transaction table claimed exhaustiveness while covering 17 of the governed commands | `api-command-contracts.md` §5.1 is now **the** canonical governed-command inventory — 35 numbered commands, each carrying an explicit **Act** key naming its transaction contract. `persistence-and-transaction-model.md` §7.2 has **35 rows**, keyed identically. The validator derives both sets and requires exact equality in both directions; duplicate coverage is permitted only through an explicit alias, of which there are currently none. Every previously omitted act — `RecordIntervention`, `ResumeRun`, `UnblockRun`, `SupplyGateEvidence`, `CreateKnowledgeItem`, `AdoptAISuggestion`, `RaiseConflict`, `ApplyConsequentStatusChange`, `CompleteRun` — now has a full contract, as do `RequestRouting`, `RequestReview`, `RequestDecision`, `Retry`, `OpenSubRun`, `OpenReworkIteration`, `SupersedeRun` and the four blocked acts |',
      "every normative count matches its canonical inventory; no removed command is current"),
+
+    # ---- revision 6: the V5 blockers, and the six demonstrated nearby escapes -------------
+
+    ("a time-dependent partial index returns as an ownership constraint",
+     "persistence-and-transaction-model.md",
+     "| O4 | `CHECK ( (claim_state IN ('CLAIMED','DISPATCH_PENDING')) = (lease_owner IS NOT NULL AND lease_expires_at IS NOT NULL AND claim_token IS NOT NULL) )` | A row that is owned without an owner, a token or an expiry — or unowned while still carrying them |",
+     "| O4 | A partial unique index on `outbox_ref` `WHERE claim_state = 'CLAIMED' AND lease_expires_at > now()` | Two concurrently valid leases |",
+     "ownership is a row property, never a time-dependent index"),
+
+    ("a redundant identity uniqueness restates O1 and cannot enforce ownership",
+     "persistence-and-transaction-model.md",
+     '| O2 | `UNIQUE (provider_attempt_ref)` | Two dispatch items racing to satisfy one provider attempt |',
+     "| O2 | `UNIQUE (outbox_ref)` | Two claimants on one dispatch item |",
+     "one identity constraint on the dispatch item"),
+
+    ("the crash point after provider acceptance is removed",
+     "api-command-contracts.md",
+     '| After provider acceptance, before the stage 3/4 commit | Identical to the row above: an outcome the system did not commit is an outcome the system does not have | Stage 5, via T7. **Never a redispatch** unless PO-14 is satisfied |',
+     "| After provider acceptance, before the stage 3/4 commit | The attempt is `NOT_ATTEMPTED`, so nothing left the system | Re-dispatch |",
+     "no local state is read as proof of non-occurrence after the boundary"),
+
+    ("settlement stops being token-fenced, so a stale writer can settle",
+     "persistence-and-transaction-model.md",
+     "| T4 | `DISPATCH_PENDING` → `SETTLED`, outcome **observed** (`CONFIRMED_APPLIED` or `CONFIRMED_NOT_APPLIED`) | The row, the provider response | `claim_state='DISPATCH_PENDING'` **AND** `claim_token = <held>` **AND** `claim_generation = <read>` | `claim_state='SETTLED'`, `lease_owner`/`claim_token`/`lease_expires_at` cleared (O4), `claim_generation`+1 | Token **and** generation | n/a — terminal | No |",
+     "| T4 | `DISPATCH_PENDING` \u2192 `SETTLED`, outcome **observed** (`CONFIRMED_APPLIED` or `CONFIRMED_NOT_APPLIED`) | The row, the provider response | `claim_state='DISPATCH_PENDING'` | `claim_state='SETTLED'` | none | n/a \u2014 terminal | No |",
+     "every transition is token-fenced"),
+
+    ("stage 3/4 success stops settling the dispatch item",
+     "persistence-and-transaction-model.md",
+     "**Rule PO-13 \u2014 successful governed persistence settles the dispatch item in the same\ntransaction.**",
+     "**Rule PO-13 \u2014 the dispatch item is settled by the drain at its convenience.**",
+     "stage 3/4 success settles the operational dispatch state"),
+
+    ("a normative rule identifier is defined twice",
+     "persistence-and-transaction-model.md",
+     "**Rule PO-1 \u2014 the provider idempotency key is stable and never regenerated.**",
+     "**Rule P-23 \u2014 the provider idempotency key is stable and never regenerated.**",
+     "unique normative rule identifiers"),
+
+    ("stale routing cardinality prose returns to the self-check narrative",
+     "phase-14-self-check.md",
+     "The branches are encoded identically in the API inventory, the router contract and the transaction table, and **their current cardinalities are stated only in those tables**",
+     "Four branches are encoded identically: **B3** valid non-selection commits request and decision together, 2 audit events; **B4** re-submission commits the decision only, 1 audit event.",
+     "no active location restates a routing branch's counts"),
+
+    ("B3 loses its run-state append in the API branch table",
+     "api-command-contracts.md",
+     '| **B3 non-selection, first submission** | `NO_ELIGIBLE_MODEL`, `CANDIDATE_UNIVERSE_INCOMPLETE`, `NO_APPLICABLE_DECISION_RIGHT`, `ACT_REQUIREMENT_OUTSTANDING` | `routing_request`, `routing_decision`, **run state × *s*** (Q-17b) | **2 + *s*** | 2 | Exactly the run state Q-17b names. The run never continues |',
+     "| **B3 non-selection, first submission** | `NO_ELIGIBLE_MODEL`, `CANDIDATE_UNIVERSE_INCOMPLETE`, `NO_APPLICABLE_DECISION_RIGHT`, `ACT_REQUIREMENT_OUTSTANDING` | `routing_request`, `routing_decision` | **2** | 2 | Blocked or waiting, per the outcome |",
+     "no nearby location contradicts the routing branch semantics"),
+
+    ("B4n loses its inherited consequence in the API branch table",
+     "api-command-contracts.md",
+     '| **B4n re-submission, non-selection** | A valid non-selection against an **already durable** request | `routing_decision`, **run state × *s*** (Q-17b) | **1 + *s*** | 1 | Exactly the run state Q-17b names. The run never continues |',
+     "| **B4n re-submission, non-selection** | A valid non-selection against an **already durable** request | `routing_decision` only | **1** | 1 | Per the outcome |",
+     "no nearby location contradicts the routing branch semantics"),
+
+    ("B1r advances the submission ordinal in nearby API prose",
+     "api-command-contracts.md",
+     "`submission_ordinal` is **not** advanced, so the next valid submission takes the ordinal the\ninvalid one would have consumed.",
+     "`submission_ordinal` is advanced, so the invalid submission consumes an ordinal of its own.",
+     "no nearby location contradicts the routing branch semantics"),
+
+    ("a nearby router location drops B4n's run-state appends",
+     "model-router-runtime-contract.md",
+     '| B4n | A valid non-selection re-submitted against an already durable request | Already durable | Yes, at the next ordinal, **with the same run-state appends as B3**',
+     "| B4n | A valid non-selection re-submitted against an already durable request | Already durable | Yes, at the next ordinal, and the `routing_decision` only",
+     "no nearby location contradicts the routing branch semantics"),
+
+    ("a nearby assurance location requires equal total execution-event counts",
+     "test-and-assurance-strategy.md",
+     "**Rule T-18 \u2014 two assertions, never one conflated.**",
+     "**Rule T-18 \u2014 one assertion.** A refused act leaves the execution-event count identical before and after.",
+     "a required refusal event never contradicts observational equality"),
+
+    ("a nearby location permits automatic redispatch of an unknown effect",
+     "api-command-contracts.md",
+     "**Rule Q-31 \u2014 the R6 branch never becomes a retry.**",
+     "**Rule Q-31 \u2014 the R6 branch resumes.** An `ATTEMPTED_OUTCOME_UNKNOWN` external effect is safe to redispatch automatically once the lease expires.",
+     "no active location permits auto-redispatch of an unknown effect"),
+
+    ("a remediation test is required by no milestone gate",
+     "implementation-sequencing.md",
+     '| **G-N** | M15 | A41, A42, A43, A48, A49, A50, A51, A52, A56, A57, A58, A59, A60, P-A41, P-A42, P-A49, P-A56 |',
+     "| **G-N** | M15 | A41, A42, A43, P-A41, P-A42 |",
+     "the assurance manifest partitions the canonical inventories"),
 ]
 
 

@@ -1989,7 +1989,10 @@ check("crossdoc", "the canonical assurance inventories are declared and parsable
 def normative_gates_require_the_whole_inventory():
     """M20 and G-R must require every current ID, not a prefix range."""
     inventories = assurance_inventories()
-    sequencing = spec("implementation-sequencing.md")
+    # The §4.1 manifest also carries a G-R row; it assigns IDs and is checked by its own
+    # partition check, so the whole-inventory gate text is read from the milestone and gate
+    # tables only.
+    sequencing = spec("implementation-sequencing.md").split("### 4.1")[0]
     problems = []
     gates = [ln for ln in sequencing.splitlines()
              if ln.startswith("| **M20**") or ln.startswith("| **G-R**")]
@@ -2533,52 +2536,77 @@ def the_outbox_protocol_is_implementable():
     problems = []
     for field in ("outbox_ref", "model_invocation_ref", "provider_attempt_ref",
                   "provider_idempotency_key", "claim_state", "lease_owner",
-                  "lease_expires_at", "claim_token", "dispatch_ordinal"):
+                  "lease_expires_at", "claim_token", "claim_generation", "boundary_crossed"):
         if field not in section:
             problems.append("the dispatch item has no %s" % field)
-    # The label is not the constraint. This probe came back REDUNDANT against an earlier
-    # version of this check, which asked only whether the row existed - so a row reading
+    # The label is not the constraint. An earlier probe came back REDUNDANT against a version
+    # of this check that asked only whether the row existed - so a row reading
     # "O1 | (no constraint required)" passed. Each row's constraint cell is parsed and must
-    # name a durable uniqueness on the column it exists to protect.
+    # name what it actually constrains.
     declared = {}
     for line in section.splitlines():
         m = re.match(r"^\|\s*(O\d)\s*\|(.+?)\|", line)
         if m:
             declared[m.group(1)] = flat(m.group(2))
-    required = {"O1": ("unique", "outbox_ref"),
+    required = {"O1": ("primary key", "outbox_ref"),
                 "O2": ("unique", "provider_attempt_ref"),
                 "O3": ("unique", "provider_idempotency_key"),
-                "O4": ("unique", "claim_state", "lease_expires_at")}
+                # O4 is a CHECK tying ownership columns to the owning states - not an index,
+                # and deliberately free of any time function.
+                "O4": ("check", "claim_state", "lease_owner", "claim_token"),
+                "O5": ("check", "claim_generation")}
     for constraint, tokens in required.items():
         if constraint not in declared:
-            problems.append("operational uniqueness constraint %s is not declared" % constraint)
+            problems.append("operational constraint %s is not declared" % constraint)
             continue
         for token in tokens:
             if token not in declared[constraint]:
                 problems.append("%s does not constrain %s" % (constraint, token))
-    for state in ("PENDING", "CLAIMED", "DISPATCHED", "SETTLED", "ABANDONED"):
+    # The V5 finding: a unique index predicated on now() is not implementable, and a second
+    # uniqueness on outbox_ref is redundant with O1. Both are rejected structurally.
+    for constraint, text in declared.items():
+        if "now()" in text and ("index" in text or "unique" in text):
+            problems.append("%s is a time-dependent index predicate and is not implementable"
+                            % constraint)
+    identity = [c for c, t in declared.items() if "outbox_ref" in t and "provider" not in t]
+    if len(identity) > 1:
+        problems.append("outbox_ref identity is constrained more than once: %s" % identity)
+    for state in ("PENDING", "CLAIMED", "DISPATCH_PENDING", "UNCERTAIN", "SETTLED",
+                  "ABANDONED"):
         if state not in section:
             problems.append("claim state %s is not in the vocabulary" % state)
-    for rule in ("P-23", "P-24", "P-25", "P-26", "P-27", "P-28", "P-29", "P-30",
-                 "P-31", "P-32"):
+    if "DISPATCHED`" in section:
+        problems.append("the retired DISPATCHED state is still in the vocabulary")
+    for rule in ["PO-%d" % n for n in range(1, 20)]:
         if "Rule " + rule + " " not in section:
             problems.append("%s is not stated in the outbox protocol" % rule)
-    for phrase in ("claiming is one atomic conditional update",
-                   "at most one valid lease, enforced durably",
+    for phrase in ("the provider idempotency key is stable and never regenerated",
+                   "ownership is a property of the row, never of an index",
+                   "every state-changing write is one atomic conditional update",
+                   "the generation is the fence",
+                   "schedules attention, it does not grant or revoke ownership",
                    "the claimant is a named service identity",
-                   "an expired lease is a redelivery condition, never a proof",
-                   "lease expiry is never evidence that no external effect occurred",
-                   "the provider idempotency key is stable and never regenerated",
+                   "the call happens strictly between two committed states",
+                   "is the only state that is safely re-dispatchable",
+                   "is monotone",
+                   "an expired claim is never proof, and is never treated as one",
+                   "no database statement is atomic with the provider call",
+                   "a stale token settles nothing",
+                   "successful governed persistence settles the dispatch item in the same",
+                   "redispatch after a crossed boundary requires a guarantee, not an assumption",
                    "where the provider deduplicates, redelivery is at-least-once and safe",
-                   "there is no safe redispatch after",
+                   "there is no safe redispatch after the",
                    "no distributed transaction and no exactly-once",
+                   "the durable unknown path",
                    "safe redispatch versus mandatory reconciliation, exactly"):
         if flat(phrase) not in low:
             problems.append("the protocol does not state %r" % phrase[:45])
     crashes = section.split("### 9.6")[1] if "### 9.6" in section else ""
     crash_rows = [ln for ln in crashes.splitlines() if ln.startswith("| **")]
-    if len(crash_rows) != 4:
-        problems.append("the protocol states %d crash points, not four" % len(crash_rows))
+    if len(crash_rows) != 5:
+        problems.append("the protocol states %d crash points, not five" % len(crash_rows))
+    if not [ln for ln in crash_rows if "after provider acceptance" in flat(ln)]:
+        problems.append("no crash point covers provider acceptance before local persistence")
     if "compare-and-swap" not in low:
         problems.append("no compare-and-swap semantics are specified")
     for vendor in ("kafka", "rabbitmq", "sqs", "celery", "sidekiq", "pub/sub", "temporal"):
@@ -2588,8 +2616,8 @@ def the_outbox_protocol_is_implementable():
             "the drain protocol is specified once, in persistence"):
         problems.append("the failure model does not defer to the one protocol")
     return (not problems, str(problems)[:400] if problems
-            else "stable identity, O1-O4, five claim states, CAS lease, stable key, "
-                 "four crash points, redispatch table")
+            else "stable identity, O1-O5 time-free, six claim states, CAS + generation fence, "
+                 "stable key, five crash points, redispatch table")
 
 
 check("crossdoc", "the provider-call outbox protocol is implementable and vendor-free",
@@ -2780,6 +2808,435 @@ def no_obsolete_command_is_claimed_as_current():
 
 check("crossdoc", "no removed command is presented as a current inventory member",
       no_obsolete_command_is_claimed_as_current)
+
+
+
+def no_normative_rule_id_is_defined_twice():
+    """Two active rules under one ID make every cross-reference ambiguous.
+
+    The V5 audit found two `P-23` rules - one in the outbox protocol, one in the Supabase
+    section - and every reference to "P-23" then meant whichever the reader reached first.
+    This derives every rule definition in the package and rejects a repeated identifier,
+    whatever its number."""
+    # The id may carry a trailing word segment (`V-5-matrix`), and the separator must be
+    # whitespace-delimited so that segment is not read as a dash after a shorter id.
+    definition = re.compile(
+        r"^\*\*Rule ([A-Z]{1,3}-[0-9]+[a-z]?(?:-[a-z]+)?)(?:\s+[—-]\s|\.)")
+    seen = {}
+    problems = []
+    for name in REQUIRED_DOCS:
+        for i, line in enumerate(spec(name).splitlines(), 1):
+            # A definition opens its own paragraph; `**Rule Q-17b** maps ...` mid-sentence
+            # is a reference, and a reference is not a second definition.
+            for rule in definition.findall(line.rstrip()):
+                where = "%s:%d" % (name, i)
+                if rule in seen:
+                    problems.append("%s is defined at %s and again at %s"
+                                    % (rule, seen[rule], where))
+                else:
+                    seen[rule] = where
+    return (not problems, str(problems)[:400] if problems
+            else "%d normative rule identifiers, each defined exactly once" % len(seen))
+
+
+check("crossdoc", "no normative rule identifier is defined twice",
+      no_normative_rule_id_is_defined_twice)
+
+
+def outbox_transition_rows():
+    """The §9.4 transition table as (id, transition, reads, predicate, writes, fencing,
+    redispatch, reconciliation)."""
+    body = spec("persistence-and-transaction-model.md")
+    section = body.split("### 9.4")[1].split("### 9.5")[0]
+    rows = {}
+    for line in section.splitlines():
+        m = re.match(r"^\|\s*(T\d+)\s*\|(.+)\|\s*$", line)
+        if m:
+            cells = [c.strip() for c in m.group(2).split("|")]
+            if len(cells) >= 7:
+                rows[m.group(1)] = cells
+    return rows
+
+
+def the_external_call_boundary_is_crash_safe():
+    """No state may be read as "no call occurred" once the boundary could have been crossed.
+
+    The V5 blocker: `CLAIMED` meant no call had happened and `DISPATCHED` meant one had, but
+    nothing durable separated them across the call, so a crash after the call left a
+    re-dispatchable `CLAIMED` row. The fix is a committed pre-call state and a monotone flag,
+    and this check reads both out of the specification rather than looking for a sentence."""
+    body = spec("persistence-and-transaction-model.md")
+    section = body.split("## 9. Outbox for external effects")[1].split("## 10.")[0]
+    low = flat(section)
+    problems = []
+
+    # 1. A durable pre-call state exists, and it is the state the call is made from.
+    if "DISPATCH_PENDING" not in section:
+        problems.append("there is no committed pre-call dispatch-intent state")
+    if "boundary_crossed" not in section:
+        problems.append("nothing durably records that the call boundary may have been crossed")
+
+    rows = outbox_transition_rows()
+    for expected in ("T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10"):
+        if expected not in rows:
+            problems.append("transition %s is not specified" % expected)
+    for tid, cells in rows.items():
+        predicate, fencing = flat(cells[2]), flat(cells[4])
+        if "claim_generation" not in predicate:
+            problems.append("%s does not fence on the claim generation" % tid)
+        if not cells[3].strip():
+            problems.append("%s states no writes" % tid)
+        if not fencing.strip() or fencing in ("-", "—"):
+            problems.append("%s states no fencing requirement" % tid)
+
+    # 2. The transition INTO the pre-call state sets the flag; nothing clears it.
+    intent = [t for t, c in rows.items() if "DISPATCH_PENDING" in c[0] and "CLAIMED" in c[0]]
+    if not intent:
+        problems.append("no transition enters the pre-call state from a claimed row")
+    else:
+        if "boundary_crossed" not in flat(rows[intent[0]][3]):
+            problems.append("%s does not set boundary_crossed" % intent[0])
+        if "claim_token" not in flat(rows[intent[0]][2]):
+            problems.append("%s is not token-fenced" % intent[0])
+    for tid, cells in rows.items():
+        writes = flat(cells[3])
+        if "boundary_crossed=false" in writes.replace(" ", "") and tid != "T1":
+            problems.append("%s clears boundary_crossed, which must be monotone" % tid)
+
+    # 3. Recovery decides by the flag, not by the clock or the state name.
+    recovery = [c for t, c in rows.items() if "recovery" in flat(c[0])]
+    if len(recovery) < 2:
+        problems.append("expired-claim recovery is not split by whether the boundary was crossed")
+    else:
+        crossed = [c for c in recovery if "boundary_crossed = true" in c[2]]
+        uncrossed = [c for c in recovery if "boundary_crossed = false" in c[2]]
+        if not crossed or not uncrossed:
+            problems.append("recovery does not branch on boundary_crossed in its predicate")
+        for c in crossed:
+            if "no" not in flat(c[5]):
+                problems.append("a crossed-boundary recovery permits redispatch unconditionally")
+            if "yes" not in flat(c[6]):
+                problems.append("a crossed-boundary recovery does not mandate reconciliation")
+        for c in uncrossed:
+            if "yes" not in flat(c[5]):
+                problems.append("an uncrossed-boundary recovery forbids a safe redispatch")
+
+    # 4. Stage 3/4 success settles the dispatch item in the same transaction.
+    if flat("successful governed persistence settles the dispatch item in the same") not in low:
+        problems.append("nothing binds stage 3/4 success to a settlement transition")
+    settle = [t for t, c in rows.items() if "SETTLED" in c[0] and "observed" in flat(c[0])]
+    if not settle:
+        problems.append("no transition settles an observed outcome")
+    if not [r for r in rows.values() if "claim_token" in flat(r[2]) and "SETTLED" in r[0]]:
+        problems.append("settlement is not token-fenced, so a stale writer could settle")
+
+    # 5. The call itself is not a transition, and no distributed transaction is claimed.
+    if flat("no database statement is atomic with the provider call") not in low:
+        problems.append("the specification does not deny atomicity across the provider call")
+    if flat("no distributed transaction and no exactly-once") not in low:
+        problems.append("the protocol does not deny a distributed transaction")
+
+    # 6. Redispatch after the boundary needs a recorded guarantee, never an assumption.
+    if flat("redispatch after a crossed boundary requires a guarantee, not an assumption") not in low:
+        problems.append("redispatch after the boundary is not conditioned on a guarantee")
+    if flat("absence of evidence that the effect occurred is never evidence that it did not") not in low:
+        problems.append("the specification does not deny the inference from silence")
+
+    if says("api-command-contracts.md", "boundary_crossed"):
+        problems.append("the API crash table does not use the durable boundary flag")
+    # The same boundary must survive in the API contract's own crash table, which is where a
+    # reader of §5.5 actually looks. A row that reads the post-call state as NOT_ATTEMPTED, or
+    # that recovers by re-dispatching, reintroduces exactly the V5 blocker.
+    api_crash = spec("api-command-contracts.md").split("**Rule Q-24 ")[1].split("**Rule Q-25")[0]
+    api_rows = [ln for ln in api_crash.splitlines() if ln.startswith("|") and "---" not in ln]
+    acceptance = [ln for ln in api_rows if "provider acceptance" in flat(ln)]
+    if not acceptance:
+        problems.append("the API crash table has no row for provider acceptance before "
+                        "local persistence")
+    for ln in api_rows:
+        low = flat(ln)
+        if "before the stage 3/4 commit" not in low and "call boundary" not in low:
+            continue
+        if "not_attempted" in low and "boundary_crossed" not in low and "may have been made" not in low:
+            problems.append("an API crash row reads the post-call state as NOT_ATTEMPTED")
+        if re.search(r"re-?dispatch", low) and "never" not in low and "unless" not in low:
+            problems.append("an API crash row recovers a crossed boundary by re-dispatching")
+    if says("failure-recovery-race-model.md", "the call boundary is crossed before it is crossed"):
+        problems.append("the failure model does not carry the pre-call commit rule")
+    return (not problems, str(problems)[:400] if problems
+            else "%d token-fenced transitions; a committed pre-call state; recovery decides by "
+                 "a monotone flag, never by the clock" % len(rows))
+
+
+check("crossdoc", "the external-call boundary is crash-safe and every transition is fenced",
+      the_external_call_boundary_is_crash_safe)
+
+
+def manifest_rows():
+    """§4.1 of the sequencing document: gate -> the assurance IDs it requires."""
+    body = spec("implementation-sequencing.md")
+    if "### 4.1" not in body:
+        return {}
+    section = body.split("### 4.1")[1].split("## 5.")[0]
+    rows = {}
+    for line in section.splitlines():
+        m = re.match(r"^\|\s*\*\*(G-[A-Z])\*\*\s*\|[^|]*\|(.*)\|\s*$", line)
+        if m:
+            rows[m.group(1)] = re.findall(
+                r"\b(P-A\d+[a-z]?|A\d+[a-z]?|I\d+|P\d+|S\d+)\b", m.group(2))
+    return rows
+
+
+def the_assurance_manifest_partitions_the_inventories():
+    """A test no gate requires is a test that never has to pass.
+
+    The V5 blocker: A48-A55 and P-A49 existed, were correct, and were required by nothing,
+    because the gates named contiguous hand-written lists. The manifest is now derived and
+    checked as a partition, so adding a test without assigning it fails here."""
+    inventories = assurance_inventories()
+    known = set()
+    for v in inventories.values():
+        known |= v
+    rows = manifest_rows()
+    problems = []
+    if not rows:
+        return False, "there is no §4.1 assurance manifest"
+    assigned = [i for ids in rows.values() for i in ids]
+    for cited in sorted(set(assigned)):
+        if cited not in known:
+            problems.append("the manifest requires %s, which is in no inventory" % cited)
+    for owned in sorted(known):
+        if owned not in assigned:
+            problems.append("%s is in an inventory and in no gate's manifest row" % owned)
+    duplicated = sorted({i for i in assigned if assigned.count(i) > 1})
+    if duplicated:
+        problems.append("assigned to more than one gate: %s" % duplicated[:5])
+    for gate, ids in rows.items():
+        line = [ln for ln in spec("implementation-sequencing.md").splitlines()
+                if ln.startswith("| **%s**" % gate)]
+        for raw in line:
+            if re.search(r"\b[AIPS]\d+\s*[–-]\s*[AIPS]?\d+", raw):
+                problems.append("%s expresses its manifest as a range" % gate)
+    if says("implementation-sequencing.md", "the manifest is a partition, derived and checked"):
+        problems.append("the partition rule is not stated")
+    return (not problems, str(problems)[:400] if problems
+            else "%d gates partition %d assurance IDs exactly" % (len(rows), len(known)))
+
+
+check("crossdoc", "the assurance manifest partitions the canonical inventories",
+      the_assurance_manifest_partitions_the_inventories)
+
+
+#: Lines that legitimately DESCRIBE a stale form in order to reject it. A check that scans all
+#: prose has to be able to tell "B4 used to say the decision only" from "B4 says the decision
+#: only" - the marker is that the sentence denies, corrects or dates the claim.
+_HISTORICAL = re.compile(
+    r"\b(earlier revision|an earlier|previously|used to|stale|was wrong|is corrected|"
+    r"no longer|superseded|revision \d|would be|must never|is removed|are removed|"
+    r"is replaced|before the|next thing to go stale|the retired)\b", re.IGNORECASE)
+
+
+def _prose_units(name):
+    """(line number, text) units: one per table row, one per prose paragraph.
+
+    A line-at-a-time scan cannot see a sentence that wrapped, and three V5 escapes were
+    sentences that wrapped. A whole-document scan cannot tell a table row from the paragraph
+    around it. Units are the middle: rows stay rows, and a paragraph is read whole."""
+    units, buffer, start = [], [], None
+    for i, line in enumerate(spec(name).splitlines(), 1):
+        if line.lstrip().startswith("|"):
+            if buffer:
+                units.append((start, " ".join(buffer)))
+                buffer, start = [], None
+            units.append((i, line))
+            continue
+        if not line.strip():
+            if buffer:
+                units.append((start, " ".join(buffer)))
+                buffer, start = [], None
+            continue
+        if start is None:
+            start = i
+        buffer.append(line)
+    if buffer:
+        units.append((start, " ".join(buffer)))
+    return units
+
+
+def _owning_table_lines():
+    """Line numbers of the tables that OWN the routing branch facts.
+
+    Those tables state a branch's writes and counts because that is their job. Every other
+    location restating them is the escape this check exists to catch, so the owners are
+    excluded by position rather than by wording."""
+    # ONE owner: the commit contract in persistence §7.2. The API branch table and the router
+    # branch table are second statements of the same facts, and the V5 escapes were planted in
+    # exactly those - so they are compared against the owner, never exempted from the scan.
+    owned = {}
+    regions = (("persistence-and-transaction-model.md", "### 7.2", "*g* = gate instances"),)
+    for name, opener, closer in regions:
+        body = spec(name)
+        if opener not in body or closer not in body:
+            continue
+        head = body[:body.index(opener)].count("\n") + 1
+        tail = body[:body.index(closer)].count("\n") + 1
+        owned.setdefault(name, set()).update(range(head, tail + 1))
+    return owned
+
+
+def _weakening_line_numbers(name):
+    """Lines that DESCRIBE a weakening rather than assert it.
+
+    The self-check's "Assurance added for exactly these failures" tables name each controlled
+    weakening in its own words - "an invalid answer after a durable request advances the
+    ordinal" is the attack, not a claim. A scan of all prose has to exclude them or the
+    document cannot describe what its own probes do."""
+    if name != "phase-14-self-check.md":
+        return set()
+    skip, inside = set(), False
+    for i, line in enumerate(spec(name).splitlines(), 1):
+        if line.startswith("#"):
+            inside = "assurance added" in flat(line)
+        if inside:
+            skip.add(i)
+    return skip
+
+
+def no_active_location_contradicts_the_routing_branches():
+    """The canonical table being right is not the same as nothing else being wrong.
+
+    Six V5 mutations escaped by editing prose NEAR the canonical statement rather than the
+    statement itself. This derives the branch facts from §7.2 and then reads every line of the
+    package, so a second, contradictory sentence fails even while the table stands."""
+    txn = {cells[TXN["branch"]].split()[0]: cells
+           for cells in transaction_rows().get("route", [])}
+    problems = []
+    for branch in ("B1", "B1r", "B2", "B3", "B4s", "B4n"):
+        if branch not in txn:
+            problems.append("the transaction table has no %s branch" % branch)
+    if problems:
+        return False, str(problems)
+
+    # Facts derived from the owning table, not restated here.
+    b3_writes_run_state = "run state" in flat(txn["B3"][TXN["writes"]])
+    b4n_writes_run_state = "run state" in flat(txn["B4n"][TXN["writes"]])
+    if not (b3_writes_run_state and b4n_writes_run_state):
+        problems.append("the canonical table itself no longer commits the run state")
+
+    owned = _owning_table_lines()
+    #: A long table row carries several independent claims, and one of them saying "no longer
+    #: exists" must not exempt the rest. Two V5-class mutations survived exactly that way, so
+    #: the historical exemption is applied per SENTENCE, and the unit only supplies context.
+    for name in REQUIRED_DOCS:
+        skip = _weakening_line_numbers(name) | owned.get(name, set())
+        for i, unit in _prose_units(name):
+            if i in skip:
+                continue
+            whole = flat(unit).replace("run-state", "run state")
+            where = "%s:%d" % (name, i)
+            sentences = [t for t in re.split(r"(?<=[.;])\s+", unit) if t.strip()]
+
+            # Escape 3 - an invalid answer that consumes a submission ordinal. The subject is
+            # established by the unit; the claim is read sentence by sentence, because the
+            # sentence that carries it is routinely not the one that names the branch.
+            subject = "b1r" in whole or (("invalid" in whole or "malformed" in whole)
+                                         and "durable" in whole)
+            if subject:
+                for sentence in sentences:
+                    low = flat(sentence)
+                    if "ordinal" not in low or _HISTORICAL.search(sentence):
+                        continue
+                    if re.search(r"(ordinal is advanced|advances? the ordinal|"
+                                 r"consumes? an ordinal|advanced to reserve)", low) and \
+                            not re.search(r"(not advanc|does not advance|is not advanced|"
+                                          r"did not consume|was not consumed|not consumed|"
+                                          r"never advanc)", low):
+                        problems.append("%s lets an invalid answer advance the ordinal" % where)
+                        break
+
+            for sentence in sentences:
+                low = flat(sentence).replace("run-state", "run state")
+                if _HISTORICAL.search(sentence):
+                    continue
+                # Escape 1 - a non-selection branch committing a decision with no run state.
+                if re.search(r"\bb3\b", low) and "routing_decision" in low \
+                        and "run state" not in low and "q-17b" not in low:
+                    problems.append("%s states B3's writes without the run-state append" % where)
+                # Escape 2 - a re-submission keeping only the decision, without distinguishing
+                # the selection branch that legitimately does.
+                if re.search(r"\bb4\b", low) and "decision only" in low and "b4s" not in low:
+                    problems.append("%s gives B4 the decision only, dropping B4n" % where)
+                if re.search(r"\bb4n\b", low) and "routing_decision" in low \
+                        and "run state" not in low and "q-17b" not in low \
+                        and "same run-state" not in flat(sentence):
+                    problems.append("%s states B4n's writes without its inherited consequence"
+                                    % where)
+                # Cardinality stated away from the owning table is not forbidden - a positive
+                # control legitimately says what B2 costs. It is COMPARED. A branch whose
+                # canonical count is variable (2 + *s*) cannot be quoted as a fixed number.
+                named = set(re.findall(r"\bb[1-4][a-z]?\b", low))
+                stated = re.findall(r"\b(\d+|one|two|three|four) audit events?\b", low)
+                if not (named and stated):
+                    continue
+                for spelled in sorted(named):
+                    branch = next((k for k in txn if k.lower() == spelled), None)
+                    if branch is None:
+                        continue
+                    canonical = txn[branch][TXN["audit"]].replace("*", "").strip()
+                    for token in stated:
+                        value = token if token.isdigit() else str(WORD_NUMBERS.get(token, ""))
+                        if not canonical.isdigit():
+                            problems.append("%s quotes a fixed audit count for %s, whose "
+                                            "canonical count is variable (%s)"
+                                            % (where, branch, canonical))
+                        elif value != canonical:
+                            problems.append("%s states %s audit events for %s; the owning "
+                                            "table states %s"
+                                            % (where, token, branch, canonical))
+    return (not problems, str(problems)[:400] if problems
+            else "six branches; no active location restates a branch's writes or counts "
+                 "against the owning table")
+
+
+check("crossdoc", "no active location contradicts the routing branch semantics",
+      no_active_location_contradicts_the_routing_branches)
+
+
+def no_active_location_permits_automatic_redispatch_of_an_unknown_effect():
+    """The one inference the whole external-effect model exists to forbid.
+
+    V5 escape 6 put "may be retried automatically" in a Q31-like location while Q-31 itself
+    still said the opposite. Any line that pairs an unknown external effect with automatic
+    replay fails, wherever it is."""
+    unknown = re.compile(r"(attempted_outcome_unknown|unknown external effect|"
+                         r"unknown outcome|uncertain effect|boundary_crossed)", re.IGNORECASE)
+    replay = re.compile(r"(automatic(?:ally)?\s+(?:retr|re-?run|re-?dispatch|replay)|"
+                        r"(?:retr|re-?run|re-?dispatch|replay)\w*\s+automatic(?:ally)?|"
+                        r"safe to (?:retry|redispatch|replay)|may be (?:retried|redispatched|replayed))",
+                        re.IGNORECASE)
+    denial = re.compile(r"\b(never|not|no|prohibit\w*|refus\w*|forbid\w*|only|unless|"
+                        r"must|cannot|neither)\b", re.IGNORECASE)
+    problems = []
+    for name in REQUIRED_DOCS:
+        for i, line in enumerate(spec(name).splitlines(), 1):
+            if not (unknown.search(line) and replay.search(line)):
+                continue
+            if denial.search(line):
+                continue
+            problems.append("%s:%d permits automatic replay of an unknown effect"
+                            % (name, i))
+    for phrase, doc in (("the r6 branch never becomes a retry", "api-command-contracts.md"),
+                        ("compensation is never reached by retrying",
+                         "orchestrator-runtime-contract.md"),
+                        ("the two forbidden assumptions", "failure-recovery-race-model.md")):
+        if says(doc, phrase):
+            problems.append("%s no longer states %r" % (doc, phrase[:40]))
+    return (not problems, str(problems)[:400] if problems
+            else "no active location permits replaying an unknown external effect")
+
+
+check("crossdoc", "no active location permits auto-redispatch of an unknown external effect",
+      no_active_location_permits_automatic_redispatch_of_an_unknown_effect)
 
 
 # =========================================================== main

@@ -80,7 +80,10 @@ Three kinds of requirement, never confused:
 Definition first**: a deterministic registry state reference, an inclusion rule, the enumerated
 set, omission reasons, and a completeness result.
 
-A load failure yields `CANDIDATE_UNIVERSE_INCOMPLETE` and **blocks or escalates**. It never
+A load failure yields `CANDIDATE_UNIVERSE_INCOMPLETE`, which is deterministic: the run is written
+`BLOCKED` and **then** `ESCALATED`, posture `GATE_UNSATISFIED`, in the same transaction as the
+decision (§5.2, Rule M-7a; `api-command-contracts.md` Rule Q-17b). It is never a choice between
+the two, and never
 silently shrinks the universe. "Where practical" does not meet the requirement: given the same
 registry state reference and the same universe definition version, the same enumeration results.
 

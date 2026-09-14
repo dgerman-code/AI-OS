@@ -365,13 +365,14 @@ outlive or precede the intent, but it is delivery plumbing: it carries no author
 gate, and is not governance evidence. `persistence-and-transaction-model.md` Rule P-20a is the
 single statement of that classification, Rule P-14d excludes it from governed-record mutations,
 and the outbox's own durable constraints are the operational `O1`–`O4` of that document's §9.2
-rather than rows of the canonical uniqueness inventory. Its claim, lease and dedup protocol is
-specified there in full.
+rather than rows of the canonical uniqueness inventory — `O1`–`O5` of that document's §9.2a. Its
+claim, lease, boundary and dedup protocol is specified there in full, as ten token-fenced
+transitions.
 
 **Rule Q-22b — stages 3 and 4 are one transaction, so there is no state between them.** The
 observed outcome and, where the outcome is `CONFIRMED_APPLIED` with content, the Model Result
 commit together or not at all. A crash before that commit leaves the attempt exactly as stage 2
-left it — `ATTEMPTED_OUTCOME_UNKNOWN` on reclaim, by Rule P-27 — and **never** a committed
+left it — `ATTEMPTED_OUTCOME_UNKNOWN` on reclaim, by Rule PO-10 — and **never** a committed
 outcome without its result. The earlier revision's crash row describing recovery "after stage 3,
 before stage 4" described a state this contract does not produce, and it is removed rather than
 explained. Stage 5 remains a separate transaction, because reconciliation is a separate act
@@ -388,11 +389,12 @@ one rule in this section the whole staging exists for.
 | Crash point | State on recovery | Recovery action |
 |---|---|---|
 | Before stage 1 commits | Nothing exists | None |
-| After stage 1, before the call | Intent and attempt at `NOT_ATTEMPTED`, outbox row present | The drain retries the call under the **same idempotency key** — safe, because nothing left the system |
-| During stage 2 | Attempt still `NOT_ATTEMPTED` locally, but the call **may have been made** | The drain must treat an attempt whose lease expired as `ATTEMPTED_OUTCOME_UNKNOWN`, not as `NOT_ATTEMPTED`. **This is the only place where an optimistic reading would produce a duplicate external effect** |
-| After the call, before the stage 3/4 commit | Nothing of the outcome is durable; the dispatch item reclaims as `ABANDONED` and the attempt as `ATTEMPTED_OUTCOME_UNKNOWN` | Stage 5 |
+| After stage 1, before the dispatch intent commits | Intent and attempt at `NOT_ATTEMPTED`; the dispatch item is `PENDING` or `CLAIMED` with `boundary_crossed = false` | The drain re-claims and calls under the **same idempotency key** — safe, because no call is ever made before `DISPATCH_PENDING` commits (PO-8) |
+| **At the call boundary** — after `DISPATCH_PENDING` commits, before or during the call | The dispatch item is `DISPATCH_PENDING` with **`boundary_crossed = true`**; the attempt is still `NOT_ATTEMPTED` locally, but the call **may have been made** | Recovery reads `boundary_crossed`, never the clock: the item becomes `UNCERTAIN` (T7) and the attempt `ATTEMPTED_OUTCOME_UNKNOWN`. **This is the only place where an optimistic reading would produce a duplicate external effect**, and PO-9 is why the reading cannot be optimistic |
+| After provider acceptance, before the stage 3/4 commit | Identical to the row above: an outcome the system did not commit is an outcome the system does not have | Stage 5, via T7. **Never a redispatch** unless PO-14 is satisfied |
 | Between stages 3 and 4 | **Unreachable.** They are one transaction (Q-22b): there is no committed outcome without its result | — |
-| After the stage 3/4 commit | Complete | None |
+| After the stage 3/4 commit | Complete; the dispatch item is `SETTLED` in that same transaction (PO-13) | None |
+| During reconciliation | The item is `UNCERTAIN`, unowned | Re-run the sweep; T8 on an answer, T9 where it stays unanswerable |
 
 **Rule Q-25 — retry classes across the stages.** Stage 1 is `SAFE_AUTOMATIC_RETRY` — it is local
 and writes nothing external. Stage 2 is `IDEMPOTENT_AT_LEAST_ONCE` **only** where the provider

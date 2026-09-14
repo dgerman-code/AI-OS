@@ -157,11 +157,18 @@ recovery path for a state the system cannot reach, and those are how impossible 
 reachable.
 
 **Rule F-9d — the drain protocol is specified once, in persistence §9.** Claim state, lease
-owner, lease expiry, the compare-and-swap token, the single-valid-lease constraint, the stable
-provider idempotency key, receiver-side deduplication and the four crash points all live in
-`persistence-and-transaction-model.md` §§9.2–9.6. This section states the governed consequence:
-an item that reached `DISPATCHED` is never re-dispatched, its attempt is
-`ATTEMPTED_OUTCOME_UNKNOWN`, and reconciliation is mandatory.
+owner, lease expiry, the fencing token and claim generation, the atomic acquisition predicate, the
+stable provider idempotency key, receiver-side deduplication, the ten token-fenced transitions and
+the five crash points all live in `persistence-and-transaction-model.md` §§9.2–9.6. This section
+states the governed consequence: an item whose **`boundary_crossed` is `true`** is never
+re-dispatched, its attempt is `ATTEMPTED_OUTCOME_UNKNOWN`, and reconciliation is mandatory.
+
+**Rule F-9e — the call boundary is crossed before it is crossed.** The durable intent to call
+(`DISPATCH_PENDING`) commits **before** the call leaves, so no crash after the call can be
+mistaken for a crash before it. Recovery therefore never infers non-occurrence from local state
+after the boundary: it reads the monotone `boundary_crossed` flag, and `true` means *the provider
+may have acted*. An expired claim is a statement about a claimant, never about a provider
+(PO-10).
 
 **Rule F-9b — a timeout is a state, not a verdict.** It does not mean the call failed. Rule F-10
 applies unchanged: neither assumption is permitted.

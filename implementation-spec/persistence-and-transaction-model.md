@@ -405,7 +405,7 @@ count in §7.2 is derived on this classification, and the assurance suite assert
 reference; it does not substitute for one. An outbox row for a class-4 act whose authorisation
 record is absent is refused at insert by a `NOT NULL` foreign key.
 
-### 9.2 The dispatch item — stable identity and durable uniqueness
+### 9.2 The dispatch item — stable identity and durable columns
 
 | # | Field | Is |
 |---:|---|---|
@@ -413,111 +413,194 @@ record is absent is refused at insert by a `NOT NULL` foreign key.
 | 2 | `model_invocation_ref` | The governed intent this dispatch item serves |
 | 3 | `provider_attempt_ref` | The **one** provider attempt this dispatch item resolves |
 | 4 | `provider_idempotency_key` | The key presented to the provider. Stable for the life of the row |
-| 5 | `claim_state` | One of the five values of §9.3 |
-| 6 | `lease_owner` | The claimant service identity holding the current lease, or `NULL` |
-| 7 | `lease_expires_at` | When the current lease stops being valid, or `NULL` |
-| 8 | `claim_token` | The compare-and-swap / OCC token. It changes on **every** claim-state transition |
-| 9 | `dispatch_ordinal` | How many times this item has been claimed. Monotonic, never reset |
+| 5 | `claim_state` | One of the six values of §9.3 |
+| 6 | `lease_owner` | The claimant service identity currently holding the row, or `NULL` |
+| 7 | `lease_expires_at` | When the current claim stops being renewable by its owner, or `NULL` |
+| 8 | `claim_token` | The per-claim fencing token. A fresh value on every acquisition; `NULL` when unowned |
+| 9 | `claim_generation` | A monotonically increasing integer. **Every** state-changing write increments it. Never reset, never reused |
+| 10 | `boundary_crossed` | Boolean, **append-only from `false` to `true`**. Set `true` in the same transaction that enters `DISPATCH_PENDING`, and never set back |
 
-The outbox's durable uniqueness constraints are **operational** and are deliberately **not**
-rows of the canonical governed uniqueness inventory of §5.2, because an outbox row is not a
-governed record. They are named `O1`–`O4` so that no count of the `U` inventory changes:
+**Rule PO-1 — the provider idempotency key is stable and never regenerated.** It is derived in
+the enqueuing transaction from `(model_invocation_ref, provider_attempt_ref)` and stored. Every
+dispatch of the item — including any permitted redispatch — presents the **same** key.
+Regenerating it silently converts "the provider deduplicates" into "the provider sees a new
+request".
+
+### 9.2a Operational constraints — implementable, and time-free
+
+These constraints are **operational** and are deliberately **not** rows of the canonical governed
+uniqueness inventory of §5.2, because an outbox row is not a governed record. They are named
+`O1`–`O5` so that no count of the `U` inventory changes.
 
 | # | Constraint | Prevents |
 |---:|---|---|
-| O1 | `UNIQUE (outbox_ref)` | A duplicate dispatch identity |
+| O1 | `PRIMARY KEY (outbox_ref)` | A duplicate dispatch identity. **This is the only identity constraint on the row**; no second constraint restates it |
 | O2 | `UNIQUE (provider_attempt_ref)` | Two dispatch items racing to satisfy one provider attempt |
 | O3 | `UNIQUE (provider_idempotency_key)` | Two items presenting one key to the provider |
-| O4 | A partial unique index on `outbox_ref` `WHERE claim_state = 'CLAIMED' AND lease_expires_at > now()` | **Two concurrently valid leases on one dispatch item** |
+| O4 | `CHECK ( (claim_state IN ('CLAIMED','DISPATCH_PENDING')) = (lease_owner IS NOT NULL AND lease_expires_at IS NOT NULL AND claim_token IS NOT NULL) )` | A row that is owned without an owner, a token or an expiry — or unowned while still carrying them |
+| O5 | `CHECK (claim_generation >= 0)`, with Rule PO-4 requiring every state-changing write to increment it | A fencing token that can repeat, and therefore a stale writer that can look current |
 
-**Rule P-23 — the provider idempotency key is stable and never regenerated.** It is derived in
-the enqueuing transaction from `(model_invocation_ref, provider_attempt_ref)` and stored. Every
-dispatch of the item — including a redelivery after an expired lease — presents the **same**
-key. Regenerating it on redelivery is the defect that silently converts "the provider
-deduplicates" into "the provider sees a new request".
+**Rule PO-2 — ownership is a property of the row, never of an index.** An earlier revision
+declared a partial unique index predicated on `lease_expires_at > now()`. **That is not
+implementable**: a unique index predicate must be immutable, and `now()` is not — the same stored
+row would enter and leave the index as time passed, with no write. It is removed and not replaced
+by an equivalent. Exclusivity comes from the fact that `lease_owner` is **one column on one row**:
+there is nowhere for a second simultaneous owner to be recorded. What makes that exclusivity
+*enforceable under contention* is Rule PO-3, not a constraint.
 
-### 9.3 Claim state vocabulary
+**Rule PO-3 — every state-changing write is one atomic conditional update, or it did not
+happen.** Each transition of §9.4 is a single statement whose `WHERE` clause carries, at minimum,
+`outbox_ref = <the item>` **and** `claim_generation = <the generation the writer read>`, plus the
+transition's own precondition. Zero rows updated means another writer moved the row first, and the
+loser **performs no external call and writes nothing**. There is no read-then-write path, and no
+advisory lock substitutes for the compare-and-swap.
 
-`PENDING` · `CLAIMED` · `DISPATCHED` · `SETTLED` · `ABANDONED`
+**Rule PO-4 — the generation is the fence.** Every successful state-changing write sets
+`claim_generation = claim_generation + 1`. A writer holding an older generation, or an older
+`claim_token`, matches no row and its write is rejected **by the predicate**, not by application
+logic. This is what makes an expired owner harmless without any clock comparison at write time:
+the moment anyone else transitions the row, every token the old owner holds is stale.
 
-| State | Means | Leaves to |
-|---|---|---|
-| `PENDING` | Enqueued; no claimant | `CLAIMED` |
-| `CLAIMED` | A claimant holds a valid lease; **no call has been made under this claim** | `DISPATCHED`; or back to `PENDING` on lease expiry |
-| `DISPATCHED` | The call was made under this claim; the outcome is not yet durable | `SETTLED`; or `ABANDONED` on lease expiry |
-| `SETTLED` | The provider attempt reached a recorded external-effect state | — |
-| `ABANDONED` | A lease expired at or after dispatch. **The item is never re-dispatched from here** | Reconciliation only |
+**Rule PO-5 — `lease_expires_at` schedules attention, it does not grant or revoke ownership.** It
+is read by the recovery sweep to decide *which rows to look at*. It is never the mechanism by
+which ownership changes hands; that is always an explicit transition under PO-3. A clock skew
+therefore cannot transfer ownership, and a long garbage-collection pause cannot cause two writers
+to both believe they hold the row — the second one's write simply matches nothing.
 
-### 9.4 Claim, lease and compare-and-swap
-
-**Rule P-24 — claiming is one atomic conditional update, or it did not happen.** A claimant
-acquires an item with a single statement whose precondition is
-
-> `claim_state = 'PENDING'` **and** (`lease_expires_at IS NULL` **or** `lease_expires_at <= now()`)
-> **and** `claim_token` equals the token the claimant read
-
-and whose effect is `claim_state = 'CLAIMED'`, `lease_owner` = the claimant service identity,
-`lease_expires_at = now() + lease_duration`, a **new** `claim_token`, and
-`dispatch_ordinal + 1`. Zero rows updated means another claimant won, and the loser does **not**
-call the provider. There is no read-then-write path and no advisory lock substituting for the
-compare-and-swap.
-
-**Rule P-25 — the claimant is a named service identity.** `lease_owner` holds the acting service
+**Rule PO-6 — the claimant is a named service identity.** `lease_owner` holds the acting service
 identity of `security-identity-access.md`, never a hostname, a process id or a worker number. A
-lease whose owner does not resolve to a registered service identity is not a valid lease.
+row whose owner does not resolve to a registered service identity is recovered by the sweep, not
+trusted.
 
-**Rule P-26 — at most one valid lease, enforced durably.** Constraint **O4** is the enforcement;
-the drain's control flow is not. Two claimants believing they hold one item is a **failed write**
-for the second, never two provider calls.
+### 9.3 Claim state vocabulary — six states, one boundary
 
-**Rule P-27 — an expired lease is a redelivery condition, never a proof.** An item becomes
-claimable again on expiry **only from `CLAIMED`**, because in `CLAIMED` no call was made under
-that claim. From `DISPATCHED`, expiry moves the item to `ABANDONED` and the provider attempt to
-`ATTEMPTED_OUTCOME_UNKNOWN`. **Lease expiry is never evidence that no external effect
-occurred** — Rule F-9a says the same thing from the failure model's side, and it is the single
-place where an optimistic reading would produce a duplicate external effect.
+`PENDING` · `CLAIMED` · `DISPATCH_PENDING` · `UNCERTAIN` · `SETTLED` · `ABANDONED`
+
+| State | Means | `boundary_crossed` | Leaves to |
+|---|---|---|---|
+| `PENDING` | Enqueued; unowned; **no call has been made under any claim** | `false` | `CLAIMED` |
+| `CLAIMED` | A claimant holds the row and is preparing the call. **No call may be made from this state** | `false` | `DISPATCH_PENDING`; or back to `PENDING` on recovery |
+| `DISPATCH_PENDING` | The durable, committed **intent to call**. The call is made only after this state commits, so from here the system can **never again** conclude locally that no call occurred | **`true`** | `SETTLED`; or `UNCERTAIN` on recovery |
+| `UNCERTAIN` | The boundary was crossed and no outcome is durable. The provider attempt is `ATTEMPTED_OUTCOME_UNKNOWN` | `true` | `SETTLED` via reconciliation; or `ABANDONED` |
+| `SETTLED` | Terminal. The provider attempt reached a recorded external-effect state **and** the governed stage 3/4 transaction committed | `true` (or `false` only where the item was retired before any call) | — |
+| `ABANDONED` | Terminal. Reconciliation could not resolve the effect. **Never re-dispatched** | `true` | — |
+
+**Rule PO-7 — the call happens strictly between two committed states, and the earlier one is
+already on the pessimistic side.** The ordering is: commit `DISPATCH_PENDING` → make the call →
+commit the outcome. The single crash window that matters — after the call, before the outcome —
+therefore finds the row already in `DISPATCH_PENDING` with `boundary_crossed = true`, which is
+read as *the call may have happened*, never as *the call did not happen*.
+
+**Rule PO-8 — `CLAIMED` is the only state that is safely re-dispatchable, and it is safe for a
+structural reason.** No call is ever made from `CLAIMED`; a claimant that wants to call must first
+commit `DISPATCH_PENDING`. A `CLAIMED` row whose owner disappeared therefore cannot have crossed
+the boundary, and `boundary_crossed = false` records that as a durable fact rather than as an
+inference. This is the one place where "nothing left the system" is a conclusion the local state
+is actually entitled to.
+
+**Rule PO-9 — `boundary_crossed` is monotone.** It goes `false` → `true` exactly once, in the
+transaction that enters `DISPATCH_PENDING`, and no transition ever sets it back. A contract that
+allowed it to be cleared would allow a crossed boundary to be forgotten, which is the failure this
+whole section exists to make impossible.
+
+**Rule PO-10 — an expired claim is never proof, and is never treated as one.** The recovery sweep
+decides what a stale row becomes **by reading `boundary_crossed`, never by reading the clock or
+the previous state's name**: `false` → back to `PENDING`; `true` → `UNCERTAIN` and mandatory
+reconciliation. Expiry says a claimant stopped reporting. It says nothing whatever about the
+provider.
+
+### 9.4 Every transition, token-fenced
+
+Every row below is one atomic conditional update under Rule PO-3. "Fencing" states what the
+predicate must carry beyond `outbox_ref` and the state precondition.
+
+| # | Transition | Reads | Predicate (all clauses required) | Writes | Fencing | Redispatch permitted after? | Provider reconciliation mandatory? |
+|---:|---|---|---|---|---|---|---|
+| T1 | `PENDING` → `CLAIMED` | The row | `claim_state = 'PENDING'` **AND** `claim_generation = <read>` | `claim_state='CLAIMED'`, `lease_owner`=claimant, fresh `claim_token`, `lease_expires_at`=now + lease duration, `claim_generation`+1 | Generation | **Yes** — nothing has left the system | No |
+| T2 | `CLAIMED` → `DISPATCH_PENDING` | The row, the attempt, the stable key | `claim_state='CLAIMED'` **AND** `claim_token = <held>` **AND** `claim_generation = <read>` | `claim_state='DISPATCH_PENDING'`, **`boundary_crossed=true`**, `claim_generation`+1 | Token **and** generation | **No** — the call is about to be made | Yes, if no outcome commits |
+| T3 | Claim renewal, `CLAIMED` or `DISPATCH_PENDING` → same state | The row | `claim_state` unchanged **AND** `claim_token = <held>` **AND** `claim_generation = <read>` | `lease_expires_at` extended, `claim_generation`+1; **`claim_state` and `boundary_crossed` unchanged** | Token **and** generation | Unchanged by renewal | Unchanged by renewal |
+| — | **The external call** | — | **Not a transition. No database statement is atomic with it** (Rule PO-11) | — | — | — | — |
+| T4 | `DISPATCH_PENDING` → `SETTLED`, outcome **observed** (`CONFIRMED_APPLIED` or `CONFIRMED_NOT_APPLIED`) | The row, the provider response | `claim_state='DISPATCH_PENDING'` **AND** `claim_token = <held>` **AND** `claim_generation = <read>` | `claim_state='SETTLED'`, `lease_owner`/`claim_token`/`lease_expires_at` cleared (O4), `claim_generation`+1 | Token **and** generation | n/a — terminal | No |
+| T5 | `DISPATCH_PENDING` → `UNCERTAIN`, outcome **unknown to the caller itself** (timeout, reset, ambiguous response) | The row | `claim_state='DISPATCH_PENDING'` **AND** `claim_token = <held>` **AND** `claim_generation = <read>` | `claim_state='UNCERTAIN'`, owner columns cleared, `claim_generation`+1 | Token **and** generation | **No** (except under PO-14) | **Yes** |
+| T6 | `CLAIMED` → `PENDING`, expired-claim recovery | The row | `claim_state='CLAIMED'` **AND** `boundary_crossed = false` **AND** `lease_expires_at <= now()` **AND** `claim_generation = <read>` | `claim_state='PENDING'`, owner columns cleared, `claim_generation`+1 | Generation | **Yes** — PO-8 | No |
+| T7 | `DISPATCH_PENDING` → `UNCERTAIN`, expired-claim recovery | The row | `claim_state='DISPATCH_PENDING'` **AND** `boundary_crossed = true` **AND** `lease_expires_at <= now()` **AND** `claim_generation = <read>` | `claim_state='UNCERTAIN'`, owner columns cleared, `claim_generation`+1 | Generation | **No** (except under PO-14) | **Yes** |
+| T8 | `UNCERTAIN` → `SETTLED`, reconciliation resolved | The row, the external system under the stable key | `claim_state='UNCERTAIN'` **AND** `claim_generation = <read>` | `claim_state='SETTLED'`, `claim_generation`+1 | Generation | n/a — terminal | The transition **is** the reconciliation outcome |
+| T9 | `UNCERTAIN` → `ABANDONED`, reconciliation unanswerable | The row | `claim_state='UNCERTAIN'` **AND** `claim_generation = <read>` | `claim_state='ABANDONED'`, `claim_generation`+1 | Generation | **Never** | Already attempted and failed; the run blocks and escalates |
+| T10 | `PENDING` or `CLAIMED` → `SETTLED`, item retired before any call | The row | `boundary_crossed = false` **AND** `claim_generation = <read>` | `claim_state='SETTLED'`, owner columns cleared, `claim_generation`+1 | Generation | n/a — terminal | No |
+
+**Rule PO-11 — no database statement is atomic with the provider call.** The call sits between
+T2 and T4/T5 and is deliberately not a row of the table above. Any contract that placed it inside
+a transition would be claiming a distributed transaction, which §9.5 denies.
+
+**Rule PO-12 — a stale token settles nothing.** T4, T5 and T3 require the writer's `claim_token`
+to match the stored one **and** its generation to match. A writer that resumes after the row was
+recovered by T6 or T7 holds neither, matches no row, and its settlement is rejected by the
+predicate. It must re-read the row and act on what it finds; it must **not** re-call the provider
+on the strength of what it remembers.
+
+**Rule PO-13 — successful governed persistence settles the dispatch item in the same
+transaction.** The stage 3/4 transaction of `api-command-contracts.md` §5.5 — which commits the
+provider-attempt outcome and, where applicable, the Model Result — carries **T4** in the same
+local transaction. A committed outcome with the dispatch item left in `DISPATCH_PENDING` is not a
+state this specification permits, and A59 is the adversarial test that asserts it. The governed
+records are audited; the T4 transition beside them is operational and is not (P-20a).
+
+**Rule PO-14 — redispatch after a crossed boundary requires a guarantee, not an assumption.** An
+item with `boundary_crossed = true` may be re-dispatched **only** where both hold:
+
+1. reconciliation reports `CONFIRMED_NOT_APPLIED` — the effect demonstrably did not occur; **or**
+   the provider contractually deduplicates on the stable key of Rule PO-1, and that guarantee is
+   recorded on the deployment's Provider Profile rather than assumed from observed behaviour;
+2. the redispatch presents the **same** `provider_idempotency_key`.
+
+Where either fails, the item is `UNCERTAIN` or `ABANDONED`, the run blocks and escalates, and a
+retry request against the step is branch **R6**. Absence of evidence that the effect occurred is
+never evidence that it did not.
 
 ### 9.5 Deduplication at the receiver
 
-**Rule P-28 — where the provider deduplicates, redelivery is at-least-once and safe.** The
-stable key of Rule P-23 is presented on every dispatch, and the provider's own deduplication
-makes a second arrival a no-op. This is `IDEMPOTENT_AT_LEAST_ONCE`, and the guarantee is the
+**Rule PO-15 — where the provider deduplicates, redelivery is at-least-once and safe.** The
+stable key of PO-1 is presented on every dispatch, and the provider's own deduplication makes a
+second arrival a no-op. This is `IDEMPOTENT_AT_LEAST_ONCE`, and the guarantee is the
 **receiver's**, not the sender's.
 
-**Rule P-29 — where the provider does not deduplicate, there is no safe redispatch after
-dispatch.** The step is `NON_REPLAYABLE_EXTERNAL_SIDE_EFFECT`. An item that reached `DISPATCHED`
-is never re-dispatched: it becomes `ABANDONED`, its attempt is `ATTEMPTED_OUTCOME_UNKNOWN`, and
-reconciliation (`failure-recovery-race-model.md` §6.1) is **mandatory**. Where reconciliation
-cannot answer, the run `BLOCK`s and `ESCALATE`s, and a retry request against that step is
-branch R6.
+**Rule PO-16 — where the provider does not deduplicate, there is no safe redispatch after the
+boundary.** The step is `NON_REPLAYABLE_EXTERNAL_SIDE_EFFECT`. An item with
+`boundary_crossed = true` is never re-dispatched: it becomes `UNCERTAIN`, its attempt is
+`ATTEMPTED_OUTCOME_UNKNOWN`, and reconciliation
+(`failure-recovery-race-model.md` §6.1) is **mandatory**. Where reconciliation cannot answer, the
+item is `ABANDONED`, the run `BLOCK`s and `ESCALATE`s, and undoing a confirmed effect is
+compensation — its own governed act.
 
-**Rule P-30 — no distributed transaction and no exactly-once.** The protocol is at-most-once
-locally (O1–O4 with U8 and U22), at-least-once externally where the provider deduplicates, and
+**Rule PO-17 — no distributed transaction and no exactly-once.** The protocol is at-most-once
+locally (O1–O5 with U8 and U22), at-least-once externally where the provider deduplicates, and
 neither where it does not. Nothing above spans the local database and the provider in one
 transaction, and no delivery guarantee stronger than the receiver's is claimed.
 
-### 9.6 The four crash points
+### 9.6 The five crash points
 
 | Crash point | Durable state found | Recovery |
 |---|---|---|
-| **Before the claim** | `PENDING`, no valid lease | Ordinary claim. Nothing left the system |
-| **After the claim, before the call** | `CLAIMED`, lease expired | Re-claimable under Rule P-27. Nothing left the system, because the call happens strictly after the claim commits |
-| **After the call, before the outcome** | `DISPATCHED`, lease expired | `ABANDONED`; the attempt becomes `ATTEMPTED_OUTCOME_UNKNOWN`; **reconciliation, never redispatch** |
-| **After the outcome, before persistence commits** | `DISPATCHED`, lease expired, no outcome row | Identical to the row above, deliberately: an outcome the system did not commit is an outcome the system does not have |
+| **Before the claim** | `PENDING`, unowned, `boundary_crossed = false` | T1. Nothing left the system |
+| **After the claim, before the dispatch intent** | `CLAIMED`, `boundary_crossed = false`, lease expired | **T6** back to `PENDING`. Nothing left the system, because no call is ever made from `CLAIMED` (PO-8) |
+| **At the call boundary — after `DISPATCH_PENDING` commits, before or during the call** | `DISPATCH_PENDING`, `boundary_crossed = true`, lease expired | **T7** to `UNCERTAIN`; attempt `ATTEMPTED_OUTCOME_UNKNOWN`; **reconciliation, never redispatch** unless PO-14 is satisfied |
+| **After provider acceptance, before local outcome persistence** | Identical to the row above, and deliberately so: an outcome the system did not commit is an outcome the system does not have | **T7**, as above |
+| **During reconciliation** | `UNCERTAIN`, unowned | Re-run the sweep. T8 on an answer, T9 where it remains unanswerable. Reconciliation is idempotent and records determinations of fact; it decides nothing (F-11) |
 
-**Rule P-31 — the durable unknown path.** `ATTEMPTED_OUTCOME_UNKNOWN` is written onto the
-provider attempt in its own local transaction by the reclaiming drain — never held in the memory
+**Rule PO-18 — the durable unknown path.** `ATTEMPTED_OUTCOME_UNKNOWN` is written onto the
+provider attempt in its own local transaction by the recovering drain — never held in the memory
 of the process that crashed. That state change is a governed-record mutation and **is** audited;
-the accompanying outbox transition to `ABANDONED` is operational and is **not**.
+the accompanying T7 transition beside it is operational and is **not**.
 
-**Rule P-32 — safe redispatch versus mandatory reconciliation, exactly.**
+**Rule PO-19 — safe redispatch versus mandatory reconciliation, exactly.**
 
 | Condition | Redispatch permitted? |
 |---|---|
-| `claim_state = 'PENDING'` | **Yes** |
-| `claim_state = 'CLAIMED'` with an expired lease | **Yes** — no call was made under that claim |
-| `DISPATCHED` or `ABANDONED`, provider deduplicates on the stable key | **Only** after reconciliation reports `CONFIRMED_NOT_APPLIED` |
-| `DISPATCHED` or `ABANDONED`, provider does not deduplicate | **Never.** Reconciliation is mandatory |
+| `PENDING` | **Yes** |
+| `CLAIMED`, lease expired, `boundary_crossed = false` | **Yes** — via T6; no call was made from `CLAIMED` |
+| `DISPATCH_PENDING` or `UNCERTAIN`, provider deduplicates on the stable key per PO-14 | **Only** after reconciliation reports `CONFIRMED_NOT_APPLIED`, or under the recorded deduplication guarantee, and always under the same key |
+| `DISPATCH_PENDING` or `UNCERTAIN`, no recorded deduplication guarantee | **Never.** Reconciliation is mandatory |
+| `ABANDONED` | **Never**, under any condition |
 | Any state, reconciliation unanswerable | **Never.** The run blocks and escalates; undoing a confirmed effect is compensation, its own governed act |
 
 ## 10. Retention, holds and deletion

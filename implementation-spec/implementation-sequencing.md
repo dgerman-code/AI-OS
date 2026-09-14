@@ -42,7 +42,7 @@ true.** A milestone that "will be safe once M6 lands" is not complete.
 | **M17** | Supersession | The full `SUPERSEDED` path across runs, records, knowledge, artifacts, policies and registry versions | M11, M14 |
 | **M18** | Security and access | Human/service/agent identity separation; RLS with the separator-boundary predicate; least-privilege grants per component; secrets boundary | M2, M4 |
 | **M19** | Command surface | The command envelope, idempotency, the error vocabulary, the query surface | M7–M18 |
-| **M20** | Assurance completion | **Every ID in each canonical assurance inventory** (`test-and-assurance-strategy.md` §2a), not a range: adversarial (**61**), positive controls (**11**), architecture invariant (**12**), approval-gate (**8**), static CI (**10**). Plus the mutation harness with honest classification | all |
+| **M20** | Assurance completion | **Every ID in each canonical assurance inventory** (`test-and-assurance-strategy.md` §2a), not a range: adversarial (**67**), positive controls (**12**), architecture invariant (**12**), approval-gate (**8**), static CI (**10**). Plus the mutation harness with honest classification | all |
 
 ## 3. Dependency graph, compressed
 
@@ -71,18 +71,64 @@ pressure**, and there is no partial credit.
 | **G-D** | Leaving M4 | Absence of an approval row reads as `PROPOSED` and refuses; the bootstrap creates no row its source does not name |
 | **G-E** | Leaving M6 | **All ten races** resolve to their named outcomes under two-process contention; `LAST_WRITE_WINS` demonstrated absent |
 | **G-F** | Leaving M7 | All sixteen ordinary APIs refuse on a halted run; the transition table reconciles with the architecture document; observational equality holds for every refused act |
-| **G-G** | Leaving M8 | Each gate kind admits exactly one evidence type; A1, A2 and A3 pass |
-| **G-H** | Leaving M9 | A19 and A20 pass; independence is evaluated on **identities**, not labels |
-| **G-I** | Leaving M10 | A18 passes, including via delegation; the separation check is durable, not in-memory; `NO_APPLICABLE_DECISION_RIGHT` is not `403` |
-| **G-J** | Leaving M11 | A15, A16, A17a, A17b and A47 pass; `PromoteToCanonical` **refuses**; no epistemic conversion edge exists |
-| **G-K** | Leaving M12 | A21 passes for each of the six elements; A38, A39, A40, P-A38 and P-A40 pass; a refused route leaves no request and no event |
+| **G-G** | Leaving M8 | Each gate kind admits exactly one evidence type; every ID in this gate's §4.1 manifest row passes |
+| **G-H** | Leaving M9 | Every ID in this gate's §4.1 manifest row passes; independence is evaluated on **identities**, not labels |
+| **G-I** | Leaving M10 | Every ID in this gate's §4.1 manifest row passes, including via delegation; the separation check is durable, not in-memory; `NO_APPLICABLE_DECISION_RIGHT` is not `403` |
+| **G-J** | Leaving M11 | Every ID in this gate's §4.1 manifest row passes; `PromoteToCanonical` **refuses**; no epistemic conversion edge exists |
+| **G-K** | Leaving M12 | A21 passes for each of the six elements; every ID in this gate's §4.1 manifest row passes; an **invalid** route answer leaves **no governed record and no audit event, and appends exactly one refusal execution event** — which is coordination history and never governance evidence (O-25a) |
 | **G-L** | Leaving M13 | No vendor name outside a Provider/Deployment Profile; S1 and S7 pass |
-| **G-M** | Leaving M14 | A14, A28, A44, A45, A46 and P-A44 pass; prior iterations retained; exhaustion escalates |
-| **G-N** | Leaving M15 | A41, A42, A43, P-A41 and P-A42 pass: an interrupted external call reaches `ATTEMPTED_OUTCOME_UNKNOWN` and neither assumption is made |
+| **G-M** | Leaving M14 | Every ID in this gate's §4.1 manifest row passes; prior iterations retained; exhaustion escalates |
+| **G-N** | Leaving M15 | Every ID in this gate's §4.1 manifest row passes: an interrupted external call reaches `ATTEMPTED_OUTCOME_UNKNOWN` and neither assumption is made; the ten transitions of persistence §9.4 are exercised under contention and a stale token settles nothing |
 | **G-O** | Leaving M16 | Compensation requires its own authorisation; an unauthorised compensation escalates with the effect standing |
 | **G-P** | Leaving M18 | RLS and application scope checks are independently sufficient; no credential grants a Right |
 | **G-Q** | Leaving M19 | No bypass parameter exists anywhere; S8 passes |
-| **G-R** | Leaving M20 | **Every ID in every canonical assurance inventory passes** — adversarial **61**, positive controls **11**, architecture invariant **12**, approval-gate **8**, static CI **10**, all derived from the owning tables and none expressed as a range; mutation classifications re-derived independently; every documented count derived from its canonical inventory |
+| **G-R** | Leaving M20 | **Every ID in every canonical assurance inventory passes** — adversarial **67**, positive controls **12**, architecture invariant **12**, approval-gate **8**, static CI **10**, all derived from the owning tables and none expressed as a range; mutation classifications re-derived independently; every documented count derived from its canonical inventory |
+
+### 4.1 The assurance manifest — which gate requires which ID
+
+**This table is the manifest.** It assigns **every** ID of **every** canonical assurance
+inventory (`test-and-assurance-strategy.md` §2a) to exactly one gate. A gate row above that names
+"this gate's §4.1 manifest row" requires every ID in its row here, and nothing else in this
+document expresses an assurance requirement as a contiguous range.
+
+**Rule SQ-1a — the manifest is a partition, derived and checked.** The validator parses the five
+canonical inventories and the rows below, and fails on either error: an ID in an inventory that
+appears in **no** manifest row (a test nobody's gate requires), or an ID in a manifest row that
+exists in **no** inventory (a gate requiring a test nobody wrote). An ID appearing in two rows is
+also a failure: a requirement owned twice is owned by neither. Suffixed IDs (`A12a`, `A17b`,
+`P-A12c`) and non-contiguous IDs are first-class here; prefix matching is prohibited (Rule T-17).
+
+**Rule SQ-1b — adding a test adds a manifest row entry in the same change.** A new adversarial
+row or positive control that is not assigned here fails the validator rather than sitting outside
+every gate, which is exactly how A48–A55 and P-A49 came to be required by nothing.
+
+| Gate | Milestone | Required assurance IDs |
+|---|---|---|
+| **G-A** | M1 | A22, A23, A24, A25, I1, I2, I6, S3 |
+| **G-B** | M2 | A26, A27, A30, I4, I7, S5, S6 |
+| **G-C** | M3 | A29, A31, A36, A37, I5, I12, S2, S10 |
+| **G-D** | M4 | A32, A33, A34, A35, P-A32, P-A34, P1, P2, P3, P4 |
+| **G-E** | M6 | A13, I3, I8, S9 |
+| **G-F** | M7 | A4, A5, A6, A7, A11, A12a, A12b, A12c, A12d, A12e, A12f, P-A12, P-A12c, I9, S4 |
+| **G-G** | M8 | A1, A2, A3, A8, A9, A10 |
+| **G-H** | M9 | A19, A20, P5, P6 |
+| **G-I** | M10 | A18, P7, P8, I10 |
+| **G-J** | M11 | A15, A16, A17a, A17b, A47, P-A17, I11 |
+| **G-K** | M12 | A21, A38, A39, A40, A53, A54, P-A38, P-A40 |
+| **G-L** | M13 | S1, S7 |
+| **G-M** | M14 | A14, A28, A44, A45, A46, A55, A61, P-A44 |
+| **G-N** | M15 | A41, A42, A43, A48, A49, A50, A51, A52, A56, A57, A58, A59, A60, P-A41, P-A42, P-A49, P-A56 |
+| **G-O** | M16 | *(none assigned — see the note below)* |
+| **G-P** | M18 | S8 |
+| **G-Q** | M19 | *(none assigned — see the note below)* |
+| **G-R** | M20 | *(none assigned — G-R requires **every** ID in every inventory and therefore owns none exclusively)* |
+
+**Note on the three rows with no exclusive IDs.** G-O, G-Q and G-R carry criteria that are not
+expressed as assurance IDs: compensation lineage, the absence of a bypass parameter, and the
+whole-inventory requirement respectively. Writing a placeholder ID into those rows to make the
+table look uniform would create an orphan, which Rule SQ-1a exists to reject. G-R is deliberately
+the one gate that requires everything, and it is stated that way rather than by restating the
+partition.
 
 ## 5. Four things that must never be built "temporarily"
 

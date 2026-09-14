@@ -139,9 +139,9 @@ authorised. The four most consequential:
 | Item | Count |
 |---|---|
 | Specification documents under `implementation-spec/` | 20 |
-| Validator checks | **97**, in 14 groups: `structure` 6 · `containment` 6 · `invariants` 5 · `knowledge` 6 · `scope` 6 · `routing` 3 · `events` 5 · `authority` 5 · `persistence` 7 · `races` 5 · `approval` 4 · `completeness` 6 · `fidelity` 11 · `crossdoc` 22 |
+| Validator checks | **102**, in 14 groups: `structure` 6 · `containment` 6 · `invariants` 5 · `knowledge` 6 · `scope` 6 · `routing` 3 · `events` 5 · `authority` 5 · `persistence` 7 · `races` 5 · `approval` 4 · `completeness` 6 · `fidelity` 11 · `crossdoc` 27 |
 | Validator | `validation/phase_14_validation.py`, standard library only, deterministic, no network |
-| Adversarial fixture | `validation/phase_14_mutation_probes.py`, **59 committed controlled weakenings**, 59 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
+| Adversarial fixture | `validation/phase_14_mutation_probes.py`, **73 committed controlled weakenings**, 73 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
 | Governed commands | **36**, each with exactly one transaction contract; the two sets are compared and equal |
 | Durable uniqueness constraints | **23** (U1–U23), one canonical inventory, every stated count derived from it |
 | Executable production code, migrations, manifests, SDK dependencies | **0** |
@@ -149,7 +149,7 @@ authorised. The four most consequential:
 | Decision Rights created | **0** |
 | Operations specified as permanently refusing until a Right is mapped | **4** |
 
-Phase 14 validator result: `97/97 PASS` on default, `--verbose` and `--json`.
+Phase 14 validator result: `102/102 PASS` on default, `--verbose` and `--json`.
 
 **Adversarial fixture.** `validation/phase_14_mutation_probes.py` is committed and runs from a
 clean checkout. Each probe weakens one load-bearing rule in a temporary copy of the package and
@@ -166,9 +166,10 @@ Two harness artefacts were found while building it and are recorded rather than 
    checks were added for exactly those rules, and one probe was re-targeted from a
    divergence-table description to the load-bearing statement it was supposed to attack.
 
-Current result: **59 probes, 59 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR`**, each caught by a named
-substantive check. The twelve added in revision 5 are in §11.1, the sixteen from revision 4 in
-§10.1, the twelve from revision 3 in §9.1, and the original set is:
+Current result: **73 probes, 73 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR`**, each caught by a named
+substantive check. The fourteen added in revision 6 are in §12.1, the twelve from revision 5 in
+§11.1, the sixteen from revision 4 in §10.1, the twelve from revision 3 in §9.1, and the original
+set is:
 
 | Weakening | Caught by |
 |---|---|
@@ -254,7 +255,7 @@ as the fixture requires, and was repaired — which is the fixture working, not 
 
 | # | Blocker | Closed by |
 |---:|---|---|
-| 1 | Three incompatible statements about the Routing Request lifecycle | **One lifecycle.** `RequestRouting` no longer exists as a governed command; the prospective envelope is constructed **inside** `route()` and reaches storage only with a validated answer. Four branches are encoded identically in the API inventory, the router contract and the transaction table: **B1** invalid answer → zero writes, zero audit events, one refusal event; **B2** selection and **B3** valid non-selection → request and decision commit together, 2 audit events; **B4** re-submission → the decision only, 1 audit event. A valid refusal **is** recorded because Phase 11 §3 says the refusals are the important half; an invalid answer is not, because it is the absence of an answer. **U6 was wrong and is corrected**: Phase 11 §5 says a retry re-submits the *same* request and every attempt's decision is recorded, so uniqueness is `(routing_request_ref, submission_ordinal)`, not one decision per request |
+| 1 | Three incompatible statements about the Routing Request lifecycle | **One lifecycle.** `RequestRouting` no longer exists as a governed command; the prospective envelope is constructed **inside** `route()` and reaches storage only with a validated answer. The branches are encoded identically in the API inventory, the router contract and the transaction table, and **their current cardinalities are stated only in those tables** — revision 5 split B1 into B1/B1r and B4 into B4s/B4n and made B3 and B4n carry run-state appends, so any count quoted in this narrative would be the next thing to go stale. See `api-command-contracts.md` §5.4 Rules Q-17, Q-17a and Q-17b for the current branch set and counts. A valid refusal **is** recorded because Phase 11 §3 says the refusals are the important half; an invalid answer is not, because it is the absence of an answer. **U6 was wrong and is corrected**: Phase 11 §5 says a retry re-submits the *same* request and every attempt's decision is recorded, so uniqueness is `(routing_request_ref, submission_ordinal)`, not one decision per request |
 | 2 | O-20 required a halt while the transaction row said "Nothing written" | **Nine branches, none writing nothing.** R1, R2, R2f, R3, R3a, R4, R6, R7 and RX each state preconditions, phase and posture before and after, exact writes, audit and execution counts, whether a dispatch record exists and whether an escalation record does. R4, R6 and RX write a `retry_refusal_record`, a block and an escalation — **3 audit events**, in one transaction. O-20 now says it plainly: **a halt is a write.** Compensation is never reached by retrying (Q-31) |
 | 3 | `InvokeModel` looked like one local transaction across a provider call | **Five stages, four identities, three commands, three transactions.** Stage 1 commits intent, a `NOT_ATTEMPTED` provider attempt and an outbox row — **no provider call happens inside it**. Stage 2 is explicitly not transactional. Stage 3 records the observed outcome; stage 4 writes the Model Result **only** from `CONFIRMED_APPLIED`; stage 5 reconciles. `ModelInvocationRef`, `ProviderAttemptRef`, `ModelResultRef` and `ReconciliationRef` are never collapsed. Crash behaviour is specified at every boundary, including the one that matters: **an attempt whose lease expired reads as `ATTEMPTED_OUTCOME_UNKNOWN`, never as `NOT_ATTEMPTED`** — the single place an optimistic reading would duplicate an external effect. **A timeout is not proof that nothing happened** (Q-23). No distributed transaction and no exactly-once |
 | 4 | The audit field table said `record_version_after` was always non-null; the matrix said `NULL` for `DESTROY` | The field table now states *conditional on `mutation_kind`* for **both** version columns and defers to §4.1, which is declared the only statement of nullability. `DESTROY` stays defined and **unreachable**: BA-3 is blocked and `destroy_governed_content` writes zero records |
@@ -312,6 +313,46 @@ Probe 12 is the V4 miss reproduced exactly: it changes **only** this document's 
 reintroduces the removed command, leaving every canonical inventory correct. The V4 harness
 passed that mutation. This one does not.
 
+## 12. The re-audit V5 blockers, and how each was closed
+
+| # | Blocker | Closed by |
+|---:|---|---|
+| 1 | The external-call boundary was not crash-safe: `CLAIMED` meant no call had happened and `DISPATCHED` meant one had, but no transition was atomic with the provider call, so a crash after the call left a re-dispatchable `CLAIMED` row | A **committed pre-call state**. The vocabulary is now six values — `PENDING` · `CLAIMED` · `DISPATCH_PENDING` · `UNCERTAIN` · `SETTLED` · `ABANDONED` — and the call is made **only** after `DISPATCH_PENDING` commits with the monotone `boundary_crossed` flag set (PO-7, PO-9). `CLAIMED` is therefore the one state whose safety is structural rather than inferred (PO-8), and recovery decides what a stale row becomes by reading that flag, never the clock or the previous state's name (PO-10). Five crash points are defined, including the two that were one: the call boundary itself, and provider acceptance before local persistence. No distributed transaction, no exactly-once (PO-11, PO-17) |
+| 2 | `O4` was a partial unique index predicated on `lease_expires_at > now()` — **not implementable**, since a unique-index predicate must be immutable — and `O1`/`O4` both constrained `outbox_ref` | `O1`–`O5` are redesigned as ordinary durable constraints. `O1` is the **only** identity constraint; `O4` is a time-free `CHECK` tying the ownership columns to the owning states; `O5` carries the monotonic `claim_generation`. Exclusivity is a property of the row — `lease_owner` is one column, so there is nowhere for a second owner — and is made enforceable under contention by the compare-and-swap of PO-3 and the generation fence of PO-4, not by an index (PO-2). `lease_expires_at` schedules attention and never transfers ownership (PO-5), so clock skew cannot produce two writers who both believe they hold the row |
+| 3 | Only `PENDING → CLAIMED` was precise | §9.4 specifies **ten** transitions `T1`–`T10`, each with its exact reads, its full predicate, its writes, its fencing requirement, whether redispatch is permitted afterwards and whether reconciliation is mandatory. Claim renewal (T3), both expired-claim recoveries (T6, T7), both reconciliation outcomes (T8, T9) and pre-call retirement (T10) are included. Every transition fences on `claim_generation`; every transition a claimant makes also fences on `claim_token`, so a stale writer settles nothing (PO-12). Stage 3/4 success carries **T4 in the same local transaction** (PO-13), and A59 fails if a committed outcome is left beside an unsettled dispatch item |
+| 4 | Two active `P-23` rules | The outbox protocol's rules are renamed into their own `PO-` namespace (`PO-1`…`PO-19`), leaving §11's `P-23` untouched, and every cross-reference in five documents is updated. The validator now derives **every** rule definition in the package and rejects any repeated identifier — which immediately found **two further collisions the V5 audit did not name**: `V-7` (introduced by revision 5's outbox-audit rule) and a false `V-5` collision caused by the `V-5-matrix` identifier. The first is renamed `V-6d`; the second was a defect in the check's own pattern and is fixed. 373 rule identifiers, each defined once |
+| 5 | Stale routing and refusal prose in active locations | The self-check narrative no longer quotes any branch count and points at the owning tables instead; the router's `CANDIDATE_UNIVERSE_INCOMPLETE` text is now deterministic — `BLOCKED` **then** `ESCALATED`, posture `GATE_UNSATISFIED` — matching M-7a and Q-17b; and gate `G-K` no longer says a refused route leaves "no event", but states that an **invalid** answer leaves no governed record and no audit event while appending exactly one refusal execution event that is never governance evidence. The search was not limited to the three named lines: the new cross-document check reads every sentence of every document |
+| 6 | Milestone gates omitted the remediation tests | §4.1 of the sequencing document is a **manifest**: every ID of every canonical assurance inventory is assigned to exactly one gate. Rule SQ-1a makes it a checked partition — an inventory ID in no row, a manifest ID in no inventory, or an ID in two rows all fail — and SQ-1b requires a new test to be assigned in the same change. Six gates that carried hand-written contiguous lists now point at their manifest row. A48–A55, P-A49 and the six new IDs are required by `G-K`, `G-M` and `G-N`. Suffixed and non-contiguous IDs are first-class; ranges are rejected |
+| 7 | Six nearby mutations escaped the V5 harness | Three checks, all of which compare **derived** facts across **every** active location rather than reading one canonical sentence. The routing check treats **only** `persistence-and-transaction-model.md` §7.2 as the owner and compares the API branch table, the router branch table and all prose against it; it scans **paragraph units** so a wrapped sentence cannot hide, and applies the historical exemption **per sentence** so one "no longer exists" clause in a long table row cannot exempt the rest of it — which is precisely how two of the six escaped a first attempt at this check. The unknown-effect check rejects any line pairing an unknown external effect with automatic replay. The refusal-equality and obsolete-command checks already scanned every document and are extended. All six escape classes are reproduced as committed probes (§12.1, probes 8–13) |
+
+### 12.1 Assurance added for exactly these failures
+
+Fourteen new probes, each detected by a named substantive check:
+
+| # | Weakening | Caught by |
+|---:|---|---|
+| 1 | A time-dependent partial index returns as an ownership constraint | The outbox protocol is implementable and vendor-free |
+| 2 | A redundant identity uniqueness restates `O1` | The outbox protocol is implementable and vendor-free |
+| 3 | The crash point after provider acceptance is removed | The external-call boundary is crash-safe and every transition is fenced |
+| 4 | Settlement stops being token-fenced | The external-call boundary is crash-safe and every transition is fenced |
+| 5 | Stage 3/4 success stops settling the dispatch item | The external-call boundary is crash-safe and every transition is fenced |
+| 6 | A normative rule identifier is defined twice | No normative rule identifier is defined twice |
+| 7 | A remediation test is required by no milestone gate | The assurance manifest partitions the canonical inventories |
+| 8 | Stale routing cardinality prose returns to the self-check narrative | No active location contradicts the routing branch semantics |
+| 9 | **B3** loses its run-state append in the **API** branch table | No active location contradicts the routing branch semantics |
+| 10 | **B4n** loses its inherited consequence in the **API** branch table | No active location contradicts the routing branch semantics |
+| 11 | **B1r** advances the submission ordinal in nearby API prose | No active location contradicts the routing branch semantics |
+| 12 | A nearby **router** location drops B4n's run-state appends | No active location contradicts the routing branch semantics |
+| 13 | A nearby **assurance** location requires equal total execution-event counts | A required refusal event never contradicts observational equality |
+| 14 | A nearby location permits automatic redispatch of an unknown effect | No active location permits auto-redispatch of an unknown external effect |
+
+Probes 8–13 are the six V5 escapes reproduced exactly: each edits a **second** statement of a
+fact while the canonical table stays correct. Five of the fourteen were `REDUNDANT` on their
+first run — three because the checks read one line at a time and the sentences that carried the
+claim had wrapped, and two because a single historical clause in a long table row exempted every
+other claim in the same row. Both defects were in the checks, both were found by the fixture, and
+both are recorded here rather than quietly repaired.
+
 ## 7. Known limitations of this self-check
 
 1. It is a producer self-check. The producer of a specification is the last party who should
@@ -325,13 +366,20 @@ passed that mutation. This one does not.
 4. The four blocked authorities mean an implementation built exactly to this specification would
    hold no canonical positions, destroy nothing, re-parent no scope, and never contract a schema
    against governed data. That is intended and it is also a substantial functional limit.
-5. **A green harness has now four times missed real contradictions.** 74/74, then 81/81, then
-   90/90 with 47 probes' worth of confidence, each coexisted with blockers an independent reader
-   found. Every round the missed defects were cross-document or localized — never inside one
-   table a single check was looking at. The `crossdoc` group has grown from 6 checks to 22 for
-   that reason, and the honest reading is unchanged: **it closes what was found.** 97/97 and
-   59/59 are not evidence that nothing else is wrong, and this package's credibility should not
-   be rated higher merely because the numbers went up.
+5. **A green harness has now five times missed real contradictions.** 74/74, then 81/81, then
+   90/90, then 97/97 with 59 probes' worth of confidence, each coexisted with blockers an
+   independent reader found. Every round the missed defects were cross-document or localized —
+   never inside one table a single check was looking at, and in the V5 round they were
+   deliberately planted *beside* the canonical statement rather than in it. The `crossdoc` group
+   has grown from 6 checks to 27 for that reason, and the honest reading is unchanged: **it
+   closes what was found.** 102/102 and 73/73 are not evidence that nothing else is wrong, and
+   this package's credibility should not be rated higher merely because the numbers went up.
+
+8. **Two of the seven V5 blockers were defects the harness had itself introduced** — the
+   duplicate `P-23` and the non-implementable `O4` predicate both arrived in revision 5, passed
+   90/90, and were caught by a human reader. The generic duplicate-rule check added in this
+   round then found two more collisions nobody had reported. A harness that only tests what its
+   author thought to test will keep producing that pattern.
 
 7. One probe of revision 5 — the outbox losing its stable identity and uniqueness — came back
    `REDUNDANT` on its first run, because the check it attacked asked whether the constraint rows
