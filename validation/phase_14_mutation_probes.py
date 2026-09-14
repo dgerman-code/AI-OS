@@ -80,8 +80,8 @@ PROBES = [
 
     ("the transaction table stops stating audit counts",
      "persistence-and-transaction-model.md",
-     "| **scope_transfer** | Source run, retained Decision Records, mechanism registry, target definition | All source-side clauses **and** every target-run creation condition, via one shared preflight | Source run `record_version` | `scope_transfer_authorisation`, target `workflow_run`, target `scope_binding`, provenance link | **4** |",
-     "| **scope_transfer** | Source run, retained Decision Records, mechanism registry, target definition | All source-side clauses **and** every target-run creation condition, via one shared preflight | Source run `record_version` | `scope_transfer_authorisation`, target `workflow_run`, target `scope_binding`, provenance link | as needed |",
+     "| **scope_transfer** | — | Source run, retained Decision Records, mechanism registry, target definition | All source-side clauses **and** every target-run creation condition, via one shared preflight | Source run `record_version` | `scope_transfer_authorisation`, target `workflow_run`, target `scope_binding`, provenance link | **4** |",
+     "| **scope_transfer** | — | Source run, retained Decision Records, mechanism registry, target definition | All source-side clauses **and** every target-run creation condition, via one shared preflight | Source run `record_version` | `scope_transfer_authorisation`, target `workflow_run`, target `scope_binding`, provenance link | as needed |",
      "audit-event-per-governed-record-write cardinality"),
 
     ("U19 keys on a nonexistent ACTIVE approval status",
@@ -177,14 +177,14 @@ PROBES = [
 
     ("a transaction row has no governed API command",
      "api-command-contracts.md",
-     "| 27 | `RaiseConflict` | N | `raise_conflict` |",
+     "| 28 | `RaiseConflict` | N | `raise_conflict` |",
      "| 27 | `RaiseConflict` | N | `raise_conflict_other` |",
      "transaction act set == API command set"),
 
     ("the two approval acts collapse back into one ambiguous class",
      "api-command-contracts.md",
-     "| 30 | `TranscribeApprovalState` | **h** | `transcribe_approval_state` |",
-     "| 30 | `TranscribeApprovalState` | **H** | `transcribe_approval_state` |",
+     "| 31 | `TranscribeApprovalState` | **h** | `transcribe_approval_state` |",
+     "| 31 | `TranscribeApprovalState` | **H** | `transcribe_approval_state` |",
      "approval command classes match registry semantics"),
 
     ("transcription may create approval without an authoritative source",
@@ -201,7 +201,7 @@ PROBES = [
 
     ("the uniqueness count in a milestone drifts from the inventory",
      "implementation-sequencing.md",
-     "Every constraint in the canonical uniqueness inventory (currently **21**)",
+     "Every constraint in the canonical uniqueness inventory (currently **23**)",
      "All 20 uniqueness constraints",
      "uniqueness inventory count == milestone references"),
 
@@ -228,6 +228,103 @@ PROBES = [
      "| — | **0 — nothing is ever written** | **0** | 1 (refusal) | — | **Blocked at precondition 9 (BA-1).",
      "| — | `canonical_record` | **1** | 1 (refusal) | — | **Blocked at precondition 9 (BA-1).",
      "blocked commands declare zero writes"),
+
+    # ---- re-audit v3 required coverage -------------------------------------------------
+    ("the Routing Request is persisted by a separate command as well as by route()",
+     "api-command-contracts.md",
+     "| 4 | `Route` | S | `route` |",
+     "| 4 | `RequestRouting` | S | `request_routing` | Halted guard | Routing request | `RUN_HALTED` |\n| 4 | `Route` | S | `route` |",
+     "one Routing Request lifecycle"),
+
+    ("a malformed Router answer leaves a committed request",
+     "persistence-and-transaction-model.md",
+     "| **route** | B1 invalid answer | Run, Work Item, Routing Policy @v, candidate universe | Halted guard; answer type, request identity, run and Work Item binding, Router identity, six-part completeness on a selection | Run `record_version` | **0 — no request, no decision** | **0** |",
+     "| **route** | B1 invalid answer | Run, Work Item, Routing Policy @v, candidate universe | Halted guard; answer type, request identity, run and Work Item binding, Router identity, six-part completeness on a selection | Run `record_version` | `routing_request` | **1** |",
+     "malformed Router output commits nothing"),
+
+    ("U6 forbids a second decision for a re-submitted request",
+     "persistence-and-transaction-model.md",
+     "| U6 | Routing Decision | `UNIQUE (routing_request_ref, submission_ordinal)` |",
+     "| U6 | Routing Decision | `UNIQUE (routing_request_ref)` |",
+     "a retry re-submits the same request"),
+
+    ("a class-4 retry writes nothing instead of blocking and escalating",
+     "persistence-and-transaction-model.md",
+     "| **retry** | R4 refused, non-retryable (class 4) | Work Item bound retry class | The request is made at all | Run `record_version` | `retry_refusal_record`, run phase → `BLOCKED`, run phase → `ESCALATED` | **3** |",
+     "| **retry** | R4 refused, non-retryable (class 4) | Work Item bound retry class | The request is made at all | Run `record_version` | none | **0** |",
+     "a refused retry is a governed write"),
+
+    ("a class-6 unknown external effect is retried automatically",
+     "persistence-and-transaction-model.md",
+     "| **retry** | R6 refused, external side effect (class 6) | Work Item class, the attempt's external-effect state | The request is made at all | Run `record_version` | `retry_refusal_record` naming the external-effect state, run phase → `BLOCKED`, run phase → `ESCALATED` | **3** |",
+     "| **retry** | R6 refused, external side effect (class 6) | Work Item class, the attempt's external-effect state | The request is made at all | Run `record_version` | `retry_attempt`, run phase | **2** |",
+     "class 6 never becomes a retry"),
+
+    ("model invocation claims local atomicity across the provider call",
+     "persistence-and-transaction-model.md",
+     "| **invoke_model** | S1 local intent | Recorded Routing Decision, Work Item | Halted guard, decision is this run's, outcome eligible. **No provider call occurs in this transaction** | Run `record_version` | `model_invocation` intent, `provider_attempt` at `NOT_ATTEMPTED`, outbox row | **3** |",
+     "| **invoke_model** | S1 local intent | Recorded Routing Decision, Work Item | Halted guard, decision is this run's, outcome eligible | Run `record_version` | `model_invocation`, `model_result` | **2** |",
+     "model invocation is staged, not one local commit"),
+
+    ("a timeout is treated as proof that no external effect occurred",
+     "api-command-contracts.md",
+     "**Rule Q-23 — a timeout is not proof that nothing happened.**",
+     "**Rule Q-23 — a timeout means the call did not happen.**",
+     "unknown external effects are neither assumed nor retried"),
+
+    ("record_version_after is forced non-null for DESTROY",
+     "audit-provenance-observability.md",
+     "| `DESTROY` | A governed record was destroyed | **NOT NULL** | **NULL** — there is no after |",
+     "| `DESTROY` | A governed record was destroyed | **NOT NULL** | **NOT NULL** |",
+     "the version-nullability matrix"),
+
+    ("the audit field table restates an unconditional nullability",
+     "audit-provenance-observability.md",
+     "| 2b | `record_version_after` | **Conditional on `mutation_kind` — §4.1** | The version it holds after |",
+     "| 2b | `record_version_after` | **NO for every successful write** | The version it holds after |",
+     "field table and matrix agree"),
+
+    ("a normative gate states a stale uniqueness count in digits",
+     "implementation-sequencing.md",
+     "canonical uniqueness inventory (currently **23**)",
+     "canonical uniqueness inventory (currently **21**)",
+     "every normative count matches the inventory"),
+
+    ("a normative gate states a stale uniqueness count in words",
+     "implementation-sequencing.md",
+     "**every constraint in the canonical uniqueness inventory**",
+     "**twenty** uniqueness constraints",
+     "word-form count drift"),
+
+    ("the self-check states a stale governed-act count",
+     "phase-14-self-check.md",
+     "| Governed commands | **36**,",
+     "| Governed commands | **seventeen**,",
+     "stale governed-act count"),
+
+    ("M20 omits a current adversarial test by reverting to a range",
+     "implementation-sequencing.md",
+     "| **M20** | Assurance completion | **Every ID in each canonical assurance inventory**",
+     "| **M20** | Assurance completion | The adversarial set A1–A30",
+     "assurance gates require the whole inventory"),
+
+    ("G-R omits the positive controls",
+     "implementation-sequencing.md",
+     "| **G-R** | Leaving M20 | **Every ID in every canonical assurance inventory passes**",
+     "| **G-R** | Leaving M20 | A1–A30 and I1–I12 pass",
+     "assurance gates require the whole inventory"),
+
+    ("a normative gate cites an assurance ID that does not exist",
+     "implementation-sequencing.md",
+     "| **G-G** | Leaving M8 | Each gate kind admits exactly one evidence type; A1, A2 and A3 pass |",
+     "| **G-G** | Leaving M8 | Each gate kind admits exactly one evidence type; A1, A2, A3 and A99 pass |",
+     "no orphan assurance IDs"),
+
+    ("BA-1 stops covering governed downgrade",
+     "open-items-and-blocked-authorities.md",
+     "| **Also blocked: governed downgrade** |",
+     "| **Also permitted: governed downgrade** |",
+     "BA-1 fails closed in both directions"),
 ]
 
 

@@ -7,11 +7,22 @@ This is a **producer self-check**, not an independent audit. It records what thi
 claims, what it does not, and where each Phase 13 obligation is discharged. Every number below
 is read from an executable artifact, not written by hand.
 
+> **Revision 4 — routing lifecycle, retry refusal, external-effect staging, audit nullability,
+> assurance inventories.** Re-audit V3 returned `FAIL / NOT READY` on seven blockers: three
+> incompatible statements about when a Routing Request becomes durable; a retry row saying
+> "nothing written" where O-20 requires a halt; `InvokeModel` modelled as one local transaction
+> across an external call; an audit field table contradicting its own nullability matrix; stale
+> counts in digits and words; assurance gates frozen at `A1–A30` and `P1–P8`; and a validator
+> that passed a localized count mutation because a correct count survived elsewhere. All seven
+> are closed; §10 records each. The validator is 90 checks with a 15-check cross-document group,
+> and the probe fixture is 47.
+
 > **Revision 3 — transaction completeness, approval recording, assurance consistency.** The
 > independent re-audit v2 found six blockers behind a green 74/74 and 19/19: the transaction
-> table claimed exhaustiveness over 17 of 35 governed commands, `RecordApprovalState` was one
-> command doing two contradictory jobs, A12 still attacked a terminal contract that no longer
-> existed, A17 asserted and denied the same thing, the audit schema required a before-version on
+> table claimed exhaustiveness over a fraction of the governed commands, `RecordApprovalState`
+> was one command doing two contradictory jobs, the terminal adversarial test still attacked a
+> contract that no longer existed, the canonical-promotion test asserted and denied the same
+> thing, the audit schema required a before-version on
 > inserts, and the uniqueness count had drifted. All six are closed; §9 records each. The
 > validator grew to 81 checks with a new cross-document group, and the probe fixture to 31.
 
@@ -72,7 +83,7 @@ assumed:
 | # | Item | Where | Complete? |
 |---:|---|---|---|
 | **R-1** | Bounded rework loops | `orchestrator-runtime-contract.md` §7 — loop identity, iteration counter, declared `max_iterations` with **no default and no unbounded value**, retained prior iteration instances (O-16), escalation on exhaustion (O-17), DAG check with declared loop bodies contracted so there is no graph-cycle ambiguity (O-18) | **Yes** |
-| **R-2** | Persistent uniqueness / at-most-once | `persistence-and-transaction-model.md` §5 — twenty named durable constraints; `ON CONFLICT DO NOTHING` prohibited (P-7); a duplicate is a failure, not a newer entry (P-8); **exactly-once claimed nowhere** (P-9); reference-kind check constraints (P-10); durable decision-chain separation (P-11) | **Yes** |
+| **R-2** | Persistent uniqueness / at-most-once | `persistence-and-transaction-model.md` §5 — the canonical U1–U23 uniqueness inventory; `ON CONFLICT DO NOTHING` prohibited (P-7); a duplicate is a failure, not a newer entry (P-8); **exactly-once claimed nowhere** (P-9); reference-kind check constraints (P-10); durable decision-chain separation (P-11) | **Yes** |
 
 ## 3. Additional Phase 14 mandatory items
 
@@ -83,7 +94,7 @@ assumed:
 | 4.5 | Full `SUPERSEDED` path | `orchestrator-runtime-contract.md` §12 — eight object families, none destructive; a Decision Record is never superseded by amendment | Yes |
 | 4.6 | Deferred Decision Rights | `open-items-and-blocked-authorities.md` §1 — four blocked authorities, each with operations, candidate identifier, enforcement hook, resolution path and the accepted consequence; B-1 forbids approximation | Yes |
 | 6 | Specification depth | Every persisted record specified with field, type, nullability, mutability, uniqueness, references, lifecycle, allowed writer, authority, audit and error outcomes | Yes |
-| 7 | Transactional rule under durable storage | `persistence-and-transaction-model.md` §7 — an eleven-act table with read set, validation set, concurrency check, writes, uniqueness relied on and pre-commit failure behaviour; staged/outbox/reconciliation where atomicity cannot span (§8, §9) | Yes |
+| 7 | Transactional rule under durable storage | `persistence-and-transaction-model.md` §7 — a branch-complete table covering every governed act with read set, preflight set, concurrency check, exact writes, exact audit count, execution count, constraints and pre-commit refusal behaviour; staged/outbox/reconciliation where atomicity cannot span (§8, §9) | Yes |
 | 8 | Approval / authority safety | `decision-review-authority-model.md` §8 — A-9's five prohibitions and A-10's twelve non-substitutions; `NO_APPLICABLE_DECISION_RIGHT` is not `403` (Q-11) | Yes |
 | 9 | Model / provider independence | `model-router-runtime-contract.md` §8 — a vendor-neutral adapter contract; M-15 keeps every vendor name inside Provider and Deployment Profiles, which are data; S1 and S7 enforce it in CI | Yes |
 | 10 | Storage / Supabase position | `persistence-and-transaction-model.md` §11 — Supabase as one option with a plain-PostgreSQL equivalent for every capability; P-23 forbids any invariant depending on a hosted product; RLS is enforcement (X-6), service-role keys are credentials (X-14) | Yes |
@@ -106,12 +117,12 @@ assumed:
 
 ## 5. Specification choices requiring human architectural decision
 
-Eleven, enumerated in `open-items-and-blocked-authorities.md` §2 (OI-1 … OI-11), each classified
+The open items enumerated in `open-items-and-blocked-authorities.md` §2 (OI-1 … OI-11), each classified
 as an **implementation precondition** (OI-2, OI-3, OI-4, OI-6, OI-8) or a
 **production/organisational engineering deferral** (OI-1, OI-5, OI-7, OI-9, OI-10, OI-11). The
 twelfth, OI-12, was **false and has been removed**: the Phase 4 approval record does state its
 baseline commit, and the error originated in the Phase 13 review's own grep. Phase 14 declines to
-make the remaining eleven because making them would create governance no approved phase
+make the remaining ones because making them would create governance no approved phase
 authorised. The four most consequential:
 
 1. **OI-6** — mapping holder-eligibility classes to real people. Without it no decision gate can
@@ -128,17 +139,17 @@ authorised. The four most consequential:
 | Item | Count |
 |---|---|
 | Specification documents under `implementation-spec/` | 20 |
-| Validator checks | **81**, in 14 groups: `structure` 6 · `containment` 6 · `invariants` 5 · `knowledge` 6 · `scope` 6 · `routing` 3 · `events` 5 · `authority` 5 · `persistence` 7 · `races` 5 · `approval` 4 · `completeness` 6 · `fidelity` 11 · `crossdoc` 6 |
+| Validator checks | **90**, in 14 groups: `structure` 6 · `containment` 6 · `invariants` 5 · `knowledge` 6 · `scope` 6 · `routing` 3 · `events` 5 · `authority` 5 · `persistence` 7 · `races` 5 · `approval` 4 · `completeness` 6 · `fidelity` 11 · `crossdoc` 15 |
 | Validator | `validation/phase_14_validation.py`, standard library only, deterministic, no network |
-| Adversarial fixture | `validation/phase_14_mutation_probes.py`, **31 committed controlled weakenings**, 31 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
-| Governed commands | **35**, each with exactly one transaction contract; the two sets are compared and equal |
-| Durable uniqueness constraints | **21** (U1–U21), one canonical inventory, every stated count derived from it |
+| Adversarial fixture | `validation/phase_14_mutation_probes.py`, **47 committed controlled weakenings**, 47 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
+| Governed commands | **36**, each with exactly one transaction contract; the two sets are compared and equal |
+| Durable uniqueness constraints | **23** (U1–U23), one canonical inventory, every stated count derived from it |
 | Executable production code, migrations, manifests, SDK dependencies | **0** |
 | Approved Phase 1–13 artifacts modified | **0** |
 | Decision Rights created | **0** |
 | Operations specified as permanently refusing until a Right is mapped | **4** |
 
-Phase 14 validator result: `81/81 PASS` on default, `--verbose` and `--json`.
+Phase 14 validator result: `90/90 PASS` on default, `--verbose` and `--json`.
 
 **Adversarial fixture.** `validation/phase_14_mutation_probes.py` is committed and runs from a
 clean checkout. Each probe weakens one load-bearing rule in a temporary copy of the package and
@@ -155,9 +166,9 @@ Two harness artefacts were found while building it and are recorded rather than 
    checks were added for exactly those rules, and one probe was re-targeted from a
    divergence-table description to the load-bearing statement it was supposed to attack.
 
-Current result: **31 probes, 31 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR`**, each caught by a named
-substantive check. The twelve added in revision 3 are listed in §9.1; the nineteen from revision
-2 are:
+Current result: **47 probes, 47 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR`**, each caught by a named
+substantive check. The sixteen added in revision 4 are in §10.1, the twelve from revision 3 in
+§9.1, and the original set is:
 
 | Weakening | Caught by |
 |---|---|
@@ -200,7 +211,7 @@ Regression results at this baseline, reported exactly and **not repaired out of 
 | 2 | Model Result validated against a `model_ref` the Routing Decision does not hold | `model-router-runtime-contract.md` §6.2 and Rules M-11/M-11a/M-11b. Five elements (20–21, 23, 24, 25) are compared for **equality**; element 22 is **observed and compared**, and a mismatch fires `PROVIDER_VERSION_CHANGE` and blocks — Phase 9 §0 rule 7 applied where the divergence is observable. A specification that required element 22 to equal itself would check nothing |
 | 3 | `ResolveConflict` made authority-bearing, inventing an authority dependency | Rules K-13a…K-13e restore Phase 8 §3 rule 2 exactly: resolution is an **eligible Role's professional conclusion, checked by review**; a consequent governed status or canonical change is a **separate** act with its own mapped Right. A new auth class `R` carries this in the command catalogue, and `conflict_resolution.decision_record_ref` is **nullable** |
 | 4 | `CancelRun`/`TerminateRun` collapsed, requiring human intervention for both | Separate commands, separate transaction rows, separate audit provenance. `CANCELLED` is `h` with an intervention; `TERMINATED` is **`S`** with a named constraint and **no human identity, never synthesised** (Rules O-6a, Q-9a, V-3a, F-15a) |
-| 5 | Audit-event cardinality contradicted itself across prose, schema and tables | One rule, stated in both owning documents: **one audit event per persisted governed-record mutation, same transaction, linked to that record** (P-14a). No grouping (P-14c). Act-level correlation is distinguished from record-level cardinality (P-14b). §7.2 enumerates **17 governed acts** with their exact audit and execution counts; refusals write none (P-14e) |
+| 5 | Audit-event cardinality contradicted itself across prose, schema and tables | One rule, stated in both owning documents: **one audit event per persisted governed-record mutation, same transaction, linked to that record** (P-14a). No grouping (P-14c). Act-level correlation is distinguished from record-level cardinality (P-14b). §7.2 enumerates **every governed act**, branch by branch, with exact audit and execution counts; refusals write none (P-14e) |
 | 6 | U19 keyed on a nonexistent `ACTIVE` approval status | Currentness is now a **pointer**, not a status: `approval_state_record` is an immutable version history (U21) and `approval_state_current` holds at most one row per subject version (U19). The rule is total — it covers `APPROVED_WITH_CONDITIONS` and every other operative status — and `ACTIVE` is explicitly absent (Rules AP-4a…AP-4c, P-9a, P-9b) |
 | 7a | Rule I-1 claimed every reference is a stable-ID/version pair while the inventory held unversioned instance identities | Two categories: **A** governed definitions and profiles carry *(stable ID, version)*; **B** immutable runtime-instance and governed-record identities carry a stable identity **alone**, because there is no second version of an event that occurred. Rule I-1b states why this loses no reproducibility |
 | 7b | A false OI-12 claiming Phase 4's approval record carried no baseline | Corrected. `reviews/phase-4-final-approval.md` line 7 states `Approved Baseline Commit: 8ddacb2b…`; the commit resolves, is an ancestor, and Phase 4's artifacts are byte-identical to it. OI-12 is **removed, not resolved** — there was never an open question. The error originated in the Phase 13 review and is named as mine |
@@ -209,11 +220,11 @@ Regression results at this baseline, reported exactly and **not repaired out of 
 
 | # | Blocker | Closed by |
 |---:|---|---|
-| 1 | A12 still treated `TerminateRun` as accepting a human intervention and expected `FOREIGN_RUN_LINEAGE` — contradicting the terminal contract repaired in revision 2 | A12 is split. **A12a** keeps the foreign-lineage attack on the **five** commands that do consume an intervention. **A12b–A12f** attack the actual `TerminateRun` contract: missing named constraint, a smuggled `HumanInterventionRecord`, a missing or wrong-kind system identity, an unreachable source phase, and an already-terminal run. Each asserts full observational equality and **no fabricated human provenance**. **P-A12** is the positive control: a valid constraint-driven termination succeeds with **no** intervention and a `NULL` `human_identity_ref` |
+| 1 | A12a–A12f still treated `TerminateRun` as accepting a human intervention and expected `FOREIGN_RUN_LINEAGE` — contradicting the terminal contract repaired in revision 2 | A12a–A12f is split. **A12a** keeps the foreign-lineage attack on the **five** commands that do consume an intervention. **A12b–A12f** attack the actual `TerminateRun` contract: missing named constraint, a smuggled `HumanInterventionRecord`, a missing or wrong-kind system identity, an unreachable source phase, and an already-terminal run. Each asserts full observational equality and **no fabricated human provenance**. **P-A12** is the positive control: a valid constraint-driven termination succeeds with **no** intervention and a `NULL` `human_identity_ref` |
 | 2 | The transaction table claimed exhaustiveness while covering 17 of the governed commands | `api-command-contracts.md` §5.1 is now **the** canonical governed-command inventory — 35 numbered commands, each carrying an explicit **Act** key naming its transaction contract. `persistence-and-transaction-model.md` §7.2 has **35 rows**, keyed identically. The validator derives both sets and requires exact equality in both directions; duplicate coverage is permitted only through an explicit alias, of which there are currently none. Every previously omitted act — `RecordIntervention`, `ResumeRun`, `UnblockRun`, `SupplyGateEvidence`, `CreateKnowledgeItem`, `AdoptAISuggestion`, `RaiseConflict`, `ApplyConsequentStatusChange`, `CompleteRun` — now has a full contract, as do `RequestRouting`, `RequestReview`, `RequestDecision`, `Retry`, `OpenSubRun`, `OpenReworkIteration`, `SupersedeRun` and the four blocked acts |
 | 3 | `RecordApprovalState` was class `H` while the registry said transcription creates no approval and may have null Right lineage | Two commands. **`TranscribeApprovalState`** (`h`) mechanically transcribes an **already-existing** authoritative record, exercises no Right, and may write null `decision_right_ref` **exactly where the source states none**. **`RecordNewApprovalState`** (`H`) persists the result of a **new** governed act and requires its Decision Record to resolve with a human `decided_by`. Neither creates approval, and neither has a parameter through which a decision the source does not contain could be supplied (Q-14, AP-2a, AP-2c). The bootstrap is a bounded, manifested, reviewed `BACKFILL` migration (`migrations-versioning-compatibility.md` §9), not a standing privilege. `security-identity-access.md` X-17a closes the recording-API route explicitly |
 | 4 | The uniqueness count said 20 in milestones while the inventory held 21 | §5.2 is declared **the canonical uniqueness inventory**. Milestone M2 and gate G-B reference it and state the derived number. The validator parses the inventory, computes the count, and fails any document stating a different one |
-| 5 | A17 said a mapped Right is mocked in *and* that refusal follows because none is mapped | **A17a** (`CURRENT`): under the approved universe no applicable Right is mapped, so `PromoteToCanonical` refuses with **zero governed writes, zero audit events**, one refusal execution event. **A17b** (`HYPOTHETICAL`): presenting an arbitrary or non-applicable Right, or a forged Decision Record, does not satisfy BA-1 — and the row states explicitly that **it is not evidence BA-1 is resolved**. **P-A17** records that there is deliberately **no** positive control. Every adversarial row now carries a `Basis` field, and the validator refuses a `HYPOTHETICAL` row that claims a mapped Right exists |
+| 5 | A17a/A17b said a mapped Right is mocked in *and* that refusal follows because none is mapped | **A17a** (`CURRENT`): under the approved universe no applicable Right is mapped, so `PromoteToCanonical` refuses with **zero governed writes, zero audit events**, one refusal execution event. **A17b** (`HYPOTHETICAL`): presenting an arbitrary or non-applicable Right, or a forged Decision Record, does not satisfy BA-1 — and the row states explicitly that **it is not evidence BA-1 is resolved**. **P-A17** records that there is deliberately **no** positive control. Every adversarial row now carries a `Basis` field, and the validator refuses a `HYPOTHETICAL` row that claims a mapped Right exists |
 | 6 | The audit schema required a non-null `record_version_before` on inserts, which cannot exist | `mutation_kind` is an explicit eight-value enum, and §4.1 is a nullability matrix keyed on it: `INSERT` requires before **NULL**; `VERSION_APPEND`, `UPDATE`, `LINK_APPEND`, `LIFECYCLE_STATE_CHANGE` and `SUPERSEDE` require both; `POINTER_MOVE` is null on creation and non-null on a move; `DESTROY` is defined now — before mandatory, after null — **and remains unreachable, because BA-3 is blocked**. A refused transaction writes no audit event at any kind |
 
 ### 9.1 Assurance added for exactly these failures
@@ -222,7 +233,7 @@ Twelve new probes, each detected by a named substantive check:
 
 | Weakening | Caught by |
 |---|---|
-| A12 regresses to human-intervention termination | Adversarial metadata vs command contracts |
+| A12a–A12f regresses to human-intervention termination | Adversarial metadata vs command contracts |
 | The termination positive control is removed | Adversarial metadata vs command contracts |
 | A governed API command is dropped from the transaction table | Command set == transaction act set |
 | A transaction row has no governed API command | Command set == transaction act set |
@@ -230,7 +241,7 @@ Twelve new probes, each detected by a named substantive check:
 | Transcription may create approval without a source | Approval classes vs registry semantics |
 | Approval history written without the pointer move | Approval classes vs registry semantics |
 | A milestone's uniqueness count drifts | One inventory, cited consistently |
-| A17 mixes current and hypothetical | Canonical-promotion test consistency |
+| A17a/A17b mixes current and hypothetical | Canonical-promotion test consistency |
 | An `INSERT` audit event requires a before-version | Version-nullability matrix |
 | A newly covered act stops stating its audit count | Audit cardinality |
 | A blocked command is allowed a governed write | Blocked commands declare zero writes |
@@ -239,20 +250,52 @@ One further correction was made while building these: an existing probe's target
 when the transaction table's row keys changed from prose names to act keys. It failed **loudly**,
 as the fixture requires, and was repaired — which is the fixture working, not a defect in it.
 
+## 10. The re-audit V3 blockers, and how each was closed
+
+| # | Blocker | Closed by |
+|---:|---|---|
+| 1 | Three incompatible statements about the Routing Request lifecycle | **One lifecycle.** `RequestRouting` no longer exists as a governed command; the prospective envelope is constructed **inside** `route()` and reaches storage only with a validated answer. Four branches are encoded identically in the API inventory, the router contract and the transaction table: **B1** invalid answer → zero writes, zero audit events, one refusal event; **B2** selection and **B3** valid non-selection → request and decision commit together, 2 audit events; **B4** re-submission → the decision only, 1 audit event. A valid refusal **is** recorded because Phase 11 §3 says the refusals are the important half; an invalid answer is not, because it is the absence of an answer. **U6 was wrong and is corrected**: Phase 11 §5 says a retry re-submits the *same* request and every attempt's decision is recorded, so uniqueness is `(routing_request_ref, submission_ordinal)`, not one decision per request |
+| 2 | O-20 required a halt while the transaction row said "Nothing written" | **Nine branches, none writing nothing.** R1, R2, R2f, R3, R3a, R4, R6, R7 and RX each state preconditions, phase and posture before and after, exact writes, audit and execution counts, whether a dispatch record exists and whether an escalation record does. R4, R6 and RX write a `retry_refusal_record`, a block and an escalation — **3 audit events**, in one transaction. O-20 now says it plainly: **a halt is a write.** Compensation is never reached by retrying (Q-31) |
+| 3 | `InvokeModel` looked like one local transaction across a provider call | **Five stages, four identities, three commands, three transactions.** Stage 1 commits intent, a `NOT_ATTEMPTED` provider attempt and an outbox row — **no provider call happens inside it**. Stage 2 is explicitly not transactional. Stage 3 records the observed outcome; stage 4 writes the Model Result **only** from `CONFIRMED_APPLIED`; stage 5 reconciles. `ModelInvocationRef`, `ProviderAttemptRef`, `ModelResultRef` and `ReconciliationRef` are never collapsed. Crash behaviour is specified at every boundary, including the one that matters: **an attempt whose lease expired reads as `ATTEMPTED_OUTCOME_UNKNOWN`, never as `NOT_ATTEMPTED`** — the single place an optimistic reading would duplicate an external effect. **A timeout is not proof that nothing happened** (Q-23). No distributed transaction and no exactly-once |
+| 4 | The audit field table said `record_version_after` was always non-null; the matrix said `NULL` for `DESTROY` | The field table now states *conditional on `mutation_kind`* for **both** version columns and defers to §4.1, which is declared the only statement of nullability. `DESTROY` stays defined and **unreachable**: BA-3 is blocked and `destroy_governed_content` writes zero records |
+| 5 | Stale counts in digits and words, and stale ranges | Swept across every document, in both forms. Counts are stated where they are useful and **derived**: uniqueness from the U-inventory, governed commands from the inventory table, adversarial and positive-control totals from their owning tables. The validator checks **every** occurrence, leading or trailing, in digits or in words |
+| 6 | M20 and G-R required only `A1–A30` and `P1–P8` | **Five canonical assurance inventories** (§2a of the test strategy), parsed from their owning tables, supporting non-contiguous and suffixed IDs exactly. M20 and G-R require **every ID in every inventory** and state the derived sizes; the validator rejects a range, a wrong count, and any cited ID that does not exist. Rule T-17 makes the exactness explicit: a bare unsuffixed identifier is not an ID where the inventory holds only its suffixed forms, and prefix matching is prohibited in every derivation |
+| 7 | A localized count mutation passed because a correct count survived elsewhere | The count check no longer asks whether *some* occurrence is right. It derives each inventory's size and checks **every** count-bearing location in every document, leading (`**23** uniqueness constraints`) and trailing (`inventory (currently **23**)`, `\| Governed commands \| **36**`), in digits and in word form. Probes 8, 9 and 10 exist precisely to prove it |
+
+### 10.1 Assurance added for exactly these failures
+
+Sixteen new probes. Three of them were **not** detected on first run and are the reason three
+checks changed:
+
+| Not detected at first | What it exposed | Fix |
+|---|---|---|
+| Stale uniqueness count in digits in one gate | The count check only matched a number *before* its subject; `inventory (currently **21**)` puts it after | Trailing-form patterns added |
+| Stale governed-act count in a self-check table row | Same shape: `\| Governed commands \| **seventeen** \|` | Trailing-form patterns added |
+| BA-1 stops covering governed downgrade | Nothing asserted the clarification at all | A new check, plus adversarial test A47 |
+
+A fourth correction: the first version of the trailing patterns required `**` markers while
+matching against text that had already had emphasis stripped, so they matched nothing. The
+fixture reported both as `REDUNDANT`, which is what it is for.
+
 ## 7. Known limitations of this self-check
 
 1. It is a producer self-check. The producer of a specification is the last party who should
    certify it.
 2. It asserts that obligations are **specified**, not that they are **correct**. Whether the
-   twenty uniqueness constraints are the right twenty, whether the eleven-act transaction table
-   is exhaustive, and whether the thirty adversarial tests cover the real attack surface are
-   questions for an independent audit.
+   canonical uniqueness inventory holds the right constraints, whether the transaction table is
+   exhaustive over the right acts, and whether the adversarial inventory covers the real attack
+   surface are questions for an independent audit.
 3. Nothing here has been executed. A specification cannot be run, and no test in this package
    has been written, let alone passed.
 4. The four blocked authorities mean an implementation built exactly to this specification would
    hold no canonical positions, destroy nothing, re-parent no scope, and never contract a schema
    against governed data. That is intended and it is also a substantial functional limit.
-5. **A green harness has now twice missed real contradictions.** 74/74 and 19/19 coexisted with
+5. **A green harness has now three times missed real contradictions.** 74/74, then 81/81 with
+   47 probes' worth of confidence, each coexisted with blockers an independent reader found.
+   Every round the missed defects were cross-document or localized — never inside one table a
+   single check was looking at. The `crossdoc` group has grown from 6 checks to 15 for that
+   reason, and the honest reading is unchanged: it closes what was found.
+6. **The earlier form of this note said "twice".** 74/74 and 19/19 coexisted with
    six blockers, five of which were cross-document disagreements no single-document check could
    see. The `crossdoc` group exists because of that, and the honest reading is that it closes the
    contradictions that were found — not that no others remain.

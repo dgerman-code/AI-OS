@@ -26,6 +26,7 @@ and provides no bypass.
 | **Enforcement hook** | `knowledge-and-canonical-model.md` §7.1 precondition 9; `canonical_record.promotion_decision_record` is `NOT NULL` |
 | **Resolution path** | A Phase 7 governed change carding one or both Rights, with bounded subject, declared effects, holder eligibility, cardinality and separation relationships |
 | **Consequence while blocked** | AI-OS records knowledge on four axes, reviews it, and approves it for bounded purposes. It holds **no canonical positions**. Every "what is the organisation's position" query answers *no position* |
+| **Also blocked: governed downgrade** | A governed **downgrade** of `APPROVED` material — moving an item from `APPROVED` to `SUPERSEDED`, `RETRACTED` or `REJECTED` as a *governed status act* — is the same uncarded authority seen from the other direction. Phase 8 §3 rule 7 puts it exactly: whether a conflicted item is superseded or retracted is *a governed decision taken on the resolution's findings*, and `knowledge/canonical-promotion-governance.md` §7 leaves that Right uncarded along with promotion. So `ApplyConsequentStatusChange` refuses a downgrade of `APPROVED` or `CANONICAL` material with `NO_APPLICABLE_DECISION_RIGHT`, exactly as promotion does. **This clarifies the existing blocked scope; it creates and maps no Right, and BA-1 remains fail-closed in both directions** |
 
 ### BA-2 — Scope re-parenting and cross-scope authority where not already mapped
 

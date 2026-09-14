@@ -184,6 +184,24 @@ determinism, and no governed behaviour depends on it.
 performs no selection, no fallback, no "try the other provider", and no silent downgrade. A
 deployment that is unavailable produces a failure with a retry class, not a substitution.
 
+**Rule M-9a — the invocation is staged, not transactional.** A model call leaves the system, so
+`InvokeModel` is not one local transaction that writes an invocation and a result. It commits
+**intent only**; the provider call happens outside any transaction; the observed outcome and any
+result are later, separate commits; and an unknown outcome is reconciled rather than assumed.
+The five stages, the four identities, the transaction boundaries and the crash behaviour at
+every boundary are specified in `api-command-contracts.md` §5.5, and the per-branch writes and
+audit counts in `persistence-and-transaction-model.md` §7.2.
+
+**Rule M-9b — a timeout is not proof that nothing happened.** A timeout, a reset, a dropped
+response and a crash between the call and its recording all produce
+`ATTEMPTED_OUTCOME_UNKNOWN`. The system neither re-runs the call (risking a duplicate external
+effect) nor proceeds as though content exists. This is Phase 11's rule applied where the
+uncertainty actually arises.
+
+**Rule M-9c — the Model Result exists only on a confirmed applied outcome.** There is no path
+that writes a result from an unknown attempt, and none that writes one in the same transaction
+as the intent.
+
 ### 6.2 `model_result`
 
 | Field | Type | Null | Mut | Notes |
@@ -245,12 +263,40 @@ A model call is an external effect. Its retry class is declared by the step; whe
 arriving from a retry finds the first and fails the write; it does not produce a second result.
 `persistence-and-transaction-model.md` §5.2.
 
-**Rule M-13 — commit shape.** `route()` follows construct → validate → preflight → commit:
-the Routing Request is **prospective** until the Router's answer has been fully validated
-(type, request identity, run binding, router identity, six-part completeness), both inserts and
-the resulting phase plan are preflighted, and then request, decision and their events commit as
-**one transaction**. A malformed or foreign Router answer leaves no Routing Request and no
-routing event in history.
+**Rule M-13 — one lifecycle, four branches.** `route()` follows construct → validate →
+preflight → commit. The Routing Request is **prospective** until the Router's answer has been
+fully validated (type, request identity, run and Work Item binding, Router identity, six-part
+completeness on a selection); then request, decision and their events commit as **one
+transaction**.
+
+There is **no separate command that persists a Routing Request.** An earlier revision had one,
+which contradicted this rule in the plainest way: a request could exist that no decision ever
+answered. The prospective envelope is constructed inside `route()` and reaches storage only with
+an answer. The four branches are specified once, in `api-command-contracts.md` §5.4 Rule Q-17,
+and this contract encodes the same ones:
+
+| Branch | Answer | Request durable? | Decision written? |
+|---|---|---|---|
+| B1 | Invalid — malformed, foreign Router, identity mismatch, incomplete six-part set | **No** | **No** |
+| B2 | Valid `ELIGIBLE_CANDIDATE`, first submission | Yes | Yes |
+| B3 | Valid non-selection — `NO_ELIGIBLE_MODEL`, `CANDIDATE_UNIVERSE_INCOMPLETE`, `NO_APPLICABLE_DECISION_RIGHT`, `ACT_REQUIREMENT_OUTSTANDING` | Yes | Yes |
+| B4 | Any valid answer re-submitted against an already durable request | Already durable | Yes, at the next ordinal |
+
+**Rule M-13a — a valid refusal is recorded.** Phase 11
+`orchestration/model-router-invocation-boundary.md` §3: "A Routing Decision, **or a refusal.
+Both are recorded**, and the refusals are the important half." Why a run blocked for routing is
+a governed fact; a blocked run whose reason was never written cannot be told from a stall.
+
+**Rule M-13b — an invalid answer is not a refusal.** It is the absence of an answer. Committing
+a request for it would leave a decision-shaped artifact that no decision answers, which is
+exactly what B1 exists to prevent.
+
+**Rule M-13c — a retry re-submits the same request.** Phase 11 §5 rule 1. The request identity
+is stable across submissions; each submission's answer is a **new** Routing Decision carrying a
+`submission_ordinal`, and **every attempt's decision is recorded** (§5 rule 3), because a
+diversity check evaluates against the decision that produced the artifact under review — not the
+last attempt that happened to run. Uniqueness is therefore
+`UNIQUE (routing_request_ref, submission_ordinal)`, and **not** one decision per request.
 
 ## 8. Provider independence — adapter contract
 

@@ -248,9 +248,27 @@ is unbounded and the cost of wrongly refusing a safe retry is a human looking at
 **Rule O-19 — retry class comes from the Work Item's bound lineage**, never from a caller
 argument. A caller cannot substitute a permissive class.
 
-**Rule O-20 — a refused retry is a halt, not an exception.** `retry()` on a class-4 or class-6
-step transitions the run to `BLOCKED` → `ESCALATED` with posture `GATE_UNSATISFIED` and records
-why. It does not raise into the caller's control flow and it does not silently no-op.
+**Rule O-20 — a refused retry is a halt, and a halt is a write.** `retry()` on a class-4 or
+class-6 step — or on a step with no declared class — transitions the run to `BLOCKED` →
+`ESCALATED` with posture `GATE_UNSATISFIED` **and writes a `retry_refusal_record`** naming the
+class, the act and why no number of attempts produces what is missing. It does not raise into
+the caller's control flow, does not silently no-op, and is never "nothing written": three
+governed writes, three audit events, two execution events.
+
+**Rule O-20a — every retry class has a defined branch.** Nine branches — R1, R2, R2f, R3, R3a,
+R4, R6, R7 and RX — each with its preconditions, its phase and posture before and after, its
+exact governed writes, its audit and execution counts, whether a dispatch record exists and
+whether an escalation record exists. They are specified in `api-command-contracts.md` §5.6 and
+committed branch by branch in `persistence-and-transaction-model.md` §7.2. **No branch is
+ambiguous and none writes nothing.**
+
+**Rule O-20b — a refusal is one transaction.** The refusal record, the block and the escalation
+commit together or not at all. A run that is `BLOCKED` without its refusal record is not a state
+this specification permits.
+
+**Rule O-20c — compensation is never reached by retrying.** An unknown external effect is
+reconciled; a confirmed one that must be undone is compensated through its own lineage (§11).
+Re-running it is the duplicate-irreversible-act failure class 6 exists to prevent.
 
 **Rule O-21 — guarantees, stated exactly.**
 

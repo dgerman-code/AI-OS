@@ -35,6 +35,35 @@ because it is counted.
 | 8 | **Recovery** | Do interrupted writes, orphans and unknown external effects reach their specified states? | Yes |
 | 9 | **Architecture invariant** | Does the implementation still match the approved architecture documents? | Yes |
 
+## 2a. The canonical assurance inventories
+
+Five inventories, each **owned by a table in this document** and parsed by the validator. Any
+normative gate that requires "the assurance suite" means **every ID in these inventories**, and
+a gate that names a range instead is stale the moment an ID is added.
+
+| Inventory | Prefix | Owning table | Shape |
+|---|---|---|---|
+| Adversarial tests | `A` | §3 | Non-contiguous, with letter suffixes — `A12a`…`A12f`, `A17a`, `A17b`. The suffixes are part of the ID |
+| Positive controls | `P-A` | §3.1 | Paired with the refusal they control |
+| Architecture invariant tests | `I` | §6 | Contiguous today; the inventory, not the range, is normative |
+| Approval-gate tests | `P` | §7 | As above |
+| Static CI checks | `S` | §8 | As above |
+
+**Rule T-15 — the inventory is the contract, never a range.** `A1–A30` was a correct
+description of the adversarial set at one moment and became wrong the moment `A12b` and `A31`
+existed. No normative statement anywhere in this package may express an assurance requirement as
+a range. The validator parses every ID from the owning tables, derives the five sets, and checks
+each normative gate against the **sets**, not against a prefix.
+
+**Rule T-16 — an ID appears in exactly one inventory, and nowhere without its table.** An ID
+cited by a milestone, gate or self-check that does not exist in its owning table is an **orphan**
+and fails the validator. This is the check that catches a gate quietly requiring a test nobody
+wrote.
+
+**Rule T-17 — suffixed IDs are exact.** `A12` is not a valid ID: the inventory holds `A12a`
+through `A12f`, and a gate requiring "A12" requires something that does not exist. Prefix
+matching is prohibited in every derivation.
+
 ## 3. Adversarial tests — the required set
 
 Each row is a test that must exist and must assert a **refusal plus observational equality**:
@@ -105,6 +134,16 @@ expectation claims a currently-mapped Right exists.
 | A35 | `TranscribeApprovalState`, `RecordNewApprovalState` | CURRENT | Write an approval-state history row while the current pointer fails to move | Both writes are one transaction; the failure rolls the whole act back, and no history row exists without its pointer |
 | A36 | *audit writer* | CURRENT | Write an `INSERT` audit event carrying a `record_version_before`, or a `VERSION_APPEND` carrying none | Refused by the check constraint keyed on `mutation_kind` |
 | A37 | *any refused command* | CURRENT | Expect an audit event for a refused transaction | There is none, at any `mutation_kind` |
+| A38 | `Route` | CURRENT | Malformed, foreign-Router or identity-mismatched answer | **No Routing Request and no Routing Decision** is committed; zero audit events; one refusal execution event (branch B1) |
+| A39 | `Route` | CURRENT | Expect a valid non-selection answer to leave nothing recorded | It **is** recorded — request and decision commit (branch B3), because the refusals are the important half |
+| A40 | `Route` | CURRENT | Re-submit a durable request and expect the first decision to be overwritten | A **second** decision is written at the next `submission_ordinal`; the first stands (U6) |
+| A41 | `InvokeModel` | CURRENT | Expect the Model Result to be written in the same transaction as the provider call | It is not. Stage 1 commits intent only; the result exists only after a `CONFIRMED_APPLIED` outcome |
+| A42 | `RecordProviderAttemptOutcome` | CURRENT | Treat a timeout as proof no external effect occurred, and retry | Refused. The attempt is `ATTEMPTED_OUTCOME_UNKNOWN` and enters reconciliation; neither assumption is permitted |
+| A43 | *outbox drain* | CURRENT | Crash between the call and the outcome commit, then re-drain optimistically | An attempt whose lease expired reads as `ATTEMPTED_OUTCOME_UNKNOWN`, not `NOT_ATTEMPTED`; no second external call |
+| A44 | `Retry` | CURRENT | Retry a class-4 `NON_RETRYABLE_GOVERNED_ACT` and expect nothing to be written | A `retry_refusal_record`, a block and an escalation are written — **3 audit events**. Refusing is a governed act |
+| A45 | `Retry` | CURRENT | Retry a class-6 step whose external effect is unknown | Branch R6: refusal record naming the external-effect state, block, escalate. **Never an automatic re-run** |
+| A46 | `Retry` | CURRENT | Retry a step with **no declared class** | Branch RX: non-retryable by default; refusal, block, escalate |
+| A47 | `ApplyConsequentStatusChange` | CURRENT | Downgrade `APPROVED` or `CANONICAL` material as a governed status act | `NO_APPLICABLE_DECISION_RIGHT` — BA-1 fails closed in **both** directions |
 
 ### 3.1 Positive controls
 
@@ -118,6 +157,11 @@ row below must **succeed**, and each is the companion of a refusal above.
 | P-A17 | `PromoteToCanonical` | CURRENT | — | **There is no positive control.** No canonical promotion succeeds under the approved universe, and a suite that contained one would be asserting BA-1 is resolved |
 | P-A32 | `TranscribeApprovalState` | CURRENT | Transcribe `reviews/phase-7-final-approval.md` for the eight exemplar Decision Right Cards it names | Succeeds, one row per named subject, with `decision_right_ref` **null** where the record states none; **2 audit events** per subject; **no row** for a subject the record does not name |
 | P-A34 | `RecordNewApprovalState` | CURRENT | Record a new approval whose governed act produced a resolvable Decision Record decided by a human | Succeeds; history row and pointer move in one transaction |
+| P-A38 | `Route` | CURRENT | A valid `ELIGIBLE_CANDIDATE` answer on a first submission | Succeeds. Request **and** decision commit together; **2 audit events**; the six-part set is complete (branch B2) |
+| P-A40 | `Route` | CURRENT | A retry re-submits the same durable request | Succeeds. One new decision at the next ordinal; **1 audit event**; the prior decision is retained and readable |
+| P-A41 | `InvokeModel` | CURRENT | The full staged path: intent → call → `CONFIRMED_APPLIED` → result | Succeeds across **three** transactions, never one. Intent (3 audit events), outcome + result (2), and the result carries `AI_SUGGESTION` / `AI_GENERATED` / `DRAFT` |
+| P-A42 | `ReconcileExternalEffect` | CURRENT | An `ATTEMPTED_OUTCOME_UNKNOWN` attempt that the external system can answer under its idempotency key | Succeeds. The determination is recorded, the attempt resolves, and a Model Result is written only where the effect was applied with retrievable content |
+| P-A44 | `Retry` | CURRENT | A class-1 retry within its attempt limit | Succeeds. `retry_attempt` and the phase change; **2 audit events**; a dispatch record exists |
 
 ## 4. Concurrency tests — the ten races
 

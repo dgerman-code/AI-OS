@@ -24,7 +24,7 @@ true.** A milestone that "will be safe once M6 lands" is not complete.
 |---|---|---|---|
 | **M0** | Foundations | Repository, CI, static checks S1–S8, test harness skeleton, no application code | — |
 | **M1** | Identity and scope | All reference types with kind-carrying equality and no subclass slack; scope nodes, canonical paths, ancestry with the separator-boundary test; sensitivity and residency | M0 |
-| **M2** | Persistence spine | The ten data domains; every `IMM`/`APP` column rule; **every constraint in the canonical uniqueness inventory** (`persistence-and-transaction-model.md` §5.2 — currently **21**, U1–U21); `record_version` and version-pinned writes; append-only grants and their verification | M1 |
+| **M2** | Persistence spine | The ten data domains; every `IMM`/`APP` column rule; **every constraint in the canonical uniqueness inventory** (`persistence-and-transaction-model.md` §5.2 — currently **23**, U1–U23); `record_version` and version-pinned writes; append-only grants and their verification | M1 |
 | **M3** | Audit and provenance | Audit events in the same transaction as every governed write; provenance records; the write-only execution-event interface; the observability plane, structurally unreadable | M2 |
 | **M4** | Approval state registry | The registry, the bootstrap transcription, and the runtime oracle | M2 |
 | **M5** | Definition registry | Git-sourced definitions at named versions; the registry projection; definition-load validation (bounded subjects, declared effects, acyclic graphs, declared rework loops) | M4 |
@@ -42,7 +42,7 @@ true.** A milestone that "will be safe once M6 lands" is not complete.
 | **M17** | Supersession | The full `SUPERSEDED` path across runs, records, knowledge, artifacts, policies and registry versions | M11, M14 |
 | **M18** | Security and access | Human/service/agent identity separation; RLS with the separator-boundary predicate; least-privilege grants per component; secrets boundary | M2, M4 |
 | **M19** | Command surface | The command envelope, idempotency, the error vocabulary, the query surface | M7–M18 |
-| **M20** | Assurance completion | The full adversarial set A1–A30, mutation harness with honest classification, architecture invariant tests I1–I12, approval-gate tests P1–P8 | all |
+| **M20** | Assurance completion | **Every ID in each canonical assurance inventory** (`test-and-assurance-strategy.md` §2a), not a range: adversarial (**53**), positive controls (**10**), architecture invariant (**12**), approval-gate (**8**), static CI (**10**). Plus the mutation harness with honest classification | all |
 
 ## 3. Dependency graph, compressed
 
@@ -66,23 +66,23 @@ pressure**, and there is no partial credit.
 | Gate | Blocks | Criterion |
 |---|---|---|
 | **G-A** | Leaving M1 | Every pair in the 21-object chain proven non-equal and non-substitutable; subclass, duck-typed and string substitution each refused; the separator-boundary ancestry test passes |
-| **G-B** | Leaving M2 | Every constraint in the canonical uniqueness inventory (currently **21**) exists and is demonstrated by a failing duplicate insert each; no `ON CONFLICT DO NOTHING` anywhere; append-only grants verified |
+| **G-B** | Leaving M2 | Every constraint in the canonical uniqueness inventory (currently **23**) exists and is demonstrated by a failing duplicate insert each; no `ON CONFLICT DO NOTHING` anywhere; append-only grants verified |
 | **G-C** | Leaving M3 | Every governed write has its audit event in the same transaction; the execution-event interface exposes **no read operation**; S2 passes |
 | **G-D** | Leaving M4 | Absence of an approval row reads as `PROPOSED` and refuses; the bootstrap creates no row its source does not name |
 | **G-E** | Leaving M6 | **All ten races** resolve to their named outcomes under two-process contention; `LAST_WRITE_WINS` demonstrated absent |
 | **G-F** | Leaving M7 | All sixteen ordinary APIs refuse on a halted run; the transition table reconciles with the architecture document; observational equality holds for every refused act |
-| **G-G** | Leaving M8 | Each gate kind admits exactly one evidence type; A1–A3 pass |
+| **G-G** | Leaving M8 | Each gate kind admits exactly one evidence type; A1, A2 and A3 pass |
 | **G-H** | Leaving M9 | A19 and A20 pass; independence is evaluated on **identities**, not labels |
 | **G-I** | Leaving M10 | A18 passes, including via delegation; the separation check is durable, not in-memory; `NO_APPLICABLE_DECISION_RIGHT` is not `403` |
-| **G-J** | Leaving M11 | A15–A17 pass; `PromoteToCanonical` **refuses**; no epistemic conversion edge exists |
-| **G-K** | Leaving M12 | A21 passes for each of the six elements; a refused route leaves no request and no event |
+| **G-J** | Leaving M11 | A15, A16, A17a, A17b and A47 pass; `PromoteToCanonical` **refuses**; no epistemic conversion edge exists |
+| **G-K** | Leaving M12 | A21 passes for each of the six elements; A38, A39, A40, P-A38 and P-A40 pass; a refused route leaves no request and no event |
 | **G-L** | Leaving M13 | No vendor name outside a Provider/Deployment Profile; S1 and S7 pass |
-| **G-M** | Leaving M14 | A14 and A28 pass; prior iterations retained; exhaustion escalates |
-| **G-N** | Leaving M15 | An interrupted external call reaches `ATTEMPTED_OUTCOME_UNKNOWN` and neither assumption is made |
+| **G-M** | Leaving M14 | A14, A28, A44, A45, A46 and P-A44 pass; prior iterations retained; exhaustion escalates |
+| **G-N** | Leaving M15 | A41, A42, A43, P-A41 and P-A42 pass: an interrupted external call reaches `ATTEMPTED_OUTCOME_UNKNOWN` and neither assumption is made |
 | **G-O** | Leaving M16 | Compensation requires its own authorisation; an unauthorised compensation escalates with the effect standing |
 | **G-P** | Leaving M18 | RLS and application scope checks are independently sufficient; no credential grants a Right |
 | **G-Q** | Leaving M19 | No bypass parameter exists anywhere; S8 passes |
-| **G-R** | Leaving M20 | A1–A30, I1–I12, P1–P8 pass; mutation classifications re-derived independently; documented counts derived from the executable manifest |
+| **G-R** | Leaving M20 | **Every ID in every canonical assurance inventory passes** — adversarial **53**, positive controls **10**, architecture invariant **12**, approval-gate **8**, static CI **10**, all derived from the owning tables and none expressed as a range; mutation classifications re-derived independently; every documented count derived from its canonical inventory |
 
 ## 5. Four things that must never be built "temporarily"
 

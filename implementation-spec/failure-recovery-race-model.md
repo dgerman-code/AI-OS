@@ -130,6 +130,29 @@ not assume failure (and re-attempt, risking a duplicate irreversible act) and mu
 success (and proceed on an effect that may not exist). Both are how one uncertain state becomes
 two wrong ones.
 
+### 6.0 Model invocation is the ordinary case, not an exception
+
+The staged protocol of `api-command-contracts.md` §5.5 is the general external-effect shape
+applied to the one external call this system makes by design. Its five stages map onto the four
+states above exactly:
+
+| Stage | Attempt state after it |
+|---|---|
+| 1 — local intent commit | `NOT_ATTEMPTED` |
+| 2 — provider call | unchanged locally; **this is the window where the state on disk and the state of the world can differ** |
+| 3 — observed outcome | `CONFIRMED_APPLIED`, `CONFIRMED_NOT_APPLIED`, or `ATTEMPTED_OUTCOME_UNKNOWN` |
+| 4 — result recording | only from `CONFIRMED_APPLIED` |
+| 5 — reconciliation | resolves `ATTEMPTED_OUTCOME_UNKNOWN`, or records that it remains unresolved and escalates |
+
+**Rule F-9a — an expired attempt lease reads as unknown, never as not-attempted.** A crash during
+stage 2 leaves the attempt recorded locally as `NOT_ATTEMPTED` while the call may already have
+been made. The drain therefore treats an attempt whose lease has expired as
+`ATTEMPTED_OUTCOME_UNKNOWN`. **This is the single place where an optimistic reading would produce
+a duplicate external effect**, and it is why the lease exists.
+
+**Rule F-9b — a timeout is a state, not a verdict.** It does not mean the call failed. Rule F-10
+applies unchanged: neither assumption is permitted.
+
 ### 6.1 Reconciliation sweep
 
 A periodic, idempotent, read-mostly process that detects and records — and **decides nothing**:

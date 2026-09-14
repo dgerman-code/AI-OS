@@ -86,17 +86,36 @@ def command_rows():
     return rows
 
 
-def transaction_rows():
-    """The transaction contracts of `persistence-and-transaction-model.md` §7.2, by act key."""
-    section = transaction_section()
-    rows = {}
-    for line in section.splitlines():
+#: Column positions in the §7.2 transaction table, named once so a table change breaks one
+#: constant rather than five checks that each counted cells for themselves.
+TXN = {"act": 0, "branch": 1, "read": 2, "validate": 3, "occ": 4, "writes": 5,
+       "audit": 6, "exec": 7, "constraints": 8, "failure": 9}
+
+
+def transaction_branch_rows():
+    """Every row of §7.2 as a cell list. One act may have several branch rows."""
+    rows = []
+    for line in transaction_section().splitlines():
         if not line.startswith("| **"):
             continue
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        key = cells[0].strip("*")
-        rows[key] = cells
+        if len(cells) >= len(TXN):
+            rows.append(cells)
     return rows
+
+
+def transaction_rows():
+    """Act key -> its branch rows. The act set is what the command inventory is compared to."""
+    rows = {}
+    for cells in transaction_branch_rows():
+        rows.setdefault(cells[TXN["act"]].strip("*"), []).append(cells)
+    return rows
+
+
+def txn_single(act):
+    """The one row of an unbranched act, or None where the act branches."""
+    rows = transaction_rows().get(act, [])
+    return rows[0] if len(rows) == 1 else None
 
 
 def adversarial_rows():
@@ -935,7 +954,7 @@ def the_transaction_table_is_exhaustive_over_the_command_inventory():
     for _n, cmd, _a, act in commands:
         counts.setdefault(act, []).append(cmd)
     aliased = {a: c for a, c in counts.items() if len(c) > 1}
-    for column in ("Read set", "Validation / preflight set", "Concurrency check",
+    for column in ("Branch", "Read set", "Validation / preflight set", "Concurrency check",
                    "Audit events", "Exec events", "Constraints", "Failure before commit"):
         if column not in transaction_section():
             problems.append("the transaction table lacks the column: %s" % column)
@@ -1368,7 +1387,10 @@ def cancellation_and_termination_are_asymmetric():
     for act in ("cancel_run", "terminate_run"):
         if act not in txn:
             problems.append("no transaction contract for %s" % act)
-    if "terminate_run" in txn and "NULL" not in txn["terminate_run"][6]:
+    terminate = txn_single("terminate_run")
+    if terminate is None:
+        problems.append("terminate_run has no single transaction contract")
+    elif "NULL" not in terminate[TXN["exec"]]:
         problems.append("terminate_run does not record a null human identity")
     if says("audit-provenance-observability.md", "never synthesised"):
         problems.append("the audit model permits a synthesised human identity")
@@ -1392,18 +1414,16 @@ def audit_cardinality_is_one_per_governed_record_mutation():
     if says("persistence-and-transaction-model.md", "no grouping"):
         problems.append("grouping is not prohibited")
     section = transaction_section()
-    rows = transaction_rows()
-    for key, cells in rows.items():
-        if len(cells) < 9:
-            problems.append("act row has %d columns: %s" % (len(cells), key))
-            continue
-        audit = cells[5].replace("*", "")
-        if not re.match(r"^(\d+|\d+ \+ .+)$", audit):
-            problems.append("%s: audit column is not a count: %r" % (key, audit[:30]))
+    rows = transaction_branch_rows()
+    for cells in rows:
+        audit = cells[TXN["audit"]].replace("*", "")
+        if not re.match(r"^(\d+|\d+ \+ .+|\d+ or \d+)$", audit):
+            problems.append("%s/%s: audit column is not a count: %r"
+                            % (cells[TXN["act"]].strip("*"), cells[TXN["branch"]], audit[:30]))
     if not rows:
         problems.append("no act rows parsed")
     return (not problems, str(problems)[:300] if problems
-            else "%d acts, each stating its exact audit-event count" % len(rows))
+            else "%d branch rows, each stating its exact audit-event count" % len(rows))
 
 
 check("fidelity", "audit-event cardinality is one per governed-record mutation, everywhere",
@@ -1816,13 +1836,14 @@ def the_approval_commands_match_the_registry_semantics():
         if name not in registry:
             problems.append("%s is not described in the approval registry" % name)
         act = inventory[name][1]
-        if act not in txn:
-            problems.append("%s has no transaction contract" % name)
+        row = txn_single(act)
+        if row is None:
+            problems.append("%s has no single transaction contract" % act)
             continue
-        writes = txn[act][4]
+        writes = row[TXN["writes"]]
         if "approval_state_record" not in writes or "approval_state_current" not in writes:
             problems.append("%s does not write both the history row and the pointer" % act)
-        if txn[act][5].replace("*", "") != "2":
+        if row[TXN["audit"]].replace("*", "") != "2":
             problems.append("%s does not write 2 audit events" % act)
     if says("approval-state-registry.md", "transcription is mechanical or it is refused"):
         problems.append("mechanical transcription is not required")
@@ -1894,15 +1915,15 @@ def blocked_commands_declare_zero_writes():
         if act is None:
             problems.append("%s is not in the command inventory" % name)
             continue
-        if act not in txn:
-            problems.append("%s has no transaction contract" % name)
+        cells = txn_single(act)
+        if cells is None:
+            problems.append("%s has no single transaction contract" % act)
             continue
-        cells = txn[act]
-        if "0" not in cells[4]:
+        if "0" not in cells[TXN["writes"]]:
             problems.append("%s does not declare zero governed writes" % act)
-        if cells[5].replace("*", "") != "0":
+        if cells[TXN["audit"]].replace("*", "") != "0":
             problems.append("%s does not declare zero audit events" % act)
-        if "1" not in cells[6]:
+        if "1" not in cells[TXN["exec"]]:
             problems.append("%s does not declare its refusal execution event" % act)
     if says("api-command-contracts.md", "a refused transaction of any kind writes no audit"):
         problems.append("the general refusal rule is not stated in the API contract")
@@ -1912,6 +1933,401 @@ def blocked_commands_declare_zero_writes():
 
 check("crossdoc", "blocked commands declare zero writes and zero audit events",
       blocked_commands_declare_zero_writes)
+
+
+# =========================================================== 15. canonical inventories
+
+
+def assurance_inventories():
+    """The five canonical assurance inventories, parsed from their owning tables.
+
+    IDs are taken exactly - `A12a` and `A12b` are two IDs, and `A12` is not one. Prefix
+    matching is never used, because a gate requiring "A12" would then silently be satisfied by
+    a test that does not exist."""
+    body = spec("test-and-assurance-strategy.md")
+    def ids(pattern):
+        return set(re.findall(pattern, body, re.MULTILINE))
+    return {
+        "A": ids(r"^\|\s*(A\d+[a-z]?)\s*\|"),
+        "P-A": ids(r"^\|\s*(P-A\d+[a-z]?)\s*\|"),
+        "I": ids(r"^\|\s*(I\d+)\s*\|"),
+        "P": ids(r"^\|\s*(P\d+)\s*\|"),
+        "S": ids(r"^\|\s*(S\d+)\s*\|"),
+    }
+
+
+#: Documents whose statements are normative gates rather than commentary. A stale count or a
+#: stale range here is a defect; the same words inside a rule that explains why ranges are
+#: forbidden are not.
+NORMATIVE_DOCS = ("implementation-sequencing.md", "phase-14-self-check.md")
+
+
+def the_assurance_inventories_are_declared_and_non_empty():
+    inventories = assurance_inventories()
+    problems = [k for k, v in inventories.items() if not v]
+    if problems:
+        return False, "empty inventories: %s" % problems
+    body = spec("test-and-assurance-strategy.md")
+    if says("test-and-assurance-strategy.md", "the inventory is the contract, never a range"):
+        problems.append("the no-range rule is not stated")
+    if says("test-and-assurance-strategy.md", "suffixed IDs are exact"):
+        problems.append("exact-suffix matching is not required")
+    if "## 2a." not in body:
+        problems.append("the canonical inventory section is absent")
+    # The suffixed IDs must actually be present, or the rule protects nothing.
+    if not {i for i in inventories["A"] if i[-1].isalpha()}:
+        problems.append("no suffixed adversarial IDs exist, so exactness is untested")
+    return (not problems, str(problems)[:300] if problems
+            else "A %d · P-A %d · I %d · P %d · S %d, suffixes exact"
+                 % tuple(len(inventories[k]) for k in ("A", "P-A", "I", "P", "S")))
+
+
+check("crossdoc", "the canonical assurance inventories are declared and parsable",
+      the_assurance_inventories_are_declared_and_non_empty)
+
+
+def normative_gates_require_the_whole_inventory():
+    """M20 and G-R must require every current ID, not a prefix range."""
+    inventories = assurance_inventories()
+    sequencing = spec("implementation-sequencing.md")
+    problems = []
+    gates = [ln for ln in sequencing.splitlines()
+             if ln.startswith("| **M20**") or ln.startswith("| **G-R**")]
+    if len(gates) != 2:
+        problems.append("M20 and G-R were not both found")
+        return False, str(problems)
+    for gate in gates:
+        name = gate.split("|")[1].strip()
+        # A range is the stale form and is forbidden outright in a normative gate.
+        ranges = re.findall(r"\b([AIPS]\d+)\s*[–-]\s*([AIPS]?\d+)", gate)
+        if ranges:
+            problems.append("%s expresses a requirement as a range: %s" % (name, ranges[:2]))
+        if "canonical assurance inventor" not in flat(gate) and \
+                "every id in" not in flat(gate):
+            problems.append("%s does not require the whole inventory" % name)
+        # Any count it states must be a real inventory size.
+        for stated in re.findall(r"\*\*(\d+)\*\*", gate):
+            if int(stated) not in {len(v) for v in inventories.values()}:
+                problems.append("%s states %s, which is no inventory's size" % (name, stated))
+        # Any ID it names must exist exactly.
+        for cited in re.findall(r"\b(P-A\d+[a-z]?|A\d+[a-z]?|I\d+|P\d+|S\d+)\b", gate):
+            prefix = "P-A" if cited.startswith("P-A") else cited[0]
+            if cited not in inventories.get(prefix, set()):
+                problems.append("%s cites %s, which is not in the %s inventory"
+                                % (name, cited, prefix))
+    return (not problems, str(problems)[:400] if problems
+            else "M20 and G-R require every ID in every inventory, with no range and no orphan")
+
+
+check("crossdoc", "M20 and G-R require the whole assurance inventory, not a range",
+      normative_gates_require_the_whole_inventory)
+
+
+def no_normative_document_cites_an_orphan_assurance_id():
+    inventories = assurance_inventories()
+    known = set()
+    for v in inventories.values():
+        known |= v
+    problems = []
+    # A backticked RANGE is never a valid requirement - Rule T-15 forbids ranges outright, and
+    # the gate check above rejects one in M20 or G-R. Stripping them here lets a document
+    # describe the stale form it replaced without that description reading as a citation.
+    quoted_range = re.compile(r"`[AIPS]\d+\s*[–-]\s*[AIPS]?\d+`")
+    for name in NORMATIVE_DOCS:
+        for i, line in enumerate(spec(name).splitlines(), 1):
+            scanned = quoted_range.sub(" ", line)
+            for cited in re.findall(r"\b(P-A\d+[a-z]?|A\d+[a-z]?|I\d+|P\d+|S\d+)\b", scanned):
+                if cited not in known:
+                    problems.append("%s:%d cites orphan %s" % (name, i, cited))
+    return (not problems, str(problems)[:300] if problems
+            else "no normative document cites an assurance ID that does not exist")
+
+
+check("crossdoc", "no normative document cites an orphan assurance ID",
+      no_normative_document_cites_an_orphan_assurance_id)
+
+
+WORD_NUMBERS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
+    "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
+    "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+    "twenty": 20, "twenty-one": 21, "twenty-two": 22, "twenty-three": 23, "twenty-four": 24,
+    "twenty-five": 25, "thirty": 30, "thirty-one": 31, "thirty-two": 32, "thirty-three": 33,
+    "thirty-four": 34, "thirty-five": 35, "thirty-six": 36, "forty": 40,
+}
+
+
+def every_normative_count_matches_its_canonical_inventory():
+    """All count-bearing locations, not "at least one correct occurrence" somewhere.
+
+    The V3 audit mutated a localized milestone count and this harness passed, because a
+    different correct count survived elsewhere. Every occurrence is checked, in digits and in
+    word form, against the value derived from the owning table."""
+    derived = {
+        "uniqueness constraints": len(uniqueness_ids()),
+        "governed commands": len(command_rows()),
+        "adversarial tests": len(assurance_inventories()["A"]),
+        "positive controls": len(assurance_inventories()["P-A"]),
+    }
+    subjects = {
+        "uniqueness constraints": r"(?:durable\s+)?uniqueness constraints",
+        # Plural only: a total is always plural, while "one governed act" and "a class-4
+        # governed act" are singular and are not claims about the size of the inventory.
+        "governed commands": r"governed commands|governed acts",
+        "adversarial tests": r"adversarial tests|adversarial cases",
+        "positive controls": r"positive controls",
+    }
+    number = r"(\d+|[a-z]+(?:-[a-z]+)?)"
+    problems = []
+
+    def value_of(token):
+        if token.isdigit():
+            return int(token)
+        return WORD_NUMBERS.get(token)
+
+    def claims(line, raw):
+        """Count claims in one line, as (stated, subject).
+
+        Two forms are checked, and only these two, because a document legitimately says things
+        like "the four blocked acts" or "one governed act" in passing. A claim about the SIZE
+        OF AN INVENTORY is written either in bold - the convention this package uses for a
+        derived total - or inside a milestone or gate row, where partial counts do not occur."""
+        low = flat(line)
+        bolded = set(re.findall(r"\*\*(\d+|[a-z]+(?:-[a-z]+)?)\*\*\s+[^|]{0,40}", raw))
+        in_gate = bool(re.match(r"\|\s*\*\*(M\d+|G-[A-Z])\*\*\s*\|", raw))
+        found = []
+        for subject, expr in subjects.items():
+            for m in re.finditer(number + r"\s+(?:named\s+|committed\s+|durable\s+)?(?:"
+                                 + expr + r")", low):
+                token = m.group(1)
+                if value_of(token) is None:
+                    continue                          # "every", "each", "the" - not a count
+                bold_here = re.search(r"\*\*" + re.escape(token) + r"\*\*\s+[^|]{0,60}?"
+                                      + expr, flat(raw.replace("*", "\x00"))) is not None
+                marked = ("**%s**" % token) in raw or ("**%s**" % token.capitalize()) in raw
+                if in_gate or marked or bold_here or token in bolded:
+                    found.append((token, subject))
+        return found
+
+    #: A count can sit on either side of its subject. "**23** uniqueness constraints" is caught
+    #: by `claims` above; "the canonical uniqueness inventory (currently **21**)" and a table
+    #: row "| Governed commands | **seventeen** |" are not, and both are exactly the localized
+    #: form the V3 audit mutated. Each subject therefore declares its trailing forms too.
+    #: Patterns are matched against `flat(line)`, which has already stripped emphasis - so they
+    #: must not require asterisks. That detail is why the first version of these patterns
+    #: matched nothing, and the fixture said so.
+    trailing = {
+        "uniqueness constraints": (
+            r"uniqueness inventory[^|]{0,60}?currently\s+([\w-]+)",
+            r"u1[–-]u(\d+)",
+        ),
+        "governed commands": (
+            r"\|\s*governed commands\s*\|\s*([\w-]+)",
+        ),
+        "adversarial tests": (
+            r"adversarial\s*\(([\w-]+)\)",
+        ),
+        "positive controls": (
+            r"positive controls\s*\(([\w-]+)\)",
+        ),
+    }
+
+    for name in REQUIRED_DOCS:
+        lines = spec(name).splitlines()
+        for i, line in enumerate(lines, 1):
+            for stated, subject in claims(line, line):
+                expected = derived[subject]
+                value = value_of(stated)
+                if value != expected:
+                    problems.append("%s:%d states %s %s, inventory has %d"
+                                    % (name, i, stated, subject, expected))
+            low = flat(line)
+            for subject, patterns in trailing.items():
+                expected = derived[subject]
+                for pattern in patterns:
+                    for stated in re.findall(pattern, low):
+                        value = value_of(stated)
+                        if value is None:
+                            continue
+                        if value != expected:
+                            problems.append("%s:%d states %s for %s, inventory has %d"
+                                            % (name, i, stated, subject, expected))
+    return (not problems, str(problems)[:400] if problems
+            else "every stated count agrees: " +
+                 " · ".join("%s %d" % (k, v) for k, v in derived.items()))
+
+
+check("crossdoc", "every normative count matches its canonical inventory, in digits and words",
+      every_normative_count_matches_its_canonical_inventory)
+
+
+def the_routing_lifecycle_is_one_contract_across_documents():
+    api = spec("api-command-contracts.md")
+    router = spec("model-router-runtime-contract.md")
+    txn = transaction_rows()
+    problems = []
+    commands = {c for _n, c, _a, _act in command_rows()}
+    if "RequestRouting" in commands:
+        problems.append("RequestRouting still persists a Routing Request independently")
+    if "request_routing" in txn:
+        problems.append("a request_routing transaction contract still exists")
+    branches = {cells[TXN["branch"]].split()[0] for cells in txn.get("route", [])}
+    for expected in ("B1", "B2", "B3", "B4"):
+        if expected not in branches:
+            problems.append("route branch %s is not specified" % expected)
+    for cells in txn.get("route", []):
+        if cells[TXN["branch"]].startswith("B1"):
+            if cells[TXN["audit"]].replace("*", "") != "0":
+                problems.append("route B1 writes audit events for an invalid answer")
+            if "0" not in cells[TXN["writes"]]:
+                problems.append("route B1 does not declare zero governed writes")
+    if says("api-command-contracts.md", "the Routing Request becomes durable only inside a "
+                                        "validated routing act"):
+        problems.append("the durability rule is not stated in the API contract")
+    if says("model-router-runtime-contract.md", "one lifecycle, four branches"):
+        problems.append("the router contract does not encode the same lifecycle")
+    if says("model-router-runtime-contract.md", "there is **no separate command that persists a "
+                                                "Routing Request**"):
+        problems.append("the router contract does not deny a separate persisting command")
+    u6 = [ln for ln in table_rows("persistence-and-transaction-model.md") if "| U6 " in ln]
+    if u6 and "submission_ordinal" not in u6[0]:
+        problems.append("U6 still forbids a second decision for a re-submitted request")
+    return (not problems, str(problems)[:400] if problems
+            else "one lifecycle: prospective until validated, four branches, re-submission allowed")
+
+
+check("crossdoc", "the Routing Request lifecycle is one contract across documents",
+      the_routing_lifecycle_is_one_contract_across_documents)
+
+
+def the_retry_branches_are_complete_and_none_writes_nothing():
+    txn = transaction_rows()
+    problems = []
+    branches = {cells[TXN["branch"]].split()[0] for cells in txn.get("retry", [])}
+    for expected in ("R1", "R2", "R2f", "R3", "R3a", "R4", "R6", "R7", "RX"):
+        if expected not in branches:
+            problems.append("retry branch %s is not specified" % expected)
+    for cells in txn.get("retry", []):
+        branch = cells[TXN["branch"]].split()[0]
+        audit = cells[TXN["audit"]].replace("*", "")
+        if not audit.isdigit() or int(audit) < 1:
+            problems.append("retry %s writes no audit event" % branch)
+        if branch in ("R4", "R6", "RX"):
+            writes = flat(cells[TXN["writes"]])
+            if "retry_refusal_record" not in writes:
+                problems.append("retry %s does not write a refusal record" % branch)
+            if "escalat" not in writes:
+                problems.append("retry %s does not escalate" % branch)
+    if says("orchestrator-runtime-contract.md", "a refused retry is a halt, and a halt is a write"):
+        problems.append("O-20 does not state that refusing writes")
+    if says("api-command-contracts.md",
+            "every retry class has a defined branch, and none of them writes nothing"):
+        problems.append("the branch-completeness rule is not stated")
+    return (not problems, str(problems)[:400] if problems
+            else "%d retry branches, each writing at least one audit event"
+                 % len(txn.get("retry", [])))
+
+
+check("crossdoc", "retry branches are complete and a refusal is a governed write",
+      the_retry_branches_are_complete_and_none_writes_nothing)
+
+
+def model_invocation_is_staged_not_transactional():
+    txn = transaction_rows()
+    commands = {c: act for _n, c, _a, act in command_rows()}
+    problems = []
+    for name in ("InvokeModel", "RecordProviderAttemptOutcome", "ReconcileExternalEffect"):
+        if name not in commands:
+            problems.append("%s is not a governed command" % name)
+    intent = txn.get("invoke_model", [])
+    if len(intent) != 1:
+        problems.append("invoke_model does not have exactly one intent branch")
+    else:
+        writes = flat(intent[0][TXN["writes"]])
+        if "model_result" in writes:
+            problems.append("invoke_model writes a Model Result in the intent transaction")
+        if "provider_attempt" not in writes or "outbox" not in writes:
+            problems.append("invoke_model does not stage an attempt and an outbox row")
+    outcome = txn.get("record_provider_attempt_outcome", [])
+    if len(outcome) < 2:
+        problems.append("the observed-outcome act does not distinguish result from no result")
+    recon = txn.get("reconcile_external_effect", [])
+    if len(recon) < 2:
+        problems.append("reconciliation does not distinguish resolved from still-unknown")
+    for phrase, doc in (("a timeout is not proof that nothing happened",
+                         "api-command-contracts.md"),
+                        ("a timeout is not proof that nothing happened",
+                         "model-router-runtime-contract.md"),
+                        ("an expired attempt lease reads as unknown, never as not-attempted",
+                         "failure-recovery-race-model.md"),
+                        ("model invocation is an external effect, staged",
+                         "api-command-contracts.md"),
+                        ("the invocation is staged, not transactional",
+                         "model-router-runtime-contract.md")):
+        if says(doc, phrase):
+            problems.append("%s: missing %r" % (doc, phrase[:45]))
+    if "ATTEMPTED_OUTCOME_UNKNOWN" not in spec("api-command-contracts.md"):
+        problems.append("the uncertainty state is not used in the API contract")
+    return (not problems, str(problems)[:400] if problems
+            else "five stages, four identities, three commands, no local atomicity claimed")
+
+
+check("crossdoc", "model invocation is staged across transactions, never one local commit",
+      model_invocation_is_staged_not_transactional)
+
+
+def the_audit_field_table_and_matrix_agree():
+    body = spec("audit-provenance-observability.md")
+    fields = body.split("## 4. The audit event")[1].split("### 4.1")[0]
+    problems = []
+    for field in ("record_version_before", "record_version_after"):
+        row = [ln for ln in fields.splitlines() if field in ln]
+        if not row:
+            problems.append("%s is not a field of the audit event" % field)
+            continue
+        if "conditional" not in flat(row[0]):
+            problems.append("%s states an unconditional nullability that the matrix contradicts"
+                            % field)
+        if "mutation_kind" not in flat(row[0]):
+            problems.append("%s does not defer to the mutation-kind matrix" % field)
+    if says("audit-provenance-observability.md",
+            "the matrix in this section is the only statement of nullability"):
+        problems.append("the matrix is not declared the single statement")
+    return (not problems, str(problems)[:300] if problems
+            else "the field table defers to the matrix for both version columns")
+
+
+check("crossdoc", "the audit field table and the mutation-kind matrix agree",
+      the_audit_field_table_and_matrix_agree)
+
+
+def ba1_fails_closed_in_both_directions():
+    """Promotion and governed downgrade are the same uncarded authority, seen from two sides."""
+    blocked = spec("open-items-and-blocked-authorities.md")
+    problems = []
+    ba1 = blocked.split("### BA-1")[1].split("### BA-2")[0]
+    if "also blocked: governed downgrade" not in flat(ba1):
+        problems.append("BA-1 does not cover governed downgrade")
+    if "creates and maps no right" not in flat(ba1):
+        problems.append("the downgrade clarification does not deny creating a Right")
+    for state in ("SUPERSEDED", "RETRACTED", "REJECTED"):
+        if state not in ba1:
+            problems.append("the downgrade clause does not name %s" % state)
+    tests = spec("test-and-assurance-strategy.md")
+    rows = [r for r in adversarial_rows()
+            if "downgrade" in flat(r[3]) and "ApplyConsequentStatusChange" in r[1]]
+    if not rows:
+        problems.append("no adversarial test attacks a governed downgrade")
+    elif "NO_APPLICABLE_DECISION_RIGHT" not in rows[0][4]:
+        problems.append("the downgrade test does not expect a missing-Right refusal")
+    if "both directions" not in flat(tests):
+        problems.append("the test strategy does not state the two-directional rule")
+    return (not problems, str(problems)[:300] if problems
+            else "BA-1 blocks promotion and governed downgrade alike, creating no Right")
+
+
+check("crossdoc", "BA-1 fails closed for governed downgrade as well as promotion",
+      ba1_fails_closed_in_both_directions)
 
 
 # =========================================================== main

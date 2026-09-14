@@ -97,8 +97,8 @@ Written by C12, for every governed record write.
 |---:|---|---|---|
 | 1 | `audit_event_ref` | NO | Stable, unique, never reused |
 | 2 | `governed_record_ref` | NO | Which record this event is about — **exactly one** |
-| 2a | `record_version_before` | **Conditional — see §4.1** | The version the record held before this mutation |
-| 2b | `record_version_after` | **NO for every successful write** | The version it holds after |
+| 2a | `record_version_before` | **Conditional on `mutation_kind` — §4.1** | The version the record held before this mutation |
+| 2b | `record_version_after` | **Conditional on `mutation_kind` — §4.1** | The version it holds after |
 | 3 | `mutation_kind` | NO | The enum of §4.1. It is what makes 2a's nullability checkable |
 | 4 | `changed_fields` | NO | Field-level, before/after for governed fields. On `INSERT` the before side is empty, consistently with 2a |
 | 5 | `human_identity_ref` | YES | Where a human caused it. **`NULL` for a system act, never synthesised** — a constraint-driven `TERMINATED` has no human and says so |
@@ -126,6 +126,12 @@ what makes the nullability rule checkable rather than a convention.
 | `SUPERSEDE` | A record was superseded by a named successor | **NOT NULL** | **NOT NULL** |
 | `POINTER_MOVE` | A current-pointer row was created or re-pointed | **NULL on creation, NOT NULL on a move** | **NOT NULL** |
 | `DESTROY` | A governed record was destroyed | **NOT NULL** | **NULL** — there is no after |
+
+**Rule V-5-matrix — the matrix in this section is the only statement of nullability.** The field
+table above states *conditional on `mutation_kind`* and nothing more; an earlier revision said
+`record_version_after` was mandatory for every successful write, which contradicts `DESTROY`.
+Where the field table and this matrix could be read as disagreeing, this matrix governs — and
+the field table no longer says anything a reader could take as a second rule.
 
 **Rule V-5a — the matrix is a constraint, not guidance.** It is expressed as a check constraint
 keyed on `mutation_kind`, so a row that claims `INSERT` and carries a before-version is rejected
