@@ -1,0 +1,235 @@
+# Thread Diagnostics — Workflow Candidate
+
+Status: `PROPOSED`
+Template: Workflow Card Template (Phase 5 standard candidate)
+Inherits: `standard.workflow.common_constraints@0.1`
+
+## Identity
+- Workflow Name: **Thread Diagnostics**
+- Workflow ID: `workflow.communication.thread_diagnostics@0.1`
+- Registry-normalised alternative (open item **OG-1**): `workflow.communication_thread_diagnostics@0.1`
+- Version: 0.1 · Status: PROPOSED
+- Workflow Family: Communication / Stakeholder Interaction
+- Governance Owner: AI-OS architecture governance
+- Criticality Applicability: all bands
+- Inherits: `standard.workflow.common_constraints@0.1`
+- Supersedes / Superseded By: none
+
+## Purpose
+
+Coordinate a **read-only** diagnosis of an existing interaction: what the record states, what is
+actually in dispute, what each issue needs, and what the exchange is structurally doing — without
+drafting anything and without recommending a message. It exists as its own pattern because the
+diagnosis is frequently the whole deliverable, and because drafting before diagnosing is the most
+common way a difficult exchange gets worse.
+
+## Trigger
+
+`TRIGGER` — a request to understand an interaction; or invocation as a child of
+`workflow.communication.difficult_interaction_response@0.1` at its S2–S4.
+
+## Preconditions
+
+- `PRECONDITION` — an interaction record exists, unedited and attributed, at `SOURCE`;
+- `PRECONDITION` — a scope binding with sensitivity, residency and disclosure labels exists;
+- `PRECONDITION` — the disclosure basis for reading the record is established where the record
+  contains personal, privileged or restricted material.
+
+## Scope
+
+### Covers
+- fact / assumption / interpretation separation;
+- identification of the actual disagreement;
+- issue decomposition and response-need classification;
+- boundary-issue identification;
+- bounded pattern labelling of observable conversation structure;
+- escalation-, relationship- and documentation-risk assessment;
+- identification of material facts that change the user's position.
+
+### Does Not Cover
+- drafting;
+- recommending a specific message;
+- the response-posture decision;
+- any substantive conclusion;
+- any assessment of a person's motives, character or mental state;
+- the transmitting act.
+
+**This Workflow writes no message and transmits nothing.** It is the one pattern in this package
+with no drafting stage, deliberately.
+
+## Participating Roles
+
+| Role ID | Participation | Activation | Stage(s) | Authority boundary note |
+|---|---|---|---|---|
+| `role.communication_difficult_conversations_specialist` *(candidate)* | `LEAD_ROLE` | `ALWAYS` | S1–S4 | Produces a diagnostic; concludes nothing substantive and recommends no message here |
+| `role.data_protection_gdpr_specialist` | `CONSULTED_ROLE` | `CONDITIONAL(the record contains personal data with no established disclosure basis)` | S1 | Owns lawful basis; advances no artifact here |
+| `role.knowledge_evidence_steward` | `CONSULTED_ROLE` | `CONDITIONAL(the record's provenance is contested)` | S1 | Owns evidence provenance standards |
+
+## Composed Workflow References
+
+None. This Workflow composes nothing: it is the leaf pattern the others compose.
+
+## Activated Skills / Packs
+
+| Capability ID | For Role | Phase 4 basis |
+|---|---|---|
+| `pack.communication.difficult_conversations@0.1` *(candidate)* | `role.communication_difficult_conversations_specialist` *(candidate)* | Pending mapping record (`skill-pack.md` SP-1) |
+
+## Inputs
+
+| Input | Required knowledge state |
+|---|---|
+| Interaction record | `SOURCE`, unedited, with sender / recipient / timestamp per message |
+| Stated objective, where supplied | `SOURCE` |
+| Known approved positions, as references | `APPROVED` or `CANONICAL` |
+| Scope, sensitivity and disclosure labels | `SOURCE` |
+
+## Stages
+
+### Stage `S1` — Admit the record
+- **Objective:** establish that the material may be read and is what it claims to be
+- **Entry Criteria:** preconditions met
+- **Participating Roles:** lead `LEAD_ROLE`; conditional consulted Roles
+- **Activities:** `ACTIVITY` verify provenance per message; `ACTIVITY` identify truncation, missing
+  messages and unattributed forwards; `ACTIVITY` confirm the disclosure basis where personal,
+  privileged or restricted material is present
+- **Artifact Contributions:** admissibility note of the Conversation Diagnostic, owned by the lead
+- **Knowledge-State Expectations:** the record is `SOURCE`; a paraphrase of a thread is **not** the
+  thread and is `UNKNOWN`
+- **Gate / Review References:** none
+- **Exit Criteria:** the record is admitted, or the gaps are named
+- **Possible Outcomes:** `COMPLETE`, `BLOCKED`, `ESCALATED`
+- **Open-Item Materiality:** an absent disclosure basis is `MATERIAL_TO_NEXT_STEP_OR_GATE` — the
+  instance blocks rather than reading on
+
+### Stage `S2` — Separate evidence
+- **Objective:** distinguish what the record states from what it suggests
+- **Entry Criteria:** S1 complete
+- **Participating Roles:** lead `LEAD_ROLE`
+- **Activities:** `ACTIVITY` extract stated facts with provenance; `ACTIVITY` list assumptions and
+  interpretations separately; `ACTIVITY` state the user's position and the counterparty's position
+  as distinct objects, labelling any reconstruction; `ACTIVITY` identify the **actual**
+  disagreement, as distinct from the stated one; `ACTIVITY` flag any fact that materially changes
+  the user's position
+- **Artifact Contributions:** evidence sections of the Conversation Diagnostic
+- **Knowledge-State Expectations:** `FACT` only where directly stated; everything else
+  `ASSUMPTION` or `UNKNOWN`
+- **Gate / Review References:** none
+- **Exit Criteria:** the three categories are separated and the actual disagreement is named
+- **Possible Outcomes:** `COMPLETE`, `REWORK_REQUIRED`, `ESCALATED`
+- **Open-Item Materiality:** a position-changing fact is `MATERIAL_TO_NEXT_STEP_OR_GATE` and is
+  escalated to the substantive owning Role (`role-card.md` RC-3)
+
+### Stage `S3` — Decompose and classify
+- **Objective:** give every issue a response-need classification
+- **Entry Criteria:** S2 complete
+- **Participating Roles:** lead `LEAD_ROLE`
+- **Activities:** `ACTIVITY` decompose into separable issues; `ACTIVITY` classify each as
+  `RESPOND | CLARIFY | REDIRECT | IGNORE | DOCUMENT | ESCALATE`; `ACTIVITY` record the materiality
+  reasoning for each `IGNORE`; `ACTIVITY` identify boundary issues
+- **Artifact Contributions:** triage table of the Conversation Diagnostic
+- **Knowledge-State Expectations:** classifications are `AI_SUGGESTION` until adopted by the lead
+  into its `DRAFT` conclusion
+- **Gate / Review References:** none
+- **Exit Criteria:** every issue carries exactly one classification and a reason
+- **Possible Outcomes:** `COMPLETE`, `REWORK_REQUIRED`
+- **Open-Item Materiality:** an unclassified issue is `MATERIAL_TO_NEXT_STEP_OR_GATE`
+
+### Stage `S4` — Pattern labelling and risk
+- **Objective:** describe what the exchange is doing and what it puts at risk — without describing
+  anyone
+- **Entry Criteria:** S3 complete
+- **Participating Roles:** lead `LEAD_ROLE`
+- **Activities:** `ACTIVITY` apply the bounded pattern labels of
+  `conversation-diagnostics-contract.md` §5, each hedged and each tied to an observable feature of
+  the exchange; `ACTIVITY` detect reactivity in wording; `ACTIVITY` score escalation, relationship
+  and documentation risk; `ACTIVITY` record the power / decision context — who decides, who is
+  merely copied
+- **Artifact Contributions:** pattern and risk sections of the Conversation Diagnostic
+- **Knowledge-State Expectations:** every pattern label is `AI_SUGGESTION`. **No label may name,
+  characterise or diagnose a person** (`role-card.md` limit 3)
+- **Gate / Review References:** none. A diagnostic transmits nothing and needs no gate
+- **Exit Criteria:** labels are applied with their observable basis; three risk dimensions scored
+- **Possible Outcomes:** `COMPLETE`, `REWORK_REQUIRED`
+
+## Branches / Exception Paths
+
+- `BRANCH` **Invoked as a child.** Where composed by
+  `workflow.communication.difficult_interaction_response@0.1`, the diagnostic is handed to that
+  parent's S5 and this instance completes. It does not continue into drafting.
+- `EXCEPTION_PATH` **Record inadmissible.** S1 blocks. A diagnosis of a record that may not be read
+  is a disclosure event, not a deliverable.
+- `EXCEPTION_PATH` **Drafting requested mid-instance.** The request is routed to
+  `workflow.communication.difficult_interaction_response@0.1`. This Workflow does not acquire a
+  drafting stage because someone asked for one.
+- `EXCEPTION_PATH` **Psychological assessment requested.** Refused and recorded. The diagnostic
+  offers the observable-behaviour labels instead, and states why.
+
+No exception path bypasses a review or gate reference carried by the normal path — and this
+Workflow carries none, because it produces nothing transmissible.
+
+## Rework Rules
+
+`REWORK_LOOP` — S3 → S2 where classification reveals a missed fact; S4 → S3 where a pattern label
+has no observable basis. Prior versions and the reason for the loop are preserved.
+
+## Open-Item Materiality
+
+`MATERIAL_TO_NEXT_STEP_OR_GATE`: an absent disclosure basis; a position-changing fact not yet
+escalated; an unclassified issue; a pattern label with no observable basis. This Workflow has no
+terminal gate of its own; these items block its handoff to any parent pattern.
+
+## Completion Criteria
+
+`COMPLETION_CRITERION` — a Conversation Diagnostic exists in which evidence is separated, the
+actual disagreement is named, every issue is classified, every pattern label is hedged and
+evidenced, and the three risk dimensions are scored. Complete is a coordination position, never an
+approval, and never a conclusion about anyone's intent.
+
+## Termination / Cancellation Criteria
+
+`TERMINATION_CONDITION` — the record is withdrawn; the disclosure basis lapses; the scope binding
+is revoked; the user withdraws the request. The admissibility note and any escalated
+position-changing fact survive.
+
+## Outputs / Resulting Artifact States
+
+| Output | State | Owner |
+|---|---|---|
+| Conversation Diagnostic | `DRAFT`; pattern labels within it `AI_SUGGESTION` | `role.communication_difficult_conversations_specialist` |
+| Admissibility note | `DRAFT` | as above |
+| Escalated position-changing facts | `FACT`, referred to the owning Role | the substantive owning Role |
+
+## Authority / Review Boundary
+
+This Workflow does not draft, does not recommend a message, does not decide a response posture,
+does not conclude on any substantive domain, does not assess any person, does not satisfy any
+review, does not exercise any Decision Right, and does not transmit. Its specific leakage risk is
+**a pattern label being read as a finding about a person**: the labels describe conversation
+structure, they are `AI_SUGGESTION`, and `conversation-diagnostics-contract.md` §5 fixes the
+permitted set so that the vocabulary cannot drift toward diagnosis.
+
+## Criticality Scaling
+
+At every band the stages are identical; what deepens is evidence. At `HIGH` and `CRITICAL`, every
+`FACT` must carry a per-message provenance reference, every pattern label must name the observable
+feature it rests on, and the admissibility note must state the disclosure basis explicitly rather
+than by reference. Criticality changes depth, not Role identity.
+
+## Evidence / Traceability Requirements
+
+Per-message provenance; the disclosure basis; the fact / assumption split with sources; the
+reconstruction labels; the triage classification and reason per issue; the observable basis of
+every pattern label; the risk scores and their rubric version.
+
+## Versioning / Change Control
+
+Version 0.1 — initial candidate. No version change may silently alter authority, Role scope, gate
+references or artifact ownership — and in particular no version of this Workflow may add a
+drafting stage; that would make it a different pattern.
+
+## Non-Runtime Statement
+
+This card is declarative architecture. It specifies no orchestration, scheduling, queueing, agent
+execution, model routing, database schema, API, interface or automation code, and binds no model,
+provider or runtime technology.
