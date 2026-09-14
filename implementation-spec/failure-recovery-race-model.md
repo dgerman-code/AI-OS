@@ -144,11 +144,27 @@ states above exactly:
 | 4 — result recording | only from `CONFIRMED_APPLIED`, **in the same transaction as stage 3** |
 | 5 — reconciliation | resolves `ATTEMPTED_OUTCOME_UNKNOWN`, or records that it remains unresolved and escalates |
 
-**Rule F-9a — an expired attempt lease reads as unknown, never as not-attempted.** A crash during
-stage 2 leaves the attempt recorded locally as `NOT_ATTEMPTED` while the call may already have
-been made. The drain therefore treats an attempt whose lease has expired as
-`ATTEMPTED_OUTCOME_UNKNOWN`. **This is the single place where an optimistic reading would produce
-a duplicate external effect**, and it is why the lease exists.
+**Rule F-9a — an expired claim is read by the boundary flag, and expiry alone proves nothing.**
+An earlier revision said an expired lease always reads as `ATTEMPTED_OUTCOME_UNKNOWN`. That was
+right about the case it was worried about and wrong about the case beside it, and the two are now
+separated. Expiry says a claimant stopped reporting. What the system may conclude from it depends
+entirely on whether the durable pre-call state had committed — never on the clock, never on how
+long ago, and never on the previous state's name.
+
+**Rule F-9a-map — the five conditions, distinguished exactly.** This is the single mapping; the
+persistence protocol implements it and no other document restates it.
+
+| # | Condition | Durable evidence | What the system may conclude | Next |
+|---:|---|---|---|---|
+| 1 | **Claim expired before the boundary was crossed** | `claim_state = 'CLAIMED'`, `boundary_crossed = false` | **No call was made.** This is a conclusion the local state is entitled to, because no call is ever made from `CLAIMED` (PO-8) | T6 back to `PENDING`; re-dispatch under the **same** key (PO-14a). The attempt stays `NOT_ATTEMPTED` |
+| 2 | **Claim expired after the boundary was crossed** | `claim_state = 'DISPATCH_PENDING'`, `boundary_crossed = true` | **Nothing.** The provider may or may not have acted, and no local fact distinguishes the two | T7 to `UNCERTAIN`; the attempt becomes `ATTEMPTED_OUTCOME_UNKNOWN`; reconciliation is mandatory. **Never a re-dispatch** (PO-14) |
+| 3 | **Unknown external effect** | attempt `ATTEMPTED_OUTCOME_UNKNOWN`, item `UNCERTAIN` | **Nothing**, until the external system answers. Rule F-10's two forbidden assumptions both apply | Reconciliation sweep §6.1. Unanswerable → T9 `ABANDONED`, block and escalate |
+| 4 | **Confirmed not applied** | reconciliation answered under the stable key | The effect **did not occur**. That is an answer from the provider, not an inference from local state | T8 to `SETTLED`. Continuation, where the retry class permits, is a **new** governed provider attempt at the next ordinal with a **new** key — never a replay of this item (PO-14) |
+| 5 | **Settled effect** | attempt `CONFIRMED_APPLIED` or `CONFIRMED_NOT_APPLIED`, item `SETTLED` | The effect is known and recorded | Nothing further. Undoing a `CONFIRMED_APPLIED` effect is compensation — a new governed act, never a rollback (§7) |
+
+Conditions 1 and 2 are the pair the earlier wording collapsed. **The dangerous reading is
+condition 2 treated as condition 1**, and what prevents it is that the pre-call state commits
+before the call, so the distinction is a stored fact rather than a judgement.
 
 **Rule F-9c — stages 3 and 4 have no boundary between them.** They are one local transaction
 (`api-command-contracts.md` Rule Q-22b), so this model describes **no** crash state in which an
@@ -158,10 +174,14 @@ reachable.
 
 **Rule F-9d — the drain protocol is specified once, in persistence §9.** Claim state, lease
 owner, lease expiry, the fencing token and claim generation, the atomic acquisition predicate, the
-stable provider idempotency key, receiver-side deduplication, the ten token-fenced transitions and
-the five crash points all live in `persistence-and-transaction-model.md` §§9.2–9.6. This section
-states the governed consequence: an item whose **`boundary_crossed` is `true`** is never
-re-dispatched, its attempt is `ATTEMPTED_OUTCOME_UNKNOWN`, and reconciliation is mandatory.
+stable provider idempotency key, the **eleven** token-fenced transitions and the five crash
+points all live in `persistence-and-transaction-model.md` §§9.2–9.6. This section
+states the governed consequence: an item whose **`boundary_crossed` is `true`** is **never**
+re-dispatched — under any condition, including a `CONFIRMED_NOT_APPLIED` reconciliation and a
+provider that deduplicates — its attempt is `ATTEMPTED_OUTCOME_UNKNOWN` until reconciliation
+answers, and reconciliation is mandatory. Where the work continues after a
+`CONFIRMED_NOT_APPLIED` answer, it continues as a **new** governed provider attempt with a new
+identity and a new idempotency key, which is a governed act rather than an operational replay.
 
 **Rule F-9e — the call boundary is crossed before it is crossed.** The durable intent to call
 (`DISPATCH_PENDING`) commits **before** the call leaves, so no crash after the call can be

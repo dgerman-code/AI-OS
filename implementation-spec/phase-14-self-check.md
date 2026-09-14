@@ -139,9 +139,9 @@ authorised. The four most consequential:
 | Item | Count |
 |---|---|
 | Specification documents under `implementation-spec/` | 20 |
-| Validator checks | **102**, in 14 groups: `structure` 6 · `containment` 6 · `invariants` 5 · `knowledge` 6 · `scope` 6 · `routing` 3 · `events` 5 · `authority` 5 · `persistence` 7 · `races` 5 · `approval` 4 · `completeness` 6 · `fidelity` 11 · `crossdoc` 27 |
+| Validator checks | **106**, in 14 groups: `structure` 6 · `containment` 6 · `invariants` 5 · `knowledge` 6 · `scope` 6 · `routing` 3 · `events` 5 · `authority` 5 · `persistence` 7 · `races` 5 · `approval` 4 · `completeness` 6 · `fidelity` 11 · `crossdoc` 31 |
 | Validator | `validation/phase_14_validation.py`, standard library only, deterministic, no network |
-| Adversarial fixture | `validation/phase_14_mutation_probes.py`, **73 committed controlled weakenings**, 73 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
+| Adversarial fixture | `validation/phase_14_mutation_probes.py`, **87 committed controlled weakenings**, 87 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
 | Governed commands | **36**, each with exactly one transaction contract; the two sets are compared and equal |
 | Durable uniqueness constraints | **23** (U1–U23), one canonical inventory, every stated count derived from it |
 | Executable production code, migrations, manifests, SDK dependencies | **0** |
@@ -149,7 +149,7 @@ authorised. The four most consequential:
 | Decision Rights created | **0** |
 | Operations specified as permanently refusing until a Right is mapped | **4** |
 
-Phase 14 validator result: `102/102 PASS` on default, `--verbose` and `--json`.
+Phase 14 validator result: `106/106 PASS` on default, `--verbose` and `--json`.
 
 **Adversarial fixture.** `validation/phase_14_mutation_probes.py` is committed and runs from a
 clean checkout. Each probe weakens one load-bearing rule in a temporary copy of the package and
@@ -166,10 +166,10 @@ Two harness artefacts were found while building it and are recorded rather than 
    checks were added for exactly those rules, and one probe was re-targeted from a
    divergence-table description to the load-bearing statement it was supposed to attack.
 
-Current result: **73 probes, 73 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR`**, each caught by a named
-substantive check. The fourteen added in revision 6 are in §12.1, the twelve from revision 5 in
-§11.1, the sixteen from revision 4 in §10.1, the twelve from revision 3 in §9.1, and the original
-set is:
+Current result: **87 probes, 87 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR`**, each caught by a named
+substantive check. The fourteen added in revision 7 are in §13.1, the fourteen from revision 6 in
+§12.1, the twelve from revision 5 in §11.1, the sixteen from revision 4 in §10.1, the twelve from
+revision 3 in §9.1, and the original set is:
 
 | Weakening | Caught by |
 |---|---|
@@ -353,6 +353,44 @@ claim had wrapped, and two because a single historical clause in a long table ro
 other claim in the same row. Both defects were in the checks, both were found by the fixture, and
 both are recorded here rather than quietly repaired.
 
+## 13. The re-audit V6 blockers, and how each was closed
+
+| # | Blocker | Closed by |
+|---:|---|---|
+| 1 | PO-14 / PO-19 permitted conditional redispatch after `boundary_crossed = true`, and `T1`–`T10` contained **no fenced path that could perform it** — a permission with no mechanism | **Option B.** Crossed-boundary redispatch is removed entirely. PO-14 now reads: once `boundary_crossed = true` this dispatch item never presents its key again, under **any** condition — not on `CONFIRMED_NOT_APPLIED`, not under a recorded deduplication guarantee, not after any elapsed time. Nothing is lost: where reconciliation reports `CONFIRMED_NOT_APPLIED` the work continues as a **new governed provider attempt** — new `ProviderAttemptRef` at the next `attempt_ordinal` under U22, new dispatch item, new key derived per PO-1 (PO-14a) — which is what Phase 11 means by re-attempting where the retry class permits, and which leaves an audit trail rather than an operational replay. PO-14b states that receiver-side deduplication licenses nothing here; PO-19's verdict column now reads `Never` in every crossed row, with no condition attached, and the validator reads that column rather than a sentence |
+| 2 | F-9a / F-9d / PO-8 and T6 did not distinguish the recovery conditions | **Rule F-9a-map** is the single mapping, and it separates the five conditions the earlier wording collapsed: claim expired **before** the boundary (no call was made — a conclusion the local state is entitled to, PO-8); claim expired **after** it (nothing may be concluded); unknown effect; confirmed-not-applied; settled. F-9a no longer says an expired lease *always* reads as unknown — it says expiry proves nothing by itself and the **boundary flag** decides. Conditions 1 and 2 are named as the pair that was collapsed, and the dangerous reading is named explicitly |
+| 3 | T10 retired a row from `PENDING` **or** `CLAIMED` without ownership predicates | Split into **T10** (from `PENDING`, requiring `lease_owner IS NULL`) and **T11** (from `CLAIMED`, fencing on `lease_owner`, `claim_token` **and** `claim_generation` together). **PO-10a**: a non-owner or a stale writer matches **zero rows and writes nothing**, and does **not** fall back to T10, whose predicate requires an unowned row; an abandoned owned row is recovered by T6 first and retired second, because collapsing the two is how a live claimant's row gets retired out from under it. **PO-10b**: retirement applies only where `boundary_crossed = false` **and** the governed intent is itself terminal, and `terminal_reason = RETIRED_BEFORE_DISPATCH` keeps a retired `SETTLED` row distinguishable from a resolved one |
+| 4 | `CHECK (claim_generation >= 0)` cannot enforce monotonic increase, and was presented as if it could | `O5` is reclassified in its own row as a **row-shape** constraint that "enforces no ordering between successive updates", and **PO-4** states plainly that **monotonicity is not claimed as a database guarantee**: it is per-transition, enforced by every §9.4 predicate requiring `claim_generation = <the value read>` and writing `+ 1`, and it holds only because no write path outside §9.4 exists. A trigger or `IDENTITY` column is named as what a database-level guarantee **would** take, and explicitly not specified. A64 is the adversarial row that fails if anything relies on `O5` for ordering |
+| 5 | `O1`–`O4` and `O1`–`O5` both appeared as current | The surviving `O1`–`O4` in `api-command-contracts.md` Q-22a is corrected; the only remaining mentions of the four-constraint inventory are in §10's revision-5 blocker row, where the sentence says what that revision did. The transition count is corrected from ten to **eleven** in both documents that state it |
+| 6 | The V6 reviewer tested 14 nearby mutations and **9 escaped** | Four new checks and fourteen new probes, planted in **second and third** active locations rather than in the owner. New: a stale-writer check reading every statement for a stale generation, token or owner being allowed to act; an idempotency-key check for any permission to regenerate a dispatch item's key; an outbox-classification check that requires the governed claim to **attach to the outbox subject**; and a rule-reference check that resolves every cited `Rule <id>` against the definitions. The rule parser now reads **blockquoted** definitions (`P-14a` was being skipped), the definition count is derived rather than frozen, and the refusal-equality check scans every statement instead of only the adversarial table. Historical exclusions stay sentence-scoped and are named in one explicit pattern; git-dependent checks still grant no mutation credit |
+
+### 13.1 Assurance added for exactly these failures
+
+Fourteen new probes, each detected by a named substantive check:
+
+| # | Weakening | Caught by |
+|---:|---|---|
+| 1 | B3 loses its run-state append in a **third** active location | No active location contradicts the routing branch semantics |
+| 2 | B4n loses its inherited consequence in the Q-17d rule | No active location contradicts the routing branch semantics |
+| 3 | B1r consumes an ordinal in a **third** active location | No active location contradicts the routing branch semantics |
+| 4 | A stale owner's write is honoured outside the transition table | No active location weakens the stale-writer fencing semantics |
+| 5 | The provider idempotency key is regenerated in a second active location | No active location permits regenerating a dispatch item's key |
+| 6 | The outbox is reclassified as governed outside the owning rule | No active location reclassifies the outbox as governed |
+| 7 | Refusal equality is restated to include the execution-event count | A required refusal event never contradicts observational equality |
+| 8 | A stale transaction-table row count survives in active prose | Every normative count matches its canonical inventory |
+| 9 | An unknown effect is auto-redispatched in a second active location | No active location permits auto-redispatch of an unknown external effect |
+| 10 | A **blockquoted** rule definition collides with an active rule id | No normative rule identifier is defined twice |
+| 11 | An active rule reference points at a rule that does not exist | Every active rule reference resolves to a definition |
+| 12 | Crossed-boundary redispatch returns as a conditional permission | The external-call boundary is crash-safe and every transition is fenced |
+| 13 | T11 stops fencing retirement on the current owner | The external-call boundary is crash-safe and every transition is fenced |
+| 14 | `O5` is presented as enforcing monotonic increase | The external-call boundary is crash-safe and every transition is fenced |
+
+Two of the fourteen were `REDUNDANT` on their first run, and both exposed a real weakness in the
+checks rather than in the specification: a phrase-list that matched "advances the ordinal" but not
+"advances to reserve", and a denial list that treated the word *operational* as a denial — so a row
+calling the outbox operational in one column while calling its rows governed records in another
+was exempt from the check written to catch exactly that. Both are fixed and both are recorded here.
+
 ## 7. Known limitations of this self-check
 
 1. It is a producer self-check. The producer of a specification is the last party who should
@@ -366,20 +404,28 @@ both are recorded here rather than quietly repaired.
 4. The four blocked authorities mean an implementation built exactly to this specification would
    hold no canonical positions, destroy nothing, re-parent no scope, and never contract a schema
    against governed data. That is intended and it is also a substantial functional limit.
-5. **A green harness has now five times missed real contradictions.** 74/74, then 81/81, then
-   90/90, then 97/97 with 59 probes' worth of confidence, each coexisted with blockers an
-   independent reader found. Every round the missed defects were cross-document or localized —
+5. **A green harness has now six times missed real contradictions.** 74/74, then 81/81, then
+   90/90, then 97/97, then 102/102 with 73 probes' worth of confidence, each coexisted with
+   blockers an independent reader found. In the V6 round the reviewer tried fourteen nearby
+   mutations and **nine survived** — the harness's own probes were all passing at the time. Every round the missed defects were cross-document or localized —
    never inside one table a single check was looking at, and in the V5 round they were
    deliberately planted *beside* the canonical statement rather than in it. The `crossdoc` group
    has grown from 6 checks to 27 for that reason, and the honest reading is unchanged: **it
    closes what was found.** 102/102 and 73/73 are not evidence that nothing else is wrong, and
    this package's credibility should not be rated higher merely because the numbers went up.
 
-8. **Two of the seven V5 blockers were defects the harness had itself introduced** — the
-   duplicate `P-23` and the non-implementable `O4` predicate both arrived in revision 5, passed
-   90/90, and were caught by a human reader. The generic duplicate-rule check added in this
-   round then found two more collisions nobody had reported. A harness that only tests what its
-   author thought to test will keep producing that pattern.
+8. **Defects the harness itself introduced are now a pattern, not an incident.** The duplicate
+   `P-23` and the non-implementable `O4` predicate arrived in revision 5 and passed 90/90. The
+   revision-6 fix then introduced a *permission with no mechanism* — PO-14 allowed a redispatch
+   that no transition could perform — and passed 102/102 with 73 probes green. Each was found by
+   a human reader, not by the harness. The right conclusion is not that the next round will be
+   clean; it is that **this package's correctness has, every round, been established by
+   independent reading and not by its own validator**, and the validator's totals should be read
+   with that in front of them.
+
+9. **Nothing in this package has been executed.** The outbox protocol is specified as
+   implementable; no statement in it has been run against a database, and claims such as "this
+   predicate is implementable" are reasoned judgements about SQL semantics, not test results.
 
 7. One probe of revision 5 — the outbox losing its stable identity and uniqueness — came back
    `REDUNDANT` on its first run, because the check it attacked asked whether the constraint rows

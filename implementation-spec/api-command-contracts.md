@@ -364,10 +364,9 @@ events. The outbox row commits in the same transaction because the dispatch item
 outlive or precede the intent, but it is delivery plumbing: it carries no authority, satisfies no
 gate, and is not governance evidence. `persistence-and-transaction-model.md` Rule P-20a is the
 single statement of that classification, Rule P-14d excludes it from governed-record mutations,
-and the outbox's own durable constraints are the operational `O1`–`O4` of that document's §9.2
-rather than rows of the canonical uniqueness inventory — `O1`–`O5` of that document's §9.2a. Its
-claim, lease, boundary and dedup protocol is specified there in full, as ten token-fenced
-transitions.
+and the outbox's own durable constraints are the operational **`O1`–`O5`** of that document's
+§9.2a rather than rows of the canonical uniqueness inventory. Its claim, lease, boundary and
+reconciliation protocol is specified there in full, as **eleven** token-fenced transitions.
 
 **Rule Q-22b — stages 3 and 4 are one transaction, so there is no state between them.** The
 observed outcome and, where the outcome is `CONFIRMED_APPLIED` with content, the Model Result
@@ -402,6 +401,14 @@ deduplicates on the attempt's idempotency key, and `NON_REPLAYABLE_EXTERNAL_SIDE
 otherwise. Stages 3, 4 and 5 are `SAFE_AUTOMATIC_RETRY`. **No stage is class 4**, because model
 invocation is not an authority-bearing act — which is exactly why its output is `AI_SUGGESTION`
 and satisfies no gate.
+
+**Rule Q-25a — the declared class governs the governed layer, never the dispatch item.** Stage 2's
+class decides whether the **orchestrator** may create a *new* provider attempt automatically after
+an outcome is known. It never licenses the outbox to present a crossed item's key a second time:
+`persistence-and-transaction-model.md` PO-14 forbids that unconditionally, and PO-14b states that
+receiver-side deduplication is a property recorded on a Provider Profile rather than a permission.
+A step that is `IDEMPOTENT_AT_LEAST_ONCE` and whose attempt is `ATTEMPTED_OUTCOME_UNKNOWN` still
+reconciles; it does not replay.
 
 **Rule Q-26 — no distributed transaction and no exactly-once.** The staging above is
 at-most-once *locally* by U7 and U8, at-least-once *externally* where the provider deduplicates,

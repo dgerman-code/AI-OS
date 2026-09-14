@@ -42,7 +42,7 @@ true.** A milestone that "will be safe once M6 lands" is not complete.
 | **M17** | Supersession | The full `SUPERSEDED` path across runs, records, knowledge, artifacts, policies and registry versions | M11, M14 |
 | **M18** | Security and access | Human/service/agent identity separation; RLS with the separator-boundary predicate; least-privilege grants per component; secrets boundary | M2, M4 |
 | **M19** | Command surface | The command envelope, idempotency, the error vocabulary, the query surface | M7–M18 |
-| **M20** | Assurance completion | **Every ID in each canonical assurance inventory** (`test-and-assurance-strategy.md` §2a), not a range: adversarial (**67**), positive controls (**12**), architecture invariant (**12**), approval-gate (**8**), static CI (**10**). Plus the mutation harness with honest classification | all |
+| **M20** | Assurance completion | **Every ID in each canonical assurance inventory** (`test-and-assurance-strategy.md` §2a), not a range: adversarial (**70**), positive controls (**13**), architecture invariant (**12**), approval-gate (**8**), static CI (**10**). Plus the mutation harness with honest classification | all |
 
 ## 3. Dependency graph, compressed
 
@@ -78,11 +78,11 @@ pressure**, and there is no partial credit.
 | **G-K** | Leaving M12 | A21 passes for each of the six elements; every ID in this gate's §4.1 manifest row passes; an **invalid** route answer leaves **no governed record and no audit event, and appends exactly one refusal execution event** — which is coordination history and never governance evidence (O-25a) |
 | **G-L** | Leaving M13 | No vendor name outside a Provider/Deployment Profile; S1 and S7 pass |
 | **G-M** | Leaving M14 | Every ID in this gate's §4.1 manifest row passes; prior iterations retained; exhaustion escalates |
-| **G-N** | Leaving M15 | Every ID in this gate's §4.1 manifest row passes: an interrupted external call reaches `ATTEMPTED_OUTCOME_UNKNOWN` and neither assumption is made; the ten transitions of persistence §9.4 are exercised under contention and a stale token settles nothing |
+| **G-N** | Leaving M15 | Every ID in this gate's §4.1 manifest row passes: an interrupted external call reaches `ATTEMPTED_OUTCOME_UNKNOWN` and neither assumption is made; the eleven transitions of persistence §9.4 are exercised under contention and a stale token settles nothing |
 | **G-O** | Leaving M16 | Compensation requires its own authorisation; an unauthorised compensation escalates with the effect standing |
 | **G-P** | Leaving M18 | RLS and application scope checks are independently sufficient; no credential grants a Right |
 | **G-Q** | Leaving M19 | No bypass parameter exists anywhere; S8 passes |
-| **G-R** | Leaving M20 | **Every ID in every canonical assurance inventory passes** — adversarial **67**, positive controls **12**, architecture invariant **12**, approval-gate **8**, static CI **10**, all derived from the owning tables and none expressed as a range; mutation classifications re-derived independently; every documented count derived from its canonical inventory |
+| **G-R** | Leaving M20 | **Every ID in every canonical assurance inventory passes** — adversarial **70**, positive controls **13**, architecture invariant **12**, approval-gate **8**, static CI **10**, all derived from the owning tables and none expressed as a range; mutation classifications re-derived independently; every documented count derived from its canonical inventory |
 
 ### 4.1 The assurance manifest — which gate requires which ID
 
@@ -117,7 +117,7 @@ every gate, which is exactly how A48–A55 and P-A49 came to be required by noth
 | **G-K** | M12 | A21, A38, A39, A40, A53, A54, P-A38, P-A40 |
 | **G-L** | M13 | S1, S7 |
 | **G-M** | M14 | A14, A28, A44, A45, A46, A55, A61, P-A44 |
-| **G-N** | M15 | A41, A42, A43, A48, A49, A50, A51, A52, A56, A57, A58, A59, A60, P-A41, P-A42, P-A49, P-A56 |
+| **G-N** | M15 | A41, A42, A43, A48, A49, A50, A51, A52, A56, A57, A58, A59, A60, A62, A63, A64, P-A41, P-A42, P-A49, P-A56, P-A62 |
 | **G-O** | M16 | *(none assigned — see the note below)* |
 | **G-P** | M18 | S8 |
 | **G-Q** | M19 | *(none assigned — see the note below)* |

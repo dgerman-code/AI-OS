@@ -482,9 +482,95 @@ PROBES = [
 
     ("a remediation test is required by no milestone gate",
      "implementation-sequencing.md",
-     '| **G-N** | M15 | A41, A42, A43, A48, A49, A50, A51, A52, A56, A57, A58, A59, A60, P-A41, P-A42, P-A49, P-A56 |',
-     "| **G-N** | M15 | A41, A42, A43, P-A41, P-A42 |",
+     '| **G-N** | M15 | A41, A42, A43, A48, A49, A50, A51, A52, A56, A57, A58, A59, A60, A62, A63, A64, P-A41, P-A42, P-A49, P-A56, P-A62 |',
+     '| **G-N** | M15 | A41, A42, A43, P-A41, P-A42 |',
      "the assurance manifest partitions the canonical inventories"),
+
+    # ---- revision 7: the nine V6 escapes, each planted in a SECOND active location ---------
+
+    ("B3 loses its run-state append in a third active location",
+     "test-and-assurance-strategy.md",
+     '| A54 | `Route` | CURRENT | Commit a valid non-selection decision while leaving the run eligible to continue | Refused. The decision and the run-state appends of Rule Q-17b are one transaction (Q-17c) |',
+     "| A54 | `Route` | CURRENT | Commit a valid non-selection decision while leaving the run eligible to continue | Refused. B3 commits `routing_request` and `routing_decision` in one transaction |",
+     "no active location contradicts the routing branch semantics"),
+
+    ("B4n loses its inherited consequence in the Q-17d rule",
+     "api-command-contracts.md",
+     "**Rule Q-17d \u2014 B4 inherits B3's consequence, never a weaker one.**",
+     "**Rule Q-17d \u2014 B4n writes the `routing_decision` and nothing else.**",
+     "no active location contradicts the routing branch semantics"),
+
+    ("B1r consumes an ordinal in a third active location",
+     "test-and-assurance-strategy.md",
+     '| A53 | `Route` | CURRENT | Send a malformed answer after the Routing Request is already durable, and expect the ordinal to advance or the request to change | Branch B1r: the request is preserved, no decision is written, `submission_ordinal` does **not** advance; one refusal execution event |',
+     "| A53 | `Route` | CURRENT | Send a malformed answer after the Routing Request is already durable | Branch B1r: the durable request stands and `submission_ordinal` advances to reserve the attempt |",
+     "no active location contradicts the routing branch semantics"),
+
+    ("a stale owner's write is honoured outside the transition table",
+     "failure-recovery-race-model.md",
+     "**Rule F-9e \u2014 the call boundary is crossed before it is crossed.**",
+     "**Rule F-9e \u2014 the call boundary is crossed before it is crossed.** A former owner's write is still honoured after the lease expires.",
+     "no active location weakens the stale-writer fencing semantics"),
+
+    ("the provider idempotency key is regenerated in a second active location",
+     "test-and-assurance-strategy.md",
+     '| A51 | *outbox drain* | CURRENT | Regenerate the provider idempotency key on redelivery | Refused. The key is derived once in the enqueuing transaction and is stable for the life of the row (PO-1) |',
+     "| A51 | *outbox drain* | CURRENT | Regenerate the provider idempotency key on redelivery | Permitted. The drain derives a fresh key each time it redelivers |",
+     "no active location permits regenerating a dispatch item's key"),
+
+    ("the outbox is reclassified as governed outside the owning rule",
+     "system-component-model.md",
+     '| C16 | **Outbox & Reconciliation Worker** | Draining staged external effects, recording external-effect uncertainty, driving reconciliation (`failure-recovery-race-model.md` §6) | Compensate on its own authority; retry a non-retryable governed act |',
+     "| C16 | **Outbox & Reconciliation Worker** | Its outbox rows are governed records and each one writes an audit event | Operational |",
+     "no active location reclassifies the outbox as governed"),
+
+    ("refusal equality is restated to include the execution-event count",
+     "api-command-contracts.md",
+     '| **B1 invalid, first submission** | Malformed, wrong request identity, foreign Router, or an incomplete six-part set on a selection | **0 — no request, no decision** | **0** | 1 (refusal) | None. Governed state and governed history unchanged (Rule O-25) |',
+     "| **B1 invalid, first submission** | Malformed, wrong request identity, foreign Router, or an incomplete six-part set on a selection | **0 \u2014 no request, no decision** | **0** | 1 (refusal) | None. The execution-event count must remain identical |",
+     "a required refusal event never contradicts observational equality"),
+
+    ("a stale transaction-table row count survives in active prose",
+     "phase-14-self-check.md",
+     "| Governed commands | **36**, each with exactly one transaction contract; the two sets are compared and equal |",
+     "| Governed commands | **36**, each with exactly one transaction contract; \u00a77.2 has 49 rows |",
+     "every normative count matches its canonical inventory"),
+
+    ("an unknown effect is auto-redispatched in a second active location",
+     "failure-recovery-race-model.md",
+     "**Rule F-9d \u2014 the drain protocol is specified once, in persistence \u00a79.**",
+     "**Rule F-9d \u2014 the drain protocol is specified once, in persistence \u00a79.** An attempt whose `boundary_crossed` is true may be redispatched automatically once its claim expires.",
+     "no active location permits auto-redispatch of an unknown external effect"),
+
+    ("a blockquoted rule definition collides with an active rule id",
+     "persistence-and-transaction-model.md",
+     "> **Rule P-14a \u2014 one audit event per persisted governed-record mutation, in the same",
+     "> **Rule P-20a \u2014 one audit event per persisted governed-record mutation, in the same",
+     "unique normative rule identifiers, blockquoted definitions included"),
+
+    ("an active rule reference points at a rule that does not exist",
+     "api-command-contracts.md",
+     "`persistence-and-transaction-model.md` PO-14 forbids that unconditionally, and PO-14b states that",
+     "`persistence-and-transaction-model.md` Rule PO-27 forbids that unconditionally, and PO-14b states that",
+     "every active rule reference resolves"),
+
+    ("crossed-boundary redispatch returns as a conditional permission",
+     "persistence-and-transaction-model.md",
+     "| `UNCERTAIN`, reconciliation says `CONFIRMED_NOT_APPLIED` | **Never** | T8 to `SETTLED`. Continuation is a **new** governed provider attempt at the next ordinal, with a **new** key (PO-14) |",
+     "| `UNCERTAIN`, reconciliation says `CONFIRMED_NOT_APPLIED` | **Yes**, only after reconciliation answers | T8 to `SETTLED`, then re-dispatch under the same key |",
+     "crossed-boundary redispatch is prohibited outright"),
+
+    ("T11 stops fencing retirement on the current owner",
+     "persistence-and-transaction-model.md",
+     "**AND** `lease_owner = <the writer's own service identity>` **AND** `claim_token = <held>` **AND** `claim_generation = <read>` | as T10 | Owner, token **and** generation |",
+     "**AND** `claim_generation = <read>` | as T10 | Generation |",
+     "retirement is owner-fenced"),
+
+    ("O5 is presented as enforcing monotonic increase",
+     "persistence-and-transaction-model.md",
+     "**Monotonicity is not claimed as a database guarantee.**",
+     "**Monotonicity is enforced by the O5 constraint.**",
+     "monotonicity lives in the CAS predicates, not in a row CHECK"),
 ]
 
 
