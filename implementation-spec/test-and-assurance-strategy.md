@@ -41,38 +41,83 @@ Each row is a test that must exist and must assert a **refusal plus observationa
 the whole observable state — four axes, gate outcomes, every governed record store, event count,
 attempt counters — is identical before and after.
 
-| # | Attack | Expected |
-|---:|---|---|
-| A1 | Offer a Model Result to a review gate, a decision gate, a human-work gate, a prerequisite gate | `EVIDENCE_TYPE_INADMISSIBLE` ×4 |
-| A2 | Offer a Review Instance to a decision gate; a Decision Record to a review gate | Refused both ways |
-| A3 | Offer an execution event, a log line, a metric or a trace as gate evidence | Inadmissible; there is no code path that accepts it |
-| A4 | Supply a caller-constructed Routing Decision, Review Instance, Decision Record, Canonical Record | Not found in governed lineage; satisfies nothing |
-| A5 | Submit a `HumanAuthorityRef`-shaped subclass, a duck-typed object, a string | `IDENTITY_KIND_INVALID` |
-| A6 | Put a credential, service identity or agent instance in `decided_by` | Refused by the database check constraint |
-| A7 | Complete a run with posture `AUTHORITY_ABSENT` or `GATE_UNSATISFIED` | `POSTURE_FORBIDS_COMPLETION` |
-| A8 | Progress any ordinary API on a halted run | `RUN_HALTED`, all sixteen APIs |
-| A9 | Widen scope, sensitivity or residency via a sub-run | `SCOPE_WIDENING_REFUSED` |
-| A10 | Reach a sibling scope via a sub-run, or via `ORGANISATION/acme` → `ORGANISATION/acme_holdings` prefix | Refused; **the separator-boundary test** |
-| A11 | Cross a scope with a bare mechanism reference, or with an authorisation whose Decision Record is not in the source run's retained history | `AUTHORISATION_NOT_CORROBORATED` |
-| A12 | Use an intervention naming run B on run A — through recording, pause, unblock, cancel and terminate | `FOREIGN_RUN_LINEAGE`, all five paths |
-| A13 | Repeat a stable governed identity — Decision Record, Review Instance, Routing Decision, Model Result, intervention | `DUPLICATE_GOVERNED_IDENTITY`, durable constraint |
-| A14 | Retry a `NON_RETRYABLE_GOVERNED_ACT` or a `NON_REPLAYABLE_EXTERNAL_SIDE_EFFECT` | Halt and escalate, not an exception and not a no-op |
-| A15 | Convert `AI_SUGGESTION` to `FACT_CLAIM` by approval, review, edit or acceptance | `EPISTEMIC_CONVERSION_PROHIBITED`; no such transition exists |
-| A16 | Change an `origin` value after insert | Refused; column is immutable |
-| A17 | Promote to canonical without precondition 9 | `NO_APPLICABLE_DECISION_RIGHT` — **and with a mapped Right mocked in, still refuses because no Right is mapped** |
-| A18 | Exercise both ends of an active `SEPARATION_REQUIRED` pair as one human, directly and **via delegation** | `SEPARATION_VIOLATION` both ways |
-| A19 | Satisfy a full-profile review as a `BOUNDED_REVIEW_CONTRIBUTOR` | `BOUNDED_CONTRIBUTOR_CANNOT_SATISFY` |
-| A20 | Review one's own work under a class above `PRODUCER_REVIEW` | `PRODUCER_REVIEW_PROHIBITED` |
-| A21 | Record a Routing Decision missing any one of the six reproducibility elements | `REPRODUCIBILITY_SET_INCOMPLETE`, six separate tests |
-| A22 | Name a model on a non-eligible routing outcome | Refused by the check constraint |
-| A23 | Invoke a model under a Routing Decision from another run, or record a result under a different Model Profile | `PROFILE_LINEAGE_MISMATCH` |
-| A24 | Force a stale write by racing two updates | `STALE_WRITE`; **nothing written**; no merge |
-| A25 | Supply `force`, `skip_checks`, `as_admin`, `bypass_rls` | Unknown field; the request is rejected |
-| A26 | Reuse an idempotency key with a different payload | `IDEMPOTENCY_KEY_CONFLICT`; nothing executed |
-| A27 | Adopt an orphaned storage object by hash or path | Refused |
-| A28 | Exhaust a rework loop and expect it to iterate once more | `ESCALATED` with the iteration history intact |
-| A29 | Read the execution-event or observability store from a governed module | Static check fails the build |
-| A30 | Apply a `DESTRUCTIVE` migration, or mis-declare its class | Refused; classifier disagreement fails the build |
+Each row carries **structured metadata** so the setup and the expectation can be checked against
+each other and against the command contracts, rather than read as prose:
+
+| Column | Means |
+|---|---|
+| **Command** | The governed command under attack, from `api-command-contracts.md` §5.1 |
+| **Basis** | `CURRENT` — the attack is against the architecture as approved today. `HYPOTHETICAL` — a synthetic fixture about behaviour under a governed change that has **not** happened. A `HYPOTHETICAL` row is **never** evidence about current behaviour |
+| **Expected** | The exact refusal, or the exact permitted outcome for a positive control |
+
+**Rule T-3a — a row may not contradict its own command contract.** If `Command` is
+`TerminateRun`, the attack may not supply a human intervention *and expect the intervention
+contract to reject it*, because that command accepts no intervention to reject. The validator
+compares each row's command against the contract and fails on the mismatch, which is how the
+previous revision's A12 survived as long as it did.
+
+**Rule T-3b — a `HYPOTHETICAL` row proves nothing about today.** It may not be cited as evidence
+that a blocked authority is resolved, and the validator refuses any `HYPOTHETICAL` row whose
+expectation claims a currently-mapped Right exists.
+
+| # | Command | Basis | Attack | Expected |
+|---:|---|---|---|---|
+| A1 | `SupplyGateEvidence` | CURRENT | Offer a Model Result to a review gate, a decision gate, a human-work gate, a prerequisite gate | `EVIDENCE_TYPE_INADMISSIBLE` ×4 |
+| A2 | `SupplyGateEvidence` | CURRENT | Offer a Review Instance to a decision gate; a Decision Record to a review gate | Refused both ways |
+| A3 | `SupplyGateEvidence` | CURRENT | Offer an execution event, a log line, a metric or a trace as gate evidence | Inadmissible; there is no code path that accepts it |
+| A4 | `ExerciseDecisionRight` | CURRENT | Supply a caller-constructed Routing Decision, Review Instance, Decision Record, Canonical Record | Not found in governed lineage; satisfies nothing |
+| A5 | `ExerciseDecisionRight` | CURRENT | Submit a `HumanAuthorityRef`-shaped subclass, a duck-typed object, a string | `IDENTITY_KIND_INVALID` |
+| A6 | `ExerciseDecisionRight` | CURRENT | Put a credential, service identity or agent instance in `decided_by` | Refused by the database check constraint |
+| A7 | `CompleteRun` | CURRENT | Complete a run with posture `AUTHORITY_ABSENT` or `GATE_UNSATISFIED` | `POSTURE_FORBIDS_COMPLETION` |
+| A8 | *any ordinary command* | CURRENT | Progress any ordinary API on a halted run | `RUN_HALTED`, all sixteen APIs |
+| A9 | `OpenSubRun` | CURRENT | Widen scope, sensitivity or residency via a sub-run | `SCOPE_WIDENING_REFUSED` |
+| A10 | `OpenSubRun` | CURRENT | Reach a sibling scope via a sub-run, or via `ORGANISATION/acme` → `ORGANISATION/acme_holdings` prefix | Refused; **the separator-boundary test** |
+| A11 | `TransferScope` | CURRENT | Cross a scope with a bare mechanism reference, or with an authorisation whose Decision Record is not in the source run's retained history | `AUTHORISATION_NOT_CORROBORATED` |
+| A12a | `RecordIntervention`, `PauseRun`, `ResumeRun`, `UnblockRun`, `CancelRun` | CURRENT | Use an intervention naming run B on run A — through **all five** intervention-consuming paths | `FOREIGN_RUN_LINEAGE`, every path |
+| A12b | `TerminateRun` | CURRENT | Terminate with **no named constraint** | `CONSTRAINT_NOT_NAMED`; full observational equality; no terminal state |
+| A12c | `TerminateRun` | CURRENT | Supply or smuggle a `HumanInterventionRecord` into a command whose contract accepts none | `UNEXPECTED_HUMAN_INTERVENTION`, and **no human identity appears in any resulting record** |
+| A12d | `TerminateRun` | CURRENT | Terminate with a missing acting system identity, or one whose kind is not `service` | `SYSTEM_IDENTITY_MISSING` / `IDENTITY_KIND_INVALID`; nothing written |
+| A12e | `TerminateRun` | CURRENT | Terminate from a phase `TERMINATED` is not reachable from — `CREATED`, `RETRY_PENDING` | `TERMINAL_NOT_REACHABLE`; nothing written |
+| A12f | `TerminateRun` | CURRENT | Terminate a run that is already terminal | `TERMINAL_NOT_REACHABLE`; the prior terminal state is unchanged |
+| A13 | `ExerciseDecisionRight` | CURRENT | Repeat a stable governed identity — Decision Record, Review Instance, Routing Decision, Model Result, intervention | `DUPLICATE_GOVERNED_IDENTITY`, durable constraint |
+| A14 | `Retry` | CURRENT | Retry a `NON_RETRYABLE_GOVERNED_ACT` or a `NON_REPLAYABLE_EXTERNAL_SIDE_EFFECT` | Halt and escalate, not an exception and not a no-op |
+| A15 | `AdoptAISuggestion` | CURRENT | Convert `AI_SUGGESTION` to `FACT_CLAIM` by approval, review, edit or acceptance | `EPISTEMIC_CONVERSION_PROHIBITED`; no such transition exists |
+| A16 | `CreateKnowledgeItem` | CURRENT | Change an `origin` value after insert | Refused; column is immutable |
+| A17a | `PromoteToCanonical` | CURRENT | Promote to canonical under the approved universe, in which **no applicable canonical-promotion Right is mapped** | `NO_APPLICABLE_DECISION_RIGHT`; **zero governed writes, zero audit events**, one refusal execution event |
+| A17b | `PromoteToCanonical` | **HYPOTHETICAL** | Present an arbitrary or non-applicable Right, or a forged Decision Record, and attempt to satisfy BA-1 with it | Refused. A Right whose declared subject does not cover canonical promotion does not reach, and a Decision Record not found in governed lineage satisfies nothing. **This fixture is not evidence that BA-1 is resolved** |
+| A18 | `ExerciseDecisionRight` | CURRENT | Exercise both ends of an active `SEPARATION_REQUIRED` pair as one human, directly and **via delegation** | `SEPARATION_VIOLATION` both ways |
+| A19 | `SubmitReviewInstance` | CURRENT | Satisfy a full-profile review as a `BOUNDED_REVIEW_CONTRIBUTOR` | `BOUNDED_CONTRIBUTOR_CANNOT_SATISFY` |
+| A20 | `SubmitReviewInstance` | CURRENT | Review one's own work under a class above `PRODUCER_REVIEW` | `PRODUCER_REVIEW_PROHIBITED` |
+| A21 | `Route` | CURRENT | Record a Routing Decision missing any one of the six reproducibility elements | `REPRODUCIBILITY_SET_INCOMPLETE`, six separate tests |
+| A22 | `Route` | CURRENT | Name a model on a non-eligible routing outcome | Refused by the check constraint |
+| A23 | `InvokeModel` | CURRENT | Invoke a model under a Routing Decision from another run, or record a result under a different Model Profile | `PROFILE_LINEAGE_MISMATCH` |
+| A24 | *any command* | CURRENT | Force a stale write by racing two updates | `STALE_WRITE`; **nothing written**; no merge |
+| A25 | *any command* | CURRENT | Supply `force`, `skip_checks`, `as_admin`, `bypass_rls` | Unknown field; the request is rejected |
+| A26 | *any command* | CURRENT | Reuse an idempotency key with a different payload | `IDEMPOTENCY_KEY_CONFLICT`; nothing executed |
+| A27 | *storage commit* | CURRENT | Adopt an orphaned storage object by hash or path | Refused |
+| A28 | `OpenReworkIteration` | CURRENT | Exhaust a rework loop and expect it to iterate once more | `ESCALATED` with the iteration history intact |
+| A29 | *static check* | CURRENT | Read the execution-event or observability store from a governed module | Static check fails the build |
+| A30 | `ApplyDestructiveMigration` | CURRENT | Apply a `DESTRUCTIVE` migration, or mis-declare its class | Refused; classifier disagreement fails the build |
+| A31 | *every governed act* | CURRENT | Add a governed write to an act without updating its audit-event count | The suite asserts the count in §7.2 against the rows actually written, and fails |
+| A32 | `TranscribeApprovalState` | CURRENT | Transcribe with no source approval record, or one that does not resolve at the cited commit | `APPROVAL_SOURCE_MISSING` / `APPROVAL_SOURCE_UNRESOLVABLE`; the subject stays `PROPOSED` |
+| A33 | `TranscribeApprovalState` | CURRENT | Supply an approval status, a `decision_record_ref` or a scope the source record does not state | `TRANSCRIPTION_NOT_MECHANICAL`; nothing written |
+| A34 | `RecordNewApprovalState` | CURRENT | Record a new approval with no Decision Record, or one whose `decided_by` is a service identity | `DECISION_RECORD_REQUIRED` / `IDENTITY_KIND_INVALID`; nothing written |
+| A35 | `TranscribeApprovalState`, `RecordNewApprovalState` | CURRENT | Write an approval-state history row while the current pointer fails to move | Both writes are one transaction; the failure rolls the whole act back, and no history row exists without its pointer |
+| A36 | *audit writer* | CURRENT | Write an `INSERT` audit event carrying a `record_version_before`, or a `VERSION_APPEND` carrying none | Refused by the check constraint keyed on `mutation_kind` |
+| A37 | *any refused command* | CURRENT | Expect an audit event for a refused transaction | There is none, at any `mutation_kind` |
+
+### 3.1 Positive controls
+
+An adversarial suite with no positive controls proves only that the system refuses things. Each
+row below must **succeed**, and each is the companion of a refusal above.
+
+| # | Command | Basis | Scenario | Expected |
+|---:|---|---|---|---|
+| P-A12 | `TerminateRun` | CURRENT | Terminate a `RUNNING` run with a named breached constraint and a valid acting system identity, **and no human intervention** | Succeeds. Terminal `TERMINATED`; the constraint stop record and the run terminal state written; **2 audit events**; one `TERMINAL` execution event whose `human_identity_ref` is **`NULL`** |
+| P-A12c | `CancelRun` | CURRENT | Cancel a `RUNNING` run with a valid `HumanInterventionRecord` naming that run | Succeeds. Terminal `CANCELLED`; intervention and terminal state written; **2 audit events**; one `TERMINAL` execution event carrying **both** a human and a system identity |
+| P-A17 | `PromoteToCanonical` | CURRENT | — | **There is no positive control.** No canonical promotion succeeds under the approved universe, and a suite that contained one would be asserting BA-1 is resolved |
+| P-A32 | `TranscribeApprovalState` | CURRENT | Transcribe `reviews/phase-7-final-approval.md` for the eight exemplar Decision Right Cards it names | Succeeds, one row per named subject, with `decision_right_ref` **null** where the record states none; **2 audit events** per subject; **no row** for a subject the record does not name |
+| P-A34 | `RecordNewApprovalState` | CURRENT | Record a new approval whose governed act produced a resolvable Decision Record decided by a human | Succeeds; history row and pointer move in one transaction |
 
 ## 4. Concurrency tests — the ten races
 

@@ -80,8 +80,8 @@ PROBES = [
 
     ("the transaction table stops stating audit counts",
      "persistence-and-transaction-model.md",
-     "| **Scope transfer** | Source run, retained Decision Records, mechanism registry, target definition | All source-side clauses **and** every target-run creation condition, via one shared preflight | Source run `record_version` | `scope_transfer_authorisation`, target `workflow_run`, target `scope_binding`, provenance link | **4** |",
-     "| **Scope transfer** | Source run, retained Decision Records, mechanism registry, target definition | All source-side clauses **and** every target-run creation condition, via one shared preflight | Source run `record_version` | `scope_transfer_authorisation`, target `workflow_run`, target `scope_binding`, provenance link | as needed |",
+     "| **scope_transfer** | Source run, retained Decision Records, mechanism registry, target definition | All source-side clauses **and** every target-run creation condition, via one shared preflight | Source run `record_version` | `scope_transfer_authorisation`, target `workflow_run`, target `scope_binding`, provenance link | **4** |",
+     "| **scope_transfer** | Source run, retained Decision Records, mechanism registry, target definition | All source-side clauses **and** every target-run creation condition, via one shared preflight | Source run `record_version` | `scope_transfer_authorisation`, target `workflow_run`, target `scope_binding`, provenance link | as needed |",
      "audit-event-per-governed-record-write cardinality"),
 
     ("U19 keys on a nonexistent ACTIVE approval status",
@@ -155,6 +155,79 @@ PROBES = [
      "### BA-3 — Controlled destruction of governed content",
      "### BX-3 — Controlled destruction of governed content",
      "missing Decision Rights are not silently filled"),
+
+    # ---- re-audit v2 required coverage -------------------------------------------------
+    ("A12 regresses to human-intervention termination semantics",
+     "test-and-assurance-strategy.md",
+     "| A12c | `TerminateRun` | CURRENT | Supply or smuggle a `HumanInterventionRecord` into a command whose contract accepts none | `UNEXPECTED_HUMAN_INTERVENTION`, and **no human identity appears in any resulting record** |",
+     "| A12c | `TerminateRun` | CURRENT | Use an intervention naming run B when terminating run A | `FOREIGN_RUN_LINEAGE` |",
+     "A12 attacks the real TerminateRun contract"),
+
+    ("the termination positive control is removed",
+     "test-and-assurance-strategy.md",
+     "| P-A12 | `TerminateRun` | CURRENT |",
+     "| P-A12 | `CancelRun` | CURRENT |",
+     "a valid constraint-driven termination has a positive control"),
+
+    ("a governed API command is dropped from the transaction table",
+     "persistence-and-transaction-model.md",
+     "| **supply_gate_evidence** |",
+     "| **supply_gate_evidence_REMOVED** |",
+     "API command set == transaction act set"),
+
+    ("a transaction row has no governed API command",
+     "api-command-contracts.md",
+     "| 27 | `RaiseConflict` | N | `raise_conflict` |",
+     "| 27 | `RaiseConflict` | N | `raise_conflict_other` |",
+     "transaction act set == API command set"),
+
+    ("the two approval acts collapse back into one ambiguous class",
+     "api-command-contracts.md",
+     "| 30 | `TranscribeApprovalState` | **h** | `transcribe_approval_state` |",
+     "| 30 | `TranscribeApprovalState` | **H** | `transcribe_approval_state` |",
+     "approval command classes match registry semantics"),
+
+    ("transcription may create approval without an authoritative source",
+     "approval-state-registry.md",
+     "**Rule AP-2a — transcription is mechanical or it is refused.**",
+     "**Rule AP-2a — transcription may fill gaps the source leaves.**",
+     "transcription records but never creates approval"),
+
+    ("approval history is written without the current-pointer update",
+     "persistence-and-transaction-model.md",
+     "`approval_state_record` (new immutable version), `approval_state_current` (create or move) | **2** |",
+     "`approval_state_record` (new immutable version) | **1** |",
+     "history and pointer move in one transaction"),
+
+    ("the uniqueness count in a milestone drifts from the inventory",
+     "implementation-sequencing.md",
+     "Every constraint in the canonical uniqueness inventory (currently **21**)",
+     "All 20 uniqueness constraints",
+     "uniqueness inventory count == milestone references"),
+
+    ("A17 mixes current and hypothetical Right availability",
+     "test-and-assurance-strategy.md",
+     "| A17b | `PromoteToCanonical` | **HYPOTHETICAL** |",
+     "| A17b | `PromoteToCanonical` | CURRENT |",
+     "A17 current-vs-hypothetical consistency"),
+
+    ("an INSERT audit event is required to carry a before-version",
+     "audit-provenance-observability.md",
+     "| `INSERT` | A governed record exists that did not exist | **NULL** — required to be null; there is no prior version, and a value would be a fiction | **NOT NULL** |",
+     "| `INSERT` | A governed record exists that did not exist | **NOT NULL** | **NOT NULL** |",
+     "audit version-nullability matrix"),
+
+    ("a newly covered governed act stops stating its audit count",
+     "persistence-and-transaction-model.md",
+     "posture change | **3** |",
+     "posture change | as needed |",
+     "audit cardinality after full command coverage"),
+
+    ("a blocked command is allowed a governed write",
+     "persistence-and-transaction-model.md",
+     "| — | **0 — nothing is ever written** | **0** | 1 (refusal) | — | **Blocked at precondition 9 (BA-1).",
+     "| — | `canonical_record` | **1** | 1 (refusal) | — | **Blocked at precondition 9 (BA-1).",
+     "blocked commands declare zero writes"),
 ]
 
 

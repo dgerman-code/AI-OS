@@ -35,6 +35,45 @@ A governed record family in the `governance` data domain (C2), append-only, whos
 approval record exists. Writing a row is not approving. There is no command that creates an
 approval state without a resolvable source approval record and a human approving authority.
 
+### 2.1 Two recording acts, because there are two situations
+
+One command could not serve both, and an earlier revision's single `RecordApprovalState` — class
+`H` — was contradictory: class `H` asserts a mapped Decision Right governs the act, while this
+document says transcription creates no approval and that a historical source may carry no Right
+at all. The conflation also pointed the wrong way: if *recording* is itself an authority-bearing
+act, then whoever can call the recording API is exercising authority, which is how a service
+account becomes a route to manufactured approval.
+
+| | `TranscribeApprovalState` | `RecordNewApprovalState` |
+|---|---|---|
+| Situation | An authoritative human approval record **already exists** — in `reviews/`, or created outside the runtime | A **new** governed approval, revocation or supersession act has just happened and satisfied its Right |
+| Auth class | `h` — a human runs a bounded transcription | `H` — the underlying act was governed by a mapped Right |
+| Exercises a Right? | **No.** Transcription is mechanical | **No.** The Right was exercised by the act; this records its result |
+| Creates approval? | **No** | **No** |
+| `source_approval_record` | **Mandatory**, and must resolve at the cited commit | **Mandatory** |
+| `decision_right_ref` / `decision_record_ref` | **Nullable**, exactly where the authoritative source did not record them | **`NOT NULL`** where the governed act required a Right; the Decision Record must resolve and its `decided_by` must be human |
+| Availability | The bounded bootstrap of §9, and later transcription of an approval made outside the runtime | Ordinary runtime operation |
+| With no source record | **Fail closed** — the subject stays `PROPOSED` | Fail closed, the same way |
+
+**Rule AP-2a — transcription is mechanical or it is refused.** Every field
+`TranscribeApprovalState` writes is derived from the source record. A field with no counterpart
+in the source is `TRANSCRIPTION_NOT_MECHANICAL`, **not** a blank for the caller to fill. This is
+what makes "records but never creates" checkable rather than aspirational: there is no parameter
+through which a decision the source does not contain could be supplied.
+
+**Rule AP-2b — nullable Right lineage is a historical fact, not a loophole.** Several approved
+Phase 1–13 records predate the Decision Rights model or were human decisions taken outside it;
+they state an approving human and a date and no `decision.<id>`. Transcribing them with a null
+`decision_right_ref` records what is true. Inventing a Right to fill the column would be
+manufacturing exactly the authority this package refuses to manufacture. `RecordNewApprovalState`
+has no such latitude: a new governed approval that required a Right and cannot name its Decision
+Record is refused.
+
+**Rule AP-2c — neither command can be talked into creating approval.** Being authenticated, an
+administrator, a service role or the database owner changes nothing, because neither command
+accepts an approval status, a Right or a Decision Record the source record does not already
+state (`api-command-contracts.md` Rule Q-14).
+
 **Rule AP-3 — the registry is the runtime's oracle, not the governance authority.** The
 authority is the human decision. The registry is how a machine finds out what that decision was,
 in the same way an audit event records a change without being the authority for it.
@@ -171,6 +210,14 @@ governed maintenance pass may align headers; Phase 14 does not.
 
 ## 7. Supersession and revocation
 
+**Rule AP-8a — history and pointer move together or not at all.** Both recording acts write the
+immutable `approval_state_record` version **and** create or move `approval_state_current` in
+**one transaction**, under a version-pinned write on the pointer. A history row without its
+pointer, or a pointer without its history row, is not a state this specification permits, and
+`test-and-assurance-strategy.md` A35 asserts it. Each act therefore produces **two** audit
+events — one per governed-record mutation, per Rule P-14a — with the pointer's recorded as
+`POINTER_MOVE` (before-version null on creation, non-null on a move).
+
 **Rule AP-9.** Approval state is **never edited in place**. A new approval writes a new
 immutable `approval_version` whose own `status` reflects the new decision, and moves the current
 pointer to it in the same transaction. The prior row is not rewritten to say `SUPERSEDED`: it is
@@ -207,9 +254,12 @@ configuration file lists approved versions, and no environment variable override
 The registry must be populated before it can be consulted, and populating it must not itself
 require an approval the registry cannot yet answer for.
 
-**Rule AP-13 — bootstrap is a recorded transcription, not an approval.** The initial rows are
-transcribed from the existing human approval records in `reviews/`, each citing its path and
-commit SHA. The transcription is:
+**Rule AP-13 — bootstrap is a bounded, reviewable transcription, not a standing privilege.** The
+initial rows are written by `TranscribeApprovalState` from the existing human approval records in
+`reviews/`, each citing its path and commit SHA. The bootstrap is a **one-off enumerated
+migration**, governed like any other migration (`migrations-versioning-compatibility.md` §9): it
+has a manifest listing every subject it will write, it is reviewed before it runs, and it does
+not leave behind a runtime capability to bulk-create approval state. The transcription is:
 
 1. **mechanical** — one row per subject the approval record itself enumerates;
 2. **verified** — every `source_approval_record` must resolve at the cited commit, and every

@@ -81,6 +81,21 @@ component that owns the act, from a request the system itself issued.
 
 ## 5. Command catalogue
 
+### 5.1 The canonical governed-command inventory
+
+This table is **the** inventory of governed commands. It is owned by this document, parsed by
+the validator, and it is what "the governed command set" means anywhere in this package.
+
+The **Act** column is the load-bearing addition. It names the transaction contract in
+`persistence-and-transaction-model.md` §7.2 that specifies how the command commits. The two sets
+must be **exactly equal**: a command with no act has no commit contract and cannot be built; an
+act with no command is a contract for something nothing calls. `—` means the command changes no
+governed state and therefore has no transaction row; there are none in this table, because a
+command that changes nothing is a query (§8).
+
+Where two API names are one governed act, the Act column carries the same key for both and the
+alias is explicit rather than implied.
+
 `Auth` column:
 
 | Class | Means |
@@ -89,43 +104,102 @@ component that owns the act, from a request the system itself issued.
 | `R` | Requires an **eligible Role's** recorded professional conclusion, checked by review. **Not** an exercise of authority and **not** a Decision Right |
 | `h` | Requires a human identity, but no Right |
 | `S` | System-initiated. No human authority, and none is synthesised |
+| `N` | **No authority of any kind**, and either a human or the system may initiate. The envelope's ordinary actor fields apply: `actor_system_identity` always, `actor_human_identity` iff a human initiated. Raising a conflict flag is the case this exists for — Phase 8: *raising one requires no authority* |
 
 `R` exists because Phase 8 draws a distinction this catalogue must not flatten: a Decision Right
 may decide what the organisation *does* about something; it cannot decide what is *accurate*.
 
-| Command | Auth | Preconditions (beyond the envelope) | Writes | Principal errors |
-|---|---|---|---|---|
-| `CreateWorkflowRun` | h | Intake checks 1–7 | Run, scope binding, events | `DEFINITION_NOT_RESOLVABLE`, `SCOPE_NOT_PERMITTED`, `SENSITIVITY_UNASSESSED`, `DANGLING_REFERENCE`, `DUPLICATE_TRIGGER` |
-| `ActivateStage` | S | Halted guard; task in definition @v | Work Item, gate instances | `RUN_HALTED`, `TASK_NOT_IN_DEFINITION` |
-| `AssignWorkItem` | S | Halted guard; role matches bound lineage; agent instance type | Assignment, attempt counter | `RUN_HALTED`, `ROLE_MISMATCH`, `IDENTITY_KIND_INVALID` |
-| `RequestRouting` | S | Halted guard | Routing request | `RUN_HALTED` |
-| `Route` | S | Halted guard; full Router-answer validation incl. six-part completeness | Request + decision + events, one transaction | `ROUTER_ANSWER_INVALID`, `ROUTER_IDENTITY_INVALID`, `REPRODUCIBILITY_SET_INCOMPLETE`, `NO_ELIGIBLE_MODEL`, `CANDIDATE_UNIVERSE_INCOMPLETE` |
-| `InvokeModel` | S | Halted guard; decision is this run's recorded decision; outcome eligible | Invocation, result | `DECISION_NOT_RECORDED`, `OUTCOME_NOT_ELIGIBLE`, `PROFILE_LINEAGE_MISMATCH` |
-| `RequestReview` | S | Halted guard; gate is a `REVIEW` gate | Review request | `GATE_KIND_MISMATCH` |
-| `SubmitReviewInstance` | h | Reviewer identity is human; independence class matches; SoD rules A-4; eligibility class covers the Profile | Review instance, gate outcome | `INDEPENDENCE_CLASS_MISMATCH`, `PRODUCER_REVIEW_PROHIBITED`, `BOUNDED_CONTRIBUTOR_CANNOT_SATISFY`, `INDEPENDENCE_DECLARATION_MISSING` |
-| `RequestDecision` | S | Halted guard; gate is a `DECISION` gate; Right resolvable | Decision request | `RIGHT_NOT_RESOLVABLE`, `NO_APPLICABLE_DECISION_RIGHT` |
-| `ExerciseDecisionRight` | H | The five gate-satisfaction conditions; 19-element completeness; separation compliance | Decision Record, gate outcome | `HOLDER_NOT_ELIGIBLE`, `CARDINALITY_UNSATISFIED`, `SEPARATION_VIOLATION`, `PREREQUISITE_UNSATISFIED`, `IDENTITY_KIND_INVALID` |
-| `SupplyGateEvidence` | h | Evidence type matches the gate kind exactly | Evidence record, gate outcome | `EVIDENCE_TYPE_INADMISSIBLE`, `EVIDENCE_LINEAGE_MISMATCH` |
-| `RecordIntervention` | h | The one intervention contract | Intervention | `INTERVENTION_INVALID`, `FOREIGN_RUN_LINEAGE`, `DUPLICATE_GOVERNED_IDENTITY` |
-| `PauseRun` / `ResumeRun` | h | Intervention contract; transition preflight | Intervention, phase | as above, `TRANSITION_NOT_APPROVED` |
-| `UnblockRun` | h | The five `unblock` conditions | Intervention, phase, posture | `RUN_NOT_HALTED`, `GATE_STILL_STANDING` |
-| `CancelRun` | h | Terminal reachability for `CANCELLED`; **the intervention contract**. A human act: the work is not wanted | Intervention, terminal state | `TERMINAL_NOT_REACHABLE`, `INTERVENTION_INVALID`, `FOREIGN_RUN_LINEAGE` |
-| `TerminateRun` | **S** | Terminal reachability for `TERMINATED`; **a named constraint** that continuing would breach. **No human intervention is required and none is synthesised** | Terminal state, constraint record | `TERMINAL_NOT_REACHABLE`, `CONSTRAINT_NOT_NAMED` |
-| `FailRun` | S | Terminal reachability for `FAILED`; a recorded cause; no permitted retry or recovery resolved it | Terminal state | `TERMINAL_NOT_REACHABLE`, `CAUSE_NOT_RECORDED` |
-| `Retry` | S | Retry class from bound lineage permits | Retry dispatch, or halt per O-20 | `RETRY_CLASS_FORBIDS` |
-| `OpenSubRun` | S | Parent scope narrows to child scope | Child run | `SCOPE_WIDENING_REFUSED` |
-| `TransferScope` | H | All source clauses **and** the full target-run preflight | Authorisation event, new run | `AUTHORISATION_NOT_CORROBORATED`, `MECHANISM_NOT_APPROVED`, `TARGET_PREFLIGHT_FAILED` |
-| `CreateKnowledgeItem` | h | Four axes complete; type-specific requirements | Knowledge item v1 | `AXIS_INCOMPLETE`, `DERIVATION_REQUIRED`, `REASONING_REQUIRED` |
-| `AdoptAISuggestion` | h | Creates a **new linked item**; never mutates the suggestion | New item, adoption link | `EPISTEMIC_CONVERSION_PROHIBITED` |
-| `RaiseConflict` | S or h | — (raising needs no authority) | Conflict record | — |
-| `ResolveConflict` | **R** | An eligible Role's conclusion with reasoning and residual uncertainty; a Review Instance checking it. **No Decision Right is required or invented** | Conflict resolution, conflict status | `ROLE_NOT_ELIGIBLE`, `REASONING_REQUIRED`, `RESIDUAL_UNCERTAINTY_REQUIRED`, `REVIEW_REQUIRED` |
-| `ApplyConsequentStatusChange` | H | The separate governed act a resolution may lead to — supersession, retraction, or a canonical change. Requires its own mapped Right for that change | Status transition, links from the resolution | `NO_APPLICABLE_DECISION_RIGHT` where the change is a canonical one (BA-1) |
-| `PromoteToCanonical` | H | Preconditions 1–9 | — | **Always `NO_APPLICABLE_DECISION_RIGHT`** until the Right is mapped (BA-1) |
-| `CompleteRun` (COMPLETED / COMPLETED_WITH_OPEN_ITEMS) | S | Posture permits; no unsatisfied gate; phase permits | Terminal state | `POSTURE_FORBIDS_COMPLETION`, `GATES_UNSATISFIED` |
-| `ReparentScopeNode` | H | — | — | **Always `NO_APPLICABLE_DECISION_RIGHT`** (BA-2) |
-| `DestroyGovernedContent` | H | — | — | **Always `NO_APPLICABLE_DECISION_RIGHT`** (BA-3) |
-| `ApplyDestructiveMigration` | H | — | — | **Always `NO_APPLICABLE_DECISION_RIGHT`** (BA-4) |
-| `RecordApprovalState` | H | Source approval record resolvable; approving authority is human | Approval state record | `APPROVAL_SOURCE_UNRESOLVABLE` |
+**Rule Q-3a — `H` is not a way of saying "important".** A command is `H` only where a **mapped**
+Decision Right governs the act itself. A command that *records the outcome of* an act someone
+else already authorised is not `H` merely because the act was authoritative — that conflation is
+how a recording API becomes a way to manufacture approval (§5.3).
+
+| # | Command | Auth | **Act** | Preconditions (beyond the envelope) | Governed writes | Principal errors |
+|---:|---|---|---|---|---|---|
+| 1 | `CreateWorkflowRun` | h | `create_run` | Intake checks 1–7 | Run, scope binding | `DEFINITION_NOT_RESOLVABLE`, `SCOPE_NOT_PERMITTED`, `SENSITIVITY_UNASSESSED`, `DANGLING_REFERENCE`, `DUPLICATE_TRIGGER` |
+| 2 | `ActivateStage` | S | `activate_stage` | Halted guard; task in definition @v | Work Item, gate instances | `RUN_HALTED`, `TASK_NOT_IN_DEFINITION` |
+| 3 | `AssignWorkItem` | S | `assign` | Halted guard; role matches bound lineage; agent instance type | Assignment, attempt counter | `RUN_HALTED`, `ROLE_MISMATCH`, `IDENTITY_KIND_INVALID` |
+| 4 | `RequestRouting` | S | `request_routing` | Halted guard | Routing request | `RUN_HALTED` |
+| 5 | `Route` | S | `route` | Halted guard; full Router-answer validation incl. six-part completeness | Routing request, Routing Decision | `ROUTER_ANSWER_INVALID`, `ROUTER_IDENTITY_INVALID`, `REPRODUCIBILITY_SET_INCOMPLETE`, `NO_ELIGIBLE_MODEL`, `CANDIDATE_UNIVERSE_INCOMPLETE` |
+| 6 | `InvokeModel` | S | `invoke_model` | Halted guard; decision is this run's recorded decision; outcome eligible; five-element lineage equality; release-identity comparison | Model Invocation, Model Result | `DECISION_NOT_RECORDED`, `OUTCOME_NOT_ELIGIBLE`, `PROFILE_LINEAGE_MISMATCH`, `RELEASE_IDENTITY_DIVERGED` |
+| 7 | `RequestReview` | S | `request_review` | Halted guard; gate is a `REVIEW` gate | Review request | `GATE_KIND_MISMATCH` |
+| 8 | `SubmitReviewInstance` | h | `review_gate` | Reviewer identity is human; independence class matches; SoD rules A-4; eligibility class covers the Profile | Review Instance, gate outcome | `INDEPENDENCE_CLASS_MISMATCH`, `PRODUCER_REVIEW_PROHIBITED`, `BOUNDED_CONTRIBUTOR_CANNOT_SATISFY`, `INDEPENDENCE_DECLARATION_MISSING` |
+| 9 | `RequestDecision` | S | `request_decision` | Halted guard; gate is a `DECISION` gate; Right resolvable | Decision request | `RIGHT_NOT_RESOLVABLE`, `NO_APPLICABLE_DECISION_RIGHT` |
+| 10 | `ExerciseDecisionRight` | H | `decision_gate` | The five gate-satisfaction conditions; 19-element completeness; separation compliance | Decision Record, gate outcome | `HOLDER_NOT_ELIGIBLE`, `CARDINALITY_UNSATISFIED`, `SEPARATION_VIOLATION`, `PREREQUISITE_UNSATISFIED`, `IDENTITY_KIND_INVALID` |
+| 11 | `SupplyGateEvidence` | h | `supply_gate_evidence` | Evidence type matches the gate kind exactly; evidence lineage names this gate instance | Evidence record, gate outcome | `EVIDENCE_TYPE_INADMISSIBLE`, `EVIDENCE_LINEAGE_MISMATCH` |
+| 12 | `RecordIntervention` | h | `record_intervention` | The one intervention contract | Intervention | `INTERVENTION_INVALID`, `FOREIGN_RUN_LINEAGE`, `DUPLICATE_GOVERNED_IDENTITY` |
+| 13 | `PauseRun` | h | `pause` | Intervention contract; transition preflight (`allow_noop=false`) | Intervention, run phase | as above, `TRANSITION_NOT_APPROVED` |
+| 14 | `ResumeRun` | h | `resume` | Intervention contract; transition preflight from `PAUSED` | Intervention, run phase | as above, `TRANSITION_NOT_APPROVED` |
+| 15 | `UnblockRun` | h | `unblock` | The five `unblock` conditions | Intervention, run phase, posture | `RUN_NOT_HALTED`, `GATE_STILL_STANDING` |
+| 16 | `CancelRun` | h | `cancel_run` | Terminal reachability for `CANCELLED`; **the intervention contract**. A human act: the work is not wanted | Intervention, run terminal state | `TERMINAL_NOT_REACHABLE`, `INTERVENTION_INVALID`, `FOREIGN_RUN_LINEAGE` |
+| 17 | `TerminateRun` | **S** | `terminate_run` | Terminal reachability for `TERMINATED`; **a named constraint** that continuing would breach. **No human intervention is accepted and none is synthesised** | Constraint stop record, run terminal state | `TERMINAL_NOT_REACHABLE`, `CONSTRAINT_NOT_NAMED`, `UNEXPECTED_HUMAN_INTERVENTION`, `SYSTEM_IDENTITY_MISSING` |
+| 18 | `FailRun` | S | `fail_run` | Terminal reachability for `FAILED`; a recorded cause; no permitted retry or recovery resolved it | Failure record, run terminal state | `TERMINAL_NOT_REACHABLE`, `CAUSE_NOT_RECORDED` |
+| 19 | `SupersedeRun` | S | `supersede_run` | Terminal reachability for `SUPERSEDED`; the superseding run exists and names this one | Run terminal state, supersession link | `TERMINAL_NOT_REACHABLE`, `SUPERSEDING_RUN_NOT_FOUND` |
+| 20 | `CompleteRun` | S | `complete_run` | Posture permits; no unsatisfied gate; phase permits. Covers `COMPLETED` and `COMPLETED_WITH_OPEN_ITEMS` | Run terminal state | `POSTURE_FORBIDS_COMPLETION`, `GATES_UNSATISFIED` |
+| 21 | `Retry` | S | `retry` | Retry class from bound lineage permits; class-4 and class-6 halt per O-20 | Retry attempt record, run phase | `RETRY_CLASS_FORBIDS` |
+| 22 | `OpenReworkIteration` | S | `rework_iteration` | Entry condition met; `max_iterations` not exhausted | Rework loop instance, Work Items, gate instances | `REWORK_ENTRY_CONDITION_UNMET`, `MAX_ITERATIONS_EXHAUSTED` |
+| 23 | `OpenSubRun` | S | `open_sub_run` | Parent scope narrows to child scope | Child run, child scope binding | `SCOPE_WIDENING_REFUSED` |
+| 24 | `TransferScope` | H | `scope_transfer` | All source clauses **and** the full target-run preflight | Authorisation record, target run, target scope binding, provenance link | `AUTHORISATION_NOT_CORROBORATED`, `MECHANISM_NOT_APPROVED`, `TARGET_PREFLIGHT_FAILED` |
+| 25 | `CreateKnowledgeItem` | h | `create_knowledge_item` | Four axes complete; type-specific requirements | Knowledge item v1 | `AXIS_INCOMPLETE`, `DERIVATION_REQUIRED`, `REASONING_REQUIRED` |
+| 26 | `AdoptAISuggestion` | h | `adopt_ai_suggestion` | Creates a **new linked item**; never mutates the suggestion; the adoption link does not count as evidence | New knowledge item, adoption link, suggestion governance state | `EPISTEMIC_CONVERSION_PROHIBITED`, `ADOPTION_IS_NOT_EVIDENCE` |
+| 27 | `RaiseConflict` | N | `raise_conflict` | — (raising needs no authority) | Conflict record, conflict flags on the items | — |
+| 28 | `ResolveConflict` | **R** | `resolve_conflict` | An eligible Role's conclusion with reasoning and residual uncertainty; a Review Instance checking it. **No Decision Right is required or invented** | Conflict resolution, conflict status | `ROLE_NOT_ELIGIBLE`, `REASONING_REQUIRED`, `RESIDUAL_UNCERTAINTY_REQUIRED`, `REVIEW_REQUIRED` |
+| 29 | `ApplyConsequentStatusChange` | H | `apply_consequent_status_change` | The separate governed act a resolution may lead to — supersession, retraction, or a canonical change. Requires its own mapped Right for that change | Knowledge/canonical status transition, link from the resolution | `NO_APPLICABLE_DECISION_RIGHT` where the change is a canonical one (BA-1) |
+| 30 | `TranscribeApprovalState` | **h** | `transcribe_approval_state` | §5.3. A mechanical transcription of an **already-existing** authoritative human approval record. **Creates no approval and exercises no Right** | Approval-state history row, current pointer | `APPROVAL_SOURCE_UNRESOLVABLE`, `APPROVAL_SOURCE_MISSING`, `TRANSCRIPTION_NOT_MECHANICAL` |
+| 31 | `RecordNewApprovalState` | **H** | `record_new_approval_state` | §5.3. Persists the result of a **new** governed approval, revocation or supersession act that has already satisfied its Decision Right semantics | Approval-state history row, current pointer | `DECISION_RECORD_REQUIRED`, `NO_APPLICABLE_DECISION_RIGHT`, `APPROVAL_SOURCE_UNRESOLVABLE` |
+| 32 | `PromoteToCanonical` | H | `promote_to_canonical` | Preconditions 1–9 | **None — zero governed writes** | **Always `NO_APPLICABLE_DECISION_RIGHT`** until the Right is mapped (BA-1) |
+| 33 | `ReparentScopeNode` | H | `reparent_scope_node` | — | **None — zero governed writes** | **Always `NO_APPLICABLE_DECISION_RIGHT`** (BA-2) |
+| 34 | `DestroyGovernedContent` | H | `destroy_governed_content` | — | **None — zero governed writes** | **Always `NO_APPLICABLE_DECISION_RIGHT`** (BA-3) |
+| 35 | `ApplyDestructiveMigration` | H | `apply_destructive_migration` | — | **None — zero governed writes** | **Always `NO_APPLICABLE_DECISION_RIGHT`** (BA-4) |
+
+**Rule Q-7a — the two sets are equal by construction and by check.** Every Act key above appears
+exactly once as a transaction-contract row, and every transaction-contract row appears at least
+once here. The validator derives both sets and compares them; an omission on either side is a
+failure, not a documentation gap. Duplicate coverage is permitted **only** through an explicit
+alias — the same Act key on two command rows — and there are currently none.
+
+### 5.2 What `RecordApprovalState` was, and why it is now two commands
+
+An earlier revision had one command, `RecordApprovalState`, class `H`. That was contradictory in
+a way that mattered: class `H` asserts a mapped Decision Right governs the act, while the
+approval registry says transcription **creates no approval** and that a historical source may
+legitimately carry no Right or Decision Record at all. One command cannot be both.
+
+Worse, the conflation pointed the wrong way. If recording *is* an `H` act, then whoever can call
+the recording API is exercising authority — which is exactly how a service account becomes a way
+to manufacture approval.
+
+### 5.3 The two approval acts
+
+| | `TranscribeApprovalState` | `RecordNewApprovalState` |
+|---|---|---|
+| **Purpose** | Transcribe an already-existing authoritative human approval record into machine-readable form | Persist the result of a **new** governed approval, revocation or supersession act |
+| **Auth class** | `h` — a human runs a bounded transcription; **no Right is exercised** | `H` — the underlying act was governed by a mapped Right |
+| **Creates approval?** | **No.** It records a decision a human already made | **No.** It records a decision a human already made |
+| **Source record** | **Mandatory and verifiable** — path plus commit, and it must resolve at that commit | **Mandatory and verifiable** |
+| `decision_right_ref` / `decision_record_ref` | **Nullable**, exactly where the authoritative historical source did not record them | **`NOT NULL`** where the governed act required a Right; the Decision Record must resolve |
+| **Scope of use** | The bounded bootstrap of §9, and later transcription of an approval record created outside the runtime | Ordinary runtime operation after a governed approval act |
+| **On no source record** | **Fail closed**: the subject stays `PROPOSED` / not approved | Fail closed, the same way |
+
+**Rule Q-14 — neither command creates approval, and no caller can make one do so.** Both persist
+a decision a human already made and recorded elsewhere. Specifically:
+
+1. Neither command accepts an approval status the source record does not state.
+2. Neither accepts a `decision_record_ref` that does not resolve to a real Decision Record whose
+   `decided_by` is a human.
+3. `TranscribeApprovalState` is **mechanical**: every field it writes is derived from the source
+   record, and a field with no counterpart in the source is a refusal
+   (`TRANSCRIPTION_NOT_MECHANICAL`), not a blank to fill in.
+4. Being authenticated, being an administrator, holding a service role, or owning the database
+   confers no ability to call either command into producing an approval — because neither
+   command has a parameter through which a decision could be supplied that a source record does
+   not already contain.
+
+**Rule Q-15 — the bootstrap is a bounded, reviewable process, not a standing privilege.** The
+transcription of the existing `reviews/phase-*-final-approval.md` records is a **one-off,
+enumerated, reviewed** migration described in `approval-state-registry.md` §9 and
+`migrations-versioning-compatibility.md` §9. It is not a runtime capability that remains
+available afterwards, and it creates no row for a subject its source record does not name.
 
 **Rule Q-9a — `CancelRun` and `TerminateRun` are different acts and do not share a contract.**
 Phase 11 `orchestration/state-machine-and-transitions.md` §3 defines `CANCELLED` as *stopped
@@ -145,6 +219,23 @@ that names this one.
 enforcement hook is built, and every call returns `NO_APPLICABLE_DECISION_RIGHT` with the gap
 recorded. They are not omitted (which would leave an undefined behaviour), not stubbed to
 succeed, and not made configurable.
+
+**Rule Q-8a — what a blocked command writes, exactly.**
+
+| | Count |
+|---|---|
+| Governed record writes | **0** |
+| Audit events | **0** — an audit event records a mutation, and there is none (Rule P-14e) |
+| Execution events | **1** — class `GATE_OUTCOME_RECORDED`, recording the act requested, the constraint class, **each Right considered and why it does not reach**, and the specific gap |
+| Run state change | None. A refusal is not a transition; where the *caller's* act was a governed stage, the halted guard governs what happens next |
+
+The single execution event is the whole trace of the refusal, and it is coordination history —
+not evidence that anything was authorised, and not evidence that it was not.
+
+**Rule Q-8b — a refused transaction of any kind writes no audit event.** This is general, not
+special to the blocked four: an audit event is the record of a mutation, so a transaction that
+mutates nothing produces none. `audit-provenance-observability.md` Rule V-6c says the same thing
+from the audit side.
 
 ## 6. Idempotency
 

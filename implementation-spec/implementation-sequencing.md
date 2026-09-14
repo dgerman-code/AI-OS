@@ -24,7 +24,7 @@ true.** A milestone that "will be safe once M6 lands" is not complete.
 |---|---|---|---|
 | **M0** | Foundations | Repository, CI, static checks S1–S8, test harness skeleton, no application code | — |
 | **M1** | Identity and scope | All reference types with kind-carrying equality and no subclass slack; scope nodes, canonical paths, ancestry with the separator-boundary test; sensitivity and residency | M0 |
-| **M2** | Persistence spine | The ten data domains; every `IMM`/`APP` column rule; **all 20 durable uniqueness constraints**; `record_version` and version-pinned writes; append-only grants and their verification | M1 |
+| **M2** | Persistence spine | The ten data domains; every `IMM`/`APP` column rule; **every constraint in the canonical uniqueness inventory** (`persistence-and-transaction-model.md` §5.2 — currently **21**, U1–U21); `record_version` and version-pinned writes; append-only grants and their verification | M1 |
 | **M3** | Audit and provenance | Audit events in the same transaction as every governed write; provenance records; the write-only execution-event interface; the observability plane, structurally unreadable | M2 |
 | **M4** | Approval state registry | The registry, the bootstrap transcription, and the runtime oracle | M2 |
 | **M5** | Definition registry | Git-sourced definitions at named versions; the registry projection; definition-load validation (bounded subjects, declared effects, acyclic graphs, declared rework loops) | M4 |
@@ -66,7 +66,7 @@ pressure**, and there is no partial credit.
 | Gate | Blocks | Criterion |
 |---|---|---|
 | **G-A** | Leaving M1 | Every pair in the 21-object chain proven non-equal and non-substitutable; subclass, duck-typed and string substitution each refused; the separator-boundary ancestry test passes |
-| **G-B** | Leaving M2 | All 20 uniqueness constraints exist and are demonstrated by a failing duplicate insert each; no `ON CONFLICT DO NOTHING` anywhere; append-only grants verified |
+| **G-B** | Leaving M2 | Every constraint in the canonical uniqueness inventory (currently **21**) exists and is demonstrated by a failing duplicate insert each; no `ON CONFLICT DO NOTHING` anywhere; append-only grants verified |
 | **G-C** | Leaving M3 | Every governed write has its audit event in the same transaction; the execution-event interface exposes **no read operation**; S2 passes |
 | **G-D** | Leaving M4 | Absence of an approval row reads as `PROPOSED` and refuses; the bootstrap creates no row its source does not name |
 | **G-E** | Leaving M6 | **All ten races** resolve to their named outcomes under two-process contention; `LAST_WRITE_WINS` demonstrated absent |

@@ -70,6 +70,53 @@ def table_rows(name, section=None):
     return [ln for ln in body.splitlines() if ln.lstrip().startswith("|")]
 
 
+def command_rows():
+    """The canonical governed-command inventory: (number, command, auth, act) per row.
+
+    `api-command-contracts.md` §5.1 owns this set. Every cross-document coverage check in this
+    harness derives from here rather than from a list restated in the validator, so adding a
+    command to the specification without a transaction contract fails a check instead of
+    quietly widening the system."""
+    body = spec("api-command-contracts.md").split("### 5.1")[1].split("### 5.2")[0]
+    rows = []
+    for line in body.splitlines():
+        m = re.match(r"^\|\s*(\d+)\s*\|\s*`(\w+)`\s*\|\s*\**(\w+)\**\s*\|\s*`(\w+)`\s*\|", line)
+        if m:
+            rows.append((int(m.group(1)), m.group(2), m.group(3), m.group(4)))
+    return rows
+
+
+def transaction_rows():
+    """The transaction contracts of `persistence-and-transaction-model.md` §7.2, by act key."""
+    section = transaction_section()
+    rows = {}
+    for line in section.splitlines():
+        if not line.startswith("| **"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        key = cells[0].strip("*")
+        rows[key] = cells
+    return rows
+
+
+def adversarial_rows():
+    """Structured adversarial-test metadata: (id, commands, basis, attack, expected)."""
+    body = spec("test-and-assurance-strategy.md")
+    section = body.split("## 3. Adversarial tests")[1].split("## 4.")[0]
+    rows = []
+    for line in section.splitlines():
+        m = re.match(r"^\|\s*(A\d+[a-z]?|P-A\d+[a-z]?)\s*\|(.+?)\|\s*\**(CURRENT|HYPOTHETICAL)\**\s*\|(.+?)\|(.+)\|\s*$", line)
+        if m:
+            commands = set(re.findall(r"`(\w+)`", m.group(2)))
+            rows.append((m.group(1), commands, m.group(3), m.group(4).strip(), m.group(5).strip()))
+    return rows
+
+
+def uniqueness_ids():
+    body = spec("persistence-and-transaction-model.md")
+    return sorted({int(m) for m in re.findall(r"\|\s*U(\d+)\s*\|", body)})
+
+
 def negated_mentions(term):
     """Lines mentioning `term` that are not denied within their own bullet/table/paragraph.
 
@@ -858,32 +905,66 @@ check("persistence", "optimistic concurrency is specified and last-write-wins is
       optimistic_concurrency_is_specified_without_last_write_wins)
 
 
-TRANSACTION_ACTS = ("Create run", "Activate stage", "Assign", "Route", "Invoke model",
-                    "Review gate", "Decision gate", "Resolve conflict", "Pause",
-                    "Cancel run", "Terminate run", "Fail run", "Supersede run",
-                    "Scope transfer", "Rework iteration", "Promote to canonical",
-                    "Record approval state")
-
-
 def transaction_section():
     body = spec("persistence-and-transaction-model.md")
     return body.split("### 7.2")[1].split("**Rule P-15.**")[0]
 
 
-def the_transaction_table_covers_every_governed_act():
-    section = transaction_section()
-    missing = [a for a in TRANSACTION_ACTS if "**%s**" % a not in section]
+def the_transaction_table_is_exhaustive_over_the_command_inventory():
+    """Exact set equality, both directions, derived from both documents.
+
+    An omission on either side is the audit's second finding: a governed command with no commit
+    contract cannot be built, and a contract nothing calls is a contract for nothing."""
+    commands = command_rows()
+    if not commands:
+        return False, "the governed-command inventory could not be parsed"
+    api_acts = {act for _n, _c, _a, act in commands}
+    txn_acts = set(transaction_rows())
+    if not txn_acts:
+        return False, "the transaction contracts could not be parsed"
+    problems = []
+    missing = sorted(api_acts - txn_acts)
+    extra = sorted(txn_acts - api_acts)
     if missing:
-        return False, str(missing)
-    for column in ("Read set", "Validation set", "Concurrency check", "Audit events",
-                   "Execution events", "Uniqueness relied on", "Failure before commit"):
-        if column not in section:
-            return False, "the transaction table lacks the column: %s" % column
-    return True, ("%d governed acts, each with read/validate/concurrency/writes/audit/"
-                  "execution/uniqueness/failure" % len(TRANSACTION_ACTS))
+        problems.append("commands with no transaction contract: %s" % missing)
+    if extra:
+        problems.append("transaction contracts with no command: %s" % extra)
+    # Duplicate coverage is permitted only through an explicit alias - the same act key on two
+    # command rows - and any such alias must be visible here rather than implied.
+    counts = {}
+    for _n, cmd, _a, act in commands:
+        counts.setdefault(act, []).append(cmd)
+    aliased = {a: c for a, c in counts.items() if len(c) > 1}
+    for column in ("Read set", "Validation / preflight set", "Concurrency check",
+                   "Audit events", "Exec events", "Constraints", "Failure before commit"):
+        if column not in transaction_section():
+            problems.append("the transaction table lacks the column: %s" % column)
+    return (not problems, str(problems)[:300] if problems
+            else "%d commands, %d transaction contracts, sets equal; %d explicit aliases"
+                 % (len(commands), len(txn_acts), len(aliased)))
 
 
-check("persistence", "every governed act states its read, validation and commit sets",
+check("persistence", "the transaction table is exhaustive over the governed-command inventory",
+      the_transaction_table_is_exhaustive_over_the_command_inventory)
+
+
+def the_omitted_governed_acts_are_now_covered():
+    """The specific acts the re-audit named as missing."""
+    named = ("RecordIntervention", "ResumeRun", "UnblockRun", "SupplyGateEvidence",
+             "CreateKnowledgeItem", "AdoptAISuggestion", "RaiseConflict",
+             "ApplyConsequentStatusChange", "CompleteRun")
+    commands = {c: act for _n, c, _a, act in command_rows()}
+    txn = transaction_rows()
+    missing = [c for c in named if c not in commands or commands[c] not in txn]
+    return (not missing, "still uncovered: %s" % missing if missing
+            else "all %d previously omitted governed acts have transaction contracts" % len(named))
+
+
+def the_transaction_table_covers_every_governed_act():
+    return the_omitted_governed_acts_are_now_covered()
+
+
+check("persistence", "every previously omitted governed act now has a transaction contract",
       the_transaction_table_covers_every_governed_act)
 
 
@@ -1060,7 +1141,7 @@ check("approval", "approval state does not mass-promote artifacts", approval_doe
 def the_registry_records_approval_and_never_creates_it():
     body = spec("approval-state-registry.md")
     needed = ["records approval; it never creates it", "Writing a row is not approving",
-              "transcription, not an approval"]
+              "bounded, reviewable transcription, not a standing privilege"]
     missing = [n for n in needed if n not in body]
     return (not missing, str(missing) if missing
             else "the registry is derived from human approval records and creates none")
@@ -1238,15 +1319,14 @@ def conflict_resolution_is_not_authority_bearing():
         return False, "the approved Phase 8 rule was not found"
     api = spec("api-command-contracts.md")
     problems = []
-    row = [ln for ln in api.splitlines() if ln.startswith("| `ResolveConflict`")]
-    if not row:
-        problems.append("ResolveConflict is not in the command catalogue")
-    else:
-        cells = [c.strip() for c in row[0].strip().strip("|").split("|")]
-        if cells[1].replace("*", "") != "R":
-            problems.append("ResolveConflict is auth class %s, not R" % cells[1])
-        if "NO_APPLICABLE_DECISION_RIGHT" in row[0]:
-            problems.append("ResolveConflict still refuses for want of a Decision Right")
+    auth = {c: a for _n, c, a, _act in command_rows()}
+    if "ResolveConflict" not in auth:
+        problems.append("ResolveConflict is not in the command inventory")
+    elif auth["ResolveConflict"] != "R":
+        problems.append("ResolveConflict is auth class %s, not R" % auth["ResolveConflict"])
+    row = [ln for ln in api.splitlines() if "`ResolveConflict`" in ln and ln.startswith("|")]
+    if row and "NO_APPLICABLE_DECISION_RIGHT" in row[0]:
+        problems.append("ResolveConflict still refuses for want of a Decision Right")
     if says("knowledge-and-canonical-model.md",
             "It cannot decide", "owned by an eligible Role and checked by review"):
         problems.append("the Phase 8 distinction is not restored in the knowledge model")
@@ -1267,24 +1347,29 @@ def cancellation_and_termination_are_asymmetric():
         return False, "the approved TERMINATED definition was not found"
     api = spec("api-command-contracts.md")
     problems = []
-    cancel = [ln for ln in api.splitlines() if ln.startswith("| `CancelRun`")]
-    terminate = [ln for ln in api.splitlines() if ln.startswith("| `TerminateRun`")]
-    if not cancel or not terminate:
-        problems.append("CancelRun and TerminateRun are not separate commands")
-    else:
-        cancel_auth = [c.strip() for c in cancel[0].strip().strip("|").split("|")][1]
-        term_auth = [c.strip() for c in terminate[0].strip().strip("|").split("|")][1].replace("*", "")
-        if cancel_auth != "h":
-            problems.append("CancelRun auth is %s, expected h" % cancel_auth)
-        if term_auth != "S":
-            problems.append("TerminateRun auth is %s, expected S" % term_auth)
-        if "intervention" not in cancel[0].lower():
-            problems.append("CancelRun does not require an intervention")
-        if "intervention" in terminate[0].lower() and "no human intervention" not in terminate[0].lower():
-            problems.append("TerminateRun requires an intervention")
-    section = transaction_section()
-    if "**Cancel run**" not in section or "**Terminate run**" not in section:
-        problems.append("the transaction table still collapses cancel and terminate")
+    inventory = {c: (a, act) for _n, c, a, act in command_rows()}
+    for name, expected_auth in (("CancelRun", "h"), ("TerminateRun", "S")):
+        if name not in inventory:
+            problems.append("%s is not a distinct command" % name)
+            continue
+        if inventory[name][0] != expected_auth:
+            problems.append("%s auth is %s, expected %s" % (name, inventory[name][0], expected_auth))
+    if inventory.get("CancelRun", (None, None))[1] == inventory.get("TerminateRun", (None, ""))[1]:
+        problems.append("cancel and terminate share one transaction act")
+    api_lines = {c: ln for ln in api.splitlines()
+                 for c in re.findall(r"^\|\s*\d+\s*\|\s*`(\w+)`", ln)}
+    cancel_line = api_lines.get("CancelRun", "")
+    terminate_line = api_lines.get("TerminateRun", "")
+    if "intervention" not in cancel_line.lower():
+        problems.append("CancelRun does not require an intervention")
+    if "no human intervention is accepted" not in terminate_line.lower():
+        problems.append("TerminateRun does not refuse a human intervention")
+    txn = transaction_rows()
+    for act in ("cancel_run", "terminate_run"):
+        if act not in txn:
+            problems.append("no transaction contract for %s" % act)
+    if "terminate_run" in txn and "NULL" not in txn["terminate_run"][6]:
+        problems.append("terminate_run does not record a null human identity")
     if says("audit-provenance-observability.md", "never synthesised"):
         problems.append("the audit model permits a synthesised human identity")
     return (not problems, str(problems)[:300] if problems
@@ -1307,15 +1392,14 @@ def audit_cardinality_is_one_per_governed_record_mutation():
     if says("persistence-and-transaction-model.md", "no grouping"):
         problems.append("grouping is not prohibited")
     section = transaction_section()
-    rows = [ln for ln in section.splitlines() if ln.startswith("| **")]
-    for row in rows:
-        cells = [c.strip() for c in row.strip().strip("|").split("|")]
+    rows = transaction_rows()
+    for key, cells in rows.items():
         if len(cells) < 9:
-            problems.append("act row has %d columns: %s" % (len(cells), cells[0][:30]))
+            problems.append("act row has %d columns: %s" % (len(cells), key))
             continue
         audit = cells[5].replace("*", "")
-        if not re.match(r"^(\d+|\d+ \+ .+|Blocked.*|—)", audit):
-            problems.append("%s: audit column is not a count: %r" % (cells[0][:24], audit[:30]))
+        if not re.match(r"^(\d+|\d+ \+ .+)$", audit):
+            problems.append("%s: audit column is not a count: %r" % (key, audit[:30]))
     if not rows:
         problems.append("no act rows parsed")
     return (not problems, str(problems)[:300] if problems
@@ -1594,6 +1678,240 @@ def operational_events_are_inadmissible_as_evidence():
 
 check("events", "operational and execution events can never satisfy governance evidence",
       operational_events_are_inadmissible_as_evidence)
+
+
+# =========================================================== 14. cross-document exact sets
+
+
+def the_uniqueness_count_is_derived_not_restated():
+    """Every document that states a count must state the count of the canonical inventory."""
+    ids = uniqueness_ids()
+    if not ids:
+        return False, "the canonical uniqueness inventory could not be parsed"
+    if ids != list(range(1, len(ids) + 1)):
+        return False, "the inventory is not contiguous: %s" % ids
+    n = len(ids)
+    problems = []
+    canonical = spec("persistence-and-transaction-model.md")
+    if "canonical uniqueness inventory" not in canonical:
+        problems.append("the inventory is not declared canonical")
+    # Any document citing a count of "uniqueness constraints" must cite n.
+    pattern = re.compile(r"(\d+)\s+(?:durable\s+)?uniqueness constraints", re.IGNORECASE)
+    for name in REQUIRED_DOCS:
+        for i, line in enumerate(spec(name).splitlines(), 1):
+            for stated in pattern.findall(flat(line)):
+                if int(stated) != n:
+                    problems.append("%s:%d states %s uniqueness constraints, inventory has %d"
+                                    % (name, i, stated, n))
+    # Milestones and gates must reference the inventory rather than a frozen number.
+    sequencing = spec("implementation-sequencing.md")
+    for marker in ("canonical uniqueness inventory",):
+        if marker not in sequencing:
+            problems.append("the sequencing document does not reference the inventory")
+    if "currently **%d**" % n not in sequencing:
+        problems.append("the sequencing document does not state the current count %d" % n)
+    return (not problems, str(problems)[:300] if problems
+            else "U1-U%d canonical; every stated count agrees" % n)
+
+
+check("crossdoc", "the uniqueness count is one inventory, cited consistently",
+      the_uniqueness_count_is_derived_not_restated)
+
+
+def adversarial_metadata_agrees_with_the_command_contracts():
+    """Rule T-3a: a test row may not contradict the contract of the command it attacks."""
+    rows = adversarial_rows()
+    if not rows:
+        return False, "the adversarial test metadata could not be parsed"
+    inventory = {c: (a, act) for _n, c, a, act in command_rows()}
+    problems = []
+    for test_id, commands, basis, attack, expected in rows:
+        for cmd in commands:
+            if cmd not in inventory:
+                problems.append("%s attacks unknown command %s" % (test_id, cmd))
+                continue
+            # The repaired terminal contract: TerminateRun accepts no intervention, so a test
+            # may attack the fact that it is refused - and may not expect the intervention
+            # contract's own errors, which belong to commands that take one.
+            if cmd == "TerminateRun":
+                if "FOREIGN_RUN_LINEAGE" in expected or "INTERVENTION_INVALID" in expected:
+                    problems.append("%s expects an intervention-contract error from "
+                                    "TerminateRun, which accepts no intervention" % test_id)
+                if "human intervention" in flat(attack) and "unexpected_human_intervention" \
+                        not in flat(expected) and not test_id.startswith("P-"):
+                    problems.append("%s supplies a human intervention to TerminateRun without "
+                                    "expecting it to be refused as unexpected" % test_id)
+        if basis == "HYPOTHETICAL" and re.search(r"\bis mapped\b|\bmapped Right exists\b",
+                                                 flat(expected)):
+            problems.append("%s is HYPOTHETICAL but claims a mapped Right exists" % test_id)
+    # The terminal asymmetry must be attacked on its own terms and controlled positively.
+    terminate_tests = [r for r in rows if "TerminateRun" in r[1] and not r[0].startswith("P-")]
+    if len(terminate_tests) < 4:
+        problems.append("only %d adversarial tests attack the TerminateRun contract"
+                        % len(terminate_tests))
+    positives = [r for r in rows if r[0].startswith("P-") and "TerminateRun" in r[1]]
+    if not positives:
+        problems.append("no positive control for valid constraint-driven termination")
+    else:
+        control = positives[0][4]
+        if "null" not in flat(control) or "terminated" not in flat(control):
+            problems.append("the termination positive control does not assert a null human "
+                            "identity on a successful TERMINATED")
+    return (not problems, str(problems)[:400] if problems
+            else "%d adversarial rows, %d attacking TerminateRun, with a positive control"
+                 % (len(rows), len(terminate_tests)))
+
+
+check("crossdoc", "adversarial test metadata agrees with the command contracts",
+      adversarial_metadata_agrees_with_the_command_contracts)
+
+
+def the_canonical_promotion_tests_are_not_contradictory():
+    """A17a is about today; A17b is explicitly hypothetical and claims nothing about today."""
+    rows = {r[0]: r for r in adversarial_rows()}
+    problems = []
+    if "A17a" not in rows or "A17b" not in rows:
+        problems.append("the canonical-promotion test is not split into current and hypothetical")
+        return False, str(problems)
+    current = rows["A17a"]
+    hypothetical = rows["A17b"]
+    if current[2] != "CURRENT":
+        problems.append("A17a is not marked CURRENT")
+    if hypothetical[2] != "HYPOTHETICAL":
+        problems.append("A17b is not marked HYPOTHETICAL")
+    if "NO_APPLICABLE_DECISION_RIGHT" not in current[4]:
+        problems.append("A17a does not expect NO_APPLICABLE_DECISION_RIGHT")
+    if "zero governed writes" not in flat(current[4]):
+        problems.append("A17a does not assert zero mutation")
+    if "not evidence that ba-1 is resolved" not in flat(hypothetical[4]):
+        problems.append("A17b does not disclaim being evidence about BA-1")
+    # And no row anywhere may claim a mapped Right is available today.
+    for test_id, _c, basis, attack, expected in adversarial_rows():
+        if basis == "CURRENT" and "mapped right" in flat(attack) and \
+                "no applicable" not in flat(attack) and "not mapped" not in flat(attack):
+            problems.append("%s claims a mapped Right under CURRENT basis" % test_id)
+    return (not problems, str(problems)[:300] if problems
+            else "A17a is current and refuses; A17b is hypothetical and claims nothing about today")
+
+
+check("crossdoc", "the canonical-promotion tests are not internally contradictory",
+      the_canonical_promotion_tests_are_not_contradictory)
+
+
+def the_approval_commands_match_the_registry_semantics():
+    inventory = {c: (a, act) for _n, c, a, act in command_rows()}
+    registry = spec("approval-state-registry.md")
+    txn = transaction_rows()
+    problems = []
+    if "RecordApprovalState" in inventory:
+        problems.append("the ambiguous single RecordApprovalState command still exists")
+    for name, expected_auth in (("TranscribeApprovalState", "h"),
+                                ("RecordNewApprovalState", "H")):
+        if name not in inventory:
+            problems.append("%s is not a command" % name)
+            continue
+        if inventory[name][0] != expected_auth:
+            problems.append("%s auth is %s, expected %s"
+                            % (name, inventory[name][0], expected_auth))
+        if name not in registry:
+            problems.append("%s is not described in the approval registry" % name)
+        act = inventory[name][1]
+        if act not in txn:
+            problems.append("%s has no transaction contract" % name)
+            continue
+        writes = txn[act][4]
+        if "approval_state_record" not in writes or "approval_state_current" not in writes:
+            problems.append("%s does not write both the history row and the pointer" % act)
+        if txn[act][5].replace("*", "") != "2":
+            problems.append("%s does not write 2 audit events" % act)
+    if says("approval-state-registry.md", "transcription is mechanical or it is refused"):
+        problems.append("mechanical transcription is not required")
+    if says("approval-state-registry.md", "nullable Right lineage is a historical fact"):
+        problems.append("nullable historical Right lineage is not stated")
+    if says("approval-state-registry.md", "history and pointer move together or not at all"):
+        problems.append("the atomic history+pointer rule is not stated")
+    if says("security-identity-access.md", "a recording API is not an authority surface"):
+        problems.append("the security model does not close the recording-API route")
+    return (not problems, str(problems)[:400] if problems
+            else "two approval acts, h and H, each writing history and pointer atomically")
+
+
+check("crossdoc", "approval command classes match the approval-state registry semantics",
+      the_approval_commands_match_the_registry_semantics)
+
+
+AUDIT_MUTATION_KINDS = ("INSERT", "VERSION_APPEND", "UPDATE", "LINK_APPEND",
+                        "LIFECYCLE_STATE_CHANGE", "SUPERSEDE", "POINTER_MOVE", "DESTROY")
+
+
+def the_audit_version_nullability_matrix_is_complete():
+    body = spec("audit-provenance-observability.md")
+    if "### 4.1" not in body:
+        return False, "the version-nullability matrix section is absent"
+    matrix = body.split("### 4.1")[1].split("**Rule V-5.**")[0]
+    problems = []
+    parsed = {}
+    for line in matrix.splitlines():
+        m = re.match(r"^\|\s*`([A-Z_]+)`\s*\|(.+?)\|(.+?)\|(.+?)\|\s*$", line)
+        if m:
+            parsed[m.group(1)] = (flat(m.group(3)), flat(m.group(4)))
+    missing = [k for k in AUDIT_MUTATION_KINDS if k not in parsed]
+    if missing:
+        problems.append("mutation kinds missing from the matrix: %s" % missing)
+    # The specific contract the re-audit required.
+    if "INSERT" in parsed:
+        before, after = parsed["INSERT"]
+        if "null" not in before or "not null" in before:
+            problems.append("INSERT does not require a null record_version_before")
+        if "not null" not in after:
+            problems.append("INSERT does not require a non-null record_version_after")
+    for kind in ("VERSION_APPEND", "UPDATE", "LIFECYCLE_STATE_CHANGE", "SUPERSEDE"):
+        if kind in parsed and "not null" not in parsed[kind][0]:
+            problems.append("%s does not require a before version" % kind)
+    if "DESTROY" in parsed and "not null" in parsed["DESTROY"][1]:
+        problems.append("DESTROY requires an after version, which cannot exist")
+    if says("audit-provenance-observability.md", "the matrix is a constraint, not guidance"):
+        problems.append("the matrix is not stated as a check constraint")
+    if says("audit-provenance-observability.md", "BA-3 remains blocked"):
+        problems.append("DESTROY is defined without restating that BA-3 is blocked")
+    if says("audit-provenance-observability.md", "no audit event exists for a refused"):
+        problems.append("refused transactions are not excluded from audit")
+    return (not problems, str(problems)[:400] if problems
+            else "%d mutation kinds, each with an explicit before/after nullability" % len(parsed))
+
+
+check("crossdoc", "the audit version-nullability matrix is explicit and complete",
+      the_audit_version_nullability_matrix_is_complete)
+
+
+def blocked_commands_declare_zero_writes():
+    inventory = {c: act for _n, c, _a, act in command_rows()}
+    txn = transaction_rows()
+    problems = []
+    for name in ("PromoteToCanonical", "ReparentScopeNode", "DestroyGovernedContent",
+                 "ApplyDestructiveMigration"):
+        act = inventory.get(name)
+        if act is None:
+            problems.append("%s is not in the command inventory" % name)
+            continue
+        if act not in txn:
+            problems.append("%s has no transaction contract" % name)
+            continue
+        cells = txn[act]
+        if "0" not in cells[4]:
+            problems.append("%s does not declare zero governed writes" % act)
+        if cells[5].replace("*", "") != "0":
+            problems.append("%s does not declare zero audit events" % act)
+        if "1" not in cells[6]:
+            problems.append("%s does not declare its refusal execution event" % act)
+    if says("api-command-contracts.md", "a refused transaction of any kind writes no audit"):
+        problems.append("the general refusal rule is not stated in the API contract")
+    return (not problems, str(problems)[:300] if problems
+            else "four blocked acts: zero writes, zero audit events, one refusal event each")
+
+
+check("crossdoc", "blocked commands declare zero writes and zero audit events",
+      blocked_commands_declare_zero_writes)
 
 
 # =========================================================== main

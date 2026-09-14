@@ -96,9 +96,11 @@ Written by C12, for every governed record write.
 | # | Field | Null | Content |
 |---:|---|---|---|
 | 1 | `audit_event_ref` | NO | Stable, unique, never reused |
-| 2 | `governed_record_ref` + `record_version_before` / `_after` | NO | Which record, from what version to what |
-| 3 | `change_kind` | NO | `INSERT` · `VERSION_APPEND` · `LINK_APPEND` · `LIFECYCLE_STATE_CHANGE` · `METADATA_CHANGE` |
-| 4 | `changed_fields` | NO | Field-level, before/after for governed fields |
+| 2 | `governed_record_ref` | NO | Which record this event is about — **exactly one** |
+| 2a | `record_version_before` | **Conditional — see §4.1** | The version the record held before this mutation |
+| 2b | `record_version_after` | **NO for every successful write** | The version it holds after |
+| 3 | `mutation_kind` | NO | The enum of §4.1. It is what makes 2a's nullability checkable |
+| 4 | `changed_fields` | NO | Field-level, before/after for governed fields. On `INSERT` the before side is empty, consistently with 2a |
 | 5 | `human_identity_ref` | YES | Where a human caused it. **`NULL` for a system act, never synthesised** — a constraint-driven `TERMINATED` has no human and says so |
 | 6 | `system_identity_ref` | NO | The service identity that executed the write |
 | 7 | `authority_reference` | Conditional | The Decision Record where the change class requires one |
@@ -106,6 +108,42 @@ Written by C12, for every governed record write.
 | 9 | `occurred_at` | NO | |
 | 10 | `correlation_id` / `causation_id` | NO / YES | |
 | 11 | `retention_class` + `legal_hold_flag` | NO | Retained by policy, **never deleted** |
+
+### 4.1 `mutation_kind`, and the version-nullability matrix
+
+An earlier revision required both `record_version_before` and `record_version_after` to be
+non-null. An insert has no prior version, so that contract could not be satisfied by the most
+common mutation there is. The contract is stated once, as an enum plus a matrix, and the enum is
+what makes the nullability rule checkable rather than a convention.
+
+| `mutation_kind` | Means | `record_version_before` | `record_version_after` |
+|---|---|---|---|
+| `INSERT` | A governed record exists that did not exist | **NULL** — required to be null; there is no prior version, and a value would be a fiction | **NOT NULL** |
+| `VERSION_APPEND` | A new version row of an existing governed record | **NOT NULL** | **NOT NULL** |
+| `UPDATE` | A `MUT` column changed on an existing record | **NOT NULL** | **NOT NULL** |
+| `LINK_APPEND` | An append-only lineage link added | **NOT NULL** | **NOT NULL** |
+| `LIFECYCLE_STATE_CHANGE` | A lifecycle or governance state moved | **NOT NULL** | **NOT NULL** |
+| `SUPERSEDE` | A record was superseded by a named successor | **NOT NULL** | **NOT NULL** |
+| `POINTER_MOVE` | A current-pointer row was created or re-pointed | **NULL on creation, NOT NULL on a move** | **NOT NULL** |
+| `DESTROY` | A governed record was destroyed | **NOT NULL** | **NULL** — there is no after |
+
+**Rule V-5a — the matrix is a constraint, not guidance.** It is expressed as a check constraint
+keyed on `mutation_kind`, so a row that claims `INSERT` and carries a before-version is rejected
+by the database, as is a `VERSION_APPEND` that carries none.
+
+**Rule V-5b — `DESTROY` is defined and unreachable.** Its row exists so that the pair is
+specified *now*, before anyone needs it under pressure. **BA-3 remains blocked**: no command
+produces a `DESTROY` audit event, `destroy_governed_content` writes zero governed records and
+zero audit events, and defining the shape enables nothing. A specification that left the pair
+undefined would be inviting whoever unblocks BA-3 later to invent it.
+
+**Rule V-5c — `POINTER_MOVE` is the approval-state case.** Creating the first
+`approval_state_current` row for a subject version is a creation and has no before; every later
+re-point has one. Both are `POINTER_MOVE`, and the nullability follows the act rather than a
+second enum value.
+
+**Rule V-5d — no audit event exists for a refused transaction**, of any kind, at any
+`mutation_kind`. See Rule V-6c.
 
 **Rule V-5.** An audit event records **the change, not the authority for it**. Where authority
 was required, field 7 points at the Decision Record; the audit event never becomes the reason.

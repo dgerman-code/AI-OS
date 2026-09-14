@@ -129,6 +129,28 @@ destructive, it is blocked like any other.
 **Rule G-15 — data restored from a backup does not un-happen the intervening history.** See
 `failure-recovery-race-model.md` Rule F-17.
 
+## 9. The approval-state bootstrap
+
+The approval-state registry must be populated before it can be consulted, and populating it must
+not require an approval the registry cannot yet answer for. That is a migration, and it is
+governed like one.
+
+| Property | Requirement |
+|---|---|
+| Class | `BACKFILL` — it populates a new structure from existing data without changing meaning |
+| Manifest | Enumerates **every subject it will write**, each with its source record path and commit. A subject not in the manifest gets no row |
+| Derivation | Every field is transcribed from the source record by `TranscribeApprovalState`. Nothing is invented, and `decision_right_ref` is left **null** where the source states none (Rule AP-2b) |
+| Verification | Every `source_approval_record` resolves at its cited commit, and every `subject_version` is an ancestor of the current baseline |
+| Review | The manifest and the transcription output are reviewed under a Review Profile **before** any runtime consults the registry |
+| Authority | **None is exercised.** The bootstrap records decisions humans already made; it creates no approval (Rule AP-2) |
+| Afterwards | The bootstrap is **not** a standing capability. Later transcription of an approval made outside the runtime uses the same command, one subject at a time, with the same source requirement |
+
+**Rule G-16 — the bootstrap cannot approve itself.** The migration that populates the registry
+is a schema/data change like any other, and its own approval state is recorded by the same
+mechanical transcription from the human record that approves it. There is no circularity,
+because at no point does anything in this chain *decide* anything: every row records a decision a
+human made and wrote down elsewhere.
+
 ## 8. What is deliberately not specified
 
 | Not specified | Why |

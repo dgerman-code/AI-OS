@@ -129,6 +129,15 @@ one.** This is the single most common real-world bypass, and it is closed in fou
 | 3 | Elevated database roles can write, but every write produces an audit event and the append-only grant verification detects the elevation — the capability is detectable and attributable, never invisible |
 | 4 | `NO_APPLICABLE_DECISION_RIGHT` is not an authorization error and cannot be resolved by granting a permission (`api-command-contracts.md` Rule Q-11) |
 
+**Rule X-17a — a recording API is not an authority surface.** The two approval-recording
+commands (`api-command-contracts.md` §5.3) are the place an administrator would most plausibly
+try to manufacture approval, and they are closed the same way everything else is: neither accepts
+an approval status, a Decision Right or a Decision Record that the cited source record does not
+already state. `TranscribeApprovalState` is class `h` and exercises no Right;
+`RecordNewApprovalState` is class `H` and requires the Decision Record of the act it records to
+resolve, with a human `decided_by`. **Calling a recording API is not approving**, and no grant,
+role or credential changes that.
+
 **Rule X-18 — the honest limit.** A database owner can write rows. This specification does not
 claim otherwise. It claims that doing so is **outside the governed write path**, produces a
 detectable inconsistency (missing audit event, broken record version chain, violated

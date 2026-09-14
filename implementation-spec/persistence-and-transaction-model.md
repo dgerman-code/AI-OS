@@ -95,7 +95,13 @@ rather than a second approval. The Phase 12 reference held that constraint in pr
 which does not survive a restart, a second process or a race. Production requires it in the
 database.
 
-### 5.2 Required durable uniqueness constraints
+### 5.2 Required durable uniqueness constraints — the canonical inventory
+
+**This table is the canonical uniqueness inventory.** Every reference to "the uniqueness
+constraints" anywhere in this package means these rows, and any document that states a count
+states the count *of this table*. The validator derives the number from here and checks every
+document that cites one, so a constraint added without updating a milestone fails rather than
+drifting.
 
 Each row is a `UNIQUE` constraint or unique index that **must exist** before the corresponding
 act is implementable.
@@ -247,37 +253,68 @@ question the audit event exists to answer.
 
 ### 7.2 Every governed act, with its exact audit rows
 
-For every governed act the implementation states seven things. An act not listed inherits the
-same obligation and must be specified before it is built.
+**This table is exhaustive over the governed-command inventory** of
+`api-command-contracts.md` §5.1. Its row keys are that table's `Act` keys, and the two sets are
+**exactly equal** — checked, not asserted (Rule Q-7a). An act appearing here with no command
+would be a contract nothing calls; a command with no act here would have no commit contract and
+could not be built.
 
-| Act | Read set | Validation set | Concurrency check | Governed writes (one transaction) | **Audit events** | Execution events | Uniqueness relied on | Failure before commit |
+Columns: read set · validation/preflight set · concurrency check · exact governed writes ·
+**exact audit-event count** · execution-event count · durable constraints relied on ·
+pre-commit refusal behaviour.
+
+| Act | Read set | Validation / preflight set | Concurrency check | Governed writes (one transaction) | **Audit events** | Exec events | Constraints | Failure before commit |
 |---|---|---|---|---|---|---|---|---|
-| **Create run** | Workflow Definition @v, Orchestrator Policy @v, scope node, approval state | Intake checks 1–7 (orchestrator contract §2) | Run-ref availability | `workflow_run`, `scope_binding` | **2** — one per record | 2 (`CREATED`, `VALIDATED`) | U14, U18 | Recorded refusal; **no run row** |
-| **Activate stage** | Run state, Workflow Definition @v, task | Halted guard, task in definition, phase plan | Run `record_version` | `work_item`, `gate_instance` × *g* | **1 + *g*** | 1 (`DISPATCHED`) | U11, U13 | Nothing written |
-| **Assign** | Work Item, bound Task's required Role, attempt counter | Halted guard, role match, agent instance type, insert preflight | Work Item `record_version` | `assignment`, Work Item attempt counter | **2** — the insert and the counter change | 1 (`DISPATCHED`) | U12 | Counter unchanged; no assignment |
-| **Route** | Run, Work Item, Routing Policy @v, candidate universe | Halted guard; answer type, request identity, run binding, router identity, six-part completeness; phase plan | Run `record_version` | `routing_request`, `routing_decision` | **2** | 2 (`REQUESTED`, `GATE_OUTCOME_RECORDED` where a phase moved) | U5, U6 | **No routing request and no routing event** |
-| **Invoke model** | Recorded Routing Decision, Work Item | Halted guard, decision is this run's, outcome eligible, five-element lineage equality (M-11), release-identity comparison (M-11a), result identity preflight | Run `record_version` | `model_invocation`, `model_result` | **2** | 1 (`REQUESTED`) | U7, U8 | Nothing written |
-| **Review gate** | Gate instance, Review Profile @v, review request | Halted guard, instance lineage, independence class, eligibility class, SoD rules A-4, insert preflight, phase plan | Gate instance `record_version` | `review_instance`, gate instance outcome | **2** | 1 (`GATE_OUTCOME_RECORDED`) | U3, U4, U10 | Gate unchanged |
-| **Decision gate** | Gate instance, Decision Right @v, holder set, active separations | Halted guard, five gate-satisfaction conditions, 19-element completeness, separation check | Gate instance `record_version` | `decision_record`, gate instance outcome | **2** | 1 (`GATE_OUTCOME_RECORDED`, carrying the authority reference) | U1, U2, U10, P-11 | Gate unchanged; **no Decision Record** |
-| **Resolve conflict** | Conflict record, items in tension, Review Instance | Eligible Role, reasoning present, residual uncertainty present, review present. **No Decision Right** (K-13a) | Conflict `record_version` | `conflict_resolution`, conflict status change | **2** | 1 (`RECONCILIATION`) | — | Nothing written |
-| **Pause** | Run state, interventions | Halted guard, intervention contract, transition preflight (`allow_noop=false`) | Run `record_version` | `human_intervention`, run phase change | **2** | 1 (`INTERVENTION`) | U9 | Nothing written |
-| **Cancel run** (`CANCELLED`) | Run state, interventions | Terminal reachability; **the intervention contract**; insert preflight. A human act | Run `record_version` | `human_intervention`, run terminal state | **2** | 1 (`TERMINAL`, human + system identity) | U9 | Nothing written |
-| **Terminate run** (`TERMINATED`) | Run state, the constraint that would be breached | Terminal reachability; **a named constraint**. **No intervention and no human identity** | Run `record_version` | `constraint_stop_record`, run terminal state | **2** | 1 (`TERMINAL`, system identity only, human identity `NULL`) | — | Nothing written |
-| **Fail run** (`FAILED`) | Run state, retry history | Terminal reachability; a recorded cause; no permitted retry resolved it | Run `record_version` | `failure_record`, run terminal state | **2** | 1 (`TERMINAL`) | — | Nothing written |
-| **Supersede run** (`SUPERSEDED`) | Both runs | Terminal reachability; the superseding run exists and names this one | Run `record_version` | Run terminal state, supersession link | **2** | 1 (`TERMINAL`) | — | Nothing written |
-| **Scope transfer** | Source run, retained Decision Records, mechanism registry, target definition | All source-side clauses **and** every target-run creation condition, via one shared preflight | Source run `record_version` | `scope_transfer_authorisation`, target `workflow_run`, target `scope_binding`, provenance link | **4** | 2 (source `REQUESTED`, target `CREATED`) | U14, U18 | **No authorisation record, no partial run** |
-| **Rework iteration** | Rework loop declaration @v, prior iteration | Entry condition met; `max_iterations` not exhausted | Loop `record_version` | `rework_loop_instance`, new `work_item`(s), new `gate_instance`(s) | **1 + *w* + *g*** | 1 (`DISPATCHED`) | U11, U13, U20 | Nothing written |
-| **Promote to canonical** | Knowledge item @v, evidence, conflicts, freshness, Decision Record | Preconditions 1–9 | Canonical `record_version` | `canonical_record` new version, prior row marked `SUPERSEDED` | **2** | 1 (`STATE_TRANSITION`) | U15 | **Blocked at precondition 9 (BA-1): nothing written, ever** |
-| **Record approval state** | Source approval record, subject | Source resolves at the cited commit; approving authority is human | Current-pointer `record_version` | `approval_state_record` new version, `approval_state_current` pointer | **2** | 1 (`STATE_TRANSITION`) | U19 | Nothing written |
+| **create_run** | Workflow Definition @v, Orchestrator Policy @v, scope node, approval state | Intake checks 1–7 (orchestrator §2) | Run-ref availability | `workflow_run`, `scope_binding` | **2** | 2 | U14, U18 | Recorded refusal; **no run row** |
+| **activate_stage** | Run state, Workflow Definition @v, task | Halted guard, task in definition, phase plan | Run `record_version` | `work_item`, `gate_instance` × *g* | **1 + *g*** | 1 | U11, U13 | Nothing written |
+| **assign** | Work Item, bound Task's required Role, attempt counter | Halted guard, role match, agent instance type, insert preflight | Work Item `record_version` | `assignment`, Work Item attempt counter | **2** | 1 | U12 | Counter unchanged; no assignment |
+| **request_routing** | Run, Work Item | Halted guard; Work Item is this run's | Run `record_version` | `routing_request` | **1** | 1 | U6 | Nothing written |
+| **route** | Run, Work Item, Routing Policy @v, candidate universe | Halted guard; answer type, request identity, run binding, router identity, six-part completeness; phase plan | Run `record_version` | `routing_request`, `routing_decision` | **2** | 2 | U5, U6 | **No routing request and no routing event** |
+| **invoke_model** | Recorded Routing Decision, Work Item | Halted guard, decision is this run's, outcome eligible, five-element lineage equality (M-11), release-identity comparison (M-11a), result identity preflight | Run `record_version` | `model_invocation`, `model_result` | **2** | 1 | U7, U8 | Nothing written |
+| **request_review** | Gate instance, Review Profile @v | Halted guard; gate kind is `REVIEW` | Gate instance `record_version` | `review_request` | **1** | 1 | — | Nothing written |
+| **review_gate** | Gate instance, Review Profile @v, review request | Halted guard, instance lineage, independence class, eligibility class, SoD rules A-4, insert preflight, phase plan | Gate instance `record_version` | `review_instance`, gate instance outcome | **2** | 1 | U3, U4, U10 | Gate unchanged |
+| **request_decision** | Gate instance, Decision Right @v | Halted guard; gate kind is `DECISION`; Right resolves at an approved version | Gate instance `record_version` | `decision_request` | **1** | 1 | — | Nothing written |
+| **decision_gate** | Gate instance, Decision Right @v, holder set, active separations | Halted guard, five gate-satisfaction conditions, 19-element completeness, separation check | Gate instance `record_version` | `decision_record`, gate instance outcome | **2** | 1 | U1, U2, U10, P-11 | Gate unchanged; **no Decision Record** |
+| **supply_gate_evidence** | Gate instance, the evidence object | Halted guard; evidence type admissible for the gate kind (exclusive contract); evidence lineage names this gate instance; insert preflight | Gate instance `record_version` | Evidence record, gate instance outcome | **2** | 1 | U10 | Gate unchanged |
+| **record_intervention** | Run state, interventions | Halted guard; the one intervention contract | Run `record_version` | `human_intervention` | **1** | 1 | U9 | Nothing written |
+| **pause** | Run state, interventions | Halted guard, intervention contract, transition preflight (`allow_noop=false`) | Run `record_version` | `human_intervention`, run phase change | **2** | 1 | U9 | Nothing written |
+| **resume** | Run state, interventions | Intervention contract; run is `PAUSED`; transition preflight | Run `record_version` | `human_intervention`, run phase change | **2** | 1 | U9 | Nothing written |
+| **unblock** | Run state, interventions, standing gates | The five `unblock` conditions (orchestrator O-5) | Run `record_version` | `human_intervention`, run phase change, posture change | **3** | 1 | U9 | Nothing written |
+| **cancel_run** | Run state, interventions | Terminal reachability for `CANCELLED`; **the intervention contract**; insert preflight. A human act | Run `record_version` | `human_intervention`, run terminal state | **2** | 1 (`TERMINAL`, human + system identity) | U9 | Nothing written |
+| **terminate_run** | Run state, the constraint that would be breached | Terminal reachability for `TERMINATED`; **a named constraint**; acting system identity present. **No intervention is accepted; a supplied one is a refusal** | Run `record_version` | `constraint_stop_record`, run terminal state | **2** | 1 (`TERMINAL`, system identity only, `human_identity_ref` **NULL**) | — | Nothing written |
+| **fail_run** | Run state, retry history | Terminal reachability for `FAILED`; a recorded cause; no permitted retry resolved it | Run `record_version` | `failure_record`, run terminal state | **2** | 1 | — | Nothing written |
+| **supersede_run** | Both runs | Terminal reachability for `SUPERSEDED`; the superseding run exists and names this one | Run `record_version` | Run terminal state, supersession link | **2** | 1 | — | Nothing written |
+| **complete_run** | Run state, gates, posture | Posture permits the outcome; no unsatisfied gate; phase permits; each carried item has an upstream rule | Run `record_version` | Run terminal state | **1** | 1 | — | Nothing written |
+| **retry** | Work Item bound retry class, attempt history | Halted guard; class permits; class 2 re-evaluates preconditions, freshness, scope, sensitivity and eligibility **before** the retry | Run `record_version` | `retry_attempt`, run phase change | **2** | 1 | — | Nothing written; a class-4/6 request halts and escalates instead (O-20) |
+| **rework_iteration** | Rework loop declaration @v, prior iteration | Entry condition met; `max_iterations` not exhausted | Loop `record_version` | `rework_loop_instance`, `work_item` × *w*, `gate_instance` × *g* | **1 + *w* + *g*** | 1 | U11, U13, U20 | Nothing written |
+| **open_sub_run** | Parent run, target scope node | Halted guard; parent scope narrows to child scope (S-8, S-9) | Parent run `record_version` | Child `workflow_run`, child `scope_binding` | **2** | 1 | U14, U18 | Nothing written |
+| **scope_transfer** | Source run, retained Decision Records, mechanism registry, target definition | All source-side clauses **and** every target-run creation condition, via one shared preflight | Source run `record_version` | `scope_transfer_authorisation`, target `workflow_run`, target `scope_binding`, provenance link | **4** | 2 | U14, U18 | **No authorisation record, no partial run** |
+| **create_knowledge_item** | Scope node, evidence and source links | Four axes complete; type-specific requirements (derivation, reasoning); links resolve | — (insert) | `knowledge_item` v1 | **1** | 1 | U16 | Nothing written |
+| **adopt_ai_suggestion** | The `AI_SUGGESTION` item, its basis | The new item's type is supported by **its own** basis; the adoption link is not evidence (K-4); the suggestion is not mutated in type or origin | Suggestion `record_version` | New `knowledge_item` v1, adoption link, suggestion governance state | **3** | 1 | U16 | Nothing written |
+| **raise_conflict** | The items in tension | Items resolve at the versions named; conflict class is one of the seven | — (insert) | `conflict_record`, conflict flag × *n* | **1 + *n*** | 1 | — | Nothing written |
+| **resolve_conflict** | Conflict record, items in tension, Review Instance | Eligible Role; reasoning present; residual uncertainty present; review present. **No Decision Right** (K-13a) | Conflict `record_version` | `conflict_resolution`, conflict status change | **2** | 1 | — | Nothing written |
+| **apply_consequent_status_change** | The resolution, the target record, the mapped Right | The change's own Right resolves and a Decision Record exists for it | Target `record_version` | Target governance-state transition, link from the resolution | **2** | 1 | — | Nothing written. **Where the change is a canonical one, BA-1 blocks it and nothing is ever written** |
+| **transcribe_approval_state** | Source approval record at its commit, subject, subject version | Source resolves **at the cited commit**; every written field derives from the source; approving authority is human; no field is invented | Current-pointer `record_version` | `approval_state_record` (new immutable version), `approval_state_current` (create or move) | **2** | 1 | U19, U21 | Nothing written; the subject stays `PROPOSED` |
+| **record_new_approval_state** | Source approval record, Decision Record, subject | Source resolves; the governed act's Right resolves; the Decision Record resolves and its `decided_by` is human | Current-pointer `record_version` | `approval_state_record` (new immutable version), `approval_state_current` (move) | **2** | 1 | U19, U21 | Nothing written |
+| **promote_to_canonical** | Knowledge item @v, evidence, conflicts, freshness, Decision Record | Preconditions 1–9 | — | **0 — nothing is ever written** | **0** | 1 (refusal) | — | **Blocked at precondition 9 (BA-1). Zero governed writes, zero audit events, one refusal execution event** |
+| **reparent_scope_node** | Scope node, descendants | — | — | **0 — nothing is ever written** | **0** | 1 (refusal) | — | **Blocked (BA-2).** As above |
+| **destroy_governed_content** | The target record | — | — | **0 — nothing is ever written** | **0** | 1 (refusal) | — | **Blocked (BA-3).** As above |
+| **apply_destructive_migration** | Migration manifest, classifier verdict | Declared class matches the classifier; legal holds absent | — | **0 — nothing is ever written** | **0** | 1 (refusal) | — | **Blocked (BA-4).** As above |
 
-*g* = gate instances created, *w* = work items created. Each is a real count, not a placeholder:
-an act that creates three gate instances writes three audit events for them.
+*g* = gate instances created, *w* = work items created, *n* = items the conflict flags. Each is a
+real count, not a placeholder: an act that creates three gate instances writes three audit events
+for them.
 
-**Rule P-14e — the blocked hooks write nothing, including no audit event.** A refused
-`PromoteToCanonical`, `ReparentScopeNode`, `DestroyGovernedContent` or `ApplyDestructiveMigration`
-mutates no governed record, so it produces no audit event. It produces **one execution event**
-recording the refusal and the gap, because a refusal is coordination history and that is exactly
-what execution events are for.
+**Rule P-14e — a refused transaction writes no audit event, including the blocked four.** A
+refusal mutates no governed record, so there is none to audit. It produces **one execution
+event** recording the refusal and the gap, because a refusal is coordination history and that is
+exactly what execution events are for. The four blocked acts above are the standing case: their
+entire history is execution events.
+
+**Rule P-14f — counting the audit rows is a build-time obligation.** An implementation adding a
+governed write to any act above updates this table's count in the same change. The count is what
+the assurance suite asserts (`test-and-assurance-strategy.md` §3, A31), so a write added without
+updating it fails the suite rather than passing silently.
 
 **Rule P-15.** Every row's writes are **one database transaction**. A governed act that would
 span two transactions is redesigned until it does not, or it is expressed with the staged
@@ -365,7 +402,7 @@ invariant that cannot be expressed in plain PostgreSQL plus application code is 
 
 | # | Phase 12 reference | This specification | Why |
 |---:|---|---|---|
-| D1 | Uniqueness held in a closure-backed in-memory list | 20 durable constraints, §5.2 | Phase 14 §4.2; process memory does not survive a restart or a second process |
+| D1 | Uniqueness held in a closure-backed in-memory list | The durable constraints of §5.2 | Phase 14 §4.2; process memory does not survive a restart or a second process |
 | D2 | No concurrency tokens | `record_version` on every mutable governed row, version-pinned writes | Phase 10 §5; Phase 11 races 2, 3, 7 |
 | D3 | No object storage protocol | §8 staged commit with orphan quarantine | Phase 10 `versioning-and-lineage.md` §6 |
 | D4 | No outbox, no external-effect uncertainty | §9, and O-29 | Phase 14 §4.4, §7 |
