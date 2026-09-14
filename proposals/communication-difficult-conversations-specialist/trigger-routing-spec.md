@@ -96,8 +96,10 @@ When true:
 
 1. `review.high_stakes_external_communication@0.1` is **required** before any transmitting act;
 2. `review.communication_strategy@0.1` is **required**;
-3. the applicable human Decision Right is identified per `decision-right-gap-analysis.md` §4, and
-   where none resolves the act is **blocked**, posture `AUTHORITY_ABSENT`;
+3. the applicable human Decision Right is identified per `decision-right-gap-analysis.md` §4 —
+   `decision.external_publication` for any release outside the entity under its name, plus any
+   submission or commitment Right the act also triggers — and only where that resolution
+   genuinely returns nothing is the act **blocked** with `human_gate_status: AUTHORITY_ABSENT`;
 4. the draft must not be presented as ready to send until 1–3 are complete.
 
 **Rule TR-6 — the flag is set from conditions, never from the score.** A score of 90 with no H

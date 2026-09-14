@@ -92,7 +92,7 @@ own action alone, the instance is `BLOCKED`. The slot is not widened and the lea
   parts being declined from any part being accepted or deferred; `ACTIVITY` identify what would
   otherwise be read into the refusal
 - **Artifact Contributions:** scope note, owned by the lead
-- **Knowledge-State Expectations:** the restatement is `FACT` where directly supported, otherwise
+- **Knowledge-State Expectations:** the restatement is a `FACT_CLAIM` linked to `EVIDENCE` where directly supported, otherwise
   `ASSUMPTION` and flagged for confirmation
 - **Gate / Review References:** none
 - **Exit Criteria:** the declined scope is explicit and bounded
@@ -114,7 +114,7 @@ own action alone, the instance is `BLOCKED`. The slot is not widened and the lea
   answered where raised
 - **Possible Outcomes:** `COMPLETE`, `BLOCKED`, `ESCALATED`
 - **Open-Item Materiality:** an unowned refusal decision is `MATERIAL_TO_NEXT_STEP_OR_GATE`
-- **Mandatory at:** high and critical bands
+- **Mandatory at:** high and critical bands, **and at any band where an RC-5 condition holds** (`role-card.md` RC-5)
 
 ### Stage `S3` — Choose the rationale and the alternative
 - **Objective:** decide how much to say and whether to offer anything
@@ -151,7 +151,7 @@ own action alone, the instance is `BLOCKED`. The slot is not widened and the lea
 - **Objective:** have someone other than the author confirm the no is a no and concedes nothing
 - **Entry Criteria:** S4 complete
 - **Participating Roles:** lead `LEAD_ROLE` as producer, ineligible to review
-- **Activities:** `ACTIVITY` route to `review.communication_strategy@0.1`; `ACTIVITY` route to
+- **Activities:** `ACTIVITY` route to `review.communication_strategy@0.1` **whenever any RC-5 condition holds**; `ACTIVITY` route to
   `review.legal_compliance` where refusal bears on an obligation
 - **Artifact Contributions:** none
 - **Knowledge-State Expectations:** satisfaction may support `REVIEWED`; not promoted here
@@ -159,7 +159,7 @@ own action alone, the instance is `BLOCKED`. The slot is not widened and the lea
   `review.legal_compliance`
 - **Exit Criteria:** triggered reviews `SATISFIED`
 - **Possible Outcomes:** `COMPLETE`, `REWORK_REQUIRED`, `BLOCKED`
-- **Mandatory at:** high and critical bands
+- **Mandatory at:** high and critical bands, **and at any band where an RC-5 condition holds** (`role-card.md` RC-5)
 
 ## Branches / Exception Paths
 

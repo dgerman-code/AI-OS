@@ -9,8 +9,9 @@ Version: 0.1
 > exhaustive, and not a library to copy from**: every real message is drafted against its own
 > record, its own constraints and its own supplied conclusions.
 >
-> No example here is approved wording, and none may be sent without the review and gate path of
-> `decision-right-gap-analysis.md`.
+> No example here is approved wording, and none may be sent without the review path of
+> `role-card.md` RC-5 and the gate resolved by `decision-right-gap-analysis.md` §4 — which, for
+> anything released outside the entity under its name, is `decision.external_publication`.
 
 ## 1. How to read these
 
@@ -114,7 +115,9 @@ scope is different from what they believe it to be.
 
 1. `POSSIBLE_DEFLECTION` is *not* the first move. The record is read for facts first (RC-3, S-7).
 2. The claim is checked against the record. If a submission of that date exists and says that, it
-   is a `position_changing_fact`.
+   is recorded as an `EVIDENCE` item bound to that paragraph plus a **new linked** `FACT_CLAIM`,
+   and it enters `position_changing_claims` (DC-4, DC-5). The counterparty's email stays `SOURCE`;
+   nothing is relabelled.
 3. The diagnosis is escalated to the substantive owning Role **before any drafting**, and
    `recommended_response` stays `null` (DC-5).
 4. Only once the owning Role has re-derived the position does drafting resume — on the new

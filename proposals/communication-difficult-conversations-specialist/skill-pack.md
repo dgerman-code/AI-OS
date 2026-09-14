@@ -81,9 +81,9 @@ These already exist in `skills/master-skill-universe.md` and are **referenced, n
 
 | `skill.<id>` | What it contributes here |
 |---|---|
-| `skill.fact_extraction` | Pulling stated facts out of an interaction record without importing the surrounding characterisation |
+| `skill.fact_extraction` | Extracting stated assertions from an interaction record, as `EVIDENCE` bound to their location, without importing the surrounding characterisation |
 | `skill.assumption_analysis` | Making the reconstructed objective and the inferred counterparty position explicit as assumptions |
-| `skill.evidence_mapping` | Tying every factual assertion in a draft back to the record or an approved source |
+| `skill.evidence_mapping` | Linking every `FACT_CLAIM` in a draft to the `EVIDENCE` that supports it |
 | `skill.source_verification` | Establishing whether a cited prior message, date or commitment actually exists in the record |
 | `skill.problem_structuring` | Decomposing a long hostile thread into separable issues |
 | `skill.position_mapping` | Stating the user's position and the counterparty's position as distinct objects |
@@ -212,8 +212,10 @@ and is out of this pack's scope (`README.md` §3).
 - Minimum input state for ordinary use: interaction record `SOURCE`; substantive conclusions
   `DRAFT` and attributed.
 - Minimum input state for decision-grade use: substantive conclusions `REVIEWED` or `APPROVED`.
-- States the pack may support deriving: `SOURCE` → `FACT` for directly stated claims; `DRAFT` for
-  role outputs.
+- States the pack may support deriving: `EVIDENCE` bound to a location in the record, and a
+  **new linked** `FACT_CLAIM` supported by it; `DRAFT` for role outputs. The record stays
+  `SOURCE`; there is **no** `SOURCE` → `FACT_CLAIM` transition and the deprecated label `FACT`
+  is not used (`role-card.md` RC-4).
 - States the pack may not promote autonomously: everything above `DRAFT`, and every transition to
   `REVIEWED`, `APPROVED` or `CANONICAL`.
 - Conflict / contradiction escalation rule: `CONFLICT_DETECTED` and escalate; never resolve
@@ -224,7 +226,7 @@ knowledge-state transition**.
 
 ## Review Dependencies
 
-- `review.communication_strategy@0.1` *(candidate)* — triggered where stakes are high or critical
+- `review.communication_strategy@0.1` *(candidate)* — triggered under `role-card.md` **RC-5**, which is the single authoritative trigger
 - `review.high_stakes_external_communication@0.1` *(candidate)* — triggered by any high-stakes
   condition of `trigger-routing-spec.md` §5
 - `review.legal_compliance` — where legal exposure is material

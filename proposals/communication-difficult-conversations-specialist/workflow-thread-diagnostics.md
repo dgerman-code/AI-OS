@@ -57,6 +57,13 @@ common way a difficult exchange gets worse.
 **This Workflow writes no message and transmits nothing.** It is the one pattern in this package
 with no drafting stage, deliberately.
 
+**Rule TD-1 — no external act, no gate, and that is a positive finding.** Because nothing
+transmissible is produced, no Decision Right is required **for this act**, and the diagnostic
+records `human_gate_status: NOT_APPLICABLE`. That is not a statement that authority is present,
+and it does not travel: where this diagnostic later feeds
+`workflow.communication.difficult_interaction_response@0.1`, that workflow resolves its own gate
+at its S11 independently and may not inherit `NOT_APPLICABLE` from its input (DC-7a).
+
 ## Participating Roles
 
 | Role ID | Participation | Activation | Stage(s) | Authority boundary note |
@@ -112,7 +119,7 @@ None. This Workflow composes nothing: it is the leaf pattern the others compose.
   disagreement, as distinct from the stated one; `ACTIVITY` flag any fact that materially changes
   the user's position
 - **Artifact Contributions:** evidence sections of the Conversation Diagnostic
-- **Knowledge-State Expectations:** `FACT` only where directly stated; everything else
+- **Knowledge-State Expectations:** a `FACT_CLAIM` only where `EVIDENCE` bound to the record supports it, and the record stays `SOURCE` (RC-4); everything else
   `ASSUMPTION` or `UNKNOWN`
 - **Gate / Review References:** none
 - **Exit Criteria:** the three categories are separated and the actual disagreement is named
@@ -148,7 +155,10 @@ None. This Workflow composes nothing: it is the leaf pattern the others compose.
 - **Artifact Contributions:** pattern and risk sections of the Conversation Diagnostic
 - **Knowledge-State Expectations:** every pattern label is `AI_SUGGESTION`. **No label may name,
   characterise or diagnose a person** (`role-card.md` limit 3)
-- **Gate / Review References:** none. A diagnostic transmits nothing and needs no gate
+- **Gate / Review References:** none. A diagnostic transmits nothing and needs no gate. The
+  diagnostic records `human_gate_status: NOT_APPLICABLE` with
+  `human_gate_reason: NO_EXTERNAL_ACT_CONTEMPLATED` — **never** `AUTHORITY_ABSENT`, which would
+  claim an authority is missing where none is required (DC-7, DC-7a)
 - **Exit Criteria:** labels are applied with their observable basis; three risk dimensions scored
 - **Possible Outcomes:** `COMPLETE`, `REWORK_REQUIRED`
 
@@ -162,6 +172,9 @@ None. This Workflow composes nothing: it is the leaf pattern the others compose.
 - `EXCEPTION_PATH` **Drafting requested mid-instance.** The request is routed to
   `workflow.communication.difficult_interaction_response@0.1`. This Workflow does not acquire a
   drafting stage because someone asked for one.
+- `EXCEPTION_PATH` **A gate is demanded anyway.** Where a caller expects a Decision Right to be
+  named for the diagnosis itself, the answer is `NOT_APPLICABLE` with its reason, not a fabricated
+  reference and not `AUTHORITY_ABSENT`.
 - `EXCEPTION_PATH` **Psychological assessment requested.** Refused and recorded. The diagnostic
   offers the observable-behaviour labels instead, and states why.
 
@@ -198,7 +211,7 @@ position-changing fact survive.
 |---|---|---|
 | Conversation Diagnostic | `DRAFT`; pattern labels within it `AI_SUGGESTION` | `role.communication_difficult_conversations_specialist` |
 | Admissibility note | `DRAFT` | as above |
-| Escalated position-changing facts | `FACT`, referred to the owning Role | the substantive owning Role |
+| Escalated position-changing claims | `FACT_CLAIM` linked to its `EVIDENCE`, referred to the owning Role | the substantive owning Role |
 
 ## Authority / Review Boundary
 
@@ -212,7 +225,7 @@ permitted set so that the vocabulary cannot drift toward diagnosis.
 ## Criticality Scaling
 
 At every band the stages are identical; what deepens is evidence. At `HIGH` and `CRITICAL`, every
-`FACT` must carry a per-message provenance reference, every pattern label must name the observable
+`FACT_CLAIM` must link to `EVIDENCE` carrying a per-message provenance reference, every pattern label must name the observable
 feature it rests on, and the admissibility note must state the disclosure basis explicitly rather
 than by reference. Criticality changes depth, not Role identity.
 

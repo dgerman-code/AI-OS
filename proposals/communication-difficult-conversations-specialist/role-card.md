@@ -122,12 +122,14 @@ Input **artifact classes**, not named upstream Roles:
 
 ## Minimum Input Knowledge State
 
-- **Standard output minimum:** the interaction record is `SOURCE`. Any substantive conclusion the
-  draft relies on is at least `DRAFT` **and** attributed to its owning Role.
+- **Standard output minimum:** the interaction record is `SOURCE` and stays `SOURCE`. Any
+  substantive conclusion the draft relies on is at least `DRAFT` **and** attributed to its owning
+  Role.
 - **Decision-grade output minimum:** every substantive conclusion the draft relies on is
-  `REVIEWED` or `APPROVED` and current; every fact asserted in the draft is `FACT` traceable to
-  the interaction record or to an approved source; every constraint (`must_not_admit`,
-  reservations of rights, deadlines) is explicit.
+  `REVIEWED` or `APPROVED` and current; every factual assertion in the draft is a linked
+  `FACT_CLAIM` whose basis is `EVIDENCE` bound to its location in the interaction record or in an
+  approved source; every constraint (`must_not_admit`, reservations of rights, deadlines) is
+  explicit.
 - **If the minimum is not met:** the Role produces **preliminary, non-decision-grade** output
   clearly marked as such, with the missing element named — or `RETURNED_FOR_REWORK` where the
   gap makes the strategy itself unsafe to state. It never substitutes an assumption for a missing
@@ -154,8 +156,7 @@ Input **artifact classes**, not named upstream Roles:
   documentation posture
 - Default Knowledge State: `DRAFT`
 - Evidence / Source Linkage Required: **yes**
-- Independent Review Required: conditional — `review.communication_strategy@0.1` where stakes are
-  high or critical; advisory otherwise
+- Independent Review Required: conditional — `review.communication_strategy@0.1` under **RC-5**
 - Decision Right Reference: none
 - Reversibility at Creation: `REVERSIBLE`
 - Transmitting Act: none
@@ -250,13 +251,28 @@ Domain, programme and technology capability belongs to the Skill / Specialisatio
 - **Calculations / logic that must be reproducible:** the Communication Conflict Score inputs,
   the Communication Control Filter component scores, and the issue-triage classification for each
   issue.
-- **Knowledge-state transitions this Role may propose:** `SOURCE` → `FACT` for a claim directly
-  stated in the record; `DRAFT` for its own outputs. It may propose nothing above `DRAFT` and may
-  never propose `APPROVED` or `CANONICAL`.
+- **Knowledge-state transitions this Role may propose:** `DRAFT` for its own outputs, and nothing
+  above it. It may never propose `APPROVED` or `CANONICAL`.
+- **Epistemic types it may create:** `EVIDENCE` bound to a location in the record, and
+  `FACT_CLAIM` items linked to that evidence. See RC-4.
 - **Conflict-detection obligations:** record `CONFLICT_DETECTED` where the interaction record
   contradicts an approved position; where two owning Roles' conclusions disagree; where a
   requested wording would contradict a supplied conclusion; or where a hostile message contains a
   fact that materially changes the user's position.
+
+**Rule RC-4 — nothing is converted; a claim is a new linked item.** The interaction record is
+`SOURCE` and **remains** `SOURCE` — a source is cited, never promoted
+(`knowledge/knowledge-state-model.md` §2). Where the record supports an assertion, this Role
+creates **two** linked items: an `EVIDENCE` item bound to the exact message and position it comes
+from, and a **new** `FACT_CLAIM` item whose basis is that evidence. There is no `SOURCE` →
+`FACT_CLAIM` transition, no relabelling, and no "promotion" of a quoted line into a fact. The
+deprecated label `FACT` is not used anywhere in this package; the approved epistemic type is
+`FACT_CLAIM`, because the register holds claims and the world holds facts.
+
+The same rule governs this Role's own output: a pattern label is an `AI_SUGGESTION`, and no
+acceptance, review, seniority or repetition converts it into a `FACT_CLAIM`. Where a label is
+later adopted, that is a **new** item with its own basis and a permanent link back — never a
+status change on the label.
 
 **Rule RC-3 — a hostile message is still evidence.** The Role must read adversarial text for
 material facts, not only for tone. Where a hostile message contains a fact that changes the
@@ -304,10 +320,9 @@ Additional to `standard.role.common_constraints@0.2`:
 
 ## Review Obligation
 
-- Review Required: **conditional**
+- Review Required: **conditional — under Rule RC-5, which is the single authoritative trigger**
 - Review Profile Reference(s):
-  - `review.communication_strategy@0.1` — required where stakes are high or critical, advisory
-    otherwise;
+  - `review.communication_strategy@0.1` — required under **Rule RC-5**;
   - `review.high_stakes_external_communication@0.1` — required where any high-stakes condition of
     `trigger-routing-spec.md` §5 holds;
   - `review.legal_compliance` — where legal exposure is material, satisfied by its own owning
@@ -316,11 +331,39 @@ Additional to `standard.role.common_constraints@0.2`:
     position;
   - `review.data_protection` — where the message discloses personal data.
 
+**Rule RC-5 — the single review trigger, stated once and referenced everywhere.**
+`review.communication_strategy@0.1` is **mandatory** whenever **any** of the following is true:
+
+| # | Condition |
+|---:|---|
+| RC-5.1 | Stakes are `HIGH` or `CRITICAL` |
+| RC-5.2 | The draft **carries or reformulates** a substantive conclusion owned by another Role |
+| RC-5.3 | The communication states a **consequential** boundary, refusal, escalation, commitment, concession, deadline, admission-sensitive position or institutional position |
+| RC-5.4 | A workflow-specific mandatory-review condition applies (each workflow names its own) |
+
+Where **none** of the four holds — routine low- or medium-stakes communication that carries no
+other Role's conclusion and states no consequential position — the review is **advisory**.
+
+An earlier revision of this package made the review mandatory at high and critical stakes only,
+while the Review Profile also required it whenever another Role's conclusion was carried or a
+consequential boundary was stated. Those are different rules, and the difference fell exactly
+where it mattered: **a low-stakes message can carry a legal conclusion or state a deadline with a
+consequence.** RC-5 is fail-closed on that case, and no document in this package states a
+different trigger — `review-profile-communication-strategy.md` §Applicability and every workflow's
+review stage reference RC-5 rather than restating it.
+
+**Rule RC-5a — stakes never lower the trigger.** Low or medium stakes do not bypass RC-5.2 or
+RC-5.3. Stakes raise the obligation; they never relieve one.
+
 ## Human Decision Gates
 
-- Decision Right Reference(s): as resolved by `decision-right-gap-analysis.md` §4 — in practice
-  `decision.external_publication` for public content, and the applicable submission, disclosure,
-  transmission or commitment Right for the act the message performs.
+- Decision Right Reference(s): as resolved by `decision-right-gap-analysis.md` §4.
+  **`decision.external_publication` is the applicable Right for every act that releases a content
+  item, at a stated version, to an audience outside the entity under the entity's name** — which
+  includes a private letter or email sent in the entity's name, not only generally available
+  content. Where the act is **also** a submission to a granting authority, or **also** a
+  contractual act, `decision.granting_authority_submission` or `decision.contract_commitment`
+  applies **in addition**, never instead.
 - **Required sequence:** specialist output → required review(s) `SATISFIED` → human decision →
   transmission. No step is skipped and no step is inferred from another.
 - **Approval invalidation condition:** any approval attaches to **one draft at one version for
@@ -328,7 +371,15 @@ Additional to `standard.role.common_constraints@0.2`:
   channel, the timing beyond the stated window, or any cited substantive conclusion.
 - **Where no applicable Right resolves:** the act is **blocked**, posture `AUTHORITY_ABSENT`, and
   it is escalated. It is never permitted on the grounds that no Right forbids it
-  (`decision-right-gap-analysis.md` §6).
+  (`decision-right-gap-analysis.md` §6). This is a genuine fail-closed path and not the ordinary
+  case: an applicable approved Right must be **looked for and resolved first**, and for a
+  communication released under the entity's name one exists.
+- **Where no external act is contemplated at all** — a read-only diagnosis that produces nothing
+  transmissible — the gate status is `NOT_APPLICABLE` with reason `NO_EXTERNAL_ACT_CONTEMPLATED`,
+  **not** `AUTHORITY_ABSENT`. Those are opposite findings: one says nothing needs authorising, the
+  other says something does and nobody holds it. Recording the second where the first is true
+  produces a standing false alarm, and a standing false alarm is how a real one gets ignored
+  (`conversation-diagnostics-contract.md` DC-7).
 
 ## Mandatory Assignment Attributes
 

@@ -86,7 +86,7 @@ nothing, and the instance is `BLOCKED`.
 | The full interaction history | `SOURCE`, unedited and attributed |
 | The substantive conclusion at issue | `REVIEWED` or `APPROVED` |
 | Legal characterisation, where any is stated | `REVIEWED` or `APPROVED`, owned by `role.legal_regulatory_lead` |
-| Prior ladder steps taken | `FACT` with dates |
+| Prior ladder steps taken | `FACT_CLAIM` with dates, each linked to its `EVIDENCE` |
 | Recipient authority and its remit | `SOURCE` |
 
 ## Stages
@@ -100,8 +100,9 @@ nothing, and the instance is `BLOCKED`.
   `ACTIVITY` mark gaps as gaps rather than bridging them; `ACTIVITY` record the ladder steps taken
   and their dates
 - **Artifact Contributions:** chronology section of the Escalation artifact, owned by the lead
-- **Knowledge-State Expectations:** every entry is `FACT` with provenance, or it is omitted. An
-  inferred event is never a chronology entry
+- **Knowledge-State Expectations:** every entry is a `FACT_CLAIM` linked to `EVIDENCE` bound to
+  the message it comes from, or it is omitted. The record stays `SOURCE`; nothing is converted
+  (`role-card.md` RC-4). An inferred event is never a chronology entry
 - **Gate / Review References:** none
 - **Exit Criteria:** every entry is dated, attributed and source-linked; gaps are marked
 - **Possible Outcomes:** `COMPLETE`, `REWORK_REQUIRED`, `ESCALATED`
@@ -160,7 +161,7 @@ nothing, and the instance is `BLOCKED`.
 - **Participating Roles:** lead `LEAD_ROLE` as producer, ineligible to review; contributors as
   reviewers where their own eligibility permits
 - **Activities:** `ACTIVITY` route to `review.high_stakes_external_communication@0.1`;
-  `ACTIVITY` route to `review.communication_strategy@0.1`; `ACTIVITY` route to
+  `ACTIVITY` route to `review.communication_strategy@0.1` **whenever any RC-5 condition holds**; `ACTIVITY` route to
   `review.legal_compliance`; `ACTIVITY` route to `review.institutional_position` and
   `review.data_protection` where their triggers hold; `ACTIVITY` route to
   `review.evidence_integrity_provenance` for the chronology
@@ -172,17 +173,20 @@ nothing, and the instance is `BLOCKED`.
   `review.data_protection`
 - **Exit Criteria:** every triggered review is `SATISFIED`
 - **Possible Outcomes:** `COMPLETE`, `REWORK_REQUIRED`, `BLOCKED`, `ESCALATED`
-- **Mandatory at:** every band
+- **Mandatory at:** every band. A formal escalation satisfies **RC-5.3** and **RC-5.4** by
+  construction, so no band exists at which the communication review is advisory here
 
 ### Stage `S6` — Human decision gate
 - **Objective:** obtain the human authority to escalate, or block
 - **Entry Criteria:** S5 complete
 - **Participating Roles:** none. A gate is not work
 - **Activities:** `ACTIVITY` resolve the applicable `decision.<id>` per
-  `decision-right-gap-analysis.md` §4 — for a filing or a submission to an authority, the
-  applicable submission or filing Right; for an escalation to a regulator or a public authority,
-  the applicable disclosure or publication Right; `ACTIVITY` where none resolves, set posture
-  `AUTHORITY_ABSENT`, block and escalate internally
+  `decision-right-gap-analysis.md` §4 — an escalation sent outside the entity under its name is a
+  release, so `decision.external_publication` applies, with
+  `decision.granting_authority_submission` **in addition** where the recipient is a granting
+  authority and `decision.contract_commitment` **in addition** where the escalation asserts or
+  waives a contractual position; `ACTIVITY` where the resolution genuinely returns nothing, set
+  `human_gate_status: AUTHORITY_ABSENT`, block and escalate internally
 - **Artifact Contributions:** none
 - **Knowledge-State Expectations:** unchanged
 - **Gate / Review References:** `GATE_REFERENCE` the resolved `decision.<id>`
@@ -239,7 +243,7 @@ positions at version, the findings and the fact of cancellation survive.
 | Output | State | Owner |
 |---|---|---|
 | Escalation artifact | `DRAFT`, or `REVIEWED` where satisfied | `role.communication_difficult_conversations_specialist` |
-| Verified chronology | `FACT` per entry, with provenance | as above |
+| Verified chronology | `FACT_CLAIM` per entry, each linked to its `EVIDENCE` | as above |
 | Substantive and legal positions cited | unchanged | each owning Role |
 
 ## Authority / Review Boundary

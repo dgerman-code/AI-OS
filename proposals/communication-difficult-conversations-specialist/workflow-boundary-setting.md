@@ -67,7 +67,7 @@ explicitly requests a boundary formulation.
 | Input | Required knowledge state |
 |---|---|
 | The behaviour, request or pattern at issue | `SOURCE` |
-| The user's authority over the subject | `FACT` where evidenced; `UNKNOWN` otherwise |
+| The user's authority over the subject | `FACT_CLAIM` linked to `EVIDENCE` where evidenced; `UNKNOWN` otherwise |
 | Contractual / programme obligations in force | `APPROVED` or cited at version |
 | Relationship context and stakes | `SOURCE` |
 
@@ -127,15 +127,16 @@ explicitly requests a boundary formulation.
   contributors as reviewers where eligible
 - **Activities:** `ACTIVITY` place the boundary on the escalation ladder — clarify → boundary →
   deadline → formal escalation (T-21); `ACTIVITY` state what the next step is and who takes it;
-  `ACTIVITY` route to `review.communication_strategy@0.1` and, where a consequence or contractual
-  right is stated, `review.legal_compliance`
+  `ACTIVITY` route to `review.communication_strategy@0.1` **whenever any RC-5 condition holds** and, where a consequence or contractual
+  right is stated, `review.legal_compliance`. A boundary carrying a consequence satisfies
+  **RC-5.3**, so the communication review is mandatory at **every** band for such a boundary
 - **Artifact Contributions:** ladder placement note
 - **Knowledge-State Expectations:** satisfaction may support `REVIEWED`; not promoted here
 - **Gate / Review References:** `GATE_REFERENCE` `review.communication_strategy@0.1`;
   `review.legal_compliance`
 - **Exit Criteria:** ladder placement recorded; triggered reviews `SATISFIED`
 - **Possible Outcomes:** `COMPLETE`, `REWORK_REQUIRED`, `BLOCKED`
-- **Mandatory at:** high and critical bands
+- **Mandatory at:** high and critical bands, **and at any band where an RC-5 condition holds** (`role-card.md` RC-5)
 
 ## Branches / Exception Paths
 

@@ -45,6 +45,7 @@ All twenty artifacts exist:
 | 18 | Evaluation spec | `evaluation-spec.md` | ✓ |
 | 19 | Examples | `examples.md` | ✓ |
 | 20 | Self-check | `self-check.md` | ✓ |
+| 21 | Governance decision note *(added in remediation)* | `governance-decision-note.md` | ✓ |
 
 ## 3. Reference integrity — checked, not asserted
 
@@ -53,14 +54,16 @@ resolved against the approved registries under `roles/`, `skills/`, `reviews/` a
 
 | Class | Cited | Resolve to an existing registry entry | Deliberate candidates, not registry entries |
 |---|---:|---:|---|
-| `role.<id>` | 22 | 21 | `role.communication_difficult_conversations_specialist` |
+| `role.<id>` | 23 | 22 | `role.communication_difficult_conversations_specialist` |
 | `skill.<id>` | 30 | 22 | the 8 candidates listed in `skill-pack.md` |
 | `review.<id>` | 10 | 8 | `review.communication_strategy`, `review.high_stakes_external_communication` |
-| `decision.<id>` | 16 | 15 | `decision.external_high_stakes_communication_send` |
+| `decision.<id>` | 14 | 13 | `decision.external_high_stakes_communication_send`, **withdrawn** |
 
 **Every unresolved identifier is one this package explicitly proposes**, and each is marked
-`PROPOSED` (and, for the Decision Right, `BLOCKED`) at every point of use. No identifier is cited
-as if it existed when it does not.
+`PROPOSED` at every point of use — except
+`decision.external_high_stakes_communication_send`, which is
+**`WITHDRAWN_FROM_CURRENT_PACKAGE`** and appears only where the withdrawal is recorded. No
+identifier is cited as if it existed when it does not.
 
 The inherited standards cited — `standard.role.common_constraints@0.2`,
 `standard.skill.common_constraints@0.1`, `standard.workflow.common_constraints@0.1`,
@@ -74,7 +77,10 @@ The inherited standards cited — `standard.role.common_constraints@0.2`,
 | Does any artifact treat a review as a gate? | No. Each Review Profile's Decision Right Boundary states it neither exercises nor satisfies a Right |
 | Does any artifact treat the filter as a review or approval? | No. `communication-control-filter.md` CF-6 to CF-9, and the three `false` flags in its recorded output |
 | Does any artifact treat a routing score as authority? | No. `trigger-routing-spec.md` TR-7 to TR-10 |
-| Is the fail-closed behaviour specified? | Yes. DG-5 to DG-8: blocked, posture `AUTHORITY_ABSENT`, escalated, recorded as the literal `AUTHORITY_ABSENT` |
+| Is the fail-closed behaviour specified? | Yes, and **in the right order**: DG-5 resolves the applicable approved Right first, and only a genuinely empty result blocks with `AUTHORITY_ABSENT`. DG-5a states that this is not the resting state |
+| Is "no gate needed" distinguished from "no authority exists"? | Yes. DC-7's three statuses; `NOT_APPLICABLE` with `NO_EXTERNAL_ACT_CONTEMPLATED` for a read-only artifact, and DC-7a stops it travelling |
+| Is there one review trigger? | Yes. RC-5, four conditions, owned by the Role Card; the Profile and every workflow reference it and none restates a narrower one |
+| Is the epistemic model the approved one? | Yes. `FACT_CLAIM`, not `FACT`; source stays `SOURCE`; a claim is a new linked item with its own `EVIDENCE` (RC-4, DC-4) |
 | Can the Role transmit anything? | No. `role-card.md` authority limit 1; every workflow's S-gate stage has **no Role participation** |
 | Does any artifact permit overriding a domain conclusion? | No. RC-1, TR-12, HF-8, and `review.communication_strategy@0.1`'s `CRITICAL_FINDING` list |
 | Is "no Right forbids it" excluded as a basis? | Yes. DG-6 |
@@ -103,8 +109,8 @@ Recorded, not resolved. Each requires a governance decision this package must no
 |---:|---|---|
 | **OG-1** | **Identifier-shape divergence.** The prompt fixes IDs with a dotted namespace (`pack.communication.*`, `workflow.communication.*`, `method.communication.*`), while the approved Phase 4 / 5 templates use `skill_pack.<snake_case>` and `workflow.<snake_case>` | Normalising either side is a registry change-control decision. Each affected artifact states the normalised alternative beside its primary ID so the choice is mechanical later |
 | **OG-2** | **Role vs specialisation.** Whether this capability should be a new Role at all, rather than a specialisation attached to `role.institutional_communications_editorial_specialist`, `role.institutional_affairs_stakeholder_specialist` or `role.people_organisation_specialist` | This is the question `skill-pack.md` §Reclassification Warning names. §7 below states the package's own position and its cost |
-| **OG-3** | **The TA-7 Decision Right.** `decision.external_high_stakes_communication_send` is `PROPOSED` and `BLOCKED` | Carding is Phase 7 change control. DG-3 lists what must be settled first |
-| **OG-4** | **Uncarded adjacent Rights.** TA-3, TA-4 and TA-6 depend on identifiers the Phase 7 universe has not carded | Those carding decisions are Phase 7's. Until then DG-7 blocks the acts |
+| **OG-3** | ~~The TA-7 Decision Right~~ | **Closed, not resolved by decision.** The gap was an error: the approved subject of `decision.external_publication` contains no publicity element, so TA-7 is covered. The candidate is withdrawn (`governance-decision-note.md` §4) |
+| **OG-4** | **Uncarded adjacent Rights.** `decision.disclosure_authorisation`, `decision.external_data_transmission` and `decision.legal_filing_or_representation` | Those carding decisions are Phase 7's. Their absence leaves **no act ungated** — the release Right gates the act — but leaves three act classes with fewer controls than a mature register would apply |
 | **OG-5** | **Eight candidate skills.** None exists in the approved skill universe | Skill Registry change control. `skill-pack.md` SP-1 makes the pack non-activatable while any Required Skill is a candidate |
 | **OG-6** | **No Role-to-Skill mapping records exist.** The pack lists eligible Roles; no mapping record authorises activation for any of them | Phase 4 mapping is its own governed act; a pack card is explicitly not the authoritative source |
 | **OG-7** | **Routing weights are declared, not validated.** | `trigger-routing-spec.md` §9 and `evaluation-spec.md` §7. They must not be treated as settled before the suite runs |
@@ -146,6 +152,38 @@ arises. **The package states its preference and does not decide.**
 | Is privileged material protected from audience widening? | Yes. `role-card.md` §Sensitive Information Controls; the high-stakes Profile's disclosure-scope check |
 | Is a hostile message read for facts before tone? | Yes. RC-3, S-7, DC-5, HF-14, and worked case `examples.md` §6.1 |
 
+## 11. The independent review findings, and how each was closed
+
+| # | Finding | Closed by |
+|---:|---|---|
+| 1 | Deprecated `FACT` vocabulary and a `SOURCE` → claim mutation in new contracts | **RC-4** and **DC-4**: the record stays `SOURCE`, an extraction is `EVIDENCE` bound to its location, and an assertion is a **new linked** `FACT_CLAIM`. Swept across the Role Card, skill pack, all six workflows, the diagnostics contract, the filter and the evaluation suite. `no deprecated FACT vocabulary is active` and `no SOURCE-to-claim epistemic mutation is described` fail if either returns |
+| 2 | Two different review triggers | **RC-5** is the single trigger, four conditions, owned by the Role Card. The Review Profile's Applicability now maps to RC-5.1–RC-5.4 rather than restating a variant, and every workflow's review stage references it. **RC-5a**: stakes never lower the obligation. The validator parses RC-5 and fails any document stating a narrower trigger |
+| 3 | A read-only diagnosis forced to report `AUTHORITY_ABSENT` | **DC-7**'s three statuses, with `NOT_APPLICABLE` + `NO_EXTERNAL_ACT_CONTEMPLATED` for an artifact that contemplates no external act, and **DC-7a** stopping it from travelling to a workflow that does. **TD-1** states it from the workflow's side |
+| 4 | A nine-field object presented as the ten-factor filter | Two namespaces — `communication_control_filter` (exactly the ten factors and the seven derived figures) and `diagnostic_risks` (seven risk dimensions, its own names). **DC-13a** explains why `escalation_risk` legitimately appears in both and is a different number in each. The validator compares the factor names **both directions** and rejects a collision |
+| 5 | TA-7 misread as outside `decision.external_publication` | **The approved subject has four elements and publicity is not one of them.** TA-1…TA-7 all resolve to that Right, with submission and commitment Rights applying **in addition** where the act also does those things. The candidate Right is `WITHDRAWN_FROM_CURRENT_PACKAGE`. **DG-3**: a Right's name is not its subject |
+| 6 | The evaluation suite missed all of the above | Six new scenarios (E31–E36), six new hard fails (HF-15–HF-20) and two new positive controls (PC-6, PC-7), each keyed to one of the findings. HF-15 and HF-17 are the two the first revision would have failed |
+| 7 | OG-1 and OG-2 need human decisions | `governance-decision-note.md` — options, consequences, a recommendation and status **`HUMAN GOVERNANCE DECISION REQUIRED`** for both. Neither is decided here, and the validator fails if the note decides one |
+
+## 12. Package assurance tooling
+
+| Item | Count |
+|---|---|
+| Package validator | `validation/communication_package_validation.py` — **19 checks** in 8 groups: `structure` 5 · `epistemic` 2 · `review` 1 · `gates` 1 · `schema` 1 · `authority` 1 · `rights` 2 · `identity` 2 · `governance` 4 |
+| Package mutation fixture | `validation/communication_package_probes.py` — **21 committed controlled weakenings**, 21 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
+
+Each probe weakens one rule in a temporary copy and re-runs the validator; classification is from
+executed behaviour, and a probe whose target text is not found is an **error**, not a skip.
+Containment checks read git state and cannot be evaluated in a temporary tree, so their verdicts
+are **discarded** (`GIT_DEPENDENT`) — counting them would make every probe look detected by an
+artefact of the harness.
+
+**Three probes were `REDUNDANT` on their first run**, and all three exposed a weakness in the
+checks rather than in the package: a lowercase-only scan that could not see a filter factor
+smuggled into the risk namespace in its own casing; a review-trigger scan keyed on the word
+"review" that could not see a stage's `Mandatory at:` line narrowed without it; and a paragraph
+merge that let one bullet's qualifier exempt the bullet beside it. All three are fixed, and the
+third changed how the harness reads prose: **a bullet is now its own statement.**
+
 ## 9. What this self-check did **not** check
 
 1. **Whether the specification is correct.** Whether the role boundary is drawn in the right place,
@@ -156,7 +194,8 @@ arises. **The package states its preference and does not decide.**
 3. **Whether the attribution wording is legally sufficient.** `README.md` §3 states a wording and a
    disclaimer. Whether that is adequate in a given jurisdiction is a legal question this package
    does not answer and must not be read as answering.
-4. **Whether a 60th Role is the right structural answer** — OG-2, open.
+4. **Whether a 60th Role is the right structural answer** — OG-2, open and recorded in
+   `governance-decision-note.md` with a recommendation this package does not act on.
 5. **Whether the eight candidate skills are the right decomposition.** They are the capabilities
    the methodology needs; whether they are eight skills or three is a Skill Registry question.
 6. **Whether the approved registries themselves are complete.** The reference check in §3 confirms
@@ -164,11 +203,15 @@ arises. **The package states its preference and does not decide.**
 
 ## 10. Honest limitations of the package as a whole
 
-- Built exactly to this specification, the capability would draft a final warning to a partner and
-  then be **unable to send it**, because no carded Right covers TA-7. That is intended fail-closed
-  behaviour and it is also a substantial functional limit, stated rather than engineered around.
-- Three further act classes (TA-3, TA-4, TA-6) are blocked for the same reason under DG-7, which is
-  **stricter** than the source brief assumed.
+- **The previous version of this list was wrong**, and it is worth reading what it said: it stated
+  that the capability could draft a final warning to a partner and then be unable to send it,
+  because no carded Right covered TA-7. That limitation did not exist — it was manufactured by a
+  misreading of an approved subject, and it was recorded here as a virtue ("stated rather than
+  engineered around"). A self-check that presents its own error as rigour is the failure mode this
+  document is most exposed to.
+- What is actually true: every transmitting act resolves to a carded Right, and the human holding
+  it decides. Three adjacent Phase 7 candidates remain uncarded, which leaves those act classes
+  with **fewer controls**, not ungated.
 - The pack is not activatable while any Required Skill is a candidate (SP-1), and no Role-to-Skill
   mapping record exists (OG-6). In its current state the package specifies a capability that cannot
   yet be run at all.

@@ -125,7 +125,7 @@ mapping exists, an instance of this Workflow is not executable in a governed run
 - **Artifact Contributions:** `ARTIFACT_CONTRIBUTION` objective section of the Conversation
   Diagnostic, owned by the lead
 - **Knowledge-State Expectations:** `STATE_EXPECTATION` an inferred objective is `ASSUMPTION`, never
-  `FACT`. The Workflow does not itself promote states
+  a `FACT_CLAIM`. The Workflow does not itself promote states
 - **Gate / Review References:** none
 - **Exit Criteria:** an objective is recorded, and labelled stated or inferred
 - **Possible Outcomes:** `COMPLETE`, `BLOCKED`
@@ -140,7 +140,7 @@ mapping exists, an instance of this Workflow is not executable in a governed run
   interpretations separately; `ACTIVITY` reconstruct the counterparty's position and label the
   reconstruction; `ACTIVITY` identify facts that materially change the user's position
 - **Artifact Contributions:** evidence sections of the Conversation Diagnostic, owned by the lead
-- **Knowledge-State Expectations:** facts `FACT` only where directly stated; everything else
+- **Knowledge-State Expectations:** a `FACT_CLAIM` only where `EVIDENCE` bound to the record supports it, and the record stays `SOURCE` (RC-4); everything else
   `ASSUMPTION` or `UNKNOWN`
 - **Gate / Review References:** none
 - **Exit Criteria:** every material claim is classified and attributed
@@ -214,7 +214,7 @@ mapping exists, an instance of this Workflow is not executable in a governed run
 - **Possible Outcomes:** `COMPLETE`, `BLOCKED`, `ESCALATED`
 - **Open-Item Materiality:** a missing conclusion in a material domain is
   `MATERIAL_TO_NEXT_STEP_OR_GATE`; the stage cannot exit `COMPLETE_WITH_OPEN_ITEMS` on it
-- **Mandatory at:** high and critical bands
+- **Mandatory at:** high and critical bands, **and at any band where an RC-5 condition holds** (`role-card.md` RC-5)
 
 ### Stage `S7` — Draft the communication strategy
 - **Objective:** state the approach, channel, timing, structure and documentation posture
@@ -265,7 +265,7 @@ mapping exists, an instance of this Workflow is not executable in a governed run
 - **Entry Criteria:** S9 complete
 - **Participating Roles:** lead `LEAD_ROLE` (as producer, ineligible to review); conditionally
   activated `CONTRIBUTING_ROLE`s as reviewers where their own eligibility permits
-- **Activities:** `ACTIVITY` route to `review.communication_strategy@0.1`; `ACTIVITY` route to
+- **Activities:** `ACTIVITY` route to `review.communication_strategy@0.1` **whenever any RC-5 condition holds**; `ACTIVITY` route to
   `review.high_stakes_external_communication@0.1` where the high-stakes flag is set;
   `ACTIVITY` route to `review.legal_compliance`, `review.institutional_position` and
   `review.data_protection` where their triggers hold
@@ -278,15 +278,19 @@ mapping exists, an instance of this Workflow is not executable in a governed run
 - **Exit Criteria:** every triggered review is `SATISFIED`, or the stage does not exit
 - **Possible Outcomes:** `COMPLETE`, `REWORK_REQUIRED`, `BLOCKED`, `ESCALATED`
 - **Open-Item Materiality:** an unresolved `CRITICAL_FINDING` can never support an exit
-- **Mandatory at:** high and critical bands
+- **Mandatory at:** high and critical bands, **and at any band where an RC-5 condition holds** (`role-card.md` RC-5)
 
 ### Stage `S11` — Human decision gate before transmission
 - **Objective:** name and obtain the human authority for the external act, or block
 - **Entry Criteria:** S10 complete
 - **Participating Roles:** none. **This stage has no Role participation** — a gate is not work
 - **Activities:** `ACTIVITY` resolve the applicable `decision.<id>` per
-  `decision-right-gap-analysis.md` §4; `ACTIVITY` where none resolves, set posture
-  `AUTHORITY_ABSENT`, block and escalate
+  `decision-right-gap-analysis.md` §4 — for **any** release of a content item outside the entity
+  under its name, including a private letter or email, that is
+  `decision.external_publication`, with `decision.granting_authority_submission` or
+  `decision.contract_commitment` **in addition** where the act is also a submission or a
+  commitment; `ACTIVITY` where the resolution genuinely returns nothing, set
+  `human_gate_status: AUTHORITY_ABSENT`, block and escalate (DG-5, DG-5a)
 - **Artifact Contributions:** none
 - **Knowledge-State Expectations:** unchanged. A decision does not promote the draft
 - **Gate / Review References:** `GATE_REFERENCE` the resolved `decision.<id>`; in practice
@@ -323,7 +327,13 @@ mapping exists, an instance of this Workflow is not executable in a governed run
   Role before drafting. Drafting does not proceed on a superseded position.
 - `EXCEPTION_PATH` **Missing substantive owner.** S6 sets `BLOCKED` and escalates to governance.
   The communication Role does not supply the conclusion.
-- `EXCEPTION_PATH` **No applicable Decision Right.** S11 blocks with posture `AUTHORITY_ABSENT`.
+- `EXCEPTION_PATH` **No applicable Decision Right.** S11 blocks with
+  `human_gate_status: AUTHORITY_ABSENT` — after the resolution of DG-5 has been attempted and
+  returned nothing, which after the §4 reassessment is a genuine last resort rather than the
+  ordinary outcome for correspondence.
+- `EXCEPTION_PATH` **No external act at all.** Where S5 chose non-response or document-only, S11
+  is not entered and the run records `human_gate_status: NOT_APPLICABLE` with reason
+  `NO_EXTERNAL_ACT_CONTEMPLATED` (DC-7).
 - `EXCEPTION_PATH` **User proceeds anyway.** Where the user indicates they will transmit without
   the required review or gate, the instance records the fact and escalates. It does not assist.
 

@@ -47,6 +47,13 @@ in §4.
 | 18 | `evaluation-spec.md` | Evaluation suite, adversarial cases, hard-fail conditions |
 | 19 | `examples.md` | Representative original examples |
 | 20 | `self-check.md` | Completeness, provenance, authority, routing, safety and scope-creep checks |
+| 21 | `governance-decision-note.md` | The two items that require human governance authority — OG-1 and OG-2 — with options, consequences and a recommendation, and the record of the withdrawn candidate Decision Right |
+
+Two executable assurance artifacts sit outside the package directory, under the repository's
+`validation/` area, because they are tooling rather than specification:
+`validation/communication_package_validation.py` and
+`validation/communication_package_probes.py`. Neither modifies an approved validator and neither
+reads a Phase 14 artifact.
 
 ## 3. Provenance and attribution
 
@@ -100,7 +107,7 @@ This package is written against, and does not weaken, these approved separations
 | KNOWLEDGE != CANONICAL RECORD | `role-card.md` §Evidence — conversation text is `SOURCE`; pattern labels are `AI_SUGGESTION`; nothing is promoted |
 | CREDENTIAL != HUMAN AUTHORITY | `role-card.md` §Role-Specific Authority Limits — access to a mailbox is not authority to send from it |
 | External send authority is human-only where an applicable approved Right requires it | `decision-right-gap-analysis.md` §4, §6 |
-| Missing authority fails closed | `decision-right-gap-analysis.md` §6 — `AUTHORITY_ABSENT`, block and escalate |
+| Missing authority fails closed | `decision-right-gap-analysis.md` §6 — resolve the applicable Right **first**, and only where that genuinely returns nothing: `AUTHORITY_ABSENT`, block, escalate (DG-5, DG-5a). Where no external act is contemplated at all, the status is `NOT_APPLICABLE` (DC-7) |
 | No celebrity impersonation or endorsement claim | CP-1, CP-2, `evaluation-spec.md` HF-3 |
 
 ## 6. Non-goals
@@ -129,6 +136,21 @@ This package uses the IDs the prompt fixes, and records the divergence as **OG-1
 `self-check.md` §6 rather than silently normalising either side. Normalisation is a registry
 change-control decision, not a drafting decision. Each affected artifact states the normalised
 alternative next to its primary ID so that either choice is mechanical later.
+
+## 7a. What the independent review corrected
+
+The review of baseline `81623de` returned `FAIL`. Five findings were specification errors and are
+fixed in place; two are human governance choices and are recorded in `governance-decision-note.md`
+rather than decided. The corrections are listed here because a package that quietly absorbed them
+would be harder to audit than one that says what it got wrong.
+
+| # | What the package asserted | What is true |
+|---:|---|---|
+| 1 | New contracts written in the deprecated `FACT` label, with a `SOURCE` → `FACT` transition | The approved epistemic type is `FACT_CLAIM`, a source is **cited, never promoted**, and a claim is a **new linked item** with its own `EVIDENCE` (RC-4, DC-4) |
+| 2 | Two different review triggers — the Profile's and the Role Card's | One trigger, **RC-5**, with four conditions, owned by the Role Card and referenced everywhere. Low stakes no longer bypass a carried conclusion or a consequential boundary |
+| 3 | A read-only diagnosis forced to report `AUTHORITY_ABSENT` | `NOT_APPLICABLE` with `NO_EXTERNAL_ACT_CONTEMPLATED`. Nothing to authorise and nobody to authorise it are opposite findings (DC-7) |
+| 4 | A nine-field object mixing filter factors with risk measures, presented as the filter | Two namespaces: `communication_control_filter` with exactly the ten factors, and `diagnostic_risks` with its own (DC-11) |
+| 5 | Private high-stakes correspondence is outside `decision.external_publication` because it is private, so a new Right is needed | **The approved subject contains no publicity element.** TA-7 is covered. The candidate Right is `WITHDRAWN_FROM_CURRENT_PACKAGE` (DG-3) |
 
 ## 8. Reading order
 

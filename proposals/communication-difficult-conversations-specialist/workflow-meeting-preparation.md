@@ -148,7 +148,7 @@ high-stakes matter at any score.
 - **Gate / Review References:** none
 - **Exit Criteria:** every anticipated move has a planned response
 - **Possible Outcomes:** `COMPLETE`, `REWORK_REQUIRED`
-- **Mandatory at:** high and critical bands
+- **Mandatory at:** high and critical bands, **and at any band where an RC-5 condition holds** (`role-card.md` RC-5)
 
 ### Stage `S5` — Escalation and documentation plan
 - **Objective:** decide in advance what gets escalated, what gets written down, and by whom
@@ -167,7 +167,7 @@ high-stakes matter at any score.
 - **Objective:** have someone other than the author check that the brief does not concede
 - **Entry Criteria:** S5 complete
 - **Participating Roles:** lead `LEAD_ROLE` as producer, ineligible to review
-- **Activities:** `ACTIVITY` route to `review.communication_strategy@0.1`; `ACTIVITY` route to
+- **Activities:** `ACTIVITY` route to `review.communication_strategy@0.1` **whenever any RC-5 condition holds**; `ACTIVITY` route to
   `review.legal_compliance` where admissions are in scope
 - **Artifact Contributions:** none
 - **Knowledge-State Expectations:** satisfaction may support `REVIEWED`; the Workflow does not
@@ -176,7 +176,7 @@ high-stakes matter at any score.
   `review.legal_compliance`
 - **Exit Criteria:** triggered reviews `SATISFIED`
 - **Possible Outcomes:** `COMPLETE`, `REWORK_REQUIRED`, `BLOCKED`
-- **Mandatory at:** high and critical bands
+- **Mandatory at:** high and critical bands, **and at any band where an RC-5 condition holds** (`role-card.md` RC-5)
 
 ## Branches / Exception Paths
 

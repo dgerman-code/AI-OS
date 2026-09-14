@@ -99,7 +99,7 @@ as an entry or exit criterion for a review or a decision. In
 they are separate on purpose.
 
 **Rule CF-7 — the filter is not evidence.** A score is a `CALCULATION` over a recorded rubric. It
-is not `FACT`, it is not governance evidence, and it may not be cited as a reason that a message
+is not a `FACT_CLAIM`, it is not governance evidence, and it may not be cited as a reason that a message
 is safe, accurate, lawful or approved.
 
 **Rule CF-8 — the filter never overrides a protection.** A revision made to raise ESCALATION or

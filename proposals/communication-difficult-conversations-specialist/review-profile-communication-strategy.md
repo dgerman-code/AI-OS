@@ -37,17 +37,26 @@ independence class below is never `PRODUCER_REVIEW`.
 
 ## Applicability / Trigger
 
-Required where **any** of the following holds:
+**The trigger is Rule RC-5 of `role-card.md`, and this Profile restates no variant of it.** An
+earlier revision stated the condition here and a narrower one in the Role Card and workflows —
+mandatory whenever another Role's conclusion was carried or a consequential boundary was stated,
+against mandatory at high and critical stakes only. Two rules meant the fail-closed one was
+reachable only by a reader who happened to open this document, and the gap fell exactly where it
+mattered: a low-stakes message can carry a legal conclusion.
 
-- the stakes band is `HIGH` or `CRITICAL`;
-- the artifact is a formal escalation (mandatory at every band, per
-  `workflow-formal-escalation.md` S5);
-- the draft states or implies a boundary with a consequence;
-- the draft carries a substantive conclusion owned by another Role;
-- `high_stakes_communication = true` (`trigger-routing-spec.md` §5).
+Required where **any** RC-5 condition holds:
 
-Advisory at `LOW` and `MEDIUM` where none of the above holds. Advisory means the review may be
-performed and its findings recorded; it does not mean its findings may be ignored once made.
+| RC-5 condition | Here |
+|---|---|
+| **RC-5.1** stakes `HIGH` or `CRITICAL` | Includes `high_stakes_communication = true` (`trigger-routing-spec.md` §5) |
+| **RC-5.2** the draft carries or reformulates another Role's substantive conclusion | Regardless of stakes |
+| **RC-5.3** the draft states a consequential boundary, refusal, escalation, commitment, concession, deadline, admission-sensitive position or institutional position | Regardless of stakes |
+| **RC-5.4** a workflow-specific mandatory condition applies | A formal escalation is mandatory at **every** band (`workflow-formal-escalation.md` S5) |
+
+Advisory **only** where none of the four holds — routine low- or medium-stakes communication
+carrying no other Role's conclusion and stating no consequential position. Advisory means the
+review may be performed and its findings recorded; it never means its findings may be ignored
+once made, and it never lowers this Profile's independence class.
 
 ## Required Evidence Package
 
