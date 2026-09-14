@@ -1,0 +1,153 @@
+# Request and Work Intent Model
+
+Status: `PROPOSED` — Phase 15 architecture candidate
+Version: 0.1
+
+## 1. Two objects, and the distance between them
+
+| Object | Is | Epistemic type |
+|---|---|---|
+| **Request** | What the user wrote, byte for byte, with who wrote it and when | `SOURCE` |
+| **Work Intent** | The system's structured reading of it | `AI_SUGGESTION` |
+
+**Rule RI-1 — the Request is a source and stays a source.** It is never edited, normalised,
+summarised in place, or replaced by its interpretation. A source is cited, never promoted
+(`knowledge/knowledge-state-model.md` §2). Where the user later clarifies, that is a **new**
+Request linked to the first, not a correction of it.
+
+**Rule RI-2 — the Work Intent is a reading, and the system says so.** It is `AI_SUGGESTION`: an
+unadopted proposal. No acceptance, no confidence, no downstream use converts it into a
+`FACT_CLAIM` about what the user wanted. The user confirming it does not convert it either — a
+confirmed reading is a reading the user agreed with, recorded as such.
+
+That distance is the whole point of separating the two. A system that overwrote the request with
+its interpretation would have no way to notice it had misread, and no way to show the user what it
+thought they said.
+
+## 2. The Work Intent fields
+
+Each is **inferred**, **stated by the user**, or explicitly `UNKNOWN`. There is no fourth state,
+and absence is never silently treated as a default.
+
+| # | Field | Values | Notes |
+|---:|---|---|---|
+| 1 | `objective` | free text \| `UNKNOWN` | What the user is trying to achieve, not what they asked for |
+| 2 | `requested_outcome` | free text \| `UNKNOWN` | The deliverable as the user framed it |
+| 3 | `work_mode` | `ACTION` · `ANALYSIS` · `ADVICE` · `DRAFTING` · `MONITORING` · `DECISION_SUPPORT` \| `UNKNOWN` | §3 |
+| 4 | `entities` | list of references \| empty | Counterparties, projects, documents, instruments named or implied |
+| 5 | `scope_candidates` | ordered list \| empty | Handed to the Context Resolver; never resolved here |
+| 6 | `urgency` | free text \| `UNKNOWN` | Only where stated. Never inferred from tone |
+| 7 | `deadline` | date \| `UNKNOWN` | Only where stated |
+| 8 | `act_direction` | `INTERNAL` · `EXTERNAL` \| `UNKNOWN` | Does anything leave the entity? |
+| 9 | `reversibility` | `REVERSIBLE` · `COSTLY_TO_REVERSE` · `IRREVERSIBLE` \| `UNKNOWN` | Of the **act**, not the artifact |
+| 10 | `commitment_possible` | `YES` · `NO` \| `UNKNOWN` | Could this bind the entity? |
+| 11 | `transmission_contemplated` | `YES` · `NO` \| `UNKNOWN` | Is sending, publishing or filing in view? |
+| 12 | `execute_or_prepare` | `EXECUTE` · `PREPARE` · `RECOMMEND` \| `UNKNOWN` | §4 |
+| 13 | `language` | language tag \| `UNKNOWN` | Where an output language matters |
+| 14 | `audience` | free text \| `UNKNOWN` | Who receives the output |
+| 15 | `channel` | `EMAIL` · `CHAT` · `MEETING` · `DOCUMENT` · `PUBLICATION` · `SUBMISSION` · `OTHER` \| `UNKNOWN` | |
+
+**Rule RI-3 — `UNKNOWN` is a determinate finding, not a blank.** It says the question was asked and
+the answer is not held. A field that was never considered is a defect in the interpreter, not an
+`UNKNOWN`, and `governance-preflight.md` check G-2 fails a Work Intent with a missing field rather
+than treating absence as `UNKNOWN`.
+
+**Rule RI-4 — the four safety fields are never inferred permissively.** Fields 8, 9, 10 and 11
+decide whether this request can cause something irreversible. Where the material does not settle
+one, it is `UNKNOWN`, and `UNKNOWN` on any of the four routes to the conservative branch in
+`work-classification-and-criticality.md` §5 — never to the convenient one. "Probably internal" is
+`UNKNOWN`, not `INTERNAL`.
+
+## 3. Work mode
+
+| Mode | The user wants | Typical artifact |
+|---|---|---|
+| `ACTION` | Something done in the world | An act with an external effect |
+| `ANALYSIS` | To understand something | An assessment |
+| `ADVICE` | A recommendation they will act on | A recommendation with reasoning |
+| `DRAFTING` | Text produced | A draft |
+| `MONITORING` | To be told when something changes | A watch condition and a report |
+| `DECISION_SUPPORT` | Material for a decision someone will make | A decision pack |
+
+**Rule RI-5 — the mode does not decide the gate.** A `DRAFTING` request whose draft is going to be
+sent carries a transmission gate exactly as an `ACTION` request does. The mode describes the shape
+of the work; fields 8–11 describe its consequences, and the consequences drive governance.
+
+## 4. Execute, prepare, recommend
+
+The single most consequential distinction in this model, and the one a user most often leaves
+implicit.
+
+| Value | Means | Planner behaviour |
+|---|---|---|
+| `EXECUTE` | The user wants the act performed | The plan must resolve every authority the act requires, and blocks where one is missing |
+| `PREPARE` | The user wants it ready, not done | The plan stops before the transmitting act and says so explicitly |
+| `RECOMMEND` | The user wants to know what to do | No act is planned at all |
+
+**Rule RI-6 — ambiguity between `EXECUTE` and `PREPARE` on an irreversible act is material.** It
+is not resolved by inference, by convenience, or by asking the model what it thinks. It is a
+clarification under `clarification-policy.md` class **C4**, and where clarification is unavailable
+the plan degrades to `PREPARE`. **The safe direction is always the one that does less.**
+
+"Send them confirmation that we accept the terms" is the canonical case. The verb is `EXECUTE`, the
+act may be a contractual commitment, and the correct planner behaviour is neither to send nor to
+quietly draft: it is to resolve the applicable Decision Right and block on its absence
+(`exemplars.md` Example 4).
+
+## 5. What the interpreter may not do
+
+**Rule RI-7 — no field is populated from what would be convenient.** An inference must be supported
+by something in the request or in resolved context. Where it is not, the field is `UNKNOWN`.
+
+**Rule RI-8 — no psychological or motive inference.** The interpreter reads what was asked. It does
+not model why, does not attribute states of mind to the user or to third parties, and does not
+record tone as a fact about anyone.
+
+**Rule RI-9 — the interpreter creates no governed record.** It produces a `Request` and a
+`WorkIntent`. It creates no knowledge item, no Decision Record, no Review Instance, no Work Item and
+no run.
+
+**Rule RI-10 — verbatim material is carried, not paraphrased.** Where the request encloses material
+— a pasted email, a clause, a figure — that material is carried as `SOURCE` at full fidelity and
+referenced by location. A paraphrase of evidence is not evidence.
+
+## 6. Relationship to knowledge typing
+
+| Thing | Type |
+|---|---|
+| The request text, and anything pasted into it | `SOURCE` |
+| An extraction from that text, bound to its location | `EVIDENCE` |
+| An assertion the extraction supports | `FACT_CLAIM`, **new and linked** |
+| The Work Intent, and every inferred field | `AI_SUGGESTION` |
+| A field the user stated explicitly | `FACT_CLAIM` about what was requested, linked to the request |
+| A field neither stated nor safely inferable | `UNKNOWN` |
+
+**Rule RI-11 — nothing is converted.** There is no `SOURCE` → `FACT_CLAIM` transition and no
+`AI_SUGGESTION` → anything transition. A supported assertion is a **new linked item** with its own
+basis (`knowledge/knowledge-state-model.md` §2a). The planner needing a fact to be true is not a
+basis.
+
+## 7. Worked field derivation
+
+For "Send them confirmation that we accept the terms":
+
+| Field | Value | Basis |
+|---|---|---|
+| `objective` | Communicate acceptance of terms to a counterparty | Inferred from the verb and object |
+| `work_mode` | `ACTION` | "Send" |
+| `entities` | "them" → `UNKNOWN`; "the terms" → `UNKNOWN` | **Neither resolves.** Two unresolved entities on a committing act |
+| `act_direction` | `EXTERNAL` | "Send them" |
+| `reversibility` | `IRREVERSIBLE` | Acceptance of terms is not retractable by the sender |
+| `commitment_possible` | `YES` | "We accept" is the language of commitment |
+| `transmission_contemplated` | `YES` | "Send" |
+| `execute_or_prepare` | `EXECUTE` | Stated |
+
+Eight fields, and the two `UNKNOWN`s are the ones that matter: the planner does not know **who** or
+**which terms**. `clarification-policy.md` classifies both as material, and
+`governance-preflight.md` blocks regardless, because an `EXECUTE` + `IRREVERSIBLE` +
+`commitment_possible = YES` request requires a resolved Decision Right before anything is planned.
+
+## 8. Non-Runtime Statement
+
+This document is declarative architecture. It specifies no parser, classifier, model, prompt,
+schema, API or storage mechanism, and binds no provider or runtime technology.
