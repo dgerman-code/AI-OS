@@ -46,7 +46,8 @@ implementation makes this structural:
    store from a governed module (`test-and-assurance-strategy.md` §8).
 
 The Phase 12 reference implementation satisfied (1) behaviourally — all 19 uses of its log were
-appends — but documented the event as "governance evidence". The wording is corrected here and
+appends — but its docstring called the event "governance evidence", which it is not. That is
+corrected here and
 the property is made structural.
 
 ## 3. The execution event — 13 fields
@@ -77,6 +78,14 @@ other.
 and the system identity is how "the system did it on behalf of someone" becomes indistinguishable
 from "someone did it".
 
+**Rule V-3a — an absent human identity is a fact, not a gap to fill.** Where an act had no human
+— a constraint-driven `TERMINATED`, an automatic retry within its class, a reconciliation
+determination — `human_identity_ref` is `NULL` and the system identity carries the provenance.
+Defaulting the field from the authenticated principal, the run's creator, or the last human to
+touch the run **fabricates human provenance for a machine act** and is prohibited. The
+asymmetry between `CANCELLED` (a human act, with an intervention) and `TERMINATED` (the system
+stopping work that would breach a constraint) is visible in this field and must stay visible.
+
 **Rule V-4 — field 10 is not authority.** It *references* the Decision Record that authorised the
 act. The event is not the authority and citing it as one is Rule V-1's violation in a new place.
 
@@ -90,7 +99,7 @@ Written by C12, for every governed record write.
 | 2 | `governed_record_ref` + `record_version_before` / `_after` | NO | Which record, from what version to what |
 | 3 | `change_kind` | NO | `INSERT` · `VERSION_APPEND` · `LINK_APPEND` · `LIFECYCLE_STATE_CHANGE` · `METADATA_CHANGE` |
 | 4 | `changed_fields` | NO | Field-level, before/after for governed fields |
-| 5 | `human_identity_ref` | YES | Where a human caused it |
+| 5 | `human_identity_ref` | YES | Where a human caused it. **`NULL` for a system act, never synthesised** — a constraint-driven `TERMINATED` has no human and says so |
 | 6 | `system_identity_ref` | NO | The service identity that executed the write |
 | 7 | `authority_reference` | Conditional | The Decision Record where the change class requires one |
 | 8 | `scope_path` | NO | |
@@ -101,9 +110,27 @@ Written by C12, for every governed record write.
 **Rule V-5.** An audit event records **the change, not the authority for it**. Where authority
 was required, field 7 points at the Decision Record; the audit event never becomes the reason.
 
-**Rule V-6.** Every governed write produces exactly one audit event, in the **same transaction**
-as the write. An audit event without its record, or a record without its audit event, is a
+**Rule V-6 — one audit event per persisted governed-record mutation**, in the **same
+transaction** as that mutation, linked to that exact record. This is
+`persistence-and-transaction-model.md` Rule P-14a, stated from the audit side; the two documents
+say the same thing and §7.2 of that document enumerates the exact rows each governed act
+produces.
+
+The unit is the **record mutation**, not the governed act. An act that mutates four governed
+records writes four audit events. They share one `correlation_id`, and each carries the
+`causation_id` of the execution event that coordinated it — which is how they are gathered back
+into one act without any of them describing more than one record.
+
+**Rule V-6a — no grouping, ever.** Multiple governed-record changes are never written behind one
+audit event. Phase 10 authorises no such grouping, and a grouped row cannot answer *which record
+moved from which version to which* — the only question this record exists to answer.
+
+**Rule V-6b — an audit event without its record, or a record without its audit event**, is a
 detectable inconsistency and is reported by the reconciliation sweep.
+
+**Rule V-6c — a refusal mutates nothing and therefore writes no audit event.** It writes one
+execution event. The blocked hooks of `open-items-and-blocked-authorities.md` §1 are the standing
+case: they refuse every call, and their history is entirely execution events.
 
 ## 5. Provenance record
 

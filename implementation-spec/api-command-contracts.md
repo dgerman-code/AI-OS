@@ -81,8 +81,17 @@ component that owns the act, from a request the system itself issued.
 
 ## 5. Command catalogue
 
-`Auth` column: `H` = requires a human Decision Record; `h` = requires a human identity but no
-Right; `S` = system-initiated, no human authority.
+`Auth` column:
+
+| Class | Means |
+|---|---|
+| `H` | Requires a human **Decision Record** under a mapped Decision Right |
+| `R` | Requires an **eligible Role's** recorded professional conclusion, checked by review. **Not** an exercise of authority and **not** a Decision Right |
+| `h` | Requires a human identity, but no Right |
+| `S` | System-initiated. No human authority, and none is synthesised |
+
+`R` exists because Phase 8 draws a distinction this catalogue must not flatten: a Decision Right
+may decide what the organisation *does* about something; it cannot decide what is *accurate*.
 
 | Command | Auth | Preconditions (beyond the envelope) | Writes | Principal errors |
 |---|---|---|---|---|
@@ -100,20 +109,37 @@ Right; `S` = system-initiated, no human authority.
 | `RecordIntervention` | h | The one intervention contract | Intervention | `INTERVENTION_INVALID`, `FOREIGN_RUN_LINEAGE`, `DUPLICATE_GOVERNED_IDENTITY` |
 | `PauseRun` / `ResumeRun` | h | Intervention contract; transition preflight | Intervention, phase | as above, `TRANSITION_NOT_APPROVED` |
 | `UnblockRun` | h | The five `unblock` conditions | Intervention, phase, posture | `RUN_NOT_HALTED`, `GATE_STILL_STANDING` |
-| `CancelRun` / `TerminateRun` | h | Terminal reachability; **the same** intervention contract | Intervention, terminal state | `TERMINAL_NOT_REACHABLE`, `INTERVENTION_INVALID` |
-| `CompleteRun` | S | Posture permits; no unsatisfied gate; phase permits | Terminal state | `POSTURE_FORBIDS_COMPLETION`, `GATES_UNSATISFIED` |
+| `CancelRun` | h | Terminal reachability for `CANCELLED`; **the intervention contract**. A human act: the work is not wanted | Intervention, terminal state | `TERMINAL_NOT_REACHABLE`, `INTERVENTION_INVALID`, `FOREIGN_RUN_LINEAGE` |
+| `TerminateRun` | **S** | Terminal reachability for `TERMINATED`; **a named constraint** that continuing would breach. **No human intervention is required and none is synthesised** | Terminal state, constraint record | `TERMINAL_NOT_REACHABLE`, `CONSTRAINT_NOT_NAMED` |
+| `FailRun` | S | Terminal reachability for `FAILED`; a recorded cause; no permitted retry or recovery resolved it | Terminal state | `TERMINAL_NOT_REACHABLE`, `CAUSE_NOT_RECORDED` |
 | `Retry` | S | Retry class from bound lineage permits | Retry dispatch, or halt per O-20 | `RETRY_CLASS_FORBIDS` |
 | `OpenSubRun` | S | Parent scope narrows to child scope | Child run | `SCOPE_WIDENING_REFUSED` |
 | `TransferScope` | H | All source clauses **and** the full target-run preflight | Authorisation event, new run | `AUTHORISATION_NOT_CORROBORATED`, `MECHANISM_NOT_APPROVED`, `TARGET_PREFLIGHT_FAILED` |
 | `CreateKnowledgeItem` | h | Four axes complete; type-specific requirements | Knowledge item v1 | `AXIS_INCOMPLETE`, `DERIVATION_REQUIRED`, `REASONING_REQUIRED` |
 | `AdoptAISuggestion` | h | Creates a **new linked item**; never mutates the suggestion | New item, adoption link | `EPISTEMIC_CONVERSION_PROHIBITED` |
 | `RaiseConflict` | S or h | — (raising needs no authority) | Conflict record | — |
-| `ResolveConflict` | H | Clearing a flag needs authority | Conflict resolution | `NO_APPLICABLE_DECISION_RIGHT` |
+| `ResolveConflict` | **R** | An eligible Role's conclusion with reasoning and residual uncertainty; a Review Instance checking it. **No Decision Right is required or invented** | Conflict resolution, conflict status | `ROLE_NOT_ELIGIBLE`, `REASONING_REQUIRED`, `RESIDUAL_UNCERTAINTY_REQUIRED`, `REVIEW_REQUIRED` |
+| `ApplyConsequentStatusChange` | H | The separate governed act a resolution may lead to — supersession, retraction, or a canonical change. Requires its own mapped Right for that change | Status transition, links from the resolution | `NO_APPLICABLE_DECISION_RIGHT` where the change is a canonical one (BA-1) |
 | `PromoteToCanonical` | H | Preconditions 1–9 | — | **Always `NO_APPLICABLE_DECISION_RIGHT`** until the Right is mapped (BA-1) |
+| `CompleteRun` (COMPLETED / COMPLETED_WITH_OPEN_ITEMS) | S | Posture permits; no unsatisfied gate; phase permits | Terminal state | `POSTURE_FORBIDS_COMPLETION`, `GATES_UNSATISFIED` |
 | `ReparentScopeNode` | H | — | — | **Always `NO_APPLICABLE_DECISION_RIGHT`** (BA-2) |
 | `DestroyGovernedContent` | H | — | — | **Always `NO_APPLICABLE_DECISION_RIGHT`** (BA-3) |
 | `ApplyDestructiveMigration` | H | — | — | **Always `NO_APPLICABLE_DECISION_RIGHT`** (BA-4) |
 | `RecordApprovalState` | H | Source approval record resolvable; approving authority is human | Approval state record | `APPROVAL_SOURCE_UNRESOLVABLE` |
+
+**Rule Q-9a — `CancelRun` and `TerminateRun` are different acts and do not share a contract.**
+Phase 11 `orchestration/state-machine-and-transitions.md` §3 defines `CANCELLED` as *stopped
+before completion by a human act; the work is not wanted*, requiring **an intervention record**;
+and `TERMINATED` as *stopped by the system because continuing would breach a constraint*,
+requiring **a named constraint**. An earlier revision of this catalogue collapsed them and
+required a human identity for both, which would either block a required termination or fabricate
+human provenance for a machine act. Both outcomes are worse than the bug.
+
+On `TerminateRun` the envelope's `actor_human_identity` is **absent**, and Rule Q-5 forbids
+defaulting it from the authenticated principal. The acting `actor_system_identity`, the named
+constraint, and the execution and audit records carry the provenance. Terminal semantics are
+identical in both cases: immutable, no outgoing transition, and re-examination only by a new run
+that names this one.
 
 **Rule Q-8 — the four blocked commands exist and always refuse.** They are specified, their
 enforcement hook is built, and every call returns `NO_APPLICABLE_DECISION_RIGHT` with the gap
@@ -154,6 +180,9 @@ Errors are a governed vocabulary, not free text. Each error names what was refus
 | `SEPARATION_VIOLATION` | A `SEPARATION_REQUIRED` relationship is active and would be breached | 409 |
 | `EVIDENCE_TYPE_INADMISSIBLE` | Evidence of the wrong kind for the gate | 409 |
 | `SCOPE_WIDENING_REFUSED` | The act would widen scope, sensitivity or residency | 409 |
+| `CONSTRAINT_NOT_NAMED` | A termination did not name the constraint that continuing would breach | 409 |
+| `ROLE_NOT_ELIGIBLE` | The concluding Role's approved scope does not cover the conclusion | 409 |
+| `RELEASE_IDENTITY_DIVERGED` | The observed originator release differs from the one the Routing Decision recorded | 409 |
 | `AUTHORIZATION_DENIED` | The caller may not **reach** this resource | 403 |
 
 **Rule Q-11 — `NO_APPLICABLE_DECISION_RIGHT` is not `403`.** They are different facts.

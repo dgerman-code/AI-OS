@@ -103,6 +103,26 @@ by being harder rather than easier:
 **Rule O-6.** Stopping a halted run — `CANCELLED`, `TERMINATED` — stays permitted. **Stopping is
 always permitted; only completing is governed.**
 
+**Rule O-6a — cancellation and termination are asymmetric, and the asymmetry is load-bearing.**
+Phase 11 `orchestration/state-machine-and-transitions.md` §3:
+
+| Terminal | Definition | Requires |
+|---|---|---|
+| `CANCELLED` | Stopped before completion **by a human act**; the work is not wanted | **An intervention record**, through the one intervention contract of §9 |
+| `TERMINATED` | Stopped **by the system** because continuing would breach a constraint | **A named constraint**. No intervention, and none is fabricated |
+| `FAILED` | Stopped by an error that no permitted retry or recovery resolved | A recorded cause |
+| `SUPERSEDED` | Replaced by another run for the same subject | The superseding `run.<id>` |
+
+An earlier revision of this package required a human intervention for both cancellation and
+termination. That is wrong in both directions: it blocks the system from stopping work that
+would breach a constraint, and where it does not block it, it invents human provenance for a
+machine act. A termination therefore records the acting **system identity**, the named
+constraint, its execution event and its audit event — and no human identity at all, because
+there was none.
+
+Terminal semantics are identical across all four: immutable, no outgoing transition, and
+re-examination only by creating a new run that names this one.
+
 ## 5. Work Items and assignment
 
 **Rule O-7 — `TASK != WORK ITEM`.** A Task is the unit of *definition*, bound to a Workflow

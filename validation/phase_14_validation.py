@@ -59,6 +59,17 @@ def says(name, *phrases):
     return [p for p in phrases if flat(p) not in body]
 
 
+def table_rows(name, section=None):
+    """Only the table rows of a document (or one section of it).
+
+    Content checks that scan whole documents fire on the prose that *explains a correction* -
+    "an earlier revision invented `model_profile.<name>`" is a sentence saying the prefix is
+    gone, and a naive scan reads it as the prefix being present. Structural claims are made in
+    tables, so structural checks read tables."""
+    body = spec(name) if section is None else section
+    return [ln for ln in body.splitlines() if ln.lstrip().startswith("|")]
+
+
 def negated_mentions(term):
     """Lines mentioning `term` that are not denied within their own bullet/table/paragraph.
 
@@ -232,13 +243,15 @@ check("containment", "no infrastructure, dependency or deployment artifact is ad
 
 def only_the_spec_package_and_its_validator_are_added():
     names = changed_paths()
+    allowed_files = ("validation/phase_14_validation.py",
+                     "validation/phase_14_mutation_probes.py")
     stray = [n for n in names
              if not n.startswith("implementation-spec/")
              and not n.startswith("prompts/")
-             and n != "validation/phase_14_validation.py"]
+             and n not in allowed_files]
     return (not stray, str(stray) if stray
-            else "%d paths: the specification package, its validator and the phase prompt"
-                 % len(names))
+            else "%d paths: the specification package, its validator, its mutation fixture "
+                 "and the phase prompt" % len(names))
 
 
 check("containment", "only the specification package and its validator are added",
@@ -845,20 +858,29 @@ check("persistence", "optimistic concurrency is specified and last-write-wins is
       optimistic_concurrency_is_specified_without_last_write_wins)
 
 
-def the_transaction_table_covers_every_governed_act():
+TRANSACTION_ACTS = ("Create run", "Activate stage", "Assign", "Route", "Invoke model",
+                    "Review gate", "Decision gate", "Resolve conflict", "Pause",
+                    "Cancel run", "Terminate run", "Fail run", "Supersede run",
+                    "Scope transfer", "Rework iteration", "Promote to canonical",
+                    "Record approval state")
+
+
+def transaction_section():
     body = spec("persistence-and-transaction-model.md")
-    section = body.split("## 7.")[1].split("## 8.")[0]
-    acts = ("Create run", "Activate stage", "Assign", "Route", "Invoke model", "Review gate",
-            "Decision gate", "Pause", "Cancel / terminate", "Scope transfer",
-            "Promote to canonical")
-    missing = [a for a in acts if a not in section]
+    return body.split("### 7.2")[1].split("**Rule P-15.**")[0]
+
+
+def the_transaction_table_covers_every_governed_act():
+    section = transaction_section()
+    missing = [a for a in TRANSACTION_ACTS if "**%s**" % a not in section]
     if missing:
         return False, str(missing)
-    for column in ("Read set", "Validation set", "Concurrency check", "Uniqueness relied on",
-                   "Failure before commit"):
+    for column in ("Read set", "Validation set", "Concurrency check", "Audit events",
+                   "Execution events", "Uniqueness relied on", "Failure before commit"):
         if column not in section:
             return False, "the transaction table lacks the column: %s" % column
-    return True, "%d governed acts, each with read/validate/concurrency/commit/failure" % len(acts)
+    return True, ("%d governed acts, each with read/validate/concurrency/writes/audit/"
+                  "execution/uniqueness/failure" % len(TRANSACTION_ACTS))
 
 
 check("persistence", "every governed act states its read, validation and commit sets",
@@ -1130,6 +1152,448 @@ def the_harness_disclaims_governance_authority():
 
 check("completeness", "the validator disclaims governance authority",
       the_harness_disclaims_governance_authority)
+
+
+# =========================================================== 13. fidelity to approved phases
+
+
+def model_profile_identity_matches_phase_9():
+    """The Model Profile's stable ID is Phase 9's, parsed from the approved Phase 9 document.
+
+    Phase 9 `models/model-lifecycle-and-versioning.md` §0 gives the Model Profile the identity
+    `model.<stable_snake_case_name>`. An earlier revision of this package invented
+    `model_profile.<name>` and gave `model.<name>` to a separate `ModelRef`. Either way the
+    approved scheme was not being used, so this check reads the approved document."""
+    approved = read("models/model-lifecycle-and-versioning.md")
+    stack = approved.split("## 0. The identity stack")[1].split("## 1.")[0]
+    row = [ln for ln in stack.splitlines() if "**Model Profile**" in ln]
+    if not row:
+        return False, "the approved Model Profile layer row was not found"
+    approved_id = re.search(r"`(model\.[a-z_<>]+)`", row[0])
+    if approved_id is None:
+        return False, "the approved Model Profile identity pattern was not found"
+    body = spec("domain-identity-model.md")
+    problems = []
+    if "`model.<stable_snake_case_name>`" not in body:
+        problems.append("the specification does not use Phase 9's Model Profile identity")
+    # Section 3 only: the identity inventory. The divergence table in section 7 legitimately
+    # names `ModelRef` when describing what the Phase 12 reference does, and recording a
+    # divergence is the opposite of committing it.
+    inventory = spec("domain-identity-model.md").split("## 3.")[1].split("## 4.")[0]
+    rows = "\n".join(table_rows("domain-identity-model.md", inventory))
+    if "model_profile.<" in rows:
+        problems.append("the invented model_profile.< > prefix is still used in an identity table")
+    if re.search(r"`ModelRef`", rows):
+        problems.append("an independent stable ModelRef is still declared in an identity table")
+    for layer in ("Model Family", "Underlying Model Release", "Model Profile",
+                  "Registry Profile Version", "Provider Offering Mapping", "Deployment Profile"):
+        if layer not in body:
+            problems.append("identity stack layer absent: %s" % layer)
+    if says("domain-identity-model.md", "there is no independent stable"):
+        problems.append("the no-ModelRef rule is not stated")
+    return (not problems, str(problems)[:300] if problems
+            else "the six-layer Phase 9 identity stack, with %s as the Model Profile identity"
+                 % approved_id.group(1))
+
+
+check("fidelity", "Model Profile identity matches the approved Phase 9 scheme",
+      model_profile_identity_matches_phase_9)
+
+
+def model_result_lineage_uses_fields_the_routing_decision_persists():
+    """Every field the Model Result is checked against must exist on the Routing Decision."""
+    body = spec("model-router-runtime-contract.md")
+    decision = body.split("## 5. `routing_decision`")[1].split("## 6.")[0]
+    result = body.split("### 6.2 `model_result`")[1].split("## 7.")[0]
+    problems = []
+    # The five equality-checked elements must be columns of the decision.
+    for field in ("model_profile_ref", "model_profile_registry_version", "offering_mapping_ref",
+                  "provider_profile_ref", "deployment_profile_ref"):
+        if field not in decision:
+            problems.append("Routing Decision lacks %s" % field)
+        if field not in result:
+            problems.append("Model Result lacks %s" % field)
+    # A lineage check against a field the decision does not hold is the audit's finding.
+    result_rows = "\n".join(table_rows("model-router-runtime-contract.md", result))
+    if re.search(r"`model_ref`", result_rows):
+        problems.append("the Model Result table still names a non-existent model_ref")
+    if "originator_release_identity" not in decision:
+        problems.append("element 22 is missing from the Routing Decision")
+    if "observed_release_identity" not in result or "release_identity_match" not in result:
+        problems.append("the release-identity observation is not recorded on the result")
+    if says("model-router-runtime-contract.md", "PROVIDER_VERSION_CHANGE"):
+        problems.append("a diverged release identity has no specified outcome")
+    return (not problems, str(problems)[:300] if problems
+            else "five elements compared for equality, the sixth observed and compared")
+
+
+check("fidelity", "Model Result lineage is checked against persisted Routing Decision fields",
+      model_result_lineage_uses_fields_the_routing_decision_persists)
+
+
+def conflict_resolution_is_not_authority_bearing():
+    """Phase 8 §3 rule 2: a Decision Right cannot decide which source is accurate."""
+    approved = read("knowledge/conflict-and-provenance-model.md")
+    if "professional conclusion" not in approved:
+        return False, "the approved Phase 8 rule was not found"
+    api = spec("api-command-contracts.md")
+    problems = []
+    row = [ln for ln in api.splitlines() if ln.startswith("| `ResolveConflict`")]
+    if not row:
+        problems.append("ResolveConflict is not in the command catalogue")
+    else:
+        cells = [c.strip() for c in row[0].strip().strip("|").split("|")]
+        if cells[1].replace("*", "") != "R":
+            problems.append("ResolveConflict is auth class %s, not R" % cells[1])
+        if "NO_APPLICABLE_DECISION_RIGHT" in row[0]:
+            problems.append("ResolveConflict still refuses for want of a Decision Right")
+    if says("knowledge-and-canonical-model.md",
+            "It cannot decide", "owned by an eligible Role and checked by review"):
+        problems.append("the Phase 8 distinction is not restored in the knowledge model")
+    if says("knowledge-and-canonical-model.md", "decision_record_ref"):
+        problems.append("the resolution record does not model the optional consequent authority")
+    return (not problems, str(problems)[:300] if problems
+            else "resolution is a Role conclusion checked by review; authority is a separate act")
+
+
+check("fidelity", "conflict resolution is a Role conclusion, not an exercise of authority",
+      conflict_resolution_is_not_authority_bearing)
+
+
+def cancellation_and_termination_are_asymmetric():
+    """Phase 11: CANCELLED is a human act; TERMINATED is the system stopping a breach."""
+    approved = read("orchestration/state-machine-and-transitions.md")
+    if "Stopped by the system because continuing would breach a constraint" not in approved:
+        return False, "the approved TERMINATED definition was not found"
+    api = spec("api-command-contracts.md")
+    problems = []
+    cancel = [ln for ln in api.splitlines() if ln.startswith("| `CancelRun`")]
+    terminate = [ln for ln in api.splitlines() if ln.startswith("| `TerminateRun`")]
+    if not cancel or not terminate:
+        problems.append("CancelRun and TerminateRun are not separate commands")
+    else:
+        cancel_auth = [c.strip() for c in cancel[0].strip().strip("|").split("|")][1]
+        term_auth = [c.strip() for c in terminate[0].strip().strip("|").split("|")][1].replace("*", "")
+        if cancel_auth != "h":
+            problems.append("CancelRun auth is %s, expected h" % cancel_auth)
+        if term_auth != "S":
+            problems.append("TerminateRun auth is %s, expected S" % term_auth)
+        if "intervention" not in cancel[0].lower():
+            problems.append("CancelRun does not require an intervention")
+        if "intervention" in terminate[0].lower() and "no human intervention" not in terminate[0].lower():
+            problems.append("TerminateRun requires an intervention")
+    section = transaction_section()
+    if "**Cancel run**" not in section or "**Terminate run**" not in section:
+        problems.append("the transaction table still collapses cancel and terminate")
+    if says("audit-provenance-observability.md", "never synthesised"):
+        problems.append("the audit model permits a synthesised human identity")
+    return (not problems, str(problems)[:300] if problems
+            else "cancellation is human with an intervention; termination is system with a constraint")
+
+
+check("fidelity", "cancellation and termination keep their approved asymmetry",
+      cancellation_and_termination_are_asymmetric)
+
+
+def audit_cardinality_is_one_per_governed_record_mutation():
+    """One rule, stated once, and every act in the table states its exact audit row count."""
+    problems = []
+    if says("persistence-and-transaction-model.md",
+            "one audit event per persisted governed-record mutation"):
+        problems.append("the cardinality rule is not stated in the persistence model")
+    if says("audit-provenance-observability.md",
+            "one audit event per persisted governed-record mutation"):
+        problems.append("the audit model does not state the same rule")
+    if says("persistence-and-transaction-model.md", "no grouping"):
+        problems.append("grouping is not prohibited")
+    section = transaction_section()
+    rows = [ln for ln in section.splitlines() if ln.startswith("| **")]
+    for row in rows:
+        cells = [c.strip() for c in row.strip().strip("|").split("|")]
+        if len(cells) < 9:
+            problems.append("act row has %d columns: %s" % (len(cells), cells[0][:30]))
+            continue
+        audit = cells[5].replace("*", "")
+        if not re.match(r"^(\d+|\d+ \+ .+|Blocked.*|—)", audit):
+            problems.append("%s: audit column is not a count: %r" % (cells[0][:24], audit[:30]))
+    if not rows:
+        problems.append("no act rows parsed")
+    return (not problems, str(problems)[:300] if problems
+            else "%d acts, each stating its exact audit-event count" % len(rows))
+
+
+check("fidelity", "audit-event cardinality is one per governed-record mutation, everywhere",
+      audit_cardinality_is_one_per_governed_record_mutation)
+
+
+APPROVAL_STATUSES = ("PROPOSED", "APPROVED", "APPROVED_WITH_CONDITIONS", "SUPERSEDED", "REVOKED")
+
+
+def approval_state_currentness_is_a_pointer_not_a_status():
+    persistence = spec("persistence-and-transaction-model.md")
+    registry = spec("approval-state-registry.md")
+    problems = []
+    u19 = [ln for ln in table_rows("persistence-and-transaction-model.md") if "| U19 " in ln]
+    if not u19:
+        problems.append("U19 is not in the uniqueness table")
+    else:
+        constraint_cell = [c.strip() for c in u19[0].strip().strip("|").split("|")][2]
+        if re.search(r"status\s*=\s*'ACTIVE'", constraint_cell):
+            problems.append("U19 still keys on a nonexistent ACTIVE approval status")
+        if "approval_state_current" not in constraint_cell:
+            problems.append("U19 does not key on the current pointer")
+    if "approval_state_current" not in persistence:
+        problems.append("the current pointer is absent from the persistence model")
+    if "approval_state_current" not in registry:
+        problems.append("the current pointer is absent from the approval registry")
+    declared = set(re.findall(r"^\| `([A-Z_]+)` \|", registry, re.MULTILINE))
+    if "ACTIVE" in declared:
+        problems.append("an ACTIVE approval status is declared")
+    missing = [v for v in APPROVAL_STATUSES if "`%s`" % v not in registry]
+    if missing:
+        problems.append("approval status vocabulary missing: %s" % missing)
+    if says("approval-state-registry.md", "at most one current row per subject version"):
+        problems.append("the totality of the uniqueness rule is not stated")
+    if says("approval-state-registry.md", "APPROVED_WITH_CONDITIONS"):
+        problems.append("APPROVED_WITH_CONDITIONS is not covered")
+    return (not problems, str(problems)[:300] if problems
+            else "currentness is a pointer; %d statuses, none of them ACTIVE" % len(APPROVAL_STATUSES))
+
+
+check("fidelity", "approval-state currentness is a pointer and the status vocabulary is exact",
+      approval_state_currentness_is_a_pointer_not_a_status)
+
+
+def the_phase_4_baseline_is_read_from_its_approval_record():
+    """Read the SHA from the approval record; verify the specification cites that exact SHA."""
+    record = read("reviews/phase-4-final-approval.md")
+    match = re.search(r"Approved Baseline Commit:\s*`([0-9a-f]{40})`", record)
+    if match is None:
+        return False, "the Phase 4 approval record states no baseline commit"
+    sha = match.group(1)
+    readme = spec("README.md")
+    row = [ln for ln in readme.splitlines() if "Phase 4" in ln and "|" in ln]
+    if not row:
+        return False, "the README baseline table has no Phase 4 row"
+    if sha not in row[0]:
+        return False, "the README cites %s, the record states %s" % (row[0][:80], sha[:12])
+    # Resolution is checked where a git directory is available. Where it is not - a detached
+    # copy of the package, as the mutation fixture builds - the citation comparison above is
+    # still the substance of the check and still fails on a wrong or missing SHA.
+    resolvable = os.path.isdir(os.path.join(REPO, ".git"))
+    if resolvable:
+        resolved = subprocess.run(["git", "cat-file", "-t", sha], cwd=REPO,
+                                  capture_output=True, text=True)
+        if resolved.stdout.strip() != "commit":
+            return False, "%s does not resolve in this repository" % sha[:12]
+    blocked = spec("open-items-and-blocked-authorities.md")
+    if "OI-12" in blocked and "removed" not in blocked.lower():
+        return False, "OI-12 is still recorded as an open item"
+    return True, "Phase 4 baseline %s read from the approval record and cited correctly" % sha[:12]
+
+
+check("fidelity", "the Phase 4 baseline is the one its approval record states",
+      the_phase_4_baseline_is_read_from_its_approval_record)
+
+
+def identity_versioning_rule_is_category_aware():
+    body = spec("domain-identity-model.md")
+    problems = []
+    if says("domain-identity-model.md", "two reference categories"):
+        problems.append("Rule I-1 does not distinguish categories")
+    for marker in ("Governed definition or profile", "Immutable runtime-instance"):
+        if marker not in body:
+            problems.append("category missing: %s" % marker)
+    if says("domain-identity-model.md", "reproducibility without invented versions"):
+        problems.append("the reproducibility rationale is not stated")
+    return (not problems, str(problems)[:300] if problems
+            else "versioned definitions and unversioned instance identities are distinguished")
+
+
+check("fidelity", "the identity versioning rule distinguishes definitions from instances",
+      identity_versioning_rule_is_category_aware)
+
+
+def self_review_is_refused_on_identity_not_on_a_label():
+    body = spec("decision-review-authority-model.md")
+    problems = []
+    if says("decision-review-authority-model.md",
+            "equals any producer identity recorded on the reviewed artifact version"):
+        problems.append("producer identity inequality is not specified")
+    if says("decision-review-authority-model.md", "equals the assignee of the producing assignment"):
+        problems.append("assignee inequality is not specified")
+    if says("decision-review-authority-model.md", "diversity of models is not"):
+        problems.append("model diversity is not excluded as independence")
+    tests = spec("test-and-assurance-strategy.md")
+    if "PRODUCER_REVIEW_PROHIBITED" not in tests:
+        problems.append("no adversarial test for producer review")
+    return (not problems, str(problems)[:300] if problems
+            else "self-review is refused by identity comparison, not by a class label")
+
+
+check("fidelity", "self-review is refused on identity inequality", self_review_is_refused_on_identity_not_on_a_label)
+
+
+def no_admin_substitution_for_a_missing_right():
+    migrations = spec("migrations-versioning-compatibility.md")
+    security = spec("security-identity-access.md")
+    problems = []
+    if says("migrations-versioning-compatibility.md", "no --force"):
+        problems.append("the migration applier does not forbid a force path")
+    if "NO_APPLICABLE_DECISION_RIGHT" not in migrations:
+        problems.append("a destructive migration does not fail on a missing Right")
+    if says("security-identity-access.md",
+            "ability to perform an action is not authority to authorise one"):
+        problems.append("the administrator limit is not stated")
+    for substitution in ("admin role", "service account", "database owner", "RLS bypass"):
+        if substitution.lower() not in spec("decision-review-authority-model.md").lower():
+            problems.append("not excluded as a substitution: %s" % substitution)
+    return (not problems, str(problems)[:300] if problems
+            else "no administrative path substitutes for the destructive-migration Right")
+
+
+check("fidelity", "no admin path substitutes for a missing destructive-migration Right",
+      no_admin_substitution_for_a_missing_right)
+
+
+def governed_uniqueness_has_no_on_conflict_exception():
+    body = spec("persistence-and-transaction-model.md")
+    if says("persistence-and-transaction-model.md", "on conflict do nothing is prohibited"):
+        return False, "the prohibition is absent"
+    offenders = []
+    for name in REQUIRED_DOCS:
+        for i, line in enumerate(spec(name).splitlines(), 1):
+            if "ON CONFLICT" not in line.upper():
+                continue
+            if re.search(r"\b(prohibit\w*|never|not|no)\b", line, re.IGNORECASE):
+                continue
+            offenders.append("%s:%d" % (name, i))
+    static = spec("test-and-assurance-strategy.md")
+    if "ON CONFLICT DO NOTHING" not in static:
+        offenders.append("no static check enforces it")
+    return (not offenders, str(offenders)[:300] if offenders
+            else "prohibited in the model and enforced by a static check")
+
+
+check("fidelity", "governed uniqueness admits no ON CONFLICT DO NOTHING exception",
+      governed_uniqueness_has_no_on_conflict_exception)
+
+
+def the_origin_axis_is_exactly_the_approved_four():
+    """Not "contains four values" - the four APPROVED values, parsed from the Phase 8 document.
+
+    A mutation that renames `EXTERNAL_ORIGIN` to something plausible keeps the count at four
+    and passes a completeness check that only counts. This one compares the sets."""
+    approved = read("knowledge/knowledge-state-model.md")
+    section = approved.split("## 2a.")[1].split("## 3.")[0]
+    approved_origins = set(re.findall(r"^\| `([A-Z_]+)` \|", section, re.MULTILINE))
+    if approved_origins != set(ORIGINS):
+        return False, ("this validator's origin set disagrees with Phase 8: %s"
+                       % sorted(approved_origins ^ set(ORIGINS)))
+    body = spec("knowledge-and-canonical-model.md")
+    axis = body.split("### 2.3 Axis 3")[1].split("### 2.4")[0]
+    spec_origins = set(re.findall(r"^\| `([A-Z_]+)` \|", axis, re.MULTILINE))
+    if spec_origins != approved_origins:
+        return False, ("origin axis differs from the approved set: extra %s, missing %s"
+                       % (sorted(spec_origins - approved_origins),
+                          sorted(approved_origins - spec_origins)))
+    return True, "the origin axis is exactly the approved four: %s" % sorted(approved_origins)
+
+
+check("knowledge", "the origin axis is exactly the approved four values",
+      the_origin_axis_is_exactly_the_approved_four)
+
+
+def the_separator_boundary_rule_is_stated_as_a_rule():
+    """The prefix trap is the one scope defect a string-handling mistake produces silently."""
+    body = spec("scope-and-context-model.md")
+    problems = []
+    if not re.search(r"\*\*Rule S-2 — the prefix trap\.\*\*", body):
+        problems.append("Rule S-2 is not stated as the prefix trap")
+    if says("scope-and-context-model.md",
+            "the next character in `d` is the separator"):
+        problems.append("the separator-boundary test is not defined")
+    if says("scope-and-context-model.md", "acme_holdings"):
+        problems.append("the worked counterexample is absent")
+    tests = spec("test-and-assurance-strategy.md")
+    if "separator-boundary" not in tests:
+        problems.append("no mandatory test case for the boundary rule")
+    security = spec("security-identity-access.md")
+    if says("security-identity-access.md", "never on a plain"):
+        problems.append("the RLS predicate does not forbid a plain prefix match")
+    return (not problems, str(problems)[:300] if problems
+            else "the prefix trap is a named rule, a test case and an RLS predicate constraint")
+
+
+check("scope", "the separator-boundary ancestry rule is stated and enforced",
+      the_separator_boundary_rule_is_stated_as_a_rule)
+
+
+def operational_events_are_inadmissible_as_evidence():
+    """Stated, enforced structurally, and unreachable through the evidence contract."""
+    problems = []
+    if says("audit-provenance-observability.md",
+            "may satisfy a **review**", "and none may serve as evidence in any of them"):
+        problems.append("the inadmissibility rule is not stated in full")
+    if says("audit-provenance-observability.md",
+            "has an `append` operation and **no read operation at all**"):
+        problems.append("the write-only interface is not specified")
+    if says("audit-provenance-observability.md", "observability is never authority"):
+        problems.append("observability is not excluded as authority")
+    # The gate evidence contract must admit exactly four typed classes, none an event.
+    gates = spec("orchestrator-runtime-contract.md").split("### 6.1")[1].split("### 6.2")[0]
+    admissible = set(re.findall(r"\| `([A-Z_]+)` \| `?([A-Za-z]+)`? \|", gates))
+    evidence_types = {t for _k, t in admissible}
+    forbidden = {"ExecutionEvent", "RuntimeEvent", "AuditEvent", "ModelResult", "Log"}
+    if evidence_types & forbidden:
+        problems.append("an event type is admissible gate evidence: %s"
+                        % sorted(evidence_types & forbidden))
+    if not evidence_types:
+        problems.append("the gate evidence contract could not be parsed")
+    # No sentence anywhere may assert the opposite. A denial repeated in three places is not
+    # protection if a fourth place quietly affirms it, and "never" changed to "ordinarily" in
+    # one line is exactly the mutation a count-based check misses.
+    # Only PREDICATIVE forms are assertions: "is/are/becomes/counts as/serves as/admissible as
+    # governance evidence". A label like "runtime event vs governance evidence" asserts nothing,
+    # and a scan that cannot tell the two apart forces documents to be reworded around it
+    # instead of checked by it.
+    predicative = re.compile(
+        r"\b(is|are|becomes?|counts? as|serves? as|admissible as|treated as|acts? as|"
+        r"usable as|accepted as)\s+(a\s+|an\s+|the\s+)?governance evidence")
+    negated = re.compile(r"\b(not|never|nowhere|no|none|cannot|may not|must not|prohibit\w*|"
+                         r"exclud\w*|inadmissib\w*|denie?s?|refus\w*)\b")
+    affirmations = []
+    for name in REQUIRED_DOCS:
+        lines = spec(name).splitlines()
+        for i, line in enumerate(lines):
+            window = flat(" ".join(lines[max(0, i - 1):i + 1]))
+            if not predicative.search(window):
+                continue
+            if negated.search(window):
+                continue
+            affirmations.append("%s:%d %s" % (name, i + 1, line.strip()[:70]))
+    if affirmations:
+        problems.append("governance evidence asserted rather than denied: %s" % affirmations[:2])
+    # In the two documents that OWN the rule, every mention must carry its denial. This is the
+    # stricter form, applied only where the rule lives, so that removing one denial is caught
+    # even when the phrase survives elsewhere.
+    for owner in ("audit-provenance-observability.md", "orchestrator-runtime-contract.md"):
+        lines = spec(owner).splitlines()
+        for i, line in enumerate(lines):
+            if "governance evidence" not in flat(line):
+                continue
+            window = flat(" ".join(lines[max(0, i - 1):i + 2]))
+            if negated.search(window) or "which it is not" in window:
+                continue
+            problems.append("%s:%d states governance evidence without a denial: %s"
+                            % (owner, i + 1, line.strip()[:60]))
+    return (not problems, str(problems)[:300] if problems
+            else "inadmissible by rule, by interface and by the evidence contract (%d types)"
+                 % len(evidence_types))
+
+
+check("events", "operational and execution events can never satisfy governance evidence",
+      operational_events_are_inadmissible_as_evidence)
 
 
 # =========================================================== main

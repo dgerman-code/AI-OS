@@ -178,6 +178,13 @@ compensating act, the outcome is `NO_APPLICABLE_DECISION_RIGHT` and the run `ESC
 external effect standing and recorded. This is uncomfortable and it is correct: the alternative
 is a system that can perform unauthorised external acts as long as it calls them cleanups.
 
+**Rule F-15a — termination is the system's act and needs no human.** Where continuing would
+breach a constraint, the system stops the run as `TERMINATED`, naming the constraint. It does
+not wait for a human, does not synthesise an intervention, and does not record a human identity
+it does not have. `CANCELLED` is the different case: a human act, with an intervention record,
+because the work is not wanted. Collapsing the two would either leave the system unable to stop
+a breach or attribute a machine stop to a person.
+
 **Rule F-16 — cancellation does not undo commitments.** Cancelling a governed path preserves the
 reason, the state at cancellation, open findings and risks, artifacts and evidence, prior
 decisions, and **external commitments already made**. There is no destructive history erasure,

@@ -275,12 +275,70 @@ specification for any conflict class, and `IDENTITY_CONFLICT` in particular has 
 
 `conflict_record` fields: `conflict_ref`, `conflict_class`, `subject_key`, `scope_path`,
 `sides` (each a knowledge ref+version), `raised_by_*`, `raised_at`, `materiality_assessment`
-(nullable; structured, carrying the assessing Role and the reasoning),
-`resolution` (nullable; structured, carrying the governed act that resolved it), `status`
+(nullable; structured, carrying the assessing Role and the reasoning), `status`
 (`OPEN` | `ASSESSED_IMMATERIAL` | `RESOLVED` | `ESCALATED`).
 
-**Rule K-13.** Raising a flag needs no authority. **Clearing one does.** A model may detect a
-conflict and propose an update; both are useful and neither is a promotion.
+`conflict_resolution` is its own append-only record, and its shape is where Rule K-13a becomes
+enforceable:
+
+| Field | Type | Null | Mut | Notes |
+|---|---|---|---|---|
+| `resolution_ref` | ref | NO | IMM | |
+| `conflict_ref` | ref | NO | IMM | |
+| `concluded_by_role` + version | ref pair | NO | IMM | The **eligible Role** whose conclusion this is |
+| `concluded_by_human` | `HumanAuthorityRef` | NO | IMM | The accountable person. Check: kind must be `human` |
+| `evidence_weighed` | set of ref+version | NO | IMM | |
+| `what_prevailed_and_why` | text | NO | IMM | `NOT NULL` and non-empty; "resolved" with no reasoning is refused |
+| `set_aside` | set of ref+version | NO | IMM | Retained and readable |
+| `dissent_retained` | structured | YES | IMM | |
+| `residual_uncertainty` | text | NO | IMM | `NOT NULL` — the element most often dropped |
+| `review_instance_ref` | ref | NO | IMM | **`NOT NULL`.** The conclusion is checked by review |
+| `consequent_changes` | list of refs | YES | APP | Links to the **separate** governed acts of K-13a step 3, each with its own Decision Record where one is required |
+| `decision_record_ref` | ref | **YES** | IMM | Present **only** where a consequent change required a mapped Right. Its absence is the ordinary case and is not a defect |
+
+The nullable `decision_record_ref` is the whole of the correction: a resolution may cite an
+authority where one was exercised on a consequent change, and it never requires one to exist.
+
+**Rule K-13 — raising needs no authority; clearing needs an accountable, reviewed conclusion.**
+A model may detect a conflict and propose an update; both are useful and neither is a promotion.
+
+**Rule K-13a — three separate acts, and only the third can require a Decision Right.** Phase 8
+`knowledge/conflict-and-provenance-model.md` §3 rule 2 is explicit, and this specification
+follows it exactly:
+
+> A Decision Right may decide **what the organisation does** about a conflict. It cannot decide
+> **which source is accurate** — that is a professional conclusion, owned by an eligible Role
+> and checked by review.
+
+| # | Act | Who | Requires a Decision Right? |
+|---:|---|---|---|
+| 1 | **Professional resolution** — the conclusion about what prevailed and why, on the evidence | An **eligible Role**, named and accountable | **No.** It is a professional conclusion, not an exercise of authority |
+| 2 | **Review of that conclusion** | A reviewer meeting the required independence class | **No.** A review may find and may not approve |
+| 3 | **Any consequent governed status or canonical-state change** — supersession, retraction, promotion, a decision-grade reliance | The holder of the **separately mapped** Right for that change | **Yes, where the approved model maps one** |
+
+An earlier revision of this package made conflict resolution itself an authority-bearing act.
+That invented an authority dependency the approved architecture does not have, and it is
+corrected here.
+
+**Rule K-13b — the resolution record.** A resolution records: the conflict class; the items and
+versions in tension; what each was based on; the evidence weighed; **what prevailed and why**,
+in terms someone who disagrees can examine; what was set aside and where it remains readable;
+any dissent retained; the consequent state changes; and the **residual uncertainty that survives
+the resolution**. "Resolved" with no reasoning is not a resolution and is refused at write.
+
+**Rule K-13c — the losing evidence is retained**, linked to the resolution and readable
+afterwards. Resolution is a decision about what to rely on, never a deletion of what was set
+aside. Minority and dissenting evidence may remain attached, and its continued presence is not a
+reopening of the conflict.
+
+**Rule K-13d — later is not superior, and higher authority is not truer evidence.** Recency is
+evidence about currency, not about correctness. A conflict is never cleared by time, by
+re-assertion, by repetition across sources, by a model's agreement, or by nobody objecting.
+
+**Rule K-13e — a conflict discovered after promotion does not un-promote anything.** The
+canonical record stays canonical **and visibly in conflict**; where material it becomes blocking
+for decision-grade use until resolved. Whether it is superseded or retracted is act 3 above,
+taken on the resolution's findings.
 
 ## 9. Freshness
 

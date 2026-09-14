@@ -19,7 +19,7 @@ and provides no bypass.
 
 | | |
 |---|---|
-| **Operations blocked** | `PromoteToCanonical`; any governance-state transition into `CANONICAL`; `ResolveConflict` where resolution changes a canonical position; canonical rollback (which re-promotes) |
+| **Operations blocked** | `PromoteToCanonical`; any governance-state transition into `CANONICAL`; `ApplyConsequentStatusChange` where the consequent change is a canonical one; canonical rollback (which re-promotes). **`ResolveConflict` itself is not blocked** — it is an eligible Role's reviewed conclusion, not an exercise of authority (`knowledge-and-canonical-model.md` Rule K-13a) |
 | **Candidate identifiers** | `decision.canonical_knowledge_promotion`, `decision.canonical_knowledge_status_change` — both recorded in `decisions/master-decision-right-universe.md`, both **uncarded**, and deliberately not merged pending the phase that owns the subject |
 | **Why not carded** | Phase 7 recorded that distinguishing them requires the canonical state model itself, which Phase 8 owns; carding or merging either would presuppose the answer |
 | **Where the semantics live** | `knowledge/canonical-promotion-governance.md` §7 defines the semantics **and specifies the Phase 7 pass that must card the Right** |
@@ -65,20 +65,46 @@ operations. A blocked act stays blocked, visibly, and the block is the system wo
 These are choices Phase 14 **cannot** make, because making them would be creating governance no
 approved phase authorised. Each names what must be decided and by whom.
 
-| # | Item | Decision needed | Owner |
-|---:|---|---|---|
-| **OI-1** | Retention periods per retention class | Concrete durations, per class and per sensitivity label, including `PERSONAL_DATA` obligations | The organisation, under legal/compliance review |
-| **OI-2** | `max_iterations` default guidance | Whether a repository-wide guidance range exists, or every Workflow Definition sets its own with no guidance. Phase 14 requires the value to be **declared**; it declines to invent a number | Workflow governance (Phase 5 path) |
-| **OI-3** | Criticality-band thresholds for freshness blocking | Which bands treat `STALE_BUT_USABLE` as blocking beyond the Enhanced Decision-Grade rule already approved | Phase 3/Phase 8 path |
-| **OI-4** | "Delivery line" definition for `INDEPENDENT_ASSURANCE_REVIEW` | AI-OS does not own organisation charts. Condition 3 of Rule A-4 is **declared and evidenced** on the review request; the organisation must define what it declares | The organisation |
-| **OI-5** | Organisation-specific incompatible-duty rules | Expressed as additional `DECISION_RIGHT_SEPARATION` rows through the Phase 7 change path, never as runtime configuration | The organisation, via Phase 7 |
-| **OI-6** | Holder eligibility → real people | Phase 7 binds no person, organisation, job title or system. Mapping eligibility classes to `HumanAuthorityRef`s is an organisational act, governed separately | The organisation |
-| **OI-7** | Identity provider and human-identity source of record | Which system is authoritative for `HumanAuthorityRef`, and how a person's identity survives account changes (Rule X-2) | The organisation |
-| **OI-8** | Residency constraint vocabulary | The concrete residency values (jurisdictions, regions) the organisation uses. Phase 14 treats residency as an opaque comparable constraint | The organisation, under legal review |
-| **OI-9** | PostgreSQL hosting choice | Supabase or plain PostgreSQL. Phase 14 requires only that no invariant depend on a capability unique to a hosted product (Rule P-23) | Engineering, recorded |
-| **OI-10** | Reconciliation sweep thresholds | How long `ATTEMPTED_OUTCOME_UNKNOWN` and `WAITING` persist before escalation. Phase 14 requires escalation, not a number | Operations, recorded as policy |
-| **OI-11** | Whether execution events are retained permanently or by policy | Phase 11 says "retained by policy". The policy is not set | The organisation |
-| **OI-12** | Phase 4 approval baseline SHA | `reviews/phase-4-final-approval.md` records no commit SHA, so Phase 4's artifacts cannot be verified byte-identical to their approval. Documentation cleanup under governed maintenance | Governance maintenance |
+Each is classified as an **implementation precondition** — something an implementation cannot
+proceed without — or a **production/organisational engineering deferral**, which an
+implementation can be built without and an operator must settle before use.
+
+| # | Item | Class | Decision needed | Owner |
+|---:|---|---|---|---|
+| **OI-1** | production/organisational | Retention periods per retention class | Concrete durations, per class and per sensitivity label, including `PERSONAL_DATA` obligations | The organisation, under legal/compliance review |
+| **OI-2** | implementation precondition | `max_iterations` default guidance | Whether a repository-wide guidance range exists, or every Workflow Definition sets its own with no guidance. Phase 14 requires the value to be **declared**; it declines to invent a number | Workflow governance (Phase 5 path) |
+| **OI-3** | implementation precondition | Criticality-band thresholds for freshness blocking | Which bands treat `STALE_BUT_USABLE` as blocking beyond the Enhanced Decision-Grade rule already approved | Phase 3/Phase 8 path |
+| **OI-4** | implementation precondition | "Delivery line" definition for `INDEPENDENT_ASSURANCE_REVIEW` | AI-OS does not own organisation charts. Condition 3 of Rule A-4 is **declared and evidenced** on the review request; the organisation must define what it declares | The organisation |
+| **OI-5** | production/organisational | Organisation-specific incompatible-duty rules | Expressed as additional `DECISION_RIGHT_SEPARATION` rows through the Phase 7 change path, never as runtime configuration | The organisation, via Phase 7 |
+| **OI-6** | implementation precondition | Holder eligibility → real people | Phase 7 binds no person, organisation, job title or system. Mapping eligibility classes to `HumanAuthorityRef`s is an organisational act, governed separately | The organisation |
+| **OI-7** | production/organisational | Identity provider and human-identity source of record | Which system is authoritative for `HumanAuthorityRef`, and how a person's identity survives account changes (Rule X-2) | The organisation |
+| **OI-8** | implementation precondition | Residency constraint vocabulary | The concrete residency values (jurisdictions, regions) the organisation uses. Phase 14 treats residency as an opaque comparable constraint | The organisation, under legal review |
+| **OI-9** | production/organisational | PostgreSQL hosting choice | Supabase or plain PostgreSQL. Phase 14 requires only that no invariant depend on a capability unique to a hosted product (Rule P-23) | Engineering, recorded |
+| **OI-10** | production/organisational | Reconciliation sweep thresholds | How long `ATTEMPTED_OUTCOME_UNKNOWN` and `WAITING` persist before escalation. Phase 14 requires escalation, not a number | Operations, recorded as policy |
+| **OI-11** | production/organisational | Whether execution events are retained permanently or by policy | Phase 11 says "retained by policy". The policy is not set | The organisation |
+
+### 2.1 A correction: OI-12 was false and has been removed
+
+An earlier revision of this document recorded `OI-12`, claiming that
+`reviews/phase-4-final-approval.md` carried no baseline SHA and that Phase 4's artifacts could
+therefore not be verified against their approval.
+
+**That was wrong.** The Phase 4 approval record states, at its line 7:
+
+```
+Approved Baseline Commit: `8ddacb2b2d2bc47e1a65099df575a0b16205d046`
+```
+
+The commit exists, is an ancestor of this branch, and Phase 4's artifacts (`skills/`,
+`architecture/skill-registry-design.md`, `architecture/role-to-skill-mapping-rules.md`) are
+byte-identical to it. The error originated in the Phase 13 review, which searched the record for
+the word "baseline" and matched a later prose line instead of the labelled field. It was then
+carried into the Phase 13 approval record's deferred list and into this document.
+
+`OI-12` is therefore **removed, not resolved**: there was never an open question. The Phase 13
+approval record is an approved artifact and is **not edited**; this correction is recorded here,
+and the validator now reads the Phase 4 approval record and verifies the cited SHA rather than
+trusting either document's prose.
 
 ## 3. Deferred items carried forward from approval records
 

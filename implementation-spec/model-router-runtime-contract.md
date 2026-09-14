@@ -112,7 +112,7 @@ Append-only; no version; a correction is a new linked record.
 | 4 | `decided_by` | `RouterRef` | NO | IMM | **Check: kind must be `router`.** An `OrchestratorRef` or `HumanAuthorityRef` is rejected at the database |
 | 5 | `router_version` | version id | NO | IMM | |
 | 6 | `outcome` | enum §5.2 | NO | IMM | |
-| **20** | `model_profile_ref` | `ModelProfileRef` | NO* | IMM | **Six-part element 1** — stable Model Profile identity |
+| **20** | `model_profile_ref` | `ModelProfileRef` (`model.<stable_snake_case_name>`) | NO* | IMM | **Six-part element 1** — stable Model Profile identity, in Phase 9's own identity scheme |
 | **21** | `model_profile_registry_version` | version id | NO* | IMM | **Element 2** — the version of the AI-OS record |
 | **22** | `originator_release_identity` | text | NO* | IMM | **Element 3** — the originator's release identity that the profile described **at that version** |
 | **23** | `offering_mapping_ref` + `offering_mapping_version` | ref pair | NO* | IMM | **Element 4** |
@@ -171,7 +171,10 @@ determinism, and no governed behaviour depends on it.
 | `model_invocation_ref` | ref | NO | IMM | |
 | `routing_decision_ref` | ref | NO | IMM | **Must be the decision this run recorded**, found by lookup |
 | `run_ref`, `work_item_ref` | refs | NO | IMM | Must match the decision's |
-| `deployment_profile_ref` + version | ref pair | NO | IMM | Copied from elements 25; the gateway may not choose |
+| `deployment_profile_ref` + version | ref pair | NO | IMM | Copied from element 25; the gateway may not choose |
+| `offering_mapping_ref` + version | ref pair | NO | IMM | Copied from element 23; the exposure actually used |
+| `model_profile_ref` + `model_profile_registry_version` | ref pair | NO | IMM | Copied from elements 20–21 |
+| `expected_release_identity` | recorded external value | NO | IMM | Copied from element 22. What the decision said would run |
 | `scope_binding` | structured | NO | IMM | Residency and sensitivity carried into the call |
 | `prompt_context_ref` | ref | NO | IMM | What was sent, by reference; never inline secrets |
 | `idempotency_key` | text | NO | IMM | §7 |
@@ -189,7 +192,12 @@ deployment that is unavailable produces a failure with a retry class, not a subs
 | `model_invocation_ref` | ref | NO | IMM | |
 | `routing_decision_ref` | ref | NO | IMM | |
 | `run_ref`, `work_item_ref` | refs | NO | IMM | |
-| `model_ref` + `model_profile_ref` + versions | ref pairs | NO | IMM | **Verified equal to the recorded decision's** before the write |
+| `model_profile_ref` + `model_profile_registry_version` | ref pair | NO | IMM | **Verified equal to elements 20–21 of the recorded Routing Decision** before the write |
+| `offering_mapping_ref` + version | ref pair | NO | IMM | **Verified equal to element 23** |
+| `provider_profile_ref` + version | ref pair | NO | IMM | **Verified equal to element 24** |
+| `deployment_profile_ref` + version | ref pair | NO | IMM | **Verified equal to element 25** |
+| `observed_release_identity` | recorded external value | NO | IMM | The originator release identity **as observed at invocation**. Compared against element 22 — see Rule M-11 |
+| `release_identity_match` | `MATCHES` \| `DIVERGED` | NO | IMM | The result of that comparison, recorded rather than implied |
 | `content_ref` | ref | NO | IMM | Content stored as an artifact, not inline in the governance row |
 | `epistemic_type` | enum | NO | IMM | **Check: must be `AI_SUGGESTION`** |
 | `origin` | enum | NO | IMM | **Check: must be `AI_GENERATED`** |
@@ -200,9 +208,32 @@ deployment that is unavailable produces a failure with a retry class, not a subs
 decision gate, not a human-work gate, not a prerequisite gate. This is a constraint on the gate
 evidence contract (`orchestrator-runtime-contract.md` §6), not a convention in calling code.
 
-**Rule M-11.** The result's model and Model Profile are checked against the recorded Routing
-Decision before the write. A result produced under a different profile is refused as a lineage
-error; it is not recorded with a warning.
+**Rule M-11 — lineage is checked against fields the Routing Decision actually persists.** Before
+a Model Result is written, five of the decision's recorded elements are compared for equality:
+Model Profile identity and registry version (20–21), offering mapping and version (23), provider
+profile version (24) and deployment profile version (25). Any inequality is a lineage error and
+the result is refused; it is not recorded with a warning. There is no comparison against a
+`model_ref`, because Phase 9 defines no such registry identity (`domain-identity-model.md`
+Rule I-5) and the Routing Decision therefore holds none.
+
+**Rule M-11a — the sixth element is compared differently, and deliberately.** Element 22, the
+originator release identity, is what the decision *recorded would run*. The gateway records what
+it *observed*. These are compared and the outcome is stored as `release_identity_match`:
+
+| Outcome | Meaning | Effect |
+|---|---|---|
+| `MATCHES` | The exposure ran the release the decision named | Ordinary |
+| `DIVERGED` | The provider exposed a different release without a release change the consumer could see | **`PROVIDER_VERSION_CHANGE` fires**; the result is recorded with the divergence, the run `BLOCK`s, and the mapping is referred for review |
+
+This is Phase 9 §0 rule 7 applied at the only point where the divergence is observable, and it
+is why the result stores an observation rather than a copy. A specification that simply required
+element 22 to equal itself would check nothing: the gateway would have written the expected
+value into the observed field, and a silent backend change would be invisible — which is exactly
+the failure Phase 9 names.
+
+**Rule M-11b — divergence is a `BLOCK`, not a warning.** It is Phase 11 race 8 in a different
+guise: a result produced under constraints that may no longer hold is re-evaluated, and where
+the new facts would have made the candidate ineligible it is not used.
 
 ## 7. Idempotency and at-most-once for invocation
 
@@ -245,6 +276,7 @@ no code path by which a model identity reaches a holder-eligibility evaluation.
 | # | Phase 12 reference | This specification | Why |
 |---:|---|---|---|
 | D1 | `RoutingDecision` carries `model` and `model_profile` only — 2 of the 6 reproducibility elements, both unversioned | Elements 20–25 in full, `NOT NULL` together | Phase 9 routing-decision template §5; Phase 11 §7; Phase 13 M-3 |
+| D5 | `ModelRef` is a stable governed reference distinct from `ModelProfileRef` | The Model Profile carries Phase 9's `model.<...>` identity; the release is a recorded external value with no registry ID | Phase 9 §0 layers 2–3; Rule I-5 |
 | D2 | No candidate universe, eligibility evidence, act requirements or policy version on the decision | Fields 26–31 | Phase 9 `routing-precedence-and-fallback.md` §1 |
 | D3 | `Canonicality`/`Origin` on the model result | `epistemic_type` / `origin` / `governance_state` on the approved axes | Phase 8; Phase 13 M-1 |
 | D4 | Router adapter is a stub with an eligible-set dict | The §8 adapter contract | Provider independence |

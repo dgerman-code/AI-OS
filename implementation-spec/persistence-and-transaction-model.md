@@ -120,7 +120,8 @@ act is implementable.
 | U16 | Knowledge item | `UNIQUE (knowledge_ref, item_version)` | Version collision |
 | U17 | Irreversible act intent | `UNIQUE (act_kind, governed_subject, idempotency_key)` | A second attempt at a once-only external act |
 | U18 | Scope node | `UNIQUE (scope_path)`; `UNIQUE (parent_ref, kind, slug)` | Ambiguous scope identity |
-| U19 | Approval state | `UNIQUE (subject_ref, subject_version) WHERE status = 'ACTIVE'` | Two live approval states for one thing |
+| U19 | Approval state — **current pointer** | `PRIMARY KEY (subject_ref, subject_version)` on `approval_state_current` | Two rows claiming to be the current approval state for one subject version. **There is no `ACTIVE` status**: currentness is a pointer, not a status (§5.4a) |
+| U21 | Approval state — **history** | `PRIMARY KEY (approval_ref, approval_version)` on `approval_state_record`, immutable | A version collision in the immutable history |
 | U20 | Rework loop | `UNIQUE (run_ref, rework_loop_id, iteration_ordinal)` | Iteration collision |
 
 **Rule P-7 — at-most-once is a constraint, not a code path.** For every class-4 act the
@@ -135,6 +136,31 @@ a governance failure → `BLOCK` and `ESCALATE`. Nothing is overwritten.
 and any external system, exactly-once delivery is not achievable and this specification does not
 assert it. What is provided: idempotent-at-least-once for classes 1, 2, 5, 7; **at-most-once by
 governed record** for class 4; and **exactly-once nowhere**.
+
+### 5.2a Row-currentness is a pointer, never a status
+
+An earlier revision keyed U19 on a status value `ACTIVE` that the approval-state vocabulary does
+not contain, and left `APPROVED_WITH_CONDITIONS` outside the uniqueness rule entirely. Both are
+corrected by separating two things that were conflated:
+
+| Question | Answered by |
+|---|---|
+| *What did this approval decide?* | The **approval status** on the record: `PROPOSED`, `APPROVED`, `APPROVED_WITH_CONDITIONS`, `SUPERSEDED`, `REVOKED` |
+| *Which record is the one in force right now?* | The **current pointer**, `approval_state_current` |
+
+`approval_state_record` is an immutable version history: rows are appended, never edited.
+`approval_state_current` holds at most one row per `(subject_ref, subject_version)`, pointing at
+the approval-state version in force. Recording a new approval writes a new history row and
+re-points the pointer **in the same transaction**, under a version-pinned write.
+
+**Rule P-9a — every operative status is covered, and none is privileged.** The pointer may point
+at a record whose status is `APPROVED`, `APPROVED_WITH_CONDITIONS`, `PROPOSED` or `REVOKED`. All
+four are operative answers to "what is in force"; only `SUPERSEDED` is not, because a superseded
+record by definition has a successor the pointer moved to. Uniqueness therefore holds regardless
+of status, which is what the earlier status-keyed rule could not do.
+
+**Rule P-9b — absence of a pointer row reads as `PROPOSED`.** It does not read as approved, and
+it is not an error. This is the same fail-closed default the approval registry states.
 
 ### 5.3 Reference-kind constraints
 
@@ -187,23 +213,71 @@ comparison. Clocks are for recording when, never for deciding who wins.
 
 > **construct → validate → preflight → commit**
 
-For every governed act the implementation states six things. The table below specifies the
-principal acts; an act not listed inherits the same obligation and must be specified before it is
-built.
+### 7.1 The audit-cardinality rule, stated once
 
-| Act | Read set | Validation set | Concurrency check | Writes (one transaction) | Uniqueness relied on | Failure before commit |
-|---|---|---|---|---|---|---|
-| **Create run** | Workflow Definition @v, Orchestrator Policy @v, scope node, approval state | Intake checks 1–7 (§2 of orchestrator contract) | Run-ref availability | `workflow_run`, `scope_binding`, 2 execution events, 1 audit event | U14, U18 | Recorded refusal; **no run row** |
-| **Activate stage** | Run state, Workflow Definition @v, task | Halted guard, task in definition, phase plan | Run `record_version` | `work_item`, `gate_instance`(s), execution event | U11, U13 | Nothing written |
-| **Assign** | Work Item, bound Task's required Role, attempt counter | Halted guard, role match, agent instance type, insert preflight | Work Item `record_version` | `assignment`, counter update, execution event | U12 | Counter unchanged; no assignment |
-| **Route** | Run, Work Item, Routing Policy @v, candidate universe | Halted guard; answer type, request identity, run binding, router identity, six-part completeness; phase plan | Run `record_version` | `routing_request`, `routing_decision`, 2 execution events | U5, U6 | **No routing request and no routing event** |
-| **Invoke model** | Recorded Routing Decision, Work Item | Halted guard, decision is this run's, outcome eligible, model/profile lineage, result identity preflight | Run `record_version` | `model_invocation`, `model_result`, execution event | U7, U8 | Nothing written |
-| **Review gate** | Gate instance, Review Profile @v, review request | Halted guard, instance lineage, independence class, eligibility class, SoD rules A-4, insert preflight, phase plan | Gate instance `record_version` | `review_instance`, gate outcome, execution event, audit event | U3, U4, U10 | Gate unchanged |
-| **Decision gate** | Gate instance, Decision Right @v, holder set, active separations | Halted guard, five gate-satisfaction conditions, 19-element completeness, separation check | Gate instance `record_version` | `decision_record`, gate outcome, execution event, audit event | U1, U2, U10, P-11 | Gate unchanged; **no Decision Record** |
-| **Pause** | Run state, interventions | Halted guard, intervention contract, transition preflight (`allow_noop=false`) | Run `record_version` | `human_intervention`, phase transition, execution event | U9 | Nothing written |
-| **Cancel / terminate** | Run state, interventions | Terminal reachability, **the same intervention contract**, insert preflight | Run `record_version` | `human_intervention`, terminal state, execution event, audit event | U9 | Nothing written |
-| **Scope transfer** | Source run, retained Decision Records, mechanism registry, target definition | All source-side clauses **and** every target-run creation condition, via one shared preflight | Source run `record_version` | Authorisation event, new run, provenance link | U14, U18 | **No authorisation event, no partial run** |
-| **Promote to canonical** | Knowledge item @v, evidence, conflicts, freshness, Decision Record | Preconditions 1–9 | Canonical `record_version` | `canonical_record` (new version), prior marked `SUPERSEDED`, audit event | U15 | Nothing written |
+Three statements in an earlier revision of this package disagreed: the prose said one audit event
+per governed record write, the audit schema referenced one governed record, and the transaction
+table emitted one audit event for several writes in some rows and none in others. One rule, and
+it is applied everywhere below:
+
+> **Rule P-14a — one audit event per persisted governed-record mutation, in the same
+> transaction, linked to that exact record.** A higher-level governed act that mutates *n*
+> governed records therefore produces *n* audit events. It produces execution events according
+> to what it coordinated, which is a different count and a different question.
+
+**Rule P-14b — act-level correlation is not record-level cardinality.** All the audit events of
+one act share a `correlation_id`, and each carries the `causation_id` of the execution event that
+coordinated it. Correlation is how the rows are gathered back into an act; it is **not** a
+licence to write one row for several records.
+
+**Rule P-14c — no grouping.** Multiple governed-record changes are never written behind one
+audit event. Phase 10 `storage/audit-provenance-model.md` authorises no such grouping, and a
+grouped row cannot answer "which record moved from which version to which", which is the only
+question the audit event exists to answer.
+
+**Rule P-14d — what does and does not count as a governed-record mutation.**
+
+| Counts | Does not count |
+|---|---|
+| `INSERT` of a governed record | An execution event (it is not a governed record) |
+| `VERSION_APPEND` — a new version row | A runtime event, metric, trace or log line |
+| `LINK_APPEND` — an append-only lineage link | A read |
+| `LIFECYCLE_STATE_CHANGE` — including every terminal transition | A `registry_projection` refresh (a projection, not a governed record) |
+| `METADATA_CHANGE` on a `MUT` column | An outbox row (operational; its execution record is governed and does count) |
+
+### 7.2 Every governed act, with its exact audit rows
+
+For every governed act the implementation states seven things. An act not listed inherits the
+same obligation and must be specified before it is built.
+
+| Act | Read set | Validation set | Concurrency check | Governed writes (one transaction) | **Audit events** | Execution events | Uniqueness relied on | Failure before commit |
+|---|---|---|---|---|---|---|---|---|
+| **Create run** | Workflow Definition @v, Orchestrator Policy @v, scope node, approval state | Intake checks 1–7 (orchestrator contract §2) | Run-ref availability | `workflow_run`, `scope_binding` | **2** — one per record | 2 (`CREATED`, `VALIDATED`) | U14, U18 | Recorded refusal; **no run row** |
+| **Activate stage** | Run state, Workflow Definition @v, task | Halted guard, task in definition, phase plan | Run `record_version` | `work_item`, `gate_instance` × *g* | **1 + *g*** | 1 (`DISPATCHED`) | U11, U13 | Nothing written |
+| **Assign** | Work Item, bound Task's required Role, attempt counter | Halted guard, role match, agent instance type, insert preflight | Work Item `record_version` | `assignment`, Work Item attempt counter | **2** — the insert and the counter change | 1 (`DISPATCHED`) | U12 | Counter unchanged; no assignment |
+| **Route** | Run, Work Item, Routing Policy @v, candidate universe | Halted guard; answer type, request identity, run binding, router identity, six-part completeness; phase plan | Run `record_version` | `routing_request`, `routing_decision` | **2** | 2 (`REQUESTED`, `GATE_OUTCOME_RECORDED` where a phase moved) | U5, U6 | **No routing request and no routing event** |
+| **Invoke model** | Recorded Routing Decision, Work Item | Halted guard, decision is this run's, outcome eligible, five-element lineage equality (M-11), release-identity comparison (M-11a), result identity preflight | Run `record_version` | `model_invocation`, `model_result` | **2** | 1 (`REQUESTED`) | U7, U8 | Nothing written |
+| **Review gate** | Gate instance, Review Profile @v, review request | Halted guard, instance lineage, independence class, eligibility class, SoD rules A-4, insert preflight, phase plan | Gate instance `record_version` | `review_instance`, gate instance outcome | **2** | 1 (`GATE_OUTCOME_RECORDED`) | U3, U4, U10 | Gate unchanged |
+| **Decision gate** | Gate instance, Decision Right @v, holder set, active separations | Halted guard, five gate-satisfaction conditions, 19-element completeness, separation check | Gate instance `record_version` | `decision_record`, gate instance outcome | **2** | 1 (`GATE_OUTCOME_RECORDED`, carrying the authority reference) | U1, U2, U10, P-11 | Gate unchanged; **no Decision Record** |
+| **Resolve conflict** | Conflict record, items in tension, Review Instance | Eligible Role, reasoning present, residual uncertainty present, review present. **No Decision Right** (K-13a) | Conflict `record_version` | `conflict_resolution`, conflict status change | **2** | 1 (`RECONCILIATION`) | — | Nothing written |
+| **Pause** | Run state, interventions | Halted guard, intervention contract, transition preflight (`allow_noop=false`) | Run `record_version` | `human_intervention`, run phase change | **2** | 1 (`INTERVENTION`) | U9 | Nothing written |
+| **Cancel run** (`CANCELLED`) | Run state, interventions | Terminal reachability; **the intervention contract**; insert preflight. A human act | Run `record_version` | `human_intervention`, run terminal state | **2** | 1 (`TERMINAL`, human + system identity) | U9 | Nothing written |
+| **Terminate run** (`TERMINATED`) | Run state, the constraint that would be breached | Terminal reachability; **a named constraint**. **No intervention and no human identity** | Run `record_version` | `constraint_stop_record`, run terminal state | **2** | 1 (`TERMINAL`, system identity only, human identity `NULL`) | — | Nothing written |
+| **Fail run** (`FAILED`) | Run state, retry history | Terminal reachability; a recorded cause; no permitted retry resolved it | Run `record_version` | `failure_record`, run terminal state | **2** | 1 (`TERMINAL`) | — | Nothing written |
+| **Supersede run** (`SUPERSEDED`) | Both runs | Terminal reachability; the superseding run exists and names this one | Run `record_version` | Run terminal state, supersession link | **2** | 1 (`TERMINAL`) | — | Nothing written |
+| **Scope transfer** | Source run, retained Decision Records, mechanism registry, target definition | All source-side clauses **and** every target-run creation condition, via one shared preflight | Source run `record_version` | `scope_transfer_authorisation`, target `workflow_run`, target `scope_binding`, provenance link | **4** | 2 (source `REQUESTED`, target `CREATED`) | U14, U18 | **No authorisation record, no partial run** |
+| **Rework iteration** | Rework loop declaration @v, prior iteration | Entry condition met; `max_iterations` not exhausted | Loop `record_version` | `rework_loop_instance`, new `work_item`(s), new `gate_instance`(s) | **1 + *w* + *g*** | 1 (`DISPATCHED`) | U11, U13, U20 | Nothing written |
+| **Promote to canonical** | Knowledge item @v, evidence, conflicts, freshness, Decision Record | Preconditions 1–9 | Canonical `record_version` | `canonical_record` new version, prior row marked `SUPERSEDED` | **2** | 1 (`STATE_TRANSITION`) | U15 | **Blocked at precondition 9 (BA-1): nothing written, ever** |
+| **Record approval state** | Source approval record, subject | Source resolves at the cited commit; approving authority is human | Current-pointer `record_version` | `approval_state_record` new version, `approval_state_current` pointer | **2** | 1 (`STATE_TRANSITION`) | U19 | Nothing written |
+
+*g* = gate instances created, *w* = work items created. Each is a real count, not a placeholder:
+an act that creates three gate instances writes three audit events for them.
+
+**Rule P-14e — the blocked hooks write nothing, including no audit event.** A refused
+`PromoteToCanonical`, `ReparentScopeNode`, `DestroyGovernedContent` or `ApplyDestructiveMigration`
+mutates no governed record, so it produces no audit event. It produces **one execution event**
+recording the refusal and the gap, because a refusal is coordination history and that is exactly
+what execution events are for.
 
 **Rule P-15.** Every row's writes are **one database transaction**. A governed act that would
 span two transactions is redesigned until it does not, or it is expressed with the staged

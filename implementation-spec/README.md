@@ -44,7 +44,7 @@ Two consequences are load-bearing and are repeated throughout this package:
 | Baseline | Commit | Record |
 |---|---|---|
 | Phase 3 — Role Registry | `f3cd318eb80d457a27e2f91218ce3cbb9a360e28` | `reviews/phase-3-final-approval.md` |
-| Phase 4 — Skill Registry | *(no SHA recorded — see `open-items-and-blocked-authorities.md` OI-12)* | `reviews/phase-4-final-approval.md` |
+| Phase 4 — Skill Registry | `8ddacb2b2d2bc47e1a65099df575a0b16205d046` | `reviews/phase-4-final-approval.md` |
 | Phase 5 — Workflow Registry | `adf45adf4ca33510a15281c5e776160d5720b859` | `reviews/phase-5-final-approval.md` |
 | Phase 6 — Handoff & Review | `1c0f6cafbb43aa642aa0d10ccf4a9db22824c5fa` | `reviews/phase-6-final-approval.md` |
 | Phase 7 — Decision Rights | `cedee2cfd1a959489585eb61acd975b4f7c65c84` | `reviews/phase-7-final-approval.md` |

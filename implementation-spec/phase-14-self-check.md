@@ -7,6 +7,12 @@ This is a **producer self-check**, not an independent audit. It records what thi
 claims, what it does not, and where each Phase 13 obligation is discharged. Every number below
 is read from an executable artifact, not written by hand.
 
+> **Revision 2 — fidelity and contract remediation.** The independent Phase 14 audit found
+> seven blockers and rated harness credibility `MEDIUM` because 8 of 9 materially contradictory
+> mutations were accepted. All seven are closed; §8 records each. The validator grew from 60 to
+> 74 checks, and a committed adversarial fixture now demonstrates, from executed behaviour, that
+> each load-bearing rule is load-bearing.
+
 ## 1. Explicit non-production status
 
 | Claim | Answer |
@@ -50,7 +56,7 @@ assumed:
 | **M-4** | SoD stopped at an `independence_class` label | `decision-review-authority-model.md` §6 | Six actor identities recorded separately (A-3); producer-review prohibition on **identities** (A-4); model diversity is not reviewer independence (A-5); `DECISION_RIGHT_SEPARATION` with all ten normative rules including delegation (rule 4) and scarcity (rule 9); enforced durably via `decision_chain_id` (A-6, P-11); bounded contributor cannot satisfy a full Profile (A-2) | **Yes** |
 | **M-5** | Scope was an opaque flat string | `scope-and-context-model.md` | Node identity **and** canonical path; the full approved graph with all four load-bearing properties; ancestry queries with the mandatory separator-boundary test (S-2); four applicability modes, declared never inferred, failing closed to `NON_INHERITABLE` (S-11); ancestor fallback with **no silent resumption** (S-12); narrowing as subset containment on an unordered label set (S-4, S-8); sub-run rule (S-9); both transfer records in full (§7.1, §7.2); the four contamination directions (§9) | **Yes** |
 | **M-6** | Approval existed only as prose | `approval-state-registry.md` | A machine-readable registry answering all ten required questions; derived from and citing human approval records, creating none (AP-2); **absence reads as `PROPOSED`** (AP-4); no mass promotion, one row per explicitly named subject (AP-6); queryable `explicit_non_scope` (AP-7); supersession and revocation without erasure (AP-9…AP-11); a bootstrap that is transcription, not approval (AP-13, AP-14); **history is not rewritten to make validators green** (AP-1, AP-8) | **Yes** |
-| **M-7** | Baseline-citation labelling: Phase 10 cites Phase 9's *approval-record commit* as its "human-approved baseline" while the Phase 9 record's baseline is the architecture commit | `README.md` §3 | Every baseline in this package is cited as the **architecture/implementation baseline** named by its own approval record, with the approval record named separately. `approval-state-registry.md` §4 makes the distinction structural: `subject_version` is the baseline, `source_approval_record` is the record's path **and** commit. Phase 14 does **not** edit the Phase 10 document — that is documentation cleanup under governed maintenance | **Yes, for Phase 14's own artifacts** |
+| **M-7** | Baseline-citation labelling: Phase 10 cites Phase 9's *approval-record commit* as its "human-approved baseline" while the Phase 9 record's baseline is the architecture commit | `README.md` §3 | Every baseline in this package is cited as the **architecture/implementation baseline** named by its own approval record, with the approval record named separately. `approval-state-registry.md` §4 makes the distinction structural: `subject_version` is the baseline, `source_approval_record` is the record's path **and** commit. **Phase 4's row now cites `8ddacb2b`, read from its own approval record** (§8.7). Phase 14 does **not** edit the Phase 10 document — that is documentation cleanup under governed maintenance | **Yes, for Phase 14's own artifacts** |
 | **M-8** | No duplicate concepts, second sources of truth or shadow authority paths found | — | Nothing to close. This package introduces none: one approval oracle (AP-12), one intervention contract (O-22), one run-creation preflight, one scope-path representation, one uniqueness mechanism | **N/A** |
 
 ### 2.3 The two additional mandatory items
@@ -92,9 +98,13 @@ assumed:
 
 ## 5. Specification choices requiring human architectural decision
 
-Twelve, enumerated in `open-items-and-blocked-authorities.md` §2 (OI-1 … OI-12). Phase 14
-declines to make them because making them would create governance no approved phase authorised.
-The four most consequential:
+Eleven, enumerated in `open-items-and-blocked-authorities.md` §2 (OI-1 … OI-11), each classified
+as an **implementation precondition** (OI-2, OI-3, OI-4, OI-6, OI-8) or a
+**production/organisational engineering deferral** (OI-1, OI-5, OI-7, OI-9, OI-10, OI-11). The
+twelfth, OI-12, was **false and has been removed**: the Phase 4 approval record does state its
+baseline commit, and the error originated in the Phase 13 review's own grep. Phase 14 declines to
+make the remaining eleven because making them would create governance no approved phase
+authorised. The four most consequential:
 
 1. **OI-6** — mapping holder-eligibility classes to real people. Without it no decision gate can
    be satisfied by anyone, in any environment.
@@ -110,31 +120,55 @@ The four most consequential:
 | Item | Count |
 |---|---|
 | Specification documents under `implementation-spec/` | 20 |
-| Validator checks | **60**, in 12 groups: `structure` 6 · `containment` 6 · `invariants` 5 · `knowledge` 5 · `scope` 5 · `routing` 3 · `events` 4 · `authority` 5 · `persistence` 6 · `races` 5 · `approval` 4 · `completeness` 6 |
+| Validator checks | **74**, in 13 groups: `structure` 6 · `containment` 6 · `invariants` 5 · `knowledge` 6 · `scope` 6 · `routing` 3 · `events` 5 · `authority` 5 · `persistence` 6 · `races` 5 · `approval` 4 · `completeness` 6 · `fidelity` 11 |
 | Validator | `validation/phase_14_validation.py`, standard library only, deterministic, no network |
+| Adversarial fixture | `validation/phase_14_mutation_probes.py`, **19 committed controlled weakenings**, 19 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
 | Executable production code, migrations, manifests, SDK dependencies | **0** |
 | Approved Phase 1–13 artifacts modified | **0** |
 | Decision Rights created | **0** |
 | Operations specified as permanently refusing until a Right is mapped | **4** |
 
-Phase 14 validator result: `60/60 PASS` on default, `--verbose` and `--json`.
+Phase 14 validator result: `74/74 PASS` on default, `--verbose` and `--json`.
 
-**Non-vacuity probes.** Five deliberate defects were injected one at a time and reverted; each
-was detected by the check that should have detected it:
+**Adversarial fixture.** `validation/phase_14_mutation_probes.py` is committed and runs from a
+clean checkout. Each probe weakens one load-bearing rule in a temporary copy of the package and
+re-runs the validator against it; classification is from executed behaviour, never from a label;
+a probe whose target text is not found is an **error**, not a skip.
 
-| Injected defect | Detected by |
+Two harness artefacts were found while building it and are recorded rather than left in place:
+
+1. Three containment checks read git state and therefore failed in *every* temporary tree,
+   making all probes look detected. Their verdicts are now **discarded** by the runner
+   (`GIT_DEPENDENT`), and the temporary tree no longer reaches the real `.git` directory at all.
+2. With those discarded, **three probes were genuinely undetected** — a renamed origin value, a
+   removed separator-boundary rule, and runtime events becoming admissible evidence. Three new
+   checks were added for exactly those rules, and one probe was re-targeted from a
+   divergence-table description to the load-bearing statement it was supposed to attack.
+
+Current result: **19 probes, 19 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR`**, each caught by a named
+substantive check:
+
+| Weakening | Caught by |
 |---|---|
-| An approved origin value renamed (`EXTERNAL_ORIGIN` → `EXTERNAL`) | the four-axis vocabulary check |
-| "There is no transition" removed from the `AI_SUGGESTION` rule | the epistemic-conversion check |
-| One of the six reproducibility elements removed | the six-part contract check |
-| "`ON CONFLICT DO NOTHING` is prohibited" weakened | the durable-uniqueness check |
-| The exactly-once row changed to claim the guarantee | the at-most-once check |
-
-A sixth probe — renaming the `BA-3` heading — initially **passed**, because the check matched a
-cross-reference elsewhere in the document rather than the section itself. The check was
-tightened to require each blocked authority to be a section heading, and the probe then failed
-as it should. This is recorded rather than quietly fixed: the first version of that check was
-weaker than it read.
+| Model Profile takes an invented prefix | Phase 9 identity compatibility |
+| An independent stable `ModelRef` is reintroduced | Phase 9 identity compatibility |
+| Model Result checked against a field the decision does not hold | Routing Decision ↔ Model Result lineage |
+| The release-identity divergence outcome is removed | Routing Decision ↔ Model Result lineage |
+| Conflict resolution made authority-bearing | Phase 8 conflict-resolution boundary |
+| Cancellation and termination collapsed | `CANCELLED` / `TERMINATED` asymmetry |
+| The transaction table stops stating audit counts | Audit-event cardinality |
+| U19 keys on a nonexistent `ACTIVE` status | Approval-state currentness |
+| The Phase 4 baseline is contradicted | Phase 4 baseline citation |
+| The identity chain is reordered | Ordered chain equality |
+| An approved origin value is dropped | Origin-axis exactness |
+| Self-review reduced to a class label | Self-review identity inequality |
+| The separator-boundary rule is removed | Separator-boundary ancestry |
+| The approval registry may create approval | Registry records but never creates |
+| The execution-event contract stops denying evidence | Operational events never satisfy evidence |
+| The write-only event interface gains a read operation | Operational events never satisfy evidence |
+| A convenience exception for governed uniqueness | Durable uniqueness / no `ON CONFLICT DO NOTHING` |
+| An administrative path for a destructive migration | No admin substitution for a missing Right |
+| A blocked authority section is renamed away | Missing Rights are not silently filled |
 
 Regression results at this baseline, reported exactly and **not repaired out of scope**:
 
@@ -146,6 +180,19 @@ Regression results at this baseline, reported exactly and **not repaired out of 
 | Phase 11 | `159/160 PASS` | **Inherited** approval-record wording condition — the phrase "without distributed exactly-once claims" in the Phase 11 approval record tripping the exactly-once scan |
 | Phase 12 | `55/55 PASS` | |
 | Phase 12 suite | `157 tests — OK` | |
+
+## 8. The Phase 14 audit blockers, and how each was closed
+
+| # | Blocker | Closed by |
+|---:|---|---|
+| 1 | Phase 9 Model Profile identity incompatibility — an invented `model_profile.<name>` prefix and a separately allocated `model.<name>` `ModelRef` | `domain-identity-model.md` §3.2 restates the six-layer Phase 9 stack verbatim. The Model Profile takes Phase 9's own `model.<stable_snake_case_name>`; the chain's `MODEL` is layer 2, the Underlying Model Release, **a recorded external value with no registry ID** (Rules I-4…I-9). The `ModelRef` construct is **removed**, not renamed. Model Family is added |
+| 2 | Model Result validated against a `model_ref` the Routing Decision does not hold | `model-router-runtime-contract.md` §6.2 and Rules M-11/M-11a/M-11b. Five elements (20–21, 23, 24, 25) are compared for **equality**; element 22 is **observed and compared**, and a mismatch fires `PROVIDER_VERSION_CHANGE` and blocks — Phase 9 §0 rule 7 applied where the divergence is observable. A specification that required element 22 to equal itself would check nothing |
+| 3 | `ResolveConflict` made authority-bearing, inventing an authority dependency | Rules K-13a…K-13e restore Phase 8 §3 rule 2 exactly: resolution is an **eligible Role's professional conclusion, checked by review**; a consequent governed status or canonical change is a **separate** act with its own mapped Right. A new auth class `R` carries this in the command catalogue, and `conflict_resolution.decision_record_ref` is **nullable** |
+| 4 | `CancelRun`/`TerminateRun` collapsed, requiring human intervention for both | Separate commands, separate transaction rows, separate audit provenance. `CANCELLED` is `h` with an intervention; `TERMINATED` is **`S`** with a named constraint and **no human identity, never synthesised** (Rules O-6a, Q-9a, V-3a, F-15a) |
+| 5 | Audit-event cardinality contradicted itself across prose, schema and tables | One rule, stated in both owning documents: **one audit event per persisted governed-record mutation, same transaction, linked to that record** (P-14a). No grouping (P-14c). Act-level correlation is distinguished from record-level cardinality (P-14b). §7.2 enumerates **17 governed acts** with their exact audit and execution counts; refusals write none (P-14e) |
+| 6 | U19 keyed on a nonexistent `ACTIVE` approval status | Currentness is now a **pointer**, not a status: `approval_state_record` is an immutable version history (U21) and `approval_state_current` holds at most one row per subject version (U19). The rule is total — it covers `APPROVED_WITH_CONDITIONS` and every other operative status — and `ACTIVE` is explicitly absent (Rules AP-4a…AP-4c, P-9a, P-9b) |
+| 7a | Rule I-1 claimed every reference is a stable-ID/version pair while the inventory held unversioned instance identities | Two categories: **A** governed definitions and profiles carry *(stable ID, version)*; **B** immutable runtime-instance and governed-record identities carry a stable identity **alone**, because there is no second version of an event that occurred. Rule I-1b states why this loses no reproducibility |
+| 7b | A false OI-12 claiming Phase 4's approval record carried no baseline | Corrected. `reviews/phase-4-final-approval.md` line 7 states `Approved Baseline Commit: 8ddacb2b…`; the commit resolves, is an ancestor, and Phase 4's artifacts are byte-identical to it. OI-12 is **removed, not resolved** — there was never an open question. The error originated in the Phase 13 review and is named as mine |
 
 ## 7. Known limitations of this self-check
 

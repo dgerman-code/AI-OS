@@ -77,10 +77,37 @@ in the same way an audit event records a change without being the authority for 
 | `revocation` | structured | YES | APP | Reason, revoking authority, Decision Record, timestamp |
 | `recorded_by_*` | identity stamps | NO | IMM | Separate human and system identity |
 
-Constraints: `PRIMARY KEY (approval_ref, approval_version)`;
-`UNIQUE (subject_ref, subject_version) WHERE status = 'APPROVED'` (U19);
-check: `decision_right_ref IS NOT NULL → decision_record_ref IS NOT NULL`;
-no `UPDATE` except the append-only linkage and `status`/`revocation`.
+Constraints: `PRIMARY KEY (approval_ref, approval_version)` (U21); the table is **immutable** —
+no `UPDATE` and no `DELETE` on any column, including `status`; check:
+`decision_right_ref IS NOT NULL → decision_record_ref IS NOT NULL`.
+
+### 4.0a Currentness is a pointer, not a status
+
+`status` says what an approval **decided**. It does not say which record is **in force**. Those
+are different questions and an earlier revision of this document answered both with one column,
+which left `APPROVED_WITH_CONDITIONS` outside the uniqueness rule and invented a status value
+`ACTIVE` that this vocabulary does not contain.
+
+`approval_state_current` is the current pointer:
+
+| Field | Type | Null | Mut | Notes |
+|---|---|---|---|---|
+| `subject_ref` | governed ref | NO | IMM | **PK with `subject_version`** — this is U19 |
+| `subject_version` | version id | NO | IMM | |
+| `approval_ref` + `approval_version` | ref pair | NO | MUT | Points at the history row in force |
+| `record_version` | bigint | NO | MUT | Optimistic concurrency token |
+| `pointed_at` | timestamptz | NO | MUT | Operational |
+
+**Rule AP-4a — at most one current row per subject version, whatever its status.** The pointer's
+primary key makes the rule total: it holds for `APPROVED`, for `APPROVED_WITH_CONDITIONS`, for
+`REVOKED` and for an explicitly recorded `PROPOSED`. The only status that is never pointed at is
+`SUPERSEDED`, because superseding is precisely the act of moving the pointer elsewhere.
+
+**Rule AP-4b — moving the pointer is one transaction with the new history row**, under a
+version-pinned write. A concurrent attempt fails with `STALE_WRITE` and writes nothing.
+
+**Rule AP-4c — no `ACTIVE`.** The approval-state vocabulary is exactly the five values in §4.2.
+Any document, constraint or query naming an `ACTIVE` approval status is defective.
 
 ### 4.1 Subject kinds
 
@@ -97,7 +124,7 @@ no `UPDATE` except the append-only linkage and `status`/`revocation`.
 | `SUPERSEDED` | A later approval state replaced this one's operative effect |
 | `REVOKED` | Withdrawn by a governed act, with reason recorded. Remains visible |
 
-**Rule AP-4 — fail closed on absence.** The **absence** of an approval-state row means
+**Rule AP-4 — fail closed on absence.** The **absence** of a current-pointer row means
 `PROPOSED`, never `APPROVED`. A runtime asked about an unknown subject answers "not approved" and
 refuses. There is no "assume approved for convenience" default anywhere.
 
@@ -144,8 +171,12 @@ governed maintenance pass may align headers; Phase 14 does not.
 
 ## 7. Supersession and revocation
 
-**Rule AP-9.** Approval state is **never edited in place**. A new approval produces a new
-`approval_version` and marks the prior `SUPERSEDED` in the same transaction.
+**Rule AP-9.** Approval state is **never edited in place**. A new approval writes a new
+immutable `approval_version` whose own `status` reflects the new decision, and moves the current
+pointer to it in the same transaction. The prior row is not rewritten to say `SUPERSEDED`: it is
+superseded *by having been pointed away from*, and a query for the history of a subject reads
+the version chain. A `SUPERSEDED` status value is written only on a row created to record that
+outcome explicitly.
 
 **Rule AP-10.** Revocation is a governed act: it records the reason, the revoking human
 authority, and the Decision Record where one was required. The revoked row **remains visible**
