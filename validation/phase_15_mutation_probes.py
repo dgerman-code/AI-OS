@@ -358,7 +358,7 @@ PROBES = [
 
     ("the primary mode is read back from plan stages, in the exemplar",
      "planning/exemplars.md",
-     "Tests 1 to 4 of RI-12 do not resolve it, so test 5 does:",
+     "Tests 1 to 4 of RI-12 therefore do not\nresolve a primary, and test 5 does:",
      "The primary_work_mode is determined from the plan stage dependency order, so:",
      "the primary mode is upstream-derived"),
 
@@ -490,6 +490,61 @@ PROBES = [
      "and a plain `UNKNOWN` is a dangling reference, which **blocks**",
      "and a plain `UNKNOWN` is carried forward as a declared future reference",
      "prerequisites are a strict tri-state"),
+
+    # ---- V4: the two blockers and the classes around them, in fresh second locations -----
+    ("PO-1 offers CONSTRAIN as an alternative to blocking",
+     "planning/open-items.md",
+     "is **BLOCKED and escalated** — `F-14 NO_APPROVED_ROLE_OWNS_CONCLUSION`",
+     "is constrained or blocked, as the planner judges — `F-5`",
+     "no approved owner blocks the original request"),
+
+    ("the self-check's limitations list says Example 2 is constrained",
+     "planning/phase-15-self-check.md",
+     "strategy for contested interactions (PO-1), so `exemplars.md` Example 2 **blocks and escalates**",
+     "strategy for contested interactions (PO-1), so `exemplars.md` Example 2 produces a constrained plan",
+     "every summary agrees with the governing rule"),
+
+    ("the clarification policy offers the narrower plan on its own initiative",
+     "planning/clarification-policy.md",
+     "describing what it *could* plan if the user narrowed the request, and what would unlock the rest.",
+     "proceeding with the narrower plan it can produce once the missing conclusion is removed.",
+     "a blocked request is never narrowed by the planner"),
+
+    ("Example 2's band drops below the WC-3 floor",
+     "planning/exemplars.md",
+     "planning floor is **Enhanced Decision-Grade**, and it stays there until governing value or risk",
+     "planning floor is **Enhanced Review Candidate**, and it rises only if the contract value or risk",
+     "a fired trigger with unknown value holds the floor"),
+
+    ("the criticality document lets plain wording lower the floor",
+     "planning/work-classification-and-criticality.md",
+     "Neither the count nor the\nband is affected by how plainly the sentence reads.",
+     "A plainly worded request of this kind sits at a lower band until something technical appears.",
+     "wording never lowers a band"),
+
+    ("WC-3's own floor sentence is inverted",
+     "planning/work-classification-and-criticality.md",
+     "with no stated value is not thereby Routine. Where value is unknown **and** a \u00a74 trigger fires, the\nband is at least Enhanced Decision-Grade.",
+     "with no stated value is treated as Routine until a value appears, whatever else fires.",
+     "WC-3 sets a floor, not a ceiling"),
+
+    ("the criticality introduction drifts back to four fired triggers",
+     "planning/work-classification-and-criticality.md",
+     "is also an IFI counterparty, a public-sector counterparty and regulated infrastructure: **three**",
+     "is also an IFI counterparty, a public-sector counterparty and regulated infrastructure: **four**",
+     "stated counts match the worked examples"),
+
+    ("Example 2 claims a stated priority again",
+     "planning/exemplars.md",
+     "with **no stated priority** between them and no single",
+     "where the request states its own priority and there is a single",
+     "the priority prose matches the RI-12 result"),
+
+    ("the validator evidence undercounts the package",
+     "validation/phase_15_validation.py",
+     '                 % len(all_docs()))',
+     '                 % len(PLANNING_DOCS))',
+     "stated counts are derived, not remembered"),
 ]
 
 #: Checks that read repository state (git history, untracked files) rather than package content.

@@ -260,7 +260,7 @@ def the_package_contains_only_documents():
     unexpected = [f for f in os.listdir(PLANNING) if not f.endswith(".md")]
     return (not unexpected, str(unexpected) if unexpected
             else "the planning package is %d markdown documents and nothing else"
-                 % len(PLANNING_DOCS))
+                 % len(all_docs()))
 
 
 check("structure", "the planning package contains only documents",
@@ -1733,6 +1733,175 @@ check("second-location", "no wording or silence lowers the criticality band",
       criticality_is_never_lowered_by_wording)
 
 
+def no_summary_softens_the_no_owner_disposition():
+    """V4 blocker 1. The governing rules block; three rounds of summaries said "or constrain".
+
+    A summary that disagrees with the rule it summarises is not a wording problem: the summary is
+    what a reader takes away, and PO-1 is the first place a reader meets this case."""
+    problems = []
+    # PO-1 is the canonical summary of the only live instance of this failure.
+    po1 = [ln for ln in doc("open-items.md").splitlines() if ln.startswith("| **PO-1** |")]
+    if not po1:
+        problems.append("open-items.md has no PO-1 row")
+    for row in po1:
+        low = flat(row)
+        if "blocked" not in low and "block" not in low:
+            problems.append("PO-1 does not say the original request is blocked: %r" % row[:90])
+        if "f-14" not in low:
+            problems.append("PO-1 does not name F-14")
+        if re.search(r"constrained or blocked|blocked or constrained", low):
+            problems.append("PO-1 still offers CONSTRAIN as an alternative to BLOCK")
+        if "new linked" not in low:
+            problems.append("PO-1 does not say a narrower plan needs a new linked Request")
+    # And no active statement anywhere may offer a narrower plan as the fallback for this case.
+    scan(re.compile(
+        r"(no approved (?:role|owner)|unowned conclusion|nobody owns|"
+        r"`?NO_APPROVED_ROLE_OWNS_CONCLUSION`?)[^.|]{0,80}?"
+        r"(constrain\w*|narrow\w*|reduce\w*|proceeds?|continues?)", re.IGNORECASE),
+        "lets a conclusion with no approved owner be narrowed rather than blocked", problems)
+    scan(re.compile(
+        r"(plans?|requests?|work)[^.|]{0,50}?(needing|requiring|that needs?)[^.|]{0,40}?"
+        r"(that )?conclusion[^.|]{0,40}?(constrained|narrowed|reduced)", re.IGNORECASE),
+        "summarises the no-owner case as a constrained plan", problems)
+    scan(re.compile(
+        r"(missing|unowned|unavailable) conclusion[^.|]{0,60}?"
+        r"(removed|dropped|omitted|left out|taken out)", re.IGNORECASE),
+        "removes an unowned conclusion from the deliverable", problems)
+    # CL-10 is where a reader meets "the planner says so and offers what it can" - a second home
+    # for this rule that no check read, and a probe walked straight through it.
+    if says("clarification-policy.md",
+            "Describing is not doing: the narrower plan is produced only if the user asks for it"):
+        problems.append("CL-10 lets the planner produce the narrower plan on its own initiative")
+    scan(re.compile(
+        r"(planner|system|plan)[^.|]{0,60}?"
+        r"(proceeds? with|offers?|produces?|falls? back to|delivers?)[^.|]{0,40}?"
+        r"(the )?(narrower|constrained|reduced) (plan|deliverable|result)", re.IGNORECASE),
+        "produces a narrower plan without a new Request from the user", problems)
+    # Example 2's own summary must say block, not constrain.
+    body = doc("exemplars.md")
+    if "## Example 2" in body:
+        example = flat(body.split("## Example 2")[1].split("## Example 3")[0])
+        if "block" not in example:
+            problems.append("Example 2 does not block")
+        if "f-14" not in example:
+            problems.append("Example 2 does not name F-14")
+        if re.search(r"disposition[^.]{0,40}constrain", example):
+            problems.append("Example 2's disposition is still CONSTRAIN")
+    self_check = flat(doc("phase-15-self-check.md"))
+    if re.search(r"example 2[^.]{0,80}(produces|produced|yields|gives) a constrained", self_check):
+        problems.append("the self-check still describes Example 2 as producing a constrained plan")
+    return (not problems, str(problems)[:400] if problems
+            else "no approved owner blocks the original request, in the rule and in every summary")
+
+
+check("second-location", "no summary softens the no-approved-owner disposition",
+      no_summary_softens_the_no_owner_disposition)
+
+
+def a_fired_trigger_with_unknown_value_holds_the_floor():
+    """V4 blocker 2. WC-3 sets a floor; no exemplar or summary may sit below it."""
+    problems = []
+    if says("work-classification-and-criticality.md",
+            "band is at least Enhanced Decision-Grade"):
+        problems.append("WC-3's floor is not stated")
+    body = doc("exemplars.md")
+    if "## Example 2" in body:
+        example = body.split("## Example 2")[1].split("## Example 3")[0]
+        low = flat(example)
+        if "t-15" not in low or "t-16" not in low:
+            problems.append("Example 2 no longer fires T-15 and T-16")
+        if "enhanced decision-grade" not in low:
+            problems.append("Example 2 sits below the WC-3 floor: no Enhanced Decision-Grade")
+        if re.search(r"enhanced review candidate", low):
+            problems.append("Example 2 still names a band below the WC-3 floor")
+        if "wc-3" not in low:
+            problems.append("Example 2 does not cite the rule that sets its floor")
+    # No statement anywhere may make simplicity, silence or uncertainty a reason to sit lower.
+    scan(re.compile(
+        r"(simple|simply|plainly worded|non-?technical|short|informal|ordinary|"
+        r"looks like (?:drafting|communication)|uncertain|unsure|no value(?: is)? stated|"
+        r"value is unknown)[^.|]{0,80}?"
+        r"(so |therefore |means |allows? |permits? |justifies? |keeps? |stays? |sits? )"
+        r"[^.|]{0,40}?(routine|lower band|a lower|below|less critical|"
+        r"enhanced review candidate)", re.IGNORECASE),
+        "lets simplicity, silence or uncertainty sit below a fired-trigger floor", problems)
+    scan(re.compile(
+        r"(band|floor|criticality)[^.|]{0,60}?"
+        r"(higher if|raised (?:only )?(?:if|when)|unless)[^.|]{0,40}?"
+        r"(value|contract value|amount)", re.IGNORECASE),
+        "makes the band wait on a value instead of holding the WC-3 floor", problems)
+    return (not problems, str(problems)[:400] if problems
+            else "a fired trigger with unresolved value holds the Enhanced Decision-Grade floor")
+
+
+check("second-location", "a fired trigger with unknown value holds the WC-3 floor",
+      a_fired_trigger_with_unknown_value_holds_the_floor)
+
+
+def stated_counts_do_not_drift_from_the_package():
+    """V4 stale reporting. Counts stated in prose and in validator evidence are derived here."""
+    problems = []
+    classification = doc("work-classification-and-criticality.md")
+    fired = [ln for ln in classification.splitlines() if ln.startswith("| Triggers fired |")]
+    if not fired:
+        problems.append("the worked classification does not list its fired triggers")
+    for row in fired:
+        count = len(re.findall(r"\bT-\d+\b", row))
+        words = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six"}
+        intro = flat(classification.split("## 2.")[0])
+        for other, word in words.items():
+            if other == count:
+                continue
+            if re.search(r"\b%s\b[^.]{0,60}(approved )?criticality triggers fire" % word, intro):
+                problems.append("the introduction says %s triggers fire; the worked example "
+                                "fires %d" % (word, count))
+        if not re.search(r"\b%s\b[^.]{0,60}(approved )?criticality triggers fire"
+                         % words.get(count, count), intro):
+            problems.append("the introduction does not state the worked example's %d triggers"
+                            % count)
+    # Example 2's prose about priority must agree with the result it records.
+    body = doc("exemplars.md")
+    if "## Example 2" in body:
+        example = flat(body.split("## Example 2")[1].split("## Example 3")[0])
+        states = "the request states its own priority" in example
+        none = "no stated priority" in example
+        if states and none:
+            problems.append("Example 2 says both that a priority is stated and that none is")
+        if states and "primary_work_mode is unknown" in example:
+            problems.append("Example 2 claims a stated priority yet returns UNKNOWN")
+    # The harness states counts in its own evidence, and those drifted too. They have to be
+    # computed from the package, which a probe can check by making one of them a literal again.
+    source = read(os.path.join("validation", "phase_15_validation.py"))
+    # Scoped to the body of the check that states each count. A test for the literal text
+    # anywhere in the source is useless here: this check contains that literal itself, so the
+    # string survived the mutation and the probe came back REDUNDANT.
+    def body_of(name):
+        if ("def %s():" % name) not in source:
+            return ""
+        return source.split("def %s():" % name)[1].split("\ncheck(")[0]
+
+    docs_body = body_of("the_package_contains_only_documents")
+    if not docs_body:
+        problems.append("the document-count check is gone")
+    elif "all_docs()" not in docs_body:
+        problems.append("the document count in validator evidence is not derived from all_docs()")
+    vacuous_body = body_of("the_harness_contains_no_vacuous_check")
+    if not vacuous_body:
+        problems.append("the check-count check is gone")
+    elif "re.findall" not in vacuous_body or "check" not in vacuous_body:
+        problems.append("the check count in validator evidence is not derived from the source")
+    for literal in re.findall(
+            r'"[^"%]*(?<!Phase )\b(?:1[0-9]|[2-9][0-9])\b (?:documents|checks|probes)[^"]*"',
+            source):
+        problems.append("validator evidence hard-codes a count: %r" % literal[:60])
+    return (not problems, str(problems)[:400] if problems
+            else "trigger counts, priority prose and validator evidence are all derived")
+
+
+check("structure", "stated counts and worked examples do not drift apart",
+      stated_counts_do_not_drift_from_the_package)
+
+
 def the_self_check_inventory_matches_the_package():
     """Counts stated in prose must be derived from the package, not remembered from a draft."""
     problems = []
@@ -2082,8 +2251,9 @@ def the_harness_contains_no_vacuous_check():
     bodies = re.findall(r"\ndef ([a-z0-9_]+)\(\):\n(.*?)(?=\ndef |\ncheck\()", source, re.S)
     vacuous = [n for n, b in bodies
                if "return True" in b and "problems" not in b and "missing" not in b]
+    registered = len(re.findall(r"(?m)^check\(", source))
     return (not vacuous, str(vacuous) if vacuous
-            else "%d checks, none unconditionally passing" % len(RESULTS))
+            else "%d checks, none unconditionally passing" % registered)
 
 
 check("preflight", "the harness contains no vacuous or unconditional-pass check",

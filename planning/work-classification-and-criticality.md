@@ -6,9 +6,11 @@ Version: 0.1
 ## 1. Why a simple-looking request is not a simple request
 
 "Prepare me for a meeting with EIB about this municipal infrastructure project" is one sentence. It
-is also an IFI counterparty, a public-sector counterparty, regulated infrastructure, an external
-institutional interaction, and almost certainly a submission-adjacent artifact. Four of the
-approved criticality triggers fire on a request the user thinks of as *booking a meeting*.
+is also an IFI counterparty, a public-sector counterparty and regulated infrastructure: **three**
+approved criticality triggers fire on a request the user thinks of as *booking a meeting*, and a
+fourth consideration — that a commitment could arise in the room — raises the treatment further as
+**conservative escalation** rather than as a trigger (§8, WC-2, WC-6). Neither the count nor the
+band is affected by how plainly the sentence reads.
 
 This document is how the planner notices.
 

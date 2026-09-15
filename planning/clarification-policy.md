@@ -66,7 +66,10 @@ ordered by consequence, with C4 and C5 first. A single blocking question is aske
 
 **Rule CL-10 — the batch is bounded.** Where more than a handful of material questions are open,
 the request is under-specified in a way that questioning will not fix, and the planner says so —
-offering the constrained plan it *can* produce, and what would unlock the rest.
+describing what it *could* plan if the user narrowed the request, and what would unlock the rest.
+Describing is not doing: the narrower plan is produced only if the user asks for it, as a new linked
+`Request` (RI-1, RS-13). A blocked request never becomes a narrower one on the planner's initiative,
+whatever the reason for the block.
 
 ## 5. Assumptions are surfaced, not hidden
 

@@ -58,9 +58,10 @@ and a system tuned to "don't bother the user" would have posted under the wrong 
 > "Review this partner email. They blame us for the delay. Check whether they are right and prepare
 > a firm but professional response. I do not want to damage the relationship."
 
-**`WorkIntent`:** the request states its own priority — *"check whether they are right **and**
-prepare a … response"* — and names two end results with no stated order of importance and no single
-governing clause. Tests 1 to 4 of RI-12 do not resolve it, so test 5 does:
+**`WorkIntent`:** the request names two end results joined by *and* — *"check whether they are
+right **and** prepare a … response"* — with **no stated priority** between them and no single
+governing clause making one subordinate to the other. Tests 1 to 4 of RI-12 therefore do not
+resolve a primary, and test 5 does:
 `primary_work_mode` is **`UNKNOWN`** and `secondary_work_modes` is `{ANALYSIS, DRAFTING}` — the
 complete set, not a remainder after a pick (RI-13). Nothing downstream supplies the primary later.
 `act_direction` `EXTERNAL`;
@@ -68,8 +69,27 @@ complete set, not a remainder after a pick (RI-13). Nothing downstream supplies 
 concede; `execute_or_prepare` `PREPARE` ("prepare a response").
 
 **`WorkRequirementSet`:** triggers **T-15** (contractual responsibility is in issue) and **T-16**
-(external communication under the entity's name). Band: **Enhanced Review Candidate** at minimum;
-higher if the contract value puts it there.
+(external communication under the entity's name) both fire, and the contract value is **unresolved**
+— the request states none and nothing in the resolved scope supplies one.
+
+That combination is decided by **WC-3**, not by how the request reads: *where value is unknown **and**
+a §4 trigger fires, the band is at least Enhanced Decision-Grade.* Two triggers have fired. So the
+planning floor is **Enhanced Decision-Grade**, and it stays there until governing value or risk
+information resolves otherwise under the approved policy — which is a fact arriving, not a judgement
+the planner may make.
+
+Three things this floor is **not**:
+
+| Not | Because |
+|---|---|
+| Lowered because the request is short, plainly worded, or reads like ordinary correspondence | WC-4: a trigger fires on evidence, not on vocabulary. Wording is not evidence about value |
+| Lowered because no value is stated | WC-3 exactly: absence of a stated value proves nothing, and with a trigger fired it raises the floor rather than leaving it open |
+| A claim that the contract is large, or that any particular value applies | WC-7: planning conservatively is not asserting the conservative fact. The value remains `UNKNOWN`, recorded as `UNKNOWN` |
+
+An earlier version of this exemplar set the floor one band lower and made it conditional on the
+contract value turning out to be large. That inverted WC-3: it treated an unresolved value as a
+reason to sit lower until something raised the band, where the approved rule makes an unresolved
+value with a fired trigger a reason to sit higher until something resolves it.
 
 **`RoleRequirement`s**
 
