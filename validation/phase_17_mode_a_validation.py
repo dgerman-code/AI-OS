@@ -2,12 +2,16 @@
 """Static fail-closed conformance checks for Phase 17 Mode A.
 
 No runtime service, provider API or model invocation is performed.
+The validator intentionally combines positive contract checks with semantic
+contradiction checks so that unsafe wording cannot pass only because a marker
+phrase is still present elsewhere in the same artifact.
 """
 
 import argparse
 import json
 import os
 import pathlib
+import re
 import sys
 
 ROOT = pathlib.Path(os.environ.get("AI_OS_REPO_ROOT", pathlib.Path(__file__).resolve().parents[1]))
@@ -50,16 +54,12 @@ ADAPTERS = [
     "adapters/mode-a/google-gemini.md",
 ]
 
-# Only affirmative governance-fork language is forbidden. Negative statements such as
-# "adds no provider-specific Role" and "cannot self-approve" are required safety language.
-FORBIDDEN_ADAPTER_GOVERNANCE = [
-    "provider-specific role is authoritative",
-    "provider-specific workflow is authoritative",
-    "provider-specific decision right is authoritative",
-    "provider memory is canonical",
-    "automatically approved by the provider",
-    "the provider may approve governance",
-]
+JSON_SCHEMA_TYPES = {"null", "boolean", "object", "array", "number", "string", "integer"}
+NEGATION_MARKERS = (
+    "do not", "does not", "must not", "may not", "cannot", "can't", "never",
+    "not canonical", "not approved", "not automatically", "prohibited", "forbidden",
+    "deferred", "out of scope", "doesn't", "is not", "are not",
+)
 
 
 def path_value(obj, keys):
@@ -75,6 +75,148 @@ def check(condition, name, detail, results):
     results.append({"name": name, "pass": bool(condition), "detail": detail})
 
 
+def iter_strings(value):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from iter_strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from iter_strings(item)
+
+
+def sentences(text):
+    return [part.strip() for part in re.split(r"[\n.!?]+", text.lower()) if part.strip()]
+
+
+def is_negated(sentence):
+    return any(marker in sentence for marker in NEGATION_MARKERS)
+
+
+def unsafe_approval_assertion(text):
+    """Detect affirmative provider/model output -> governance approval claims."""
+    patterns = [
+        r"\b(provider|model|ai)\s+(output|result|response|work)\b.{0,45}\b(automatically\s+)?approved\b",
+        r"\b(output|result|response|completion)\b.{0,45}\b(automatically\s+)?(creates|grants|means|confers|equals)\b.{0,30}\bapproval\b",
+        r"\b(provider|model|ai)\b.{0,35}\bmay\s+approve\b.{0,30}\b(governance|role|skill|workflow|decision|review|canonical)\b",
+        r"\bautomatically\s+approved\s+by\s+(the\s+)?(provider|model|ai)\b",
+    ]
+    for sentence in sentences(text):
+        if is_negated(sentence):
+            continue
+        if any(re.search(pattern, sentence) for pattern in patterns):
+            return True
+    return False
+
+
+def unsafe_skill_assertion(text):
+    """Detect affirmative Skill-card existence -> approval/eligibility claims."""
+    patterns = [
+        r"\b(carded\s+skills?|skill\s+cards?|card\s+existence|existing\s+skill\s+cards?)\b.{0,50}\b(are|is|means|implies|confers|grants|counts?\s+as)\b.{0,25}\b(approved|eligible|approval|eligibility)\b",
+        r"\b(carded\s+skills?|skill\s+cards?)\b.{0,20}\bapproved\b",
+        r"\bphase\s*4\b.{0,60}\b(individually\s+)?approved\b.{0,25}\bskills?\b",
+    ]
+    for sentence in sentences(text):
+        if is_negated(sentence):
+            continue
+        if any(re.search(pattern, sentence) for pattern in patterns):
+            return True
+    return False
+
+
+def unsafe_mode_b_assertion(text):
+    """Detect active Mode B/API orchestration presented as Mode A adapter behavior."""
+    patterns = [
+        r"\b(call|calls|invoke|invokes|route|routes|orchestrate|orchestrates|dispatch|dispatches)\b.{0,45}\b(provider|model|llm|api)\b",
+        r"\b(provider|model|llm)\s+api\b.{0,45}\b(call|invoke|route|retry|fallback|worker|queue|scheduler|billing|key\s+management)\b",
+        r"\b(active|enabled|implemented)\b.{0,35}\b(mode\s*b|provider\s+api|model\s+api|routing|retry|fallback|worker|queue|scheduler)\b",
+        r"\b(use|uses)\b.{0,30}\b(provider|model)\s+api\b.{0,25}\b(to|for)\b",
+    ]
+    for sentence in sentences(text):
+        if is_negated(sentence):
+            continue
+        if any(re.search(pattern, sentence) for pattern in patterns):
+            return True
+    return False
+
+
+def schema_structure_errors(node, path="$", errors=None):
+    """Dependency-free JSON Schema structural checks for the subset we publish.
+
+    If jsonschema is installed, validate_schema_document() also runs the official
+    Draft 2020-12 meta-schema check. These checks keep invalid core syntax from
+    becoming a false green even when the optional dependency is absent.
+    """
+    if errors is None:
+        errors = []
+    if isinstance(node, bool):
+        return errors
+    if not isinstance(node, dict):
+        errors.append(f"{path}: schema node must be object or boolean")
+        return errors
+
+    if "type" in node:
+        value = node["type"]
+        if isinstance(value, str):
+            if value not in JSON_SCHEMA_TYPES:
+                errors.append(f"{path}.type: invalid type {value!r}")
+        elif isinstance(value, list) and value and all(isinstance(v, str) for v in value):
+            bad = [v for v in value if v not in JSON_SCHEMA_TYPES]
+            if bad:
+                errors.append(f"{path}.type: invalid types {bad!r}")
+        else:
+            errors.append(f"{path}.type: must be string or non-empty string array")
+
+    if "required" in node and not (
+        isinstance(node["required"], list)
+        and len(node["required"]) == len(set(node["required"]))
+        and all(isinstance(v, str) for v in node["required"])
+    ):
+        errors.append(f"{path}.required: must be unique string array")
+
+    if "enum" in node and not isinstance(node["enum"], list):
+        errors.append(f"{path}.enum: must be array")
+
+    if "properties" in node:
+        props = node["properties"]
+        if not isinstance(props, dict):
+            errors.append(f"{path}.properties: must be object")
+        else:
+            for key, child in props.items():
+                schema_structure_errors(child, f"{path}.properties.{key}", errors)
+
+    if "items" in node:
+        schema_structure_errors(node["items"], f"{path}.items", errors)
+
+    for keyword in ("allOf", "anyOf", "oneOf"):
+        if keyword in node:
+            value = node[keyword]
+            if not isinstance(value, list) or not value:
+                errors.append(f"{path}.{keyword}: must be non-empty array")
+            else:
+                for index, child in enumerate(value):
+                    schema_structure_errors(child, f"{path}.{keyword}[{index}]", errors)
+
+    for keyword in ("if", "then", "else", "not"):
+        if keyword in node:
+            schema_structure_errors(node[keyword], f"{path}.{keyword}", errors)
+
+    return errors
+
+
+def validate_schema_document(schema):
+    errors = schema_structure_errors(schema)
+    try:
+        import jsonschema  # optional; use when the environment provides it
+        jsonschema.Draft202012Validator.check_schema(schema)
+    except ImportError:
+        pass
+    except Exception as exc:
+        errors.append(f"Draft202012 meta-schema: {type(exc).__name__}: {exc}")
+    return errors
+
+
 def validate():
     results = []
 
@@ -83,9 +225,11 @@ def validate():
 
     manifest_path = ROOT / "ai-os.yaml"
     manifest = None
+    manifest_text = ""
     if manifest_path.exists():
         try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest_text = manifest_path.read_text(encoding="utf-8")
+            manifest = json.loads(manifest_text)
             check(True, "manifest:parse", "JSON-compatible YAML parsed", results)
         except Exception as exc:
             check(False, "manifest:parse", "%s: %s" % (type(exc).__name__, exc), results)
@@ -106,11 +250,24 @@ def validate():
               "manifest:skill-eligibility",
               "card existence/applicability is explicitly separated from approval",
               results)
+        manifest_strings = "\n".join(iter_strings(manifest))
+        check(not unsafe_skill_assertion(manifest_strings),
+              "manifest:no-unsafe-skill-approval-assertion",
+              "no affirmative carded-Skill approval/eligibility assertion",
+              results)
+        check(not unsafe_approval_assertion(manifest_strings),
+              "manifest:no-provider-auto-approval",
+              "no affirmative provider/model auto-approval assertion",
+              results)
+        check(not unsafe_mode_b_assertion(manifest_strings),
+              "manifest:no-active-mode-b",
+              "no active Mode B/API orchestration semantics",
+              results)
 
         prohibited = " ".join(manifest.get("prohibited_assumptions", [])).lower()
         check("mode b" in prohibited and "api" in prohibited,
               "manifest:mode-b-prohibited",
-              "Mode B/API orchestration is named only as prohibited scope",
+              "Mode B/API orchestration is named as prohibited scope",
               results)
 
         authority = str(manifest.get("human_authority_rule", "")).lower()
@@ -123,7 +280,13 @@ def validate():
     if schema_path.exists():
         try:
             schema = json.loads(schema_path.read_text(encoding="utf-8"))
-            check(schema.get("type") == "object", "envelope:json", "valid JSON object schema", results)
+            schema_errors = validate_schema_document(schema)
+            check(not schema_errors, "envelope:schema-syntax",
+                  "Draft 2020-12/core structural schema valid; errors=%s" % schema_errors,
+                  results)
+            check(schema.get("$schema") == "https://json-schema.org/draft/2020-12/schema",
+                  "envelope:draft", "Draft 2020-12 declared", results)
+            check(schema.get("type") == "object", "envelope:root-type", "root schema type is object", results)
             required = set(schema.get("required", []))
             must = {"request_id", "source_ref", "source_commit_sha", "roles", "skill_requirements", "workflow", "authority_status", "status"}
             check(must.issubset(required), "envelope:required", "governed provenance and authority fields required", results)
@@ -133,7 +296,7 @@ def validate():
                   "applicability, individual approval and eligibility are separate",
                   results)
         except Exception as exc:
-            check(False, "envelope:json", "%s: %s" % (type(exc).__name__, exc), results)
+            check(False, "envelope:schema-syntax", "%s: %s" % (type(exc).__name__, exc), results)
 
     for rel in ADAPTERS:
         p = ROOT / rel
@@ -149,8 +312,18 @@ def validate():
               "adapter:precedence:%s" % rel,
               "repository governance has precedence",
               results)
-        bad = [term for term in FORBIDDEN_ADAPTER_GOVERNANCE if term in low]
-        check(not bad, "adapter:no-governance-fork:%s" % rel, "forbidden=%s" % bad, results)
+        check(not unsafe_approval_assertion(text),
+              "adapter:no-auto-approval:%s" % rel,
+              "no affirmative provider/model auto-approval semantics",
+              results)
+        check(not unsafe_skill_assertion(text),
+              "adapter:no-skill-promotion:%s" % rel,
+              "no affirmative carded-Skill approval/eligibility semantics",
+              results)
+        check(not unsafe_mode_b_assertion(text),
+              "adapter:no-active-mode-b:%s" % rel,
+              "no active Mode B/API orchestration semantics",
+              results)
         check("if" in low and ("access" in low or "capability" in low),
               "adapter:conditional-capability:%s" % rel,
               "provider capabilities are conditional, not assumed",
@@ -158,15 +331,47 @@ def validate():
 
     entry = ROOT / "AI_OS_ENTRYPOINT.md"
     if entry.exists():
-        low = entry.read_text(encoding="utf-8").lower()
-        check("exact commit" in low and "fail closed" in low,
+        text = entry.read_text(encoding="utf-8")
+        low = text.lower()
+        provenance_ok = (
+            "exact commit" in low
+            and "ref" in low
+            and "source reporting" in low
+            and ("unpinned" in low or "cannot resolve an exact sha" in low)
+        )
+        check(provenance_ok,
               "entrypoint:provenance-failclosed",
-              "exact source and fail-closed behavior explicit",
+              "repository/ref/exact commit reporting and unpinned handling explicit",
               results)
+        check("fail closed" in low,
+              "entrypoint:failclosed", "fail-closed behavior explicit", results)
         check("may not self-approve" in low,
               "entrypoint:no-self-approval",
               "human authority boundary explicit",
               results)
+        check(not unsafe_approval_assertion(text),
+              "entrypoint:no-auto-approval-contradiction",
+              "entrypoint contains no contradictory automatic approval claim",
+              results)
+        check(not unsafe_skill_assertion(text),
+              "entrypoint:no-skill-promotion-contradiction",
+              "entrypoint contains no contradictory Skill promotion claim",
+              results)
+        check(not unsafe_mode_b_assertion(text),
+              "entrypoint:no-active-mode-b",
+              "entrypoint contains no active Mode B/API orchestration semantics",
+              results)
+
+    # Detector self-controls: protect against weakening the semantic contradiction checks.
+    check(unsafe_approval_assertion("Provider output is automatically approved."),
+          "selfcontrol:auto-approval", "unsafe auto-approval example is detected", results)
+    check(unsafe_skill_assertion("Carded Skills are approved."),
+          "selfcontrol:skill-approval", "unsafe Skill-card approval example is detected", results)
+    check(unsafe_mode_b_assertion("This adapter calls provider model APIs."),
+          "selfcontrol:active-mode-b", "unsafe active Mode B example is detected", results)
+    invalid_schema = {"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "not-a-json-schema-type"}
+    check(bool(validate_schema_document(invalid_schema)),
+          "selfcontrol:invalid-schema", "invalid JSON Schema type is rejected", results)
 
     failed = [r for r in results if not r["pass"]]
     return results, failed
