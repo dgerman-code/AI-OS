@@ -32,7 +32,7 @@ nothing, satisfies nothing and authorises nothing.
 | 13 | `ClarificationRequirement` | A question that must be answered | None | The clarification policy | **Yes** | No — the **answer** comes from a human | Yes | No — it blocks |
 | 14 | `PlanningFinding` | Something the planner noticed | None | The planner | **Yes** | No | Yes | No |
 | 15 | `PlanValidationResult` | The preflight verdict | None. Passing is not approval | The preflight checks | **Yes** | No | Yes | **Gates** the handoff |
-| 16 | `PlannedWorkItemSpec` | What Phase 11 would need to instantiate a runtime Work Item | None. **Never a `work_item.<id>`** | Its validated plan stage | **Yes** | No | Yes | No — Phase 11 instantiates, or refuses |
+| 16 | `PlannedWorkItemSpec` | A non-runtime description of the work a **validated** plan stage implies | None. **Never a `work_item.<id>`**, never a Task | Its validated plan stage | **Yes** | No | Yes | No — **inert**: no approved contract consumes it |
 | 17 | `WorkflowCandidateSuggestion` | A pattern worth a human's attention | None. `PROPOSED`, permanently, until a human acts | The planner's observation | **Yes** | **Yes** — to become anything at all | Yes | **No** |
 
 **Rule OM-2 — "affects execution directly" is `No` for sixteen of seventeen.** Only
@@ -58,12 +58,33 @@ would mean something different tomorrow.
 > `PLANNED WORK ITEM SPEC != WORK ITEM`
 
 The Phase 11 `Work Item` is runtime state owned by a run (`orchestration/execution-run-model.md` §3,
-row 6). Phase 15 writes before any run exists, so it cannot own one, cannot pre-create one, and
-cannot hold one in a pre-runtime state. A `PlannedWorkItemSpec` carries no run reference, no
-assignment or execution status, no model, no routing action and no orchestration semantics
-(`orchestrator-handoff-contract.md` HO-13). There is **no transition** from a spec to a Work Item:
-Phase 11 reads the spec, re-validates it at intake, and instantiates its own record — or refuses
-(HO-14). A spec that was never instantiated has caused nothing.
+row 6), and a **Task / Activity** is what the approved Workflow definition says is to be done,
+unchanged by any run (§4 of the same document):
+
+> `TASK != PLANNED WORK ITEM SPEC != WORK ITEM`
+
+Phase 15 writes before any run exists, so it cannot own a Work Item, cannot pre-create one, and
+cannot hold one in a pre-runtime state; nor may it define a Task. A `PlannedWorkItemSpec` carries no
+run reference, no assignment or execution status, no model, no routing action and no orchestration
+semantics (`orchestrator-handoff-contract.md` HO-13), and there is **no transition** from a spec to
+either of the other two.
+
+**Rule OM-17 — the spec is inert with respect to execution, and this document claims nothing about
+what consumes it.** The current boundary, stated exactly:
+
+| Statement | Status |
+|---|---|
+| Phase 15 may produce a non-runtime `PlannedWorkItemSpec`, **only after plan validation**, where the architecture permits it (`intent-work-planning-architecture.md` PL-8, step 12) | True today |
+| Some currently approved execution-basis contract consumes that record | **False.** None does |
+| The record therefore does anything to execution | **No.** It is inert unless and until explicit downstream change control defines consumption semantics |
+| MATCH depends on it | **No.** MATCH hands off through the approved Workflow-based intake path, on `workflow.<id>` @ version, and does not reference a spec |
+| PO-4 and PO-12 are affected by its existence | **No.** Both remain explicit, fail-closed dependencies |
+
+An earlier version of this rule described the approved Orchestrator handling the record at intake
+and creating a runtime identity from it. That described behaviour nobody has approved, and it is
+**withdrawn in full** — the table above replaces it, and nothing in this package restores it by
+implication. A record that nothing consumes has caused nothing, which is the whole of its current
+effect.
 
 ## 4. Lifecycle
 

@@ -207,9 +207,9 @@ be a planner that can start a run, and PL-1 says it cannot.
 | `planning/workflow-matching-and-composition.md` | MATCH scoring, COMPOSE rules, the precedence of constraints over scores |
 | `planning/work-plan-object-model.md` | The seventeen planning records, their authority status and lifecycle; the confidence model |
 | `planning/clarification-policy.md` | Infer-when-safe; the five ambiguity classes |
-| `planning/governance-preflight.md` | The validation gate before handoff |
+| `planning/governance-preflight.md` | The validation gate before handoff, and its checks |
 | `planning/orchestrator-handoff-contract.md` | The trigger envelope and what crosses the boundary |
-| `planning/failure-and-escalation-model.md` | The thirteen planning failure modes and their dispositions |
+| `planning/failure-and-escalation-model.md` | The planning failure modes and their dispositions, one disposition each |
 | `planning/workflow-candidate-learning-boundary.md` | Repeated-pattern suggestion, and why it never self-registers |
 | `planning/user-experience-contract.md` | What the user sees and never has to choose |
 | `planning/exemplars.md` | Six fully worked examples |

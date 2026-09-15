@@ -147,16 +147,31 @@ imply coverage of the missing capability, (ii) carries no conclusion that capabi
 reached at all and the disposition is BLOCK; where step 1 returned `NOT_LOAD_BEARING` and no
 admissible reduced deliverable can be described, the plan blocks as well.
 
-**Rule LB-3 — the determination is recorded as a first-class field, not inferred at read time.**
-Every `RoleRequirement` and `SkillRequirement` whose `availability` is not `AVAILABLE` carries:
+**Rule LB-3 — the determination and the narrowing are two records, and only one of them is the
+determination.** Every `RoleRequirement` and `SkillRequirement` whose `availability` is not
+`AVAILABLE` carries:
 
-| Field | Content |
-|---|---|
-| `load_bearing` | `LOAD_BEARING` · `NOT_LOAD_BEARING` |
-| `load_bearing_basis` | The conditions of LB-1 that fired, by letter, each with the plan element it was read from; or, for `NOT_LOAD_BEARING`, the reduced deliverable that survives under LB-2 |
+| Field | Written when | Content | May cite a reduced deliverable |
+|---|---|---|---|
+| `load_bearing` | Always | `LOAD_BEARING` · `NOT_LOAD_BEARING` | — |
+| `load_bearing_basis` | Always | Evidence drawn **only** from the **originally requested** deliverable, the approved ownership chain, the review and gate dependencies, and the plan's pre-reduction requirements. For `LOAD_BEARING`: the LB-1 conditions that fired, by letter, each with the plan element it was read from. For `NOT_LOAD_BEARING`: the **positive** showing that no LB-1 condition fires against the original deliverable, condition by condition | **Never** |
+| `reduced_deliverable_basis` | **Only after** an independent `NOT_LOAD_BEARING`, and only where the plan is actually narrowed | The reduced deliverable that survives, and why it is admissible under LB-2 (i)–(iii) | It is exactly that, and nothing else |
+
+**Rule LB-7 — `NOT_LOAD_BEARING` is a positive finding, never a residual category.** It requires a
+`load_bearing_basis` that walks LB-a…LB-e against the original deliverable and shows each one not
+firing. "No condition obviously applied" is not a basis; neither is the absence of an argument. A
+determination with an empty or merely negative basis is a validation failure.
+
+**Rule LB-8 — `reduced_deliverable_basis` is post-determination admissibility evidence only.** It
+proves that a coherent narrower deliverable survives. It proves **nothing** about whether the
+missing capability was load-bearing, it is never read when `load_bearing` is decided, and a plan in
+which it is empty is simply a plan that was not narrowed. Where `load_bearing` is `LOAD_BEARING`,
+the field is not written at all — there is nothing to narrow to, because the plan blocks.
 
 `governance-preflight.md` G-5 and G-6 fail a plan that records an unavailable capability without
-both fields. The same inputs therefore produce the same disposition, and a reader can check the
+`load_bearing` and `load_bearing_basis`, that records a `load_bearing_basis` citing a narrowed
+deliverable (LB-6), or that records a `reduced_deliverable_basis` alongside a `LOAD_BEARING`
+determination. The same inputs therefore produce the same disposition, and a reader can check the
 determination rather than trust it.
 
 **Rule LB-4 — the predicate never reaches for a substitute.** It decides **block or constrain**. It
@@ -209,7 +224,8 @@ not a basis for proceeding without the owner. It is a reason to escalate.
 | `basis` | The material in the request or scope that produced the requirement |
 | `availability` | `AVAILABLE` · `UNAVAILABLE` · `UNAPPROVED` |
 | `load_bearing` | `LOAD_BEARING` · `NOT_LOAD_BEARING` — required wherever `availability` is not `AVAILABLE` (LB-3) |
-| `load_bearing_basis` | The LB-1 conditions that fired, or the reduced deliverable that survives (LB-2) |
+| `load_bearing_basis` | The LB-1 conditions that fired, or the positive showing that none does — read **only** from the originally requested deliverable (LB-0, LB-3, LB-7). Never a reduced deliverable (LB-6) |
+| `reduced_deliverable_basis` | Written only after an independent `NOT_LOAD_BEARING`, and only where the plan is narrowed: the surviving reduced deliverable and its admissibility under LB-2. Post-determination evidence only (LB-8) |
 | `authority_note` | What the Role does **not** gain by participating — never blank |
 
 `SkillRequirement`:
@@ -222,6 +238,7 @@ not a basis for proceeding without the owner. It is a reason to escalate.
 | `availability` | `AVAILABLE` · `CANDIDATE_NOT_ACTIVATABLE` (RS-8) |
 | `load_bearing` | `LOAD_BEARING` · `NOT_LOAD_BEARING`, evaluated for the Role it activates for (LB-3) |
 | `load_bearing_basis` | As `RoleRequirement` |
+| `reduced_deliverable_basis` | As `RoleRequirement` (LB-8) |
 
 ## 8. Worked inference
 

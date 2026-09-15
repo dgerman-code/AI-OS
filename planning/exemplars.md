@@ -173,7 +173,8 @@ Phase 15 has no stage to block (FE-11). Where the reference is one the approved 
 accepts as `FUTURE_GOVERNANCE_REFERENCE`, it is carried as exactly that and the dependent act is
 non-executable (FE-12); it is not a way to get a blocking requirement past the handoff.
 
-**The point.** One sentence, four triggers, a band the user never mentioned, and a material
+**The point.** One sentence, three fired triggers plus a conservative escalation, a band the user
+never mentioned, and a material
 MATCH ambiguity that is resolved by a question about the meeting rather than about the registry.
 
 ---

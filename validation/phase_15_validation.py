@@ -930,6 +930,23 @@ def planned_work_item_specs_are_never_runtime_work_items():
         problems.append("N-11 is missing from the prohibitions")
     if "planned_work_item_spec.<id>" not in handoff:
         problems.append("the spec has no identifier space of its own")
+    if says("orchestrator-handoff-contract.md",
+            "derived only from a **validated** plan stage bound to approved definitions"):
+        problems.append("HO-6 no longer confines a spec to a validated stage")
+    spec_rows = [ln for ln in doc("intent-work-planning-architecture.md").splitlines()
+                 if ln.startswith("| **Planned Work Item Spec**")]
+    if not spec_rows:
+        problems.append("the identity table has no Planned Work Item Spec row")
+    else:
+        cells = [flat(c) for c in spec_rows[0].strip("|").split("|")]
+        if len(cells) < 3:
+            problems.append("the spec's identity row does not answer both columns")
+        else:
+            if "planning record" not in cells[1]:
+                problems.append("the identity table does not call the spec a planning record: "
+                                "%r" % cells[1][:60])
+            if "work item" not in cells[2]:
+                problems.append("the identity table does not deny that the spec is a Work Item")
     required = ("work intent reference", "scope reference", "stage and dependency references",
                 "role / skill envelope", "expected artifact", "knowledge states",
                 "review and gate requirements", "sensitivity", "criticality",
@@ -1021,8 +1038,29 @@ def the_missing_capability_disposition_is_deterministic():
             "a reduced deliverable is validated only after `NOT_LOAD_BEARING` is independently"):
         problems.append("LB-2 is missing: a reduction could decide the determination")
     if says("role-skill-requirement-inference.md",
-            "the determination is recorded as a first-class field"):
-        problems.append("LB-3 is missing: the determination need not be recorded")
+            "the determination and the narrowing are two records, and only one of them is the"):
+        problems.append("LB-3 is missing: the determination need not be recorded separately")
+    for rule, phrase in (
+            ("LB-7", "`NOT_LOAD_BEARING` is a positive finding, never a residual category"),
+            ("LB-8", "`reduced_deliverable_basis` is post-determination admissibility evidence "
+                     "only")):
+        if says("role-skill-requirement-inference.md", phrase):
+            problems.append("%s is missing: %r" % (rule, phrase[:52]))
+    if "`reduced_deliverable_basis`" not in roles:
+        problems.append("the reduced deliverable has no field of its own, so it can only be "
+                        "recorded in load_bearing_basis")
+    # The basis field must be confined to pre-reduction material, in its own definition.
+    basis_rows = [ln for ln in roles.splitlines()
+                  if ln.startswith("| `load_bearing_basis`")]
+    if not basis_rows:
+        problems.append("load_bearing_basis has no definition row")
+    for row in basis_rows:
+        low = flat(row)
+        if "originally requested" not in low and "as rolerequirement" not in low:
+            problems.append("a load_bearing_basis row does not confine itself to the original "
+                            "deliverable")
+        if "reduced deliverable that survives" in low:
+            problems.append("load_bearing_basis still prescribes the reduced deliverable")
     if says("role-skill-requirement-inference.md",
             "the predicate never reaches for a substitute"):
         problems.append("LB-4 is missing: the predicate could substitute a Role")
@@ -1327,13 +1365,44 @@ def no_approved_contract_is_claimed_to_consume_a_spec():
         problems.append("the crossing table does not list the spec")
     elif "only where an approved execution-basis contract permits" not in crossing[0]:
         problems.append("the crossing table lets a spec cross unconditionally")
-    consumes = re.compile(
-        r"(phase 11|orchestrator|intake|run)[^.|]{0,70}?"
-        r"(reads?|consumes?|accepts?|ingests?|re-?validates?|instantiates? .{0,20}from|"
-        r"derives? .{0,30}from|translates?)[^.|]{0,40}?"
-        r"(`?planned_?work_?item_?spec`?|planned work item spec|planned spec)",
-        re.IGNORECASE)
-    scan(consumes, "claims an approved contract consumes a PlannedWorkItemSpec", problems)
+    #: The spec token has to include the bare word. V2 narrowed it to the long forms after a
+    #: false positive, and the V3 re-audit walked straight through the hole that left: an active
+    #: statement reading "Phase 11 reads the spec, re-validates it at intake" was not observed.
+    SPEC = (r"(?:`?planned_?work_?item_?spec`?|planned work item spec|planned spec|"
+            r"(?:the|each|a|that|its|one) specs?\b)")
+    CONSUMER = r"(?:phase 11|orchestrator|intake|the run|a run|downstream consumer)"
+    VERB = (r"(?:reads?|consumes?|accepts?|ingests?|re-?validates?|revalidates?|"
+            r"instantiates?|translates?|executes?|schedules?|acts? on|takes? in)")
+    # Subject first: "Phase 11 reads the spec".
+    scan(re.compile(r"%s[^.|]{0,70}?%s[^.|]{0,40}?%s" % (CONSUMER, VERB, SPEC), re.IGNORECASE),
+         "claims an approved contract consumes a PlannedWorkItemSpec", problems)
+    # Object first, which a table row reaches for: "specs, which Phase 11 accepts and revalidates".
+    scan(re.compile(r"%s[^.|]{0,60}?%s[^.|]{0,30}?%s" % (SPEC, CONSUMER, VERB), re.IGNORECASE),
+         "claims an approved contract consumes a PlannedWorkItemSpec", problems)
+    # And the passive, which neither of the above sees: "each spec is read at intake".
+    scan(re.compile(
+        r"%s[^.|]{0,40}?(?:is|are|will be|would be|gets?)\s+"
+        r"(?:read|consumed|accepted|ingested|re-?validated|instantiated|translated|"
+        r"executed|scheduled|acted on)" % SPEC, re.IGNORECASE),
+        "claims a PlannedWorkItemSpec is consumed downstream", problems)
+    # The object model's own row must say the record is inert, not what a consumer does with it.
+    model = doc("work-plan-object-model.md")
+    if says("work-plan-object-model.md",
+            "the spec is inert with respect to execution, and this document claims nothing about"):
+        problems.append("OM-17 is missing: the object model does not declare the spec inert")
+    row = [ln for ln in model.splitlines()
+           if ln.startswith("|") and "`PlannedWorkItemSpec`" in ln]
+    if row:
+        cells = [c.strip() for c in row[0].strip("|").split("|")]
+        if cells and "inert" not in flat(cells[-1]):
+            problems.append("the spec's execution column does not record it as inert: %r"
+                            % cells[-1][:60])
+    for statement in ("Phase 15 may produce a non-runtime `PlannedWorkItemSpec`, **only after "
+                      "plan validation**",
+                      "MATCH hands off through the approved Workflow-based intake path",
+                      "Both remain explicit, fail-closed dependencies"):
+        if says("work-plan-object-model.md", statement):
+            problems.append("OM-17 omits %r" % statement[:48])
     scan(re.compile(
         r"(spec|specification)[^.|]{0,60}?"
         r"(lets?|allows?|enables?|bridges?|makes?)[^.|]{0,40}?"
@@ -1410,6 +1479,40 @@ def the_primary_mode_is_derived_upstream_only():
     for token in ("`primary_work_mode`", "`secondary_work_modes`"):
         if token not in intent:
             problems.append("the intent model omits %s" % token)
+    # The normative example inside RI-12 is itself a second location, and V3 found it still
+    # prescribing ANALYSIS while the exemplar returned UNKNOWN. Both are read, and compared.
+    if says("request-intent-model.md", "The normative worked case"):
+        problems.append("RI-12 carries no worked case of its own to check")
+    normative = {}
+    block = intent.split("**The normative worked case.**")
+    if len(block) > 1:
+        for line in block[1].split("\n\n")[0:6]:
+            for row in line.splitlines():
+                m = re.match(r"^\|\s*`(primary_work_mode|secondary_work_modes)`\s*\|(.+?)\|",
+                             row)
+                if m:
+                    normative[m.group(1)] = flat(m.group(2))
+    if normative.get("primary_work_mode", "").split()[0:1] != ["unknown"]:
+        problems.append("RI-12's normative case does not return UNKNOWN for an unprioritised "
+                        "two-result request: %r" % normative.get("primary_work_mode", "")[:60])
+    secondary = normative.get("secondary_work_modes", "")
+    if "analysis" not in secondary or "drafting" not in secondary:
+        problems.append("RI-12's normative case does not carry the complete applicable set: %r"
+                        % secondary[:60])
+    # And the exemplar must agree with it, rather than the two disagreeing quietly.
+    example2 = doc("exemplars.md")
+    if "Example 2" in example2:
+        body = flat(example2.split("## Example 2")[1].split("## Example 3")[0])
+        if "primary_work_mode is unknown" not in body:
+            problems.append("Example 2 does not return UNKNOWN for the same request shape")
+        if "analysis, drafting" not in body:
+            problems.append("Example 2 does not carry the complete applicable secondary set")
+    # No prose anywhere may pick a primary because one result precedes or enables another.
+    scan(re.compile(
+        r"`?primary_work_mode`?[^.|]{0,60}?(is|becomes|resolves to)[^.|]{0,20}?"
+        r"`?ANALYSIS`?[^.|]{0,60}?(because|since)[^.|]{0,40}?"
+        r"(first|precedes|before|central|substantive|core)", re.IGNORECASE),
+        "picks a primary mode from sequence or salience", problems)
     scan(re.compile(
         r"`?primary_work_mode`?[^.|]{0,80}?"
         r"(from|by|reads?|derived|determined|decided)[^.|]{0,50}?"
@@ -1467,6 +1570,18 @@ def the_load_bearing_test_precedes_any_reduction():
             "No conclusion the originally requested deliverable needs is left without an "
             "approved owner"):
         problems.append("G-20 is missing: an unowned conclusion could pass preflight")
+    owner_rows = [ln for ln in roles.splitlines()
+                  if ln.startswith("|") and "no approved role owns the conclusion" in flat(ln)]
+    if not owner_rows:
+        problems.append("RS-9 has no row for a conclusion with no approved owner")
+    for row in owner_rows:
+        low = flat(row)
+        if "block" not in low:
+            problems.append("RS-9's no-owner row does not block: %r" % row[:80])
+        if "f-14" not in low:
+            problems.append("RS-9's no-owner row does not name F-14: %r" % row[:80])
+        if "constrain" in low or "not_load_bearing" in low:
+            problems.append("RS-9's no-owner row routes through the F-5 branch: %r" % row[:80])
     scan(re.compile(
         r"(load.?bearing|not_load_bearing)[^.|]{0,80}?"
         r"(because|since|as)[^.|]{0,50}?(reduced|narrowed|constrained) deliverable",
@@ -1499,6 +1614,18 @@ def prerequisite_references_are_a_strict_tri_state():
     for state in ("`RESOLVED`", "`FUTURE_GOVERNANCE_REFERENCE`", "`UNKNOWN`"):
         if state not in handoff:
             problems.append("the prerequisite states omit %s" % state)
+    intake_rows = [ln for ln in doc("intent-work-planning-architecture.md").splitlines()
+                   if ln.startswith("| 7. Every declared prerequisite")]
+    if not intake_rows:
+        problems.append("the architecture does not map intake check 7")
+    for row in intake_rows:
+        low = flat(row)
+        if "future_governance_reference" not in low:
+            problems.append("intake check 7 does not name the deferred state")
+        if "blocks" not in low and "block" not in low:
+            problems.append("intake check 7 does not block a dangling reference: %r" % row[:90])
+        if re.search(r"unknown[^|]{0,60}(carried forward|declared future|deferred)", low):
+            problems.append("intake check 7 carries a plain UNKNOWN as a future reference")
     g19 = [ln for ln in doc("governance-preflight.md").splitlines()
            if ln.startswith("| **G-19**")]
     if not g19:
@@ -1521,6 +1648,89 @@ def prerequisite_references_are_a_strict_tri_state():
 
 check("handoff", "a prerequisite reference is resolved, declared future, or blocking",
       prerequisite_references_are_a_strict_tri_state)
+
+
+def an_unanswered_blocking_clarification_never_degrades():
+    """Blocker 4. C4 blocks. It does not quietly become a different, smaller act."""
+    problems = []
+    if says("clarification-policy.md", "C4 and C5 block"):
+        problems.append("CL-2 is missing")
+    if says("request-intent-model.md",
+            "ambiguity between `EXECUTE` and `PREPARE` on an irreversible act is material, and it"
+            "\nblocks"):
+        if says("request-intent-model.md", "on an irreversible act is material, and it"):
+            problems.append("RI-6 does not say the ambiguity blocks")
+    for phrase in ("There is **no default to `PREPARE`**",
+                   "the plan becomes **`BLOCKED`**",
+                   "that is a **new linked `Request`**"):
+        if says("request-intent-model.md", phrase):
+            problems.append("RI-6 omits %r" % phrase[:46])
+    # Nothing anywhere may turn an unanswered blocking question into a narrower act.
+    scan(re.compile(
+        r"(unanswered|unavailable|no (?:reply|answer)|if (?:it is )?not answered|"
+        r"where clarification is unavailable|times? out)[^.|]{0,70}?"
+        r"(degrades?|defaults?|falls? back|reverts?|is treated as|becomes?|proceeds? as)"
+        r"[^.|]{0,30}?(`?PREPARE`?|preparation|prepare only|draft only)", re.IGNORECASE),
+        "degrades an unanswered clarification to PREPARE", problems)
+    scan(re.compile(
+        r"(`?PREPARE`?|preparation)[^.|]{0,50}?"
+        r"(is the|as the|as a)[^.|]{0,20}?(safe )?(default|fallback|degraded mode)",
+        re.IGNORECASE),
+        "makes PREPARE a default or fallback", problems)
+    scan(re.compile(
+        r"(c4|blocking clarification|irreversible act)[^.|]{0,70}?"
+        r"(narrow\w*|reduc\w*|downgrad\w*)[^.|]{0,30}?(the act|the request|the plan)",
+        re.IGNORECASE),
+        "narrows the requested act instead of blocking", problems)
+    return (not problems, str(problems)[:400] if problems
+            else "C4 blocks; PREPARE is stated by the user, never chosen by the system")
+
+
+check("second-location", "an unanswered C4 blocks and never degrades to PREPARE",
+      an_unanswered_blocking_clarification_never_degrades)
+
+
+def criticality_is_never_lowered_by_wording():
+    """Escaped class 1. The band is raised by triggers and never relaxed by how a request reads."""
+    problems = []
+    if says("work-classification-and-criticality.md", "criticality raises and never lowers"):
+        problems.append("WC-2 is missing")
+    if says("work-classification-and-criticality.md", "a trigger fires on evidence, not on"):
+        problems.append("WC-4 is missing")
+    scan(re.compile(
+        r"(simple|simply worded|straightforward|routine-?sounding|casual|short|informal|"
+        r"ordinary|everyday)[^.|]{0,60}?(request|wording|phrasing|ask)[^.|]{0,60}?"
+        r"(lowers?|reduces?|relaxes?|downgrades?|means?|implies|is)[^.|]{0,40}?"
+        r"(routine|lower band|a lower|less critical|no triggers?)", re.IGNORECASE),
+        "lets wording lower the criticality band", problems)
+    scan(re.compile(
+        r"(band|criticality)[^.|]{0,60}?"
+        r"(may be|can be|is)[^.|]{0,20}?(lowered|reduced|relaxed|downgraded)", re.IGNORECASE),
+        "permits a band to be lowered", problems)
+    # The worked classification must keep saying that an unstated value proves nothing.
+    if says("work-classification-and-criticality.md",
+            "monetary value is one trigger among many, and its absence proves nothing"):
+        problems.append("WC-3 is missing: silence could read as low criticality")
+    classification = doc("work-classification-and-criticality.md")
+    value_rows = [ln for ln in classification.splitlines()
+                  if ln.startswith("| Value stated |")]
+    if not value_rows:
+        problems.append("the worked classification has no 'value stated' row")
+    for row in value_rows:
+        low = flat(row)
+        if "does not make it routine" not in low:
+            problems.append("the worked classification lets an unstated value read as Routine: "
+                            "%r" % row[:80])
+    band_rows = [ln for ln in classification.splitlines() if ln.startswith("| Band |")]
+    for row in band_rows:
+        if "routine" in flat(row) and "not" not in flat(row):
+            problems.append("the worked classification resolves to Routine: %r" % row[:80])
+    return (not problems, str(problems)[:400] if problems
+            else "bands rise on evidence; no wording, silence or tone lowers one")
+
+
+check("second-location", "no wording or silence lowers the criticality band",
+      criticality_is_never_lowered_by_wording)
 
 
 def the_self_check_inventory_matches_the_package():

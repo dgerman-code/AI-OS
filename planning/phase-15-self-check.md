@@ -88,7 +88,7 @@ capability instead of naming one, and then having no way to tell that the capabi
 
 1. **Whether the architecture is correct.** Whether the five functions are the right five, whether
    the seventeen records are the right seventeen, whether the five ambiguity classes carve the space
-   correctly, and whether the eighteen preflight checks are the right eighteen are questions for an
+   correctly, and whether the preflight checks are the right ones are questions for an
    independent review.
 2. **Whether the COMPOSE path can execute.** Open item **PO-4** is unresolved and is load-bearing:
    the approved intake check 1 requires a Workflow definition, and a Work Plan is not one. The
@@ -170,7 +170,7 @@ fact about this package's assurance, and §7 now says so.
 | # | Blocker | What was wrong | What it is now |
 |---:|---|---|---|
 | 1 | `TASK != WORK ITEM` was lost | The identity table gave the two objects a single shared row, implying neither belongs where the approved model puts it: a Task in the Workflow **definition**, unchanged by any run, and a Work Item in the **run** | Three rows, three objects, and `TASK != PLANNED WORK ITEM SPEC != WORK ITEM` stated on its own line in two documents. Scans reject the pairing and reject a Task created in a run |
-| 2 | Phase 11 was claimed to consume a spec | HO-14 said Phase 11 "reads it, re-validates it at intake, and creates `work_item.<id>`". No approved contract defines `PlannedWorkItemSpec` as an intake object, so that was a claim about behaviour nobody has approved | §3a states the boundary in full: Phase 15 may **produce** a spec; it crosses only where an approved execution-basis contract permits, **and none currently does**; the consumption semantics need explicit Phase 11 change control; COMPOSE stays non-executable under PO-4; MATCH keeps to the approved Workflow-based path. **HO-16**: a spec is not a bridge over PO-4. New open item **PO-12** |
+| 2 | A consumption claim with no approved basis | HO-14 described the approved Orchestrator handling the record at intake and creating a runtime identity from it. No approved contract defines `PlannedWorkItemSpec` as an intake object, so that was a claim about behaviour nobody has approved | §3a states the boundary in full: Phase 15 may **produce** a spec; it crosses only where an approved execution-basis contract permits, **and none currently does**; the consumption semantics need explicit Phase 11 change control; COMPOSE stays non-executable under PO-4; MATCH keeps to the approved Workflow-based path. **HO-16**: a spec is not a bridge over PO-4. New open item **PO-12** |
 | 3 | Spec generation preceded validation | Step 9a produced a spec before requirements and preflight, while HO-6 said a spec derives from a **validated** stage — a cycle | Step **12**, after validation, conditional on the execution path being eligible. **PL-8** states the ordering, and a check rejects any preflight rule that reads a spec |
 | 4 | `primary_work_mode` was derived downstream | The tie-break read plan stage dependency order, which does not exist when `WorkIntent` is built | Five ordered tests over the Request and stated intent fields only — stated priority, single end result, execution verb, main-clause target, else `UNKNOWN` with the **complete** set of applicable modes in `secondary_work_modes` (**RI-13**) |
 | 5 | The load-bearing example was circular | It removed the missing conclusion, called the remainder the deliverable, and concluded the removed conclusion had not been needed | **LB-0**: every test reads the **originally requested** deliverable, before any reduction. **LB-6**: a reduced deliverable is a consequence, never evidence. **RS-12 / RS-13** and new failure mode **F-14** separate *no approved owner* from *approved owner unavailable*; G-20 enforces it |
@@ -179,7 +179,7 @@ fact about this package's assurance, and §7 now says so.
 ### The exemplar that had to change its answer
 
 Example 2 — *"prepare a firm but professional response. I do not want to damage the relationship."* —
-previously produced a **constrained plan**. Under LB-0 it **blocks**: the user asked for a
+previously produced a narrower plan and offered it as the answer. Under LB-0 it **blocks**: the user asked for a
 communication-strategy conclusion in terms, no approved Role owns it, and the earlier reasoning
 reached CONSTRAIN only by narrowing the deliverable first and then reading the narrowed version as
 proof that nothing had been lost. The narrower plan is still shown, as what a **different** request
@@ -192,6 +192,46 @@ location. The validator gained two further repairs to its own machinery: a numbe
 a statement in its own right rather than being merged into its neighbours, and the forward half of
 the negation test now reads only as far as a row's answering cell.
 
+## 6c. What the V3 re-audit returned, and what was changed
+
+The V3 re-audit of `9b95c3e0025a4ca63c9ec425b68fddea68fa10de` returned **`FAIL`**, with credibility
+`HIGH` for its baseline-specific findings and **`LOW`** for this package's own validator assurance.
+Four blocking contradictions, and **8 of 30** second-location mutations escaping. Every one of the
+four was a place where V2 fixed a rule in its owner document and left an active contradiction
+somewhere else.
+
+| # | Blocker | What was wrong | What it is now |
+|---:|---|---|---|
+| 1 | The object model still had approved Phase 11 consuming a spec | The handoff contract said no approved contract consumes one; OM-16 and the record row said the Orchestrator reads it, re-validates it and instantiates from it | **OM-17** states the boundary as a table of five claims, three of them false-by-declaration. The record row's execution column reads **inert**. The withdrawn description is named as withdrawn rather than left implied |
+| 2 | The load-bearing basis was still circular in the schema | LB-0 and LB-6 were right; LB-3 and the `RoleRequirement` schema still prescribed the reduced deliverable *as* the `load_bearing_basis` | Two fields. `load_bearing_basis` reads **only** pre-reduction material; **`reduced_deliverable_basis`** is written only after an independent `NOT_LOAD_BEARING` and proves admissibility, never the determination. **LB-7** makes `NOT_LOAD_BEARING` a positive finding, never a residual; **LB-8** confines the second field |
+| 3 | RI-12's own example contradicted Example 2 | The rule's normative case still yielded `ANALYSIS` for the unprioritised analysis-plus-drafting request while the exemplar yielded `UNKNOWN` | RI-12 carries the worked case in full, test by test, and returns `primary_work_mode = UNKNOWN` with `secondary_work_modes = {ANALYSIS, DRAFTING}`. It says in terms why sequence, dependency and "feels central" are not tests. A check reads **both** tables and compares them |
+| 4 | RI-6 degraded an unanswered C4 to `PREPARE` | Which contradicted CL-2, and silently substituted a different act for the one the user asked for | RI-6 follows CL-2 exactly: `AWAITING_CLARIFICATION`, then `BLOCKED`. There is no default to `PREPARE`; a later preparation-only request is a **new linked `Request`**, decided by the user |
+
+### Stale reporting corrected
+
+The preflight count in §5 and the failure-mode count in the document map were left behind by V2 and
+are now unstated or derived rather than duplicated in prose; the EIB exemplar's closing line still
+said "four triggers"; Example 2's outcome was still described as a constrained plan in one place.
+
+**And a correction this package owes twice over:** both previous rounds reported that no separate
+Phase 12 unit suite existed. It does — `implementation/phase-12/tests`, 157 tests — and it passes.
+The claim came from listing one directory and was then repeated without being rechecked.
+
+### Assurance added in V3
+
+Two new checks and twelve new probes, each probe planted in a **fresh** second location rather than
+one an existing check already happened to cover. Five of the twelve came back `REDUNDANT` on their
+first run, and all five were closed **structurally** rather than by another phrase match: the worked
+classification's own value and band rows, the architecture's identity row for the spec, HO-6's own
+wording, RS-9's no-owner row, and the architecture's intake-check-7 row are now parsed and their
+cells checked. That is the pattern the V3 review asked for — invariants over table rows, not single
+sentences — and it is what the three prior rounds kept getting wrong.
+
+**One of those five redundancies was caused by the denial test itself**: the worked-classification
+row opens with the value "None", which the negation test read as a denial of the claim that
+followed. A cell's *value* is not an argument, and a scan cannot tell the difference — which is why
+that row is now read structurally instead.
+
 ## 7. Harness credibility
 
 **Not high, and the reasons are specific rather than modest.**
@@ -202,12 +242,14 @@ the negation test now reads only as far as a row's answering cell.
 2. **Text-consistency checks cannot test an architecture.** Every check here reads documents. None
    executes a planner, because there is no planner. A package can be perfectly self-consistent and
    architecturally wrong, and this harness would report `PASS`.
-3. **The pattern has now repeated inside Phase 15 itself, twice.** The first harness reported
-   32/32 and 28/28; an independent reader found five blockers and 12 escapes. The second reported
-   47/47 and 45/45; an independent reader found six blockers and four escapes, **four of the six
-   introduced by the first remediation**. A green board from this harness has twice meant nothing
-   about whether the architecture is right, and there is no reason to treat the third as different.
-   In Phases 12–14 the same pattern held.
+3. **The pattern has now repeated inside Phase 15 itself, three times.** 32/32 and 28/28 → five
+   blockers and 12 escapes. 47/47 and 45/45 → six blockers and four escapes, four of the six
+   introduced by the previous remediation. 53/53 and 61/61 → four blockers and eight escapes, every
+   one of the four a rule fixed in its owner document and left contradicted somewhere else. The V3
+   reviewer rated this validator's assurance **`LOW`**, and on that record the rating is correct. A
+   green board from this harness has three times meant nothing about whether the architecture is
+   right, and there is no reason to treat the fourth as different. In Phases 12–14 the same pattern
+   held.
 4. **The probes test the checks, not the architecture.** A high detection rate means the checks are
    load-bearing against the weakenings the same author thought to write. It says nothing about the
    weakenings nobody thought of, and those are the ones independent reviewers keep finding.
@@ -219,18 +261,32 @@ its first run.
 
 | Run | Result |
 |---|---|
-| `validation/phase_15_validation.py` | **53/53 PASS** on default, `--verbose` and `--json` |
-| `validation/phase_15_mutation_probes.py` | **61 probes, 61 DETECTED, 0 REDUNDANT, 0 ERROR** |
+| `validation/phase_15_validation.py` | **55/55 PASS** on default, `--verbose` and `--json` |
+| `validation/phase_15_mutation_probes.py` | **73 probes, 73 DETECTED, 0 REDUNDANT, 0 ERROR** |
 | Phase 8 validator | `119/119 PASS` |
 | Phase 9 validator | `277/277 PASS` |
 | Phase 10 validator | `145/147 PASS` — **inherited**, unchanged, not repaired here |
 | Phase 11 validator | `159/160 PASS` — **inherited**, unchanged, not repaired here |
 | Phase 12 validator | `55/55 PASS` |
+| Phase 12 unit suite — `implementation/phase-12/tests` | **157 tests, OK** (`python3 -m unittest discover -s implementation/phase-12/tests`) |
 | `git diff --check` | clean |
 | Containment | only `planning/`, `prompts/` and `validation/phase_15_*` differ from the merge base |
 
-There is no separate Phase 12 unit suite in this repository; `validation/phase_12_validation.py` is
-the whole of it, and it is reported above.
+**A correction to the two previous rounds' reporting.** Both said there was no separate Phase 12
+unit suite and that `validation/phase_12_validation.py` was the whole of it. That was wrong: the
+suite is at `implementation/phase-12/tests`, it is 157 tests, and it passes. The error came from
+looking only inside `validation/` — a claim made from one directory listing and repeated without
+being rechecked, which is the same failure mode as the architecture defects this package keeps
+finding.
+
+### V3: five probes came back REDUNDANT, and what that says
+
+Five of the twelve new probes were `REDUNDANT` on their first run — the worst first-run rate of the
+three rounds, and it is worth being plain about why. Every one of the five attacked a **fresh**
+second location rather than one an existing check already covered, which is exactly what the V3
+review asked for and exactly what the previous rounds' probe placement had been quietly avoiding. A
+probe set that keeps returning DETECTED while an independent reader keeps finding escapes was
+measuring its author's imagination, not the harness. All five are closed structurally.
 
 ### V2: three probes came back REDUNDANT, and three more validator defects
 
@@ -287,7 +343,7 @@ missing the word *nothing*.
 
 ## 9. Readiness
 
-This package is ready for an **independent architecture re-audit**, not for approval. The six V2
+This package is ready for an **independent architecture re-audit**, not for approval. The four V3
 blockers are closed and nothing here approves anything. The questions a re-auditor should press
 hardest:
 
@@ -302,7 +358,11 @@ hardest:
    its hardest question is now the one LB-0 makes load-bearing: what *was* the originally requested
    deliverable, as opposed to what the planner understood it to be? That reading is itself
    `AI_SUGGESTION`, and the predicate rests on it.
-4. **Whether the planning layer can stay a planning layer.** Every pressure on a system like this
+4. **Whether a rule fixed in one document stays fixed.** All four V3 blockers were a rule
+   corrected in its owner document and left contradicted in an active second location. Three rounds
+   have now produced that same shape. A reviewer should assume it is present again and look for it
+   first, in the documents this round touched least.
+5. **Whether the planning layer can stay a planning layer.** Every pressure on a system like this
    pushes it toward re-planning mid-run, remembering across requests, and turning repeated patterns
    into registry entries. The boundaries here are structural (HO-11, HO-12, WL-4) precisely because
    policy boundaries erode — and a reviewer should check whether they are structural enough.

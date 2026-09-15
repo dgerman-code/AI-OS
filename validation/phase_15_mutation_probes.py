@@ -218,7 +218,7 @@ PROBES = [
     # ---- the five remediated blockers, re-attacked ---------------------------------------
     ("a runtime Work Item is created before any run exists",
      "planning/work-plan-object-model.md",
-     "Phase 15 writes before any run exists, so it cannot own one, cannot pre-create one, and",
+     "Phase 15 writes before any run exists, so it cannot own a Work Item, cannot pre-create one, and",
      "Phase 15 creates the runtime Work Item for each validated stage, and",
      "PLANNED WORK ITEM SPEC != WORK ITEM"),
 
@@ -395,7 +395,7 @@ PROBES = [
     # ---- V2: the four classes that still escaped the re-audit -----------------------------
     ("a spec is described as a runtime Work Item, in the object model row",
      "planning/work-plan-object-model.md",
-     "| 16 | `PlannedWorkItemSpec` | What Phase 11 would need to instantiate a runtime Work Item | None. **Never a `work_item.<id>`** |",
+     "| 16 | `PlannedWorkItemSpec` | A non-runtime description of the work a **validated** plan stage implies | None. **Never a `work_item.<id>`**, never a Task |",
      "| 16 | `PlannedWorkItemSpec` | The runtime Work Item the planner creates for each stage | None |",
      "a spec is never a runtime Work Item"),
 
@@ -416,6 +416,80 @@ PROBES = [
      "| `primary_work_mode` | `DRAFTING` |",
      "| `work_mode` | `DRAFTING`, `ANALYSIS` |",
      "a Work Intent always carries a primary mode or UNKNOWN"),
+
+    # ---- V3: the four blockers, in second locations --------------------------------------
+    ("the object model reinstates current Phase 11 consumption",
+     "planning/work-plan-object-model.md",
+     "| Some currently approved execution-basis contract consumes that record | **False.** None does |",
+     "| Some currently approved execution-basis contract consumes that record | **True.** Phase 11 intake reads the spec and instantiates a Work Item from it |",
+     "no approved contract consumes a spec"),
+
+    ("the requirement schema prescribes the reduced deliverable as the basis",
+     "planning/role-skill-requirement-inference.md",
+     "| `load_bearing_basis` | The LB-1 conditions that fired, or the positive showing that none does — read **only** from the originally requested deliverable (LB-0, LB-3, LB-7). Never a reduced deliverable (LB-6) |",
+     "| `load_bearing_basis` | The LB-1 conditions that fired, or the reduced deliverable that survives (LB-2) |",
+     "the basis reads the original deliverable only"),
+
+    ("RI-12's own normative case picks ANALYSIS again",
+     "planning/request-intent-model.md",
+     "| `primary_work_mode` | **`UNKNOWN`** |",
+     "| `primary_work_mode` | **`ANALYSIS`** — the analysis comes first and is the substantive core |",
+     "RI-12 and Example 2 return the same result"),
+
+    ("an unanswered C4 degrades to PREPARE again",
+     "planning/request-intent-model.md",
+     "There is **no default to `PREPARE`**.",
+     "Where clarification is unavailable the plan degrades to `PREPARE` as a safe fallback.",
+     "C4 blocks, and never narrows the act"),
+
+    # ---- V3: the eight classes that escaped, each in a fresh second location -------------
+    ("a simply worded request is called Routine",
+     "planning/work-classification-and-criticality.md",
+     "| Value stated | None — and by WC-3 that does not make it Routine |",
+     "| Value stated | None — a simply worded request like this one is Routine |",
+     "wording never lowers a band"),
+
+    ("preflight lets a ReviewRequirement count as the review",
+     "planning/governance-preflight.md",
+     "| **G-8** | Every `ReviewRequirement` names an approved Review Profile, and **none is marked satisfied** |",
+     "| **G-8** | Every `ReviewRequirement` names an approved Review Profile and satisfies the review it names |",
+     "a requirement is never its own satisfaction"),
+
+    ("the identity table calls the spec a runtime Work Item",
+     ARCH,
+     "| **Planned Work Item Spec** | A Phase 15 planning record describing work a validated plan stage implies |",
+     "| **Planned Work Item Spec** | The runtime Work Item, created by the planner for each stage |",
+     "a spec is never a runtime Work Item"),
+
+    ("an exemplar has F-9 halt one stage and release the others",
+     "planning/exemplars.md",
+     "**F-9** blocks\nthe **plan**, before the handoff",
+     "**F-9** blocks\nthe affected stage and lets later stages proceed",
+     "F-9 is plan-level; Phase 15 controls no stage"),
+
+    ("the object model says a Task is created inside a run",
+     "planning/work-plan-object-model.md",
+     "and a **Task / Activity** is what the approved Workflow definition says is to be done,\nunchanged by any run",
+     "and a **Task / Activity** is created by the Orchestrator inside a run, rather than by a definition\nunchanged by any run",
+     "a Task belongs to the definition"),
+
+    ("HO-6 lets a spec be derived before validation",
+     "planning/orchestrator-handoff-contract.md",
+     "A spec is derived only from a **validated** plan stage bound to approved definitions —",
+     "A spec is derived from each draft plan stage as soon as it is composed —",
+     "validate, then specify"),
+
+    ("RS-9 routes the no-owner case to a constrained plan",
+     "planning/role-skill-requirement-inference.md",
+     "| No approved Role owns the conclusion **and the originally requested deliverable requires it** | **BLOCK** — `NO_APPROVED_ROLE_OWNS_CONCLUSION` (F-14) + escalate.",
+     "| No approved Role owns the conclusion | **CONSTRAIN** under F-5 with `load_bearing = NOT_LOAD_BEARING`.",
+     "no approved owner is F-14 BLOCK"),
+
+    ("the architecture's intake row admits a plain UNKNOWN prerequisite",
+     ARCH,
+     "and a plain `UNKNOWN` is a dangling reference, which **blocks**",
+     "and a plain `UNKNOWN` is carried forward as a declared future reference",
+     "prerequisites are a strict tri-state"),
 ]
 
 #: Checks that read repository state (git history, untracked files) rather than package content.
