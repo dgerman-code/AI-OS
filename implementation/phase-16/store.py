@@ -1,16 +1,9 @@
 """Phase 16 — in-memory reference store for basis issuance, lineage and trigger idempotency.
 
 Status: PROPOSED. In-memory only. No database, no migration, no persistence configuration, no
-Supabase, no deployment. It exists to make the issuance, integrity, version, lineage and
-duplicate-trigger invariants testable, not to be a storage layer.
-
-WHAT CHANGED AND WHY. The first version stored MUTABLE bases and handed the same object back to
-every caller, so "the issued basis" and "whatever the last holder edited" were the same thing:
-a holder could flip a STALE basis back to EXECUTABLE, repoint its scope, or drop a review
-requirement, and no downstream check could tell. The store now keeps IMMUTABLE SNAPSHOTS and a
-SEAL taken at issue. `issued()` is the only authority on what was issued, a transition writes a
-new snapshot beside the old one rather than over it, and the trigger builder verifies a
-presented basis against the seal instead of trusting the object it was handed.
+Supabase, no deployment. It exists to make issuance, integrity, lineage and replay invariants
+testable. An Execution Basis is issuable only if the actual Phase 16 preflight produced that exact
+immutable object and its one-time provenance has not been consumed.
 """
 
 from __future__ import annotations
@@ -21,8 +14,6 @@ from domain import ActivationError, BasisStatus, ExecutionBasis, GovernanceError
 
 
 class _Issued:
-    """One issued basis: the snapshot exactly as issued, its seal, and its lifecycle."""
-
     __slots__ = ("payload", "seal", "status", "superseded_by", "stale_reason", "transitions")
 
     def __init__(self, payload: ExecutionBasis):
@@ -34,7 +25,6 @@ class _Issued:
         self.transitions: List[str] = [payload.status.value]
 
     def snapshot(self) -> ExecutionBasis:
-        """The issued payload at its current lifecycle status. A new object every time."""
         return self.payload.with_status(self.status)
 
     def _transition(self, status: BasisStatus) -> None:
@@ -49,29 +39,34 @@ class ActivationStore:
         self._triggers: Dict[str, str] = {}
         self._candidates: List[dict] = []
 
-    # -- execution bases ---------------------------------------------------------------------
-
     def issue(self, basis: ExecutionBasis) -> ExecutionBasis:
-        """Issue a candidate basis, superseding any live basis for the same request.
+        """Issue only an exact, one-time successful-preflight output.
 
-        Superseding is not deletion: the prior basis stays readable, in SUPERSEDED, with the
-        reference of the one that replaced it. Governed history is append-only.
+        Sealing arbitrary caller input is not validation. The private provenance consumed below
+        proves only that the actual Phase 16 preflight returned this exact basis object after all
+        blocking checks passed. It is not approval, authority or a Decision Right.
         """
+        from preflight import _consume_issuance_provenance
+
+        if basis.status is not BasisStatus.EXECUTABLE:
+            raise ActivationError("only an EXECUTABLE successful-preflight basis is issuable")
         if basis.is_approval or basis.is_authority:
             raise GovernanceError(
                 "an Execution Basis is neither an approval nor an authority; a candidate "
                 "claiming to be one is refused rather than stored")
-        # Versioning follows the LATEST basis for the request, whatever its status. Reading only
-        # the live one lost the lineage the moment a basis went STALE: the replacement started
-        # again at v1 with no supersedes link, which is exactly the history a governed record
-        # may not lose.
+
+        request_id, digest, seal = _consume_issuance_provenance(basis)
+        if request_id != basis.request_id or digest != basis.planning_digest \
+                or seal != basis.payload_seal():
+            raise ActivationError("preflight provenance and basis payload diverged before issuance")
+
         previous = self._latest(basis.request_id)
         version = 1
         supersedes = None
         if previous is not None:
             if previous.payload.planning_digest == basis.planning_digest \
                     and previous.status in (BasisStatus.VALIDATED, BasisStatus.EXECUTABLE):
-                return previous.snapshot()     # idempotent reuse: same request, same version
+                return previous.snapshot()
             version = previous.payload.version + 1
             supersedes = previous.payload.ref
 
@@ -85,17 +80,10 @@ class ActivationStore:
         return issued.snapshot()
 
     def issued(self, ref: str) -> Optional[ExecutionBasis]:
-        """What was issued at this ref, at its current status, or None if nothing ever was."""
         entry = self._issued.get(ref)
         return entry.snapshot() if entry else None
 
     def verify(self, basis: ExecutionBasis) -> Tuple[bool, str]:
-        """Is this object the basis the store issued, unedited? (ok, why-not).
-
-        This is the whole answer to a fabricated or tampered basis. It compares the presented
-        object's seal with the seal taken at issue, so an edit to any sealed field - scope,
-        digest, spec version, requirements, the false authority flags - fails here by evidence.
-        """
         entry = self._issued.get(basis.ref)
         if entry is None:
             return False, ("no Execution Basis was ever issued at %s; a basis that the store "
@@ -116,7 +104,6 @@ class ActivationStore:
         return self._issued[refs[-1]] if refs else None
 
     def latest_basis(self, request_id: str) -> Optional[ExecutionBasis]:
-        """The most recently issued basis for the request, whatever its status."""
         entry = self._latest(request_id)
         return entry.snapshot() if entry else None
 
@@ -131,14 +118,12 @@ class ActivationStore:
         return tuple(self._issued[r].snapshot() for r in self._by_request.get(request_id, []))
 
     def lineage(self, request_id: str) -> Tuple[Tuple[str, str, Optional[str]], ...]:
-        """(ref, current status, superseded-by) per issued basis, oldest first."""
         return tuple(
             (self._issued[r].payload.ref, self._issued[r].status.value,
              self._issued[r].superseded_by)
             for r in self._by_request.get(request_id, []))
 
     def invalidate_on_material_change(self, request_id: str, new_digest: str) -> List[str]:
-        """Any live basis issued against different planning inputs becomes STALE."""
         stale: List[str] = []
         for ref in self._by_request.get(request_id, []):
             entry = self._issued[ref]
@@ -149,10 +134,7 @@ class ActivationStore:
                 stale.append(ref)
         return stale
 
-    # -- triggers ----------------------------------------------------------------------------
-
     def record_trigger(self, idempotency_key: str, basis_ref: str) -> Tuple[str, bool]:
-        """Returns (run lineage id, created). A repeat under the same key creates nothing."""
         if basis_ref not in self._issued:
             raise ActivationError(
                 "a trigger may not be recorded against a basis that was never issued: %s"
@@ -163,14 +145,7 @@ class ActivationStore:
         self._triggers[idempotency_key] = lineage
         return lineage, True
 
-    # -- workflow candidates -----------------------------------------------------------------
-
     def observe_composed_pattern(self, signature: str, work_plan_ref: str) -> Optional[dict]:
-        """A repeated COMPOSE shape may emit a PROPOSED candidate. It promotes nothing.
-
-        There is no method on this store that registers a Workflow, and none that sets a
-        candidate to APPROVED. That is by construction, not by policy.
-        """
         for candidate in self._candidates:
             if candidate["signature"] == signature:
                 candidate["observed_plans"].append(work_plan_ref)
