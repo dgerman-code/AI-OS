@@ -1,6 +1,6 @@
 {
   "schema": "ai-os-manifest/v1",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "mode": "A",
   "mode_b_status": "DEFERRED",
   "repository": "dgerman-code/AI-OS",
@@ -22,6 +22,16 @@
     "architecture": "planning",
     "activation": "planner-activation",
     "orchestrator": "orchestration"
+  },
+  "conversational_operation": {
+    "model": "docs/CONVERSATIONAL_OPERATION_MODEL.md",
+    "default_resolution": "FAST_TASK_RESOLUTION_AFTER_BOOTSTRAP",
+    "default_output_mode": "NORMAL",
+    "available_output_modes": ["NORMAL", "EXPLAIN", "AUDIT"],
+    "role_activation_rule": "Re-resolve the minimum sufficient Role set for every substantive task; prior Role use does not keep a Role permanently active.",
+    "context_rule": "Conversation history may support non-canonical working continuity, including project resumption after unrelated detours, but governed sources override chat state.",
+    "workflow_match_rule": "Semantic fit does not establish MATCH. MATCH requires admissibility; failed admissibility must remain non-MATCH and a matched Workflow may not be silently modified.",
+    "next_step_rule": "Substantive answers should normally recommend one best next step without implying human authority."
   },
   "approvals": {
     "records": "reviews",
@@ -53,11 +63,15 @@
   "change_control_rule": "Semantic changes to approved AI-OS baselines require governed change control and applicable human approval.",
   "skill_eligibility_rule": "Skill card existence or applicability is not individual approval. Eligibility must be established from explicit governed approval evidence and otherwise fails closed.",
   "canonical_source_rule": "GitHub repository content at the reported ref/commit is canonical for Mode A; provider memory and chat output are not canonical unless governed into the repository.",
+  "user_output_rule": "Normal conversation should expose the useful answer, not internal governance mechanics. Raw envelope JSON, SHA/ref, internal IDs and diagnostics are shown only when requested or materially necessary.",
   "prohibited_assumptions": [
     "Do not infer approval from card existence, mention, applicability or architecture approval.",
     "Do not infer authority from successful analysis, planning, validation or execution.",
     "Do not change Role, Workflow, Skill, Review Profile or Decision Right semantics per provider.",
     "Do not treat provider memory or conversation state as canonical AI-OS state.",
+    "Do not report MATCH solely from semantic fit when Workflow admissibility fails.",
+    "Do not silently add Roles, stages, reviews or gates to a matched Workflow while retaining MATCH status.",
+    "Do not expose raw governance/debug output by default when a concise user-facing answer is sufficient.",
     "Mode B is deferred. Do not implement Mode B model API calling, provider routing, retries, queues, billing or key management in Mode A."
   ]
 }
