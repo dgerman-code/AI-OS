@@ -516,13 +516,47 @@ def the_filter_and_diagnostic_schemas_agree_exactly():
         return False, str(problems)
     filter_ns = contract.split("## 4a.")[1].split("## 4b.")[0]
     risks_ns = contract.split("## 4b.")[1].split("## 5.")[0]
-    declared = re.findall(r'"([A-Z_]+)":', filter_ns)
-    for expected in owned:
-        if expected not in declared:
-            problems.append("the diagnostic's filter namespace omits %s" % expected)
-    for found in declared:
-        if found not in owned:
-            problems.append("the diagnostic's filter namespace invents %s" % found)
+
+    def serialized_keys(text, block_marker="\"components\": {"):
+        """The keys of the components object, in the order they are written.
+
+        Name-membership was the hole: the old scan matched only `"([A-Z_]+)":`, so it compared
+        the diagnostic's UPPER-CASE keys against UPPER-CASE factor labels and never looked at the
+        owner document's JSON at all - which serializes lower case. Two documents claiming exact
+        structural identity disagreed on every key's case, and the check could not see it."""
+        if block_marker not in text:
+            return None
+        block = text.split(block_marker)[1].split("}")[0]
+        return re.findall(r'"([A-Za-z_]+)"\s*:', block)
+
+    owner_keys = serialized_keys(doc("communication-control-filter.md"))
+    diagnostic_keys = serialized_keys(filter_ns)
+    if owner_keys is None:
+        problems.append("the filter document serializes no components object")
+    elif diagnostic_keys is None:
+        problems.append("the diagnostic's filter namespace serializes no components object")
+    elif owner_keys != diagnostic_keys:
+        problems.append("the two components objects are not the same key set in the same order: "
+                        "owner=%s diagnostic=%s" % (owner_keys, diagnostic_keys))
+    if owner_keys is not None:
+        if [k.upper() for k in owner_keys] != owned:
+            problems.append("the serialized keys do not match the ten declared factors, in order: "
+                            "%s vs %s" % (owner_keys, owned))
+        wrong_case = [k for k in owner_keys if k != k.lower()]
+        if wrong_case:
+            problems.append("serialized keys are not the canonical lower-case form: %s"
+                            % wrong_case)
+    # The derived block must agree exactly too, in the same way.
+    owner_derived = serialized_keys(doc("communication-control-filter.md"), '"derived": {')
+    diagnostic_derived = serialized_keys(filter_ns, '"derived": {')
+    if owner_derived != diagnostic_derived:
+        problems.append("the derived objects disagree: owner=%s diagnostic=%s"
+                        % (owner_derived, diagnostic_derived))
+    if says("conversation-diagnostics-contract.md", "display labels are not JSON keys"):
+        problems.append("DC-11a is missing: labels and keys are not distinguished")
+    if says("communication-control-filter.md",
+            "Display labels and serialized keys are different things"):
+        problems.append("the filter document does not distinguish labels from keys")
     # The risk namespace must not carry a filter factor name.
     # Case-insensitively: a factor smuggled into the risk namespace in its own casing is the
     # same collision, and a lowercase-only scan was blind to exactly that.
@@ -928,14 +962,146 @@ check("governance", "the Role never overrides another domain's substantive concl
       the_role_never_overrides_a_substantive_conclusion)
 
 
+def external_release_never_branches_on_publicity():
+    """Blocker 1. One rule: release outside the entity under its name -> external_publication."""
+    problems = []
+    if says("decision-right-gap-analysis.md",
+            "publicity is not a discriminator, and no document may make it one"):
+        problems.append("DG-2a is missing")
+    if says("decision-right-gap-analysis.md",
+            "additional Rights add, they never substitute"):
+        problems.append("DG-2 is missing")
+    # No active statement may route a private communication away from the release Right.
+    split = re.compile(
+        r"(`?decision\.external_publication`?|release right)[^.|]{0,60}?"
+        r"(for public|where public|when public|if public|public content)", re.IGNORECASE)
+    otherwise = re.compile(
+        r"(public|published|publicity)[^.|]{0,60}?"
+        r"(and|,)[^.|]{0,40}?(the applicable|another|a different)[^.|]{0,40}?"
+        r"right[^.|]{0,20}?otherwise", re.IGNORECASE)
+    private_elsewhere = re.compile(
+        r"(private|non-?public|one recipient|single recipient)[^.|]{0,70}?"
+        r"(resolves?|routes? to|uses?|requires?|is gated by)[^.|]{0,40}?"
+        r"(?!`?decision\.external_publication`?)`?decision\.[a-z_]+`?", re.IGNORECASE)
+    for name in DOCS:
+        for i, sentence in statements(name):
+            if CORRECTIVE.search(sentence):
+                continue
+            for pattern, message in ((split, "resolves the release Right only for public content"),
+                                     (otherwise, "offers a public/otherwise Right split"),
+                                     (private_elsewhere,
+                                      "routes a private communication to a different Right")):
+                if pattern.search(sentence):
+                    problems.append("%s:%d %s" % (name, i, message))
+    # And the withdrawn Right stays withdrawn; no replacement is invented.
+    for invented in ("decision.communication_send", "decision.external_communication_send"):
+        for name in DOCS:
+            if invented in doc(name):
+                problems.append("%s invents %s" % (name, invented))
+    return (not problems, str(problems)[:400] if problems
+            else "one release Right, publicity-blind, with additive Rights that never substitute")
+
+
+check("rights", "external release resolves one Right and never branches on publicity",
+      external_release_never_branches_on_publicity)
+
+
+def mandatory_review_is_decided_by_rc5_not_by_transmission():
+    """Blocker 2. A gate is removed by silence; a review is not."""
+    problems = []
+    if says("workflow-thread-diagnostics.md",
+            "producing nothing transmissible removes the gate, not the review"):
+        problems.append("TD-2 is missing: a read-only diagnostic could skip a triggered review")
+    if says("workflow-thread-diagnostics.md", "self-review is prohibited here as everywhere"):
+        problems.append("TD-3 is missing")
+    if says("workflow-difficult-interaction-response.md",
+            "a gate and a review are removed by different things"):
+        problems.append("DIR-1 is missing: a branch could skip a triggered review")
+    diagnostics = doc("workflow-thread-diagnostics.md")
+    if "review.communication_strategy@0.1" not in diagnostics:
+        problems.append("the diagnostic workflow references no review at all")
+    if "RC-5" not in diagnostics:
+        problems.append("the diagnostic workflow does not key its review on RC-5")
+    # The retired formulation, and any equivalent, must not survive.
+    conflates = re.compile(
+        r"(carries no review|carries none|needs no review|review is not required|"
+        r"not subject to review|no review is required)[^.|]{0,50}?"
+        r"(because|since|as)[^.|]{0,30}?"
+        r"(transmit\w*|transmissible|external act|nothing is sent)", re.IGNORECASE)
+    skips = re.compile(
+        r"(S6[–\-]S10|S10)\s+(?:are |is )?(skipped|not entered|bypassed|omitted)",
+        re.IGNORECASE)
+    denied = re.compile(r"\b(never|not|no longer|cannot|may not|must not)\b", re.IGNORECASE)
+    for name in DOCS:
+        for i, sentence in statements(name):
+            if CORRECTIVE.search(sentence):
+                continue
+            if conflates.search(sentence):
+                problems.append("%s:%d removes a review because nothing is transmitted"
+                                % (name, i))
+            m = skips.search(sentence)
+            # "S10 is never skipped by this branch" states the rule; only an unnegated skip is a
+            # defect, and the denial has to govern the verb rather than sit anywhere in the text.
+            if m and not denied.search(sentence[max(0, m.start() - 40):m.end()]):
+                problems.append("%s:%d skips the required-review stage" % (name, i))
+    return (not problems, str(problems)[:400] if problems
+            else "RC-5 decides review applicability; transmission decides only the gate")
+
+
+check("review", "mandatory review is decided by RC-5, never by whether anything is transmitted",
+      mandatory_review_is_decided_by_rc5_not_by_transmission)
+
+
+def authority_never_cures_an_unsatisfied_review():
+    """Blocker 3. Two separate governance objects, and no exception spanning both."""
+    problems = []
+    if says("workflow-difficult-interaction-response.md",
+            "authority and review satisfaction are separate, and neither cures the other"):
+        problems.append("DIR-2 is missing")
+    if says("workflow-formal-escalation.md",
+            "a Decision Right does not cure an unsatisfied review or an open critical finding"):
+        problems.append("FE-1 is missing")
+    for name in ("workflow-difficult-interaction-response.md", "workflow-formal-escalation.md"):
+        body = flat(doc(name))
+        if "every mandatory review" not in body or "every applicable decision right" not in body:
+            problems.append("%s does not require both, separately, for terminal progression"
+                            % name)
+    # The overbroad exception, in any wording.
+    cures = re.compile(
+        r"(unsatisfied review|unresolved `?CRITICAL_FINDING`?|critical finding|"
+        r"triggered review)[^.|]{0,90}?"
+        r"(unless|where|if)[^.|]{0,60}?(decision right|named external human)", re.IGNORECASE)
+    cures_reverse = re.compile(
+        r"(decision right|named external human[^.|]{0,20}right)[^.|]{0,80}?"
+        r"(permits?|allows?|authorises?)[^.|]{0,50}?"
+        r"(progression|exit|proceed)[^.|]{0,50}?"
+        r"(unresolved|unsatisfied|open (?:critical )?finding)", re.IGNORECASE)
+    for name in DOCS:
+        for i, sentence in statements(name):
+            if CORRECTIVE.search(sentence):
+                continue
+            if cures.search(sentence) or cures_reverse.search(sentence):
+                problems.append("%s:%d lets a Decision Right cure an unsatisfied review or an "
+                                "open critical finding" % (name, i))
+    return (not problems, str(problems)[:400] if problems
+            else "review satisfaction and Decision Rights are separate, and both are required")
+
+
+check("review", "a Decision Right never cures an unsatisfied review or an open critical finding",
+      authority_never_cures_an_unsatisfied_review)
+
+
 def the_harness_contains_no_vacuous_check():
     """A check that cannot fail is a check that proves nothing."""
     source = open(os.path.abspath(__file__), encoding="utf-8").read()
     bodies = re.findall(r"\ndef ([a-z0-9_]+)\(\):\n(.*?)(?=\ndef |\ncheck\()", source, re.S)
     vacuous = [n for n, b in bodies
                if "return True" in b and "problems" not in b and "missing" not in b]
+    # len(RESULTS) counts only the checks registered BEFORE this one runs, so the evidence line
+    # reported a total that was always short. The registered checks are counted from the source.
+    registered = len(re.findall(r"(?m)^check\(", source))
     return (not vacuous, str(vacuous) if vacuous
-            else "%d checks, none unconditionally passing" % len(RESULTS))
+            else "%d checks, none unconditionally passing" % registered)
 
 
 check("governance", "the harness contains no vacuous or unconditional-pass check",

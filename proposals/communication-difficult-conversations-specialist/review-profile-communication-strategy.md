@@ -224,8 +224,12 @@ before transfer.
 ## Decision Right Boundary
 
 This review **informs** the applicable transmission Right resolved by
-`decision-right-gap-analysis.md` §4 — in practice `decision.external_publication` for public
-content, and the applicable submission, disclosure, transmission or commitment Right otherwise.
+`decision-right-gap-analysis.md` §4. That resolution does not branch on publicity: **any release
+of a content item outside the entity under the entity's name resolves
+`decision.external_publication`**, whether the audience is the public or one named recipient.
+Submission, disclosure, transmission and commitment Rights apply **in addition** where the act is
+also one of those things, never instead of the release Right because the communication happens to
+be private (DG-1, DG-2, DG-3).
 
 It **neither exercises nor satisfies** that Right. A satisfied communication review is an input a
 decider may rely on; it is not the decision, and no combination of satisfied reviews substitutes

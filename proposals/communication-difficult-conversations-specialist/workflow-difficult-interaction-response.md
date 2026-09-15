@@ -292,9 +292,12 @@ mapping exists, an instance of this Workflow is not executable in a governed run
   `human_gate_status: AUTHORITY_ABSENT`, block and escalate (DG-5, DG-5a)
 - **Artifact Contributions:** none
 - **Knowledge-State Expectations:** unchanged. A decision does not promote the draft
-- **Gate / Review References:** `GATE_REFERENCE` the resolved `decision.<id>`; in practice
-  `decision.external_publication` for public content, and the applicable submission, disclosure,
-  transmission or commitment Right otherwise
+- **Gate / Review References:** `GATE_REFERENCE` the resolved `decision.<id>`. The rule is one
+  rule, and it does not branch on publicity: **any release of a content item outside the entity
+  under the entity's name resolves `decision.external_publication`** — a public statement, a
+  private letter and a one-recipient email alike. Where the act is *also* a submission, a
+  disclosure, a transmission of personal data or a contractual act, the applicable Right applies
+  **in addition** and never instead (`decision-right-gap-analysis.md` §4 and §5; DG-1, DG-2, DG-3)
 - **Exit Criteria:** a Decision Record exists for **this** draft at **this** version, for **this**
   audience and channel — or the instance is `BLOCKED`
 - **Possible Outcomes:** `COMPLETE`, `BLOCKED`, `ESCALATED`, `CANCELLED`
@@ -316,10 +319,19 @@ mapping exists, an instance of this Workflow is not executable in a governed run
 
 ## Branches / Exception Paths
 
-- `BRANCH` **Non-response.** Where S5 decides not to respond, S6–S10 are skipped and the instance
-  proceeds to S12. The non-response is recorded with its reason. It is a decision, not an absence.
+- `BRANCH` **Non-response.** Where S5 decides not to respond, S7–S9 are skipped — there is no draft
+  to produce, vary or filter — and the instance proceeds through **S6 and S10 where they apply** to
+  S12. The non-response is recorded with its reason. It is a decision, not an absence, and it is a
+  decision `review.communication_strategy@0.1` reviews whenever an RC-5 condition holds.
+  **S10 is never skipped by this branch.** Review applicability is decided by RC-5, not by whether
+  anything is transmitted (RC-5a, `workflow-thread-diagnostics.md` TD-2): a non-response that
+  carries another Role's conclusion (RC-5.2), states a consequential position by staying silent
+  (RC-5.3) or sits at high or critical stakes (RC-5.1) is reviewed like any other strategy. S6
+  likewise runs where a substantive owner's input is needed to decide **not** to answer.
 - `BRANCH` **Document only.** Where S5 decides to document without responding, S7–S8 produce an
-  internal record rather than a message; S11 is not entered because no external act occurs.
+  internal record rather than a message; **S10 applies exactly as RC-5 requires**, and S11 is not
+  entered because no external act occurs. The absence of a transmission removes the *gate*, never
+  the *review*.
 - `BRANCH` **Channel shift.** Where S5 moves the channel, the strategy records the move and the
   draft is produced for the new channel.
 - `EXCEPTION_PATH` **Material fact in a hostile message.** S2 escalates to the substantive owning
@@ -340,6 +352,15 @@ mapping exists, an instance of this Workflow is not executable in a governed run
 non-response and document-only branches do not skip S11 by exemption: they skip it because no
 external act occurs, and the moment one is contemplated, S11 applies.
 
+**Rule DIR-1 — a gate and a review are removed by different things, and only one of them by
+silence.** S11 is about an external act: where none occurs, there is nothing to authorise, and
+`human_gate_status` is `NOT_APPLICABLE`. S10 is about the professional quality of a conclusion the
+Role owns: it is decided by RC-5, which asks what the work *carries* and what is at stake, not
+whether anything leaves the entity. **No branch, posture or exception path in this Workflow skips
+S10 where an RC-5 condition holds**, and an earlier revision of the non-response branch did exactly
+that by skipping S6–S10 together. Self-review remains prohibited on every path (S10's participating
+Roles: the lead Role is the producer and is ineligible to review).
+
 ## Rework Rules
 
 `REWORK_LOOP` — S8 → S7 on a strategy defect; S9 → S8 on a filter failure; S10 → S7 or S8 on a
@@ -353,10 +374,27 @@ For the terminal gate at S11, the following are `MATERIAL_TO_NEXT_STEP_OR_GATE`:
 placeholder; a missing or stale substantive conclusion; an unsatisfied triggered review; an
 unresolved `CRITICAL_FINDING`; an unresolved disclosure basis; and an unresolved
 `CONFLICT_DETECTED`. A material item cannot support a `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS`
-exit — the outcome is `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED` unless a **named external human
-Decision Right** explicitly permits progression with that item unresolved. Where that exception
-applies, the gate reference is recorded and the item stays open; this Workflow neither decides the
-waiver nor asserts it was granted.
+exit: the outcome is `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED`.
+
+**Rule DIR-2 — authority and review satisfaction are separate, and neither cures the other.**
+An earlier revision of this section allowed terminal progression with **any** material item
+unresolved where a named external human Decision Right permitted it. That exception was too broad
+in the one direction that matters: it let an exercised Right stand in for an unsatisfied review or
+an unresolved `CRITICAL_FINDING`, which are not authority questions at all.
+
+| Item | Curable by a Decision Right? |
+|---|---|
+| An unsatisfied triggered review | **No.** A review is satisfied by a reviewer under its Profile, and by nothing else. No Right, no Role and no combination of both substitutes (`review-profile-communication-strategy.md` §Decision Right Boundary, DG-8) |
+| An unresolved `CRITICAL_FINDING` | **No.** A finding is closed by being resolved or withdrawn by the review that raised it. A decision to proceed anyway is a decision taken *with an open critical finding*, and it does not close it |
+| A missing or stale substantive conclusion | **No.** The owning Role supplies it |
+| An unresolved disclosure basis | **No.** It is established or the record may not be used |
+| An unresolved `CONFLICT_DETECTED` | **No.** It is resolved by the owning Roles |
+| An unresolved **placeholder** in the draft | **Yes, narrowly** — where the holder of the applicable Right decides, on the record, to proceed with that specific placeholder open. The reference is recorded and the item stays open |
+
+**Terminal progression requires both, separately:** every mandatory review condition satisfied
+under the approved review contract, **and** every applicable Decision Right resolved. Satisfying
+one never discharges the other, and this Workflow neither decides a waiver nor asserts one was
+granted.
 
 ## Completion Criteria
 
@@ -391,7 +429,7 @@ not transmit anything; and does not alter the artifact ownership of any particip
 Its specific leakage risks, written against this pattern rather than as boilerplate: **(a)** the
 lead Role improving a supplied conclusion while rephrasing it; **(b)** the filter score at S9
 being read as a release approval; **(c)** the non-response branch being used to skip S11 when a
-message is in fact sent later; **(d)** a conditionally activated reviewer at S10 also having been
+message is in fact sent later, or to skip S10 when RC-5 fires on the strategy itself (DIR-1); **(d)** a conditionally activated reviewer at S10 also having been
 a contributor at S6 on the same dimension. Each is a defect, not a permitted shortcut.
 
 ## Criticality Scaling

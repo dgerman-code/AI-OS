@@ -76,7 +76,7 @@ PROBES = [
 
     ("a read-only diagnosis is made to report AUTHORITY_ABSENT",
      "workflow-thread-diagnostics.md",
-     "diagnostic records `human_gate_status: NOT_APPLICABLE` with\n  `human_gate_reason: NO_EXTERNAL_ACT_CONTEMPLATED` — **never** `AUTHORITY_ABSENT`, which would\n  claim an authority is missing where none is required (DC-7, DC-7a)",
+     "`human_gate_status: NOT_APPLICABLE` with `human_gate_reason: NO_EXTERNAL_ACT_CONTEMPLATED` —\n  **never** `AUTHORITY_ABSENT`, which would claim an authority is missing where none is required\n  (DC-7, DC-7a)",
      "diagnostic records `human_gate_status: AUTHORITY_ABSENT` because no Decision Right resolves",
      "no external act, no gate"),
 
@@ -88,20 +88,20 @@ PROBES = [
 
     ("the diagnostic filter namespace loses a factor",
      "conversation-diagnostics-contract.md",
-     '"DEFENSIVENESS": 0, "CONTROL": 0, "RELEVANCE": 0, "ESCALATION": 0, "NEXT_STEP": 0',
-     '"DEFENSIVENESS": 0, "CONTROL": 0, "RELEVANCE": 0, "ESCALATION": 0',
+     '"defensiveness": 0, "control": 0, "relevance": 0, "escalation": 0, "next_step": 0',
+     '"defensiveness": 0, "control": 0, "relevance": 0, "escalation": 0',
      "the filter has one field set"),
 
     ("the diagnostic filter namespace invents a factor",
      "conversation-diagnostics-contract.md",
-     '"GOAL": 0, "EMOTION": 0, "CLARITY": 0, "BREVITY": 0, "BOUNDARY": 0,',
-     '"GOAL": 0, "EMOTION": 0, "CLARITY": 0, "BREVITY": 0, "BOUNDARY": 0, "TONE": 0,',
+     '"goal": 0, "emotion": 0, "clarity": 0, "brevity": 0, "boundary": 0,',
+     '"goal": 0, "emotion": 0, "clarity": 0, "brevity": 0, "boundary": 0, "tone": 0,',
      "the diagnostic invents no competing rubric"),
 
     ("the risk namespace reuses a filter factor name",
      "conversation-diagnostics-contract.md",
      '  "legal_sensitivity": 0,\n  "reputational_exposure": 0,',
-     '  "legal_sensitivity": 0,\n  "CLARITY": 0,\n  "reputational_exposure": 0,',
+     '  "legal_sensitivity": 0,\n  "clarity": 0,\n  "reputational_exposure": 0,',
      "two namespaces, no collision"),
 
     ("a filter score is allowed to satisfy a review",
@@ -225,6 +225,43 @@ PROBES = [
      "are recorded here as decided. The rest are recorded, not resolved: each requires a governance\ndecision this package must not make for itself.",
      "are recorded here as decided, and the human decision therefore approves the package and\nactivates the capability.",
      "the human decision record approves only OG-1 and OG-2"),
+
+    # ---- V1 blocker closures, each attacked in a second location -------------------------
+    ("the Review Profile restores the public/otherwise Right split",
+     "review-profile-communication-strategy.md",
+     "That resolution does not branch on publicity: **any release\nof a content item outside the entity under the entity's name resolves\n`decision.external_publication`**",
+     "In practice that is `decision.external_publication` for public content, and the applicable\nsubmission, disclosure, transmission or commitment Right otherwise",
+     "external release never branches on publicity"),
+
+    ("the diagnostic workflow drops its review obligation again",
+     "workflow-thread-diagnostics.md",
+     "**Rule TD-2 — producing nothing transmissible removes the gate, not the review.**",
+     "**Rule TD-2 — no review is required because nothing is transmissible.**",
+     "RC-5 decides review applicability, not transmission"),
+
+    ("the non-response branch skips the required-review stage again",
+     "workflow-difficult-interaction-response.md",
+     "**S10 is never skipped by this branch.**",
+     "S6–S10 are skipped by this branch.",
+     "no branch skips a review RC-5 triggered"),
+
+    ("a Decision Right is allowed to cure an unsatisfied review again",
+     "workflow-formal-escalation.md",
+     "**None may support\na `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` exit.**",
+     "None may support a `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` exit unless a named external\nhuman Decision Right permits progression with the unsatisfied review left open.",
+     "authority never cures review satisfaction"),
+
+    ("the diagnostic serializes the display labels as JSON keys again",
+     "conversation-diagnostics-contract.md",
+     '    "goal": 0, "emotion": 0, "clarity": 0, "brevity": 0, "boundary": 0,\n    "defensiveness": 0, "control": 0, "relevance": 0, "escalation": 0, "next_step": 0',
+     '    "GOAL": 0, "EMOTION": 0, "CLARITY": 0, "BREVITY": 0, "BOUNDARY": 0,\n    "DEFENSIVENESS": 0, "CONTROL": 0, "RELEVANCE": 0, "ESCALATION": 0, "NEXT_STEP": 0',
+     "the two serialized schemas are exactly identical"),
+
+    ("the two derived blocks are allowed to disagree",
+     "conversation-diagnostics-contract.md",
+     '    "boundary_strength_score": 0, "defensiveness_risk": 0, "escalation_risk": 0,\n    "conversational_control_score": 0',
+     '    "boundary_strength_score": 0, "defensiveness_risk": 0, "escalation_risk": 0',
+     "the derived objects agree exactly"),
 
     ("a package artifact is promoted out of PROPOSED",
      "self-check.md",

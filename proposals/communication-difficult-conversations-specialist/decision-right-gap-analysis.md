@@ -86,6 +86,21 @@ submission, or both a release and a contractual commitment, satisfying one Right
 the other, and the review at `review.high_stakes_external_communication@0.1` checks that the
 identified set matches what the message actually does.
 
+**Rule DG-2a — publicity is not a discriminator, and no document may make it one.** Any release of
+a content item, at a stated version, to an audience outside the entity, under the entity's name
+resolves **`decision.external_publication`** — a public statement, a private letter and a
+one-recipient email alike. No active statement in this package may route a private communication to
+a different Right *instead of* the release Right on the grounds that it is private, offer a
+publicity-conditioned split between two Rights, or make the release Right conditional on the
+audience being a readership. Submission,
+disclosure, transmission and commitment Rights apply **in addition** under DG-2 where the act is
+also one of those things.
+
+An earlier revision of two documents — the primary workflow's gate stage and the
+communication-strategy Review Profile's Decision Right Boundary — carried exactly that split. It
+was the same error §5 corrects, surviving in a second location: a fifth element, publicity, read
+into a subject that has four.
+
 ## 5. TA-7, reassessed against the approved wording
 
 **The prior reading was wrong, and this is the correction.** Revision 1 of this package concluded

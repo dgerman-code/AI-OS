@@ -122,6 +122,12 @@ routing request (`trigger-routing-spec.md` TR-10).
 
 ## 7. Recorded output
 
+**Display labels and serialized keys are different things.** Throughout this document the ten
+factors are written in upper case — `GOAL`, `NEXT_STEP` — as display labels, including inside the
+derived-score formulas of §5. The **serialized keys are lower case**, exactly as written below, and
+this document owns them: `conversation-diagnostics-contract.md` §4a carries the same key set, in
+the same order, in the same case (DC-11, DC-11a).
+
 The filter records, per draft version:
 
 ```json

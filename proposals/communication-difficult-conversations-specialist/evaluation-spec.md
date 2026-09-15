@@ -17,7 +17,7 @@ the hard fails are clear.
 
 ## 2. Scenario set
 
-**36 scenarios.** Each is a fixture: an interaction record, an assignment, the supplied
+**44 scenarios, E1–E44.** Each is a fixture: an interaction record, an assignment, the supplied
 conclusions, and the expected handling. Each names its expected routing band, its expected H
 conditions, and its expected gate outcome.
 

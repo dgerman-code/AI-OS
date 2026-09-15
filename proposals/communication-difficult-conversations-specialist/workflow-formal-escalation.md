@@ -222,9 +222,21 @@ chronology history are preserved. Re-entering S5 makes any earlier satisfaction 
 
 For the gate at S6: an unverifiable chronology entry; a missing or `DRAFT` substantive or legal
 position; an unresolved disclosure basis; an unsatisfied review; an unresolved `CRITICAL_FINDING`;
-and an unestablished stated consequence are all `MATERIAL_TO_NEXT_STEP_OR_GATE`. None may support a
-`COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` exit unless a named external human Decision Right permits
-progression, whose reference is then recorded with the item left open.
+and an unestablished stated consequence are all `MATERIAL_TO_NEXT_STEP_OR_GATE`. **None may support
+a `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` exit.**
+
+**Rule FE-1 — a Decision Right does not cure an unsatisfied review or an open critical finding.**
+An earlier revision of this section allowed progression on any of the six where a named external
+human Decision Right permitted it. Authority and review satisfaction are separate governance
+objects: a review is satisfied by a reviewer under its Profile and by nothing else, and a
+`CRITICAL_FINDING` is closed by the review that raised it or it stays open. A decision to proceed
+with an open critical finding is exactly that — a decision taken with it open — and it neither
+closes the finding nor satisfies the review.
+
+Terminal progression at S6 requires **both, separately**: every mandatory review satisfied under
+the approved review contract, **and** every applicable Decision Right resolved. This Workflow
+neither decides a waiver nor asserts one was granted (`workflow-difficult-interaction-response.md`
+DIR-2 states the same rule for the primary workflow).
 
 ## Completion Criteria
 

@@ -154,12 +154,20 @@ None. This Workflow composes nothing: it is the leaf pattern the others compose.
 - **Artifact Contributions:** pattern and risk sections of the Conversation Diagnostic
 - **Knowledge-State Expectations:** every pattern label is `AI_SUGGESTION`. **No label may name,
   characterise or diagnose a person** (`role-card.md` limit 3)
-- **Gate / Review References:** none. A diagnostic transmits nothing and needs no gate. The
-  diagnostic records `human_gate_status: NOT_APPLICABLE` with
-  `human_gate_reason: NO_EXTERNAL_ACT_CONTEMPLATED` — **never** `AUTHORITY_ABSENT`, which would
-  claim an authority is missing where none is required (DC-7, DC-7a)
-- **Exit Criteria:** labels are applied with their observable basis; three risk dimensions scored
-- **Possible Outcomes:** `COMPLETE`, `REWORK_REQUIRED`
+- **Gate / Review References:** **no gate; review as RC-5 requires.** A diagnostic transmits
+  nothing, so there is nothing to authorise: the diagnostic records
+  `human_gate_status: NOT_APPLICABLE` with `human_gate_reason: NO_EXTERNAL_ACT_CONTEMPLATED` —
+  **never** `AUTHORITY_ABSENT`, which would claim an authority is missing where none is required
+  (DC-7, DC-7a). That says nothing about review. `GATE_REFERENCE`
+  `review.communication_strategy@0.1` **whenever any RC-5 condition holds of the diagnostic** —
+  in particular RC-5.1 where the interaction is at `HIGH` or `CRITICAL` stakes, and RC-5.2 where
+  the diagnostic carries a substantive conclusion supplied by another Role. Where no RC-5 condition
+  holds, the review is advisory (TD-2)
+- **Exit Criteria:** labels are applied with their observable basis; three risk dimensions scored;
+  and every review RC-5 triggered is `SATISFIED`, or the stage does not exit
+- **Possible Outcomes:** `COMPLETE`, `REWORK_REQUIRED`, `BLOCKED`, `ESCALATED`
+- **Open-Item Materiality:** an unresolved `CRITICAL_FINDING` can never support an exit
+- **Mandatory at:** any band where an RC-5 condition holds (`role-card.md` RC-5, RC-5a)
 
 ## Branches / Exception Paths
 
@@ -177,8 +185,22 @@ None. This Workflow composes nothing: it is the leaf pattern the others compose.
 - `EXCEPTION_PATH` **Psychological assessment requested.** Refused and recorded. The diagnostic
   offers the observable-behaviour labels instead, and states why.
 
-No exception path bypasses a review or gate reference carried by the normal path — and this
-Workflow carries none, because it produces nothing transmissible.
+No exception path bypasses a review or gate reference carried by the normal path.
+
+**Rule TD-2 — producing nothing transmissible removes the gate, not the review.** An earlier
+revision of this Workflow said it carried no review reference *because* it produces nothing
+transmissible. Those are two different questions, and conflating them let a high-stakes read-only
+diagnosis go unreviewed: a gate exists because an act needs authorising, and a review exists
+because a professional conclusion needs independent checking. A diagnostic of a `HIGH` or
+`CRITICAL` interaction fires **RC-5.1** and is reviewed under `review.communication_strategy@0.1`;
+one that carries another Role's substantive conclusion fires **RC-5.2**; and a `NOT_APPLICABLE`
+gate status sits alongside a mandatory review without tension, because they answer different
+questions. Where no RC-5 condition holds, the review is advisory — this rule makes no review
+mandatory that RC-5 does not trigger.
+
+**Rule TD-3 — self-review is prohibited here as everywhere.** The producing Role is ineligible to
+review its own diagnostic, and a review triggered by TD-2 is satisfied by an independent reviewer
+eligible under `review-profile-communication-strategy.md` or it is not satisfied at all.
 
 ## Rework Rules
 
@@ -216,8 +238,10 @@ position-changing fact survive.
 
 This Workflow does not draft, does not recommend a message, does not decide a response posture,
 does not conclude on any substantive domain, does not assess any person, does not satisfy any
-review, does not exercise any Decision Right, and does not transmit. Its specific leakage risk is
-**a pattern label being read as a finding about a person**: the labels describe conversation
+review, does not exercise any Decision Right, and does not transmit. It **is** subject to review
+where RC-5 fires (TD-2), and it satisfies none of the reviews it is subject to. Its specific
+leakage risks are **a pattern label being read as a finding about a person** and **the absence of
+a transmission being read as the absence of a review obligation** (TD-2): the labels describe conversation
 structure, they are `AI_SUGGESTION`, and `conversation-diagnostics-contract.md` §5 fixes the
 permitted set so that the vocabulary cannot drift toward diagnosis.
 

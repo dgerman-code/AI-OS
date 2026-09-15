@@ -193,15 +193,15 @@ cannot list them has not checked (`communication-control-filter.md` CF-8).
 ## 4a. `communication_control_filter` — the ten factors, and nothing else
 
 This namespace holds **exactly** the structure of `communication-control-filter.md` §7 and
-**invents no field**:
+**invents no field** — the same keys, in the same order, in the same case:
 
 ```json
 {
   "rubric_version": "filter.communication_control@0.1",
   "draft_version": "string",
   "components": {
-    "GOAL": 0, "EMOTION": 0, "CLARITY": 0, "BREVITY": 0, "BOUNDARY": 0,
-    "DEFENSIVENESS": 0, "CONTROL": 0, "RELEVANCE": 0, "ESCALATION": 0, "NEXT_STEP": 0
+    "goal": 0, "emotion": 0, "clarity": 0, "brevity": 0, "boundary": 0,
+    "defensiveness": 0, "control": 0, "relevance": 0, "escalation": 0, "next_step": 0
   },
   "not_applicable": ["<factor name>"],
   "reasons": { "<factor name>": "string" },
@@ -218,9 +218,20 @@ This namespace holds **exactly** the structure of `communication-control-filter.
 }
 ```
 
-**Rule DC-11 — the filter has one owner and one field set.** The ten component names are exactly
-`GOAL`, `EMOTION`, `CLARITY`, `BREVITY`, `BOUNDARY`, `DEFENSIVENESS`, `CONTROL`, `RELEVANCE`,
-`ESCALATION`, `NEXT_STEP`, and the seven derived figures are exactly those of the filter document.
+**Rule DC-11 — the filter has one owner and one field set.** The ten **serialized component keys**
+are exactly `goal`, `emotion`, `clarity`, `brevity`, `boundary`, `defensiveness`, `control`,
+`relevance`, `escalation`, `next_step`, in that order, and the seven derived figures are exactly
+those of the filter document.
+
+**Rule DC-11a — display labels are not JSON keys.** The factor names appear in prose, tables and
+score formulas in upper case — `GOAL`, `NEXT_STEP` — because that is how the filter document
+presents them to a reader. Those are **display labels**. The serialized keys are the lower-case
+forms above, and `communication-control-filter.md` §7 owns them. An earlier revision of this
+contract serialized the upper-case labels as keys while claiming exact structural identity with a
+document that serializes lower-case ones: the claim of exactness and the schema disagreed, and the
+schema comparison could not see it because it only ever looked at upper-case keys. The two JSON
+blocks now carry identical key sets in identical order, and the validator compares them exactly
+rather than by name-membership.
 An earlier revision of this contract carried a **nine-field** object mixing four filter factors
 with five risk measures and presented it as the filter's `scores`. That object was neither the
 filter nor a risk model: it was a third rubric nobody owned, and a reviewer comparing it against

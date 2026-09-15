@@ -193,10 +193,16 @@ carries rather than a risk it flags.
 
 | Item | Count |
 |---|---|
-| Package validator | `validation/communication_package_validation.py` — **22 checks** in 9 groups |
-| Package mutation fixture | `validation/communication_package_probes.py` — **32 committed controlled weakenings**, 32 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
+| Package validator | `validation/communication_package_validation.py` — **25 checks** in 9 groups |
+| Package mutation fixture | `validation/communication_package_probes.py` — **36 committed controlled weakenings**, 36 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
 
-Three checks and eleven probes were added when the OG-1 and OG-2 human decisions were applied:
+Three checks and four probes were added in the V1 blocker remediation, one per blocker class:
+publicity-blind resolution of the external-release Right; RC-5 rather than transmission deciding
+review applicability; a Decision Right never curing an unsatisfied review or an open critical
+finding; and an exact ordered key-set comparison of the two serialized filter schemas — the previous
+comparison matched only upper-case keys and so never read the owner document's JSON at all.
+
+Three checks and eleven probes were added earlier, when the OG-1 and OG-2 human decisions were applied:
 identifier normalization (one canonical form per object, no dotted survivors, no second identity,
 historical IDs disclaimed), the candidate Professional Delivery Role and its candidate mapping, and
 the decision record's own boundary — that it approves OG-1 and OG-2 and nothing else.
