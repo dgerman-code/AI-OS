@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-os/contracts/ai-result-envelope.schema.json",
+  "title": "AI-OS Mode A External AI Result Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "repository",
+    "source_ref",
+    "source_commit_sha",
+    "scope",
+    "roles",
+    "skill_requirements",
+    "workflow",
+    "review_requirements",
+    "decision_right_requirements",
+    "evidence",
+    "assumptions",
+    "unresolved_ambiguities",
+    "proposed_changes",
+    "output_artifacts",
+    "authority_status",
+    "status"
+  ],
+  "properties": {
+    "request_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": ["string", "null"]},
+    "repository": {"const": "dgerman-code/AI-OS"},
+    "source_ref": {"type": "string", "minLength": 1},
+    "source_commit_sha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+    "scope": {"type": "string", "minLength": 1},
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role_ref", "approval_state"],
+        "properties": {
+          "role_ref": {"type": "string", "minLength": 1},
+          "approval_state": {"enum": ["APPROVED", "PROPOSED", "UNKNOWN", "NOT_ELIGIBLE"]},
+          "source": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "skill_requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["skill_ref", "applicability", "individual_approval", "eligibility"],
+        "properties": {
+          "skill_ref": {"type": "string", "minLength": 1},
+          "applicability": {"enum": ["APPLICABLE", "NOT_APPLICABLE", "UNKNOWN"]},
+          "individual_approval": {"enum": ["APPROVED", "NOT_APPROVED", "UNKNOWN"]},
+          "eligibility": {"enum": ["ELIGIBLE", "NOT_ELIGIBLE", "UNKNOWN"]},
+          "source": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "reference"],
+      "properties": {
+        "mode": {"enum": ["MATCH", "COMPOSE", "NONE", "UNRESOLVED"]},
+        "reference": {"type": ["string", "null"]},
+        "execution_eligible": {"type": ["boolean", "null"]}
+      }
+    },
+    "review_requirements": {"type": "array", "items": {"type": "string"}},
+    "decision_right_requirements": {"type": "array", "items": {"type": "string"}},
+    "evidence": {"type": "array", "items": {"type": "string"}},
+    "assumptions": {"type": "array", "items": {"type": "string"}},
+    "unresolved_ambiguities": {"type": "array", "items": {"type": "string"}},
+    "proposed_changes": {"type": "array", "items": {"type": "string"}},
+    "output_artifacts": {"type": "array", "items": {"type": "string"}},
+    "authority_status": {
+      "enum": ["NO_AUTHORITY_EXERCISED", "HUMAN_DECISION_REQUIRED", "HUMAN_DECISION_RECORDED"]
+    },
+    "status": {
+      "enum": ["COMPLETED", "PARTIAL", "BLOCKED", "CLARIFICATION_REQUIRED", "PROPOSED"]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"source_commit_sha": {"type": "null"}}},
+      "then": {
+        "properties": {
+          "unresolved_ambiguities": {"minItems": 1}
+        }
+      }
+    }
+  ]
+}
