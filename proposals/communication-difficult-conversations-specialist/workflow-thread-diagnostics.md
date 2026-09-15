@@ -210,8 +210,11 @@ has no observable basis. Prior versions and the reason for the loop are preserve
 ## Open-Item Materiality
 
 `MATERIAL_TO_NEXT_STEP_OR_GATE`: an absent disclosure basis; a position-changing fact not yet
-escalated; an unclassified issue; a pattern label with no observable basis. This Workflow has no
-terminal gate of its own; these items block its handoff to any parent pattern.
+escalated; an unclassified issue; a pattern label with no observable basis; and **any review RC-5
+triggered that is not `SATISFIED`** (TD-2). This Workflow has no terminal gate of its own; these
+items block its handoff to any parent pattern, and none is curable by a Decision Right — there is
+no Decision Right here to cure anything with, because nothing is transmitted, which is precisely
+why the review obligation and the gate have to be judged separately.
 
 ## Completion Criteria
 

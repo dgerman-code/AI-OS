@@ -193,8 +193,25 @@ carries rather than a risk it flags.
 
 | Item | Count |
 |---|---|
-| Package validator | `validation/communication_package_validation.py` — **25 checks** in 9 groups |
+| Package validator | `validation/communication_package_validation.py` — **26 checks** in 9 groups |
 | Package mutation fixture | `validation/communication_package_probes.py` — **36 committed controlled weakenings**, 36 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
+
+One check and five probes were added in the B3 exhaustive remediation. The check guards the
+**whole workflow family** rather than named files: it reads each of the six cards' own
+Open-Item Materiality section and fails that card if the section lets a Decision Right cure an
+unsatisfied review, an unresolved `CRITICAL_FINDING`, an unresolved `CONFLICT_DETECTED` or a
+missing substantive conclusion. Five probes plant the forbidden exception in five different cards,
+including one with no terminal gate at all, so the check cannot pass by being hard-coded to three
+filenames.
+
+**Two of those five were `REDUNDANT` on their first run**, and the defect was the harness's own and
+familiar: the check treated the phrase "none may support" as a denial of the anti-pattern, so a
+paragraph that closed its items in one sentence and reopened them with an exception in the next
+passed whole. That phrase is a **closure statement**, checked separately, not a denial; and the
+anti-pattern scan now judges sentence by sentence rather than paragraph by paragraph. **This is the
+third round in which a corrective marker somewhere in a unit excused a defect elsewhere in it** —
+the pattern is stated here rather than fixed quietly, because it is the harness's characteristic
+weakness and a reviewer should assume it is present again.
 
 Three checks and four probes were added in the V1 blocker remediation, one per blocker class:
 publicity-blind resolution of the external-release Right; RC-5 rather than transmission deciding

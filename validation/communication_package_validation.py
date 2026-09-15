@@ -1091,6 +1091,90 @@ check("review", "a Decision Right never cures an unsatisfied review or an open c
       authority_never_cures_an_unsatisfied_review)
 
 
+#: The six active workflow cards. The B3 invariant is a property of the family, not of two named
+#: files: it was fixed twice and survived three more times, each in a card nobody had checked.
+WORKFLOW_CARDS = tuple(d for d in DOCS if d.startswith("workflow-"))
+
+
+def no_workflow_lets_authority_cure_a_review_side_gap():
+    """B3, guarded across the whole workflow family rather than file by file.
+
+    The rule has now been restated in five separate cards, and the reason it kept surviving is
+    that every previous check looked for the RULE rather than for the ANTI-PATTERN. A card can
+    carry DIR-2 by reference and still contain its own contradictory exception, so this check
+    reads each card's own terminal/open-item section and judges that section alone."""
+    problems = []
+    if len(WORKFLOW_CARDS) != 6:
+        problems.append("expected six workflow cards, found %d" % len(WORKFLOW_CARDS))
+
+    #: Wordings that make a Decision Right, or a human holding one, cure a review-side item.
+    CURES = (
+        re.compile(r"(unless|absent|except where|save where|provided)[^.]{0,90}?"
+                   r"(a )?(named )?(external )?(human )?decision right", re.IGNORECASE),
+        re.compile(r"(decision right|named external human|authority holder|decider)[^.]{0,90}?"
+                   r"(permits?|allows?|authoris\w*|waives?|overrides?|cures?|satisfies)"
+                   r"[^.]{0,80}?(review|progression|exit|critical|conflict|open item)",
+                   re.IGNORECASE),
+        re.compile(r"(unsatisfied (?:mandatory )?review|unresolved `?CRITICAL_FINDING`?|"
+                   r"unresolved `?CONFLICT_DETECTED`?|missing or stale[^.]{0,30}conclusion)"
+                   r"[^.]{0,90}?(decision right|named external human)", re.IGNORECASE),
+    )
+    #: A statement that names the anti-pattern in order to forbid it, or records it as withdrawn.
+    DENIES = re.compile(
+        r"(never cures?|does not cure|does \*\*not\*\*|neither cures|never curable|"
+        r"(?:none|not|no item) (?:is |are )?curable|cannot be cured|never a substitute|"
+        r"are separate|too broad|an earlier revision|\*\*No\.\*\*|"
+        r"own criterion|is prohibited)", re.IGNORECASE)
+
+    for card in WORKFLOW_CARDS:
+        body = doc(card)
+        # The terminal contract lives in the open-item / completion sections. Read them on their
+        # own: a corrective rule three sections away does not govern an exception written here.
+        section = ""
+        if "## Open-Item Materiality" in body:
+            section = body.split("## Open-Item Materiality")[1]
+            for stop in ("## Rework Rules", "## Termination", "## Outputs", "## Authority"):
+                if stop in section:
+                    section = section.split(stop)[0]
+        else:
+            problems.append("%s has no Open-Item Materiality section to read" % card)
+            continue
+        for para in section.split("\n\n"):
+            flat_para = " ".join(para.split())
+            if not flat_para:
+                continue
+            for sentence in re.split(r"(?<=[.;])\s+", flat_para):
+                if DENIES.search(sentence):
+                    continue
+                for pattern in CURES:
+                    if pattern.search(sentence):
+                        problems.append("%s lets authority cure a review-side gap: %r"
+                                        % (card, sentence[:90]))
+                        break
+        # Each card must require both conditions, separately, for terminal progression.
+        low = flat(section)
+        # Cards word their closure differently - "none may support", "a material item cannot
+        # support", "these items block its handoff" - and a literal phrase test rejected two
+        # correct cards. What has to be present is a CLOSURE: material items do not carry
+        # forward, by whatever wording.
+        closes = re.search(
+            r"(none may support|cannot support|may not support|do not support|"
+            r"none of (?:the|these) items[^.]{0,40}support|block (?:its|the) handoff|"
+            r"block (?:its|the) exit)", low)
+        if not closes:
+            problems.append("%s does not close its material items against a terminal exit" % card)
+        if "decision right" in low and "separate" not in low and "both" not in low:
+            problems.append("%s mentions a Decision Right in its terminal contract without "
+                            "separating it from review satisfaction" % card)
+    return (not problems, str(problems)[:500] if problems
+            else "%d workflow cards; no terminal contract lets authority cure a review-side gap"
+                 % len(WORKFLOW_CARDS))
+
+
+check("review", "no workflow lets a Decision Right cure a review-side gap",
+      no_workflow_lets_authority_cure_a_review_side_gap)
+
+
 def the_harness_contains_no_vacuous_check():
     """A check that cannot fail is a check that proves nothing."""
     source = open(os.path.abspath(__file__), encoding="utf-8").read()

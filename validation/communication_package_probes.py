@@ -263,6 +263,39 @@ PROBES = [
      '    "boundary_strength_score": 0, "defensiveness_risk": 0, "escalation_risk": 0',
      "the derived objects agree exactly"),
 
+    # ---- B3 across the whole workflow family, one plant per card ------------------------
+    ("Meeting Preparation restores the Decision Right exception",
+     "workflow-meeting-preparation.md",
+     "unresolved `CONFLICT_DETECTED` between owners. **None may support a `COMPLETE`\nor `COMPLETE_WITH_OPEN_ITEMS` exit.** The outcome is `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED`.",
+     "unresolved `CONFLICT_DETECTED` between owners. These cannot support a `COMPLETE`\nor `COMPLETE_WITH_OPEN_ITEMS` exit unless a named external human Decision Right permits progression.",
+     "no workflow lets authority cure a review-side gap"),
+
+    ("Boundary Setting restores the Decision Right exception",
+     "workflow-boundary-setting.md",
+     "unsatisfied mandatory review. **None may support a `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` exit.**\nThe outcome is `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED`.",
+     "unsatisfied mandatory review. None may support a `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` exit\nabsent a named external human Decision Right permitting progression.",
+     "no workflow lets authority cure a review-side gap"),
+
+    ("Refusal restores the Decision Right exception",
+     "workflow-refusal.md",
+     "unauthorised alternative; an unsatisfied mandatory review. **None may support a `COMPLETE` or\n`COMPLETE_WITH_OPEN_ITEMS` exit.** The outcome is `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED`.",
+     "unauthorised alternative; an unsatisfied mandatory review. None may support a `COMPLETE` or\n`COMPLETE_WITH_OPEN_ITEMS` exit absent a named external human Decision Right, whose reference is\nthen recorded with the item left open.",
+     "no workflow lets authority cure a review-side gap"),
+
+    # A fourth card, to prove the check guards the family rather than three filenames.
+    ("Formal Escalation restores the Decision Right exception",
+     "workflow-formal-escalation.md",
+     "and an unestablished stated consequence are all `MATERIAL_TO_NEXT_STEP_OR_GATE`. **None may support\na `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` exit.**",
+     "and an unestablished stated consequence are all `MATERIAL_TO_NEXT_STEP_OR_GATE`. None may support\na `COMPLETE` or `COMPLETE_WITH_OPEN_ITEMS` exit unless a named external human Decision Right permits\nprogression with the unsatisfied review left open.",
+     "no workflow lets authority cure a review-side gap"),
+
+    # A fifth, in the card that has no terminal gate at all - the family check must still read it.
+    ("Thread Diagnostics lets authority carry an unsatisfied review",
+     "workflow-thread-diagnostics.md",
+     "items block its handoff to any parent pattern, and none is curable by a Decision Right",
+     "items block its handoff to any parent pattern unless a named external human Decision Right permits progression",
+     "no workflow lets authority cure a review-side gap"),
+
     ("a package artifact is promoted out of PROPOSED",
      "self-check.md",
      "Status: `PROPOSED`",

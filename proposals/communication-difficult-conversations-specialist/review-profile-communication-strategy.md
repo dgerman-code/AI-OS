@@ -177,7 +177,15 @@ is *what does this draft commit us to that the record does not already commit us
 
 `SATISFIED` requires: the evidence package complete; every prerequisite review `SATISFIED` and not
 `STALE`; no unresolved `CRITICAL_FINDING`; and every `MAJOR_FINDING` either closed or explicitly
-carried under a named external human Decision Right that permits progression with it open.
+carried, on the record, by the holder of the applicable Decision Right.
+
+**That last clause is this review's own criterion, not an authority overriding it.** The Profile
+decides what `SATISFIED` means, and it permits exactly one thing: a `MAJOR_FINDING` that a named
+human has read and chosen to carry openly. That is the review reaching satisfaction with a recorded
+open item — not a Decision Right curing an unsatisfied review, which nothing in this package permits
+(`workflow-difficult-interaction-response.md` DIR-2). The scope of the clause is `MAJOR_FINDING`
+and nothing else: it reaches no `CRITICAL_FINDING`, no unresolved `CONFLICT_DETECTED`, no missing or
+stale substantive conclusion, and no prerequisite review.
 
 **Satisfaction is not approval.** It does not authorise transmission, does not exercise any
 Decision Right, does not promote the draft beyond `REVIEWED`, and does not attest that the

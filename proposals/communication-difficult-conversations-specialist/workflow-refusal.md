@@ -184,9 +184,29 @@ review finding. Prior drafts, rationale selections and findings are preserved.
 ## Open-Item Materiality
 
 `MATERIAL_TO_NEXT_STEP_OR_GATE`: an unowned refusal decision; an unanswered obligation question; an
-unauthorised alternative; an unsatisfied mandatory review. None may support a `COMPLETE` or
-`COMPLETE_WITH_OPEN_ITEMS` exit absent a named external human Decision Right, whose reference is
-then recorded with the item left open.
+unauthorised alternative; an unsatisfied mandatory review. **None may support a `COMPLETE` or
+`COMPLETE_WITH_OPEN_ITEMS` exit.** The outcome is `BLOCKED`, `REWORK_REQUIRED` or `ESCALATED`.
+
+An **unowned refusal decision** is the case this Workflow most needs to hold: the authority to
+refuse is exactly a Decision Right question, and a Right that authorises the refusal does **not**
+thereby satisfy the review of how the refusal is written, nor answer whether an obligation exists.
+
+**Rule RF-1 — authority and review satisfaction are separate, and neither cures the other.**
+An earlier revision of this section allowed exit on any of the items above where a named external
+human Decision Right permitted it. That is the same defect `workflow-difficult-interaction-response.md`
+DIR-2 and `workflow-formal-escalation.md` FE-1 close, surviving in a second location. **None of the
+items above is curable by a Decision Right**: a mandatory review is satisfied by a reviewer under its
+Profile and by nothing else; an unresolved `CRITICAL_FINDING` is closed by the review that raised it;
+an unresolved `CONFLICT_DETECTED` is resolved by the owning Roles; and a missing or stale substantive
+conclusion is supplied by the Role that owns it. A decision to proceed anyway is a decision taken
+*with the item open*, and it neither closes the item nor satisfies the review.
+
+**Terminal progression requires both, separately:** every mandatory review `SATISFIED` under the
+approved review contract, **and** every applicable Decision Right resolved. Satisfying one never
+discharges the other. The only narrowly scoped exception DIR-2 allows is an unresolved **placeholder**
+in a draft, decided on the record by the holder of the applicable Right; none of the four items above is a placeholder, so the exception does not reach them. This Workflow
+neither decides a waiver nor asserts one was granted.
+
 
 ## Completion Criteria
 
