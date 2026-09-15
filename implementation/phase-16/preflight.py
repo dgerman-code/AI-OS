@@ -11,7 +11,7 @@ never converts a requirement into the thing it requires.
 from __future__ import annotations
 
 import hashlib
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import registries
 from domain import (
@@ -21,6 +21,14 @@ from domain import (
 )
 
 __all__ = ["IMPLEMENTATION_SPEC_VERSION", "PreflightResult", "run_preflight"]
+
+# One-time in-process issuance capabilities. A caller-constructed equal-value basis has a
+# different object identity and cannot acquire a capability. The store consumes this entry once.
+_ISSUABLE: Dict[int, Tuple[ExecutionBasis, str, str, str]] = {}
+_PLACEHOLDER_CONCLUSIONS = {
+    "", "-", "...", "tbd", "todo", "unknown", "n/a", "na", "none", "placeholder",
+    "to be determined", "to be defined",
+}
 
 
 class PreflightResult:
@@ -35,15 +43,44 @@ class PreflightResult:
     def executable(self) -> bool:
         return self.basis is not None and self.basis.status is BasisStatus.EXECUTABLE
 
-    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+    def __repr__(self) -> str:  # pragma: no cover
         return "PreflightResult(state=%s, basis=%s, reasons=%s)" % (
             self.state.value, self.basis.ref if self.basis else None,
             [r.value for r in self.reasons])
 
 
+def _register_issuable(plan: PlannerOutput, basis: ExecutionBasis) -> None:
+    """Bind exactly this object to exactly the successful preflight that produced it."""
+    _ISSUABLE[id(basis)] = (basis, plan.request_id, plan.material_digest(), basis.payload_seal())
+
+
+def _consume_issuance_provenance(basis: ExecutionBasis) -> Tuple[str, str, str]:
+    """Consume one successful-preflight capability or refuse.
+
+    This is an in-process reference implementation capability, not authority. It proves only that
+    the exact immutable basis object was produced by a successful Phase 16 preflight and that the
+    proof has not already been consumed.
+    """
+    entry = _ISSUABLE.pop(id(basis), None)
+    if entry is None or entry[0] is not basis:
+        raise ActivationError(
+            "Execution Basis has no unused successful-preflight provenance; fabricated, copied, "
+            "blocked or already-issued bases are not issuable")
+    _basis, request_id, digest, seal = entry
+    if request_id != basis.request_id or digest != basis.planning_digest or seal != basis.payload_seal():
+        raise ActivationError("successful-preflight provenance does not match the basis payload")
+    return request_id, digest, seal
+
+
+def _substantive_conclusion(text: Optional[str]) -> bool:
+    if text is None:
+        return False
+    normalized = " ".join(str(text).split()).strip().lower()
+    return bool(normalized) and normalized not in _PLACEHOLDER_CONCLUSIONS
+
+
 def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
                   reviewer_identity: Optional[str] = None) -> PreflightResult:
-    """The whole gate. Ordered so that the cheapest fail-closed checks come first."""
     reasons: List[BlockReason] = []
     detail: List[str] = []
 
@@ -52,13 +89,11 @@ def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
             reasons.append(reason)
         detail.append(message)
 
-    # G-1  A caller may not hand over a pre-formed governed record.
     if plan.injected_governed_records:
         raise GovernanceError(
             "governed records are created by the approved Phase 14 commands, never supplied by "
             "a caller: %s" % list(plan.injected_governed_records))
 
-    # G-2  Clarification blocks, and a blocking class carries no default.
     for clar in plan.clarifications:
         if clar.blocking and clar.default_if_unanswered is not None:
             raise ActivationError(
@@ -70,18 +105,15 @@ def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
             tuple("unresolved blocking clarification: %s" % c.question
                   for c in plan.clarifications if c.blocking))
 
-    # G-3  Exactly one governed scope, with declared ancestry.
     if not plan.scope_ref:
         block(BlockReason.NO_VALID_SCOPE, "no governed scope resolves")
     elif not plan.scope_ancestry:
         block(BlockReason.SCOPE_AMBIGUOUS, "scope %s declares no ancestry" % plan.scope_ref)
 
-    # G-4  Criticality resolves. It never defaults to Routine.
     if plan.criticality is None:
         block(BlockReason.CRITICALITY_UNRESOLVED,
               "criticality did not resolve; it does not default to ROUTINE")
 
-    # G-5  Roles: approved, registered, and an owned conclusion with no owner blocks.
     approved_roles = registries.approved_roles()
     for role in plan.role_requirements:
         if role.role_ref is None:
@@ -90,16 +122,17 @@ def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
         elif role.role_ref not in approved_roles or not role.registered:
             block(BlockReason.UNREGISTERED_CAPABILITY,
                   "%s is not in the approved Role universe" % role.role_ref)
+        if role.load_bearing and not _substantive_conclusion(role.owned_conclusion):
+            block(BlockReason.NO_APPROVED_ROLE_OWNS_CONCLUSION,
+                  "%s is load-bearing but carries no substantive owned conclusion"
+                  % role.role_ref)
 
-    # G-6  Skills: approved, registered, AND compatible with the Role they are claimed for.
-    #      Registration alone was never enough: a registered Skill bound to the wrong Role is
-    #      an unassignable binding, and an unmapped pair is silence in the authoritative
-    #      mapping records, which is not permission.
     approved_skills = registries.approved_skills()
     for skill in plan.skill_requirements:
         if skill.skill_ref not in approved_skills or not skill.registered:
             block(BlockReason.UNREGISTERED_CAPABILITY,
-                  "%s is not a registered Skill and is not assignable" % skill.skill_ref)
+                  "%s lacks explicit individual Skill approval evidence and is not assignable"
+                  % skill.skill_ref)
             continue
         if skill.for_role is None or skill.for_role not in approved_roles:
             block(BlockReason.UNREGISTERED_CAPABILITY,
@@ -111,7 +144,6 @@ def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
         if not compatible:
             block(BlockReason.SKILL_ROLE_INCOMPATIBLE, why)
 
-    # G-7  Reviews are requirements. Planning never marks one satisfied.
     approved_reviews = registries.approved_review_profiles()
     for review in plan.review_requirements:
         if review.satisfied:
@@ -126,7 +158,6 @@ def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
                   "band %s requires an independent review and none is required by the plan"
                   % plan.criticality.value)
 
-    # G-8  Rights are requirements. Planning never exercises one, and a missing Right blocks.
     approved_rights = registries.approved_decision_rights()
     for need in plan.decision_requirements:
         if need.exercised:
@@ -139,7 +170,6 @@ def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
             block(BlockReason.NO_APPLICABLE_DECISION_RIGHT,
                   "%s is not an approved Decision Right" % need.decision_ref)
 
-    # G-9  Prerequisites are a strict tri-state; a plain UNKNOWN is dangling and blocks.
     for ev in plan.evidence_requirements:
         if ev.state is PrerequisiteState.UNKNOWN:
             block(BlockReason.DANGLING_PREREQUISITE,
@@ -150,14 +180,11 @@ def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
                   "%s is required before the first executable act and may not be deferred"
                   % ev.reference)
 
-    # G-10 Separation of duties, at identity level.
     if author_identity is not None and reviewer_identity is not None \
             and author_identity == reviewer_identity:
         block(BlockReason.SOD_VIOLATION,
               "author and final critical reviewer are the same identity: %s" % author_identity)
 
-    # G-11 Execution mode. MATCH binds an approved Workflow at an approved version; COMPOSE
-    #      binds an instance-level Work Plan and creates no Workflow definition.
     if plan.execution_mode is ExecutionMode.MATCH:
         if not plan.workflow_ref:
             block(BlockReason.WORKFLOW_NOT_APPROVED, "MATCH names no Workflow")
@@ -171,9 +198,6 @@ def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
                 block(BlockReason.WORKFLOW_VERSION_STALE,
                       "%s is bound without a version" % wf_id)
             elif version != approved[wf_id]:
-                # The approved version is the one the Workflow Card DECLARES. The previous
-                # view invented `1` for every Workflow, so a MATCH at a version nobody
-                # approved resolved cleanly.
                 block(BlockReason.WORKFLOW_VERSION_STALE,
                       "%s is bound at version %s; the approved card declares version %s"
                       % (wf_id, version, approved[wf_id]))
@@ -208,23 +232,12 @@ def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
         decision_requirements=tuple(d.decision_ref for d in plan.decision_requirements),
         evidence_requirements=tuple((e.reference, e.state.value)
                                     for e in plan.evidence_requirements),
-    )
-    # VALIDATED -> EXECUTABLE is the whole of what this phase adds. It says intake MAY accept
-    # the trigger. It says nothing about whether any gate is satisfied or any act permitted.
-    #
-    # The basis is frozen, so the transition is a NEW snapshot rather than an assignment. What
-    # comes back is a CANDIDATE basis: it is not issued until ActivationStore.issue seals it,
-    # and the trigger builder refuses any basis the store cannot produce.
-    basis = basis.with_status(BasisStatus.EXECUTABLE)
+    ).with_status(BasisStatus.EXECUTABLE)
+    _register_issuable(plan, basis)
     return PreflightResult(PlannerState.VALIDATED, basis, (), ())
 
 
 def _check_plan_shape(plan: PlannerOutput, block, approved_roles) -> None:
-    """A composed plan is uniquely identified, owned by approved Roles, and acyclic."""
-    # Uniqueness FIRST. The previous version built `{s.stage_id: s}`, which silently collapsed
-    # a duplicate stage id: two stages with the same id became one, the second one's Role,
-    # artifact and dependencies simply vanished, and the plan passed. Stage identity is what
-    # every planned work item spec is derived from, so a collision is not a cosmetic defect.
     seen = set()
     duplicates = set()
     for stage in plan.work_plan.stages:
@@ -236,7 +249,10 @@ def _check_plan_shape(plan: PlannerOutput, block, approved_roles) -> None:
               "stage id %s appears more than once; stage identity must be unique before a "
               "basis is issued" % duplicate)
 
-    owned_conclusions = {r.role_ref for r in plan.role_requirements if r.role_ref}
+    owned_conclusions = {
+        r.role_ref for r in plan.role_requirements
+        if r.role_ref and (not r.load_bearing or _substantive_conclusion(r.owned_conclusion))
+    }
     stages = {s.stage_id: s for s in plan.work_plan.stages}
     for stage in plan.work_plan.stages:
         if stage.is_gate:
@@ -245,9 +261,6 @@ def _check_plan_shape(plan: PlannerOutput, block, approved_roles) -> None:
                       "gate stage %s has Role participation; a gate is not work"
                       % stage.stage_id)
         else:
-            # Every effective owner resolves, is approved, and is a Role the plan actually
-            # declared an owned conclusion for. An owner that appears only in a stage is an
-            # assignment nobody declared and no approved registry was asked about.
             if stage.role_ref is None:
                 block(BlockReason.STAGE_OWNER_UNRESOLVED,
                       "stage %s has no effective owner and is not a gate" % stage.stage_id)
@@ -257,13 +270,12 @@ def _check_plan_shape(plan: PlannerOutput, block, approved_roles) -> None:
                       % (stage.stage_id, stage.role_ref))
             elif stage.role_ref not in owned_conclusions:
                 block(BlockReason.STAGE_OWNER_UNRESOLVED,
-                      "stage %s is owned by %s, which the plan declares no owned conclusion "
-                      "for" % (stage.stage_id, stage.role_ref))
+                      "stage %s is owned by %s, which has no substantive declared owned "
+                      "conclusion" % (stage.stage_id, stage.role_ref))
         for dep in stage.depends_on:
             if dep not in stages:
                 block(BlockReason.BASIS_NOT_EXECUTABLE,
                       "stage %s depends on unknown stage %s" % (stage.stage_id, dep))
-    # Cycle detection, iterative rather than recursive.
     colour = {s: 0 for s in stages}
     for start in list(stages):
         if colour[start]:
