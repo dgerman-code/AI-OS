@@ -98,7 +98,7 @@ candidate would be relying on an unregistered capability.
 |---|---|
 | The owning Role exists, is approved and is available | Requirement met |
 | The owning Role exists but is unavailable in this scope, or its mapping is absent | **`REQUIRED_ROLE_UNAVAILABLE`** — **BLOCK** where §6a records `load_bearing = LOAD_BEARING`; otherwise a plan explicitly constrained to work that does not need that conclusion, clearly marked as not covering it |
-| No approved Role owns the conclusion | **Block.** The work needs a conclusion the approved universe has no owner for, which is a governance gap and is escalated, not filled |
+| No approved Role owns the conclusion **and the originally requested deliverable requires it** | **BLOCK** — `NO_APPROVED_ROLE_OWNS_CONCLUSION` (F-14) + escalate. This is a **governance gap**, not an availability problem, and it is **not** routed through F-5: there is no load-bearing determination to make, because there is no owning Role whose absence could be weighed. §6b |
 
 ### 6a. The load-bearing predicate — normative, and inspectable
 
@@ -107,22 +107,45 @@ predicate over material the plan has already recorded: the declared deliverables
 professional conclusions, the stage dependency order, and the required gates and reviews. It never
 reads a confidence value, an urgency, a deadline or a convenience.
 
+**Rule LB-0 — every test is evaluated against the deliverable the user originally requested.**
+The subject of LB-1 is the **declared deliverable as requested, before any constraint-induced
+reduction**: what `WorkIntent.requested_outcome` asked for, plus what
+`WorkRequirementSet.deliverables` derived from it, as they stood **before** the planner considered
+narrowing anything. Evaluating the predicate against an already-reduced deliverable is circular —
+remove the conclusion, call what is left the deliverable, then observe that the deliverable does not
+need the conclusion — and that reasoning would clear every gap it was asked to judge.
+
+The order is therefore fixed, and the two steps never merge:
+
+| Step | What is decided | Against what |
+|---:|---|---|
+| **1** | `LOAD_BEARING` or `NOT_LOAD_BEARING` (LB-1) | The **original** requested deliverable, un-narrowed |
+| **2** | Only if step 1 returned `NOT_LOAD_BEARING`: whether a reduced deliverable is admissible (LB-2) | The reduced deliverable |
+
+**Rule LB-6 — a reduced deliverable is never evidence about the removed capability.** It is a
+consequence of the determination, never an input to it. A `load_bearing_basis` may never cite a
+narrowed deliverable as its reason; `governance-preflight.md` G-5 and G-6 fail the plan that records
+one, because such a basis proves only that the narrowing happened.
+
 **Rule LB-1 — the predicate.** An unavailable Role or Skill is `LOAD_BEARING` where **any** of the
-following holds, and `NOT_LOAD_BEARING` only where none does:
+following holds **of the original requested deliverable**, and `NOT_LOAD_BEARING` only where none
+does:
 
 | # | Condition | Read from |
 |---:|---|---|
-| LB-a | It owns a professional conclusion that a **declared deliverable** must carry | `WorkRequirementSet.deliverables`, and the ownership chain of RS-1 |
+| LB-a | It owns a professional conclusion that the **originally requested deliverable** must carry — including a conclusion the user asked for **in terms**, however it was phrased | `WorkIntent.requested_outcome` and `WorkRequirementSet.deliverables` as first derived, before any narrowing (LB-0); the ownership chain of RS-1 |
 | LB-b | It owns, or is a required participant in, a **mandatory review** the band requires | `ReviewRequirement` set, `work-classification-and-criticality.md` |
 | LB-c | It is a prerequisite of an **authority or gate** the plan contemplates | `DecisionRequirement` set, `governance-preflight.md` G-10 |
 | LB-d | It produces an **upstream artifact that every valid path** to the requested deliverable depends on | The stage dependency order (MC-12): no path from the plan's entry to the deliverable avoids that stage |
 | LB-e | It is a **fired conditional requirement** (RS-6) | `RoleRequirement.activation` |
 
-**Rule LB-2 — `NOT_LOAD_BEARING` requires a surviving reduced deliverable.** It is not the residual
-case. It holds only where a **valid reduced deliverable** remains that (i) does not imply coverage
-of the missing capability, (ii) carries no conclusion that capability owns, and (iii) is stated to
-the user as reduced (RS-10). Where no such deliverable can be described, the determination is
-`LOAD_BEARING` and the disposition is BLOCK.
+**Rule LB-2 — a reduced deliverable is validated only after `NOT_LOAD_BEARING` is independently
+established.** LB-2 never decides the determination; it checks whether the narrowing LB-1 has
+already permitted is admissible. A reduced deliverable is admissible only where it (i) does not
+imply coverage of the missing capability, (ii) carries no conclusion that capability owns, and
+(iii) is stated to the user as reduced (RS-10). Where step 1 returned `LOAD_BEARING`, LB-2 is not
+reached at all and the disposition is BLOCK; where step 1 returned `NOT_LOAD_BEARING` and no
+admissible reduced deliverable can be described, the plan blocks as well.
 
 **Rule LB-3 — the determination is recorded as a first-class field, not inferred at read time.**
 Every `RoleRequirement` and `SkillRequirement` whose `availability` is not `AVAILABLE` carries:
@@ -143,6 +166,28 @@ three (RS-4).
 **Rule LB-5 — a candidate capability is unavailable for the predicate too.** A Role, Skill or Review
 Profile that exists only as a proposal counts as absent when LB-1 is evaluated. Treating a candidate
 as present would make the determination depend on what someone hopes to approve later.
+
+### 6b. No approved owner is a different failure from an unavailable owner
+
+Two situations look alike and are not:
+
+| Situation | Failure mode | Predicate | Disposition |
+|---|---|---|---|
+| An **approved** owning Role or Skill exists, and is unavailable in this scope, unmapped, or otherwise not activatable | **F-5** / **F-6** | §6a applies: `load_bearing` is determined against the original deliverable | BLOCK where `LOAD_BEARING`, CONSTRAIN where not |
+| **No approved Role owns the conclusion at all**, and the originally requested deliverable requires it | **F-14** `NO_APPROVED_ROLE_OWNS_CONCLUSION` | None. There is no approved owner whose absence could be weighed, so no determination is made | **BLOCK** + escalate as a governance gap |
+
+**Rule RS-12 — the no-owner case is never routed through F-5 as `NOT_LOAD_BEARING`.** That route
+would let an unfilled hole in the approved universe be closed by a determination rather than by
+governance. There is exactly one circumstance in which a missing owner does not block: where the
+**originally requested deliverable, un-narrowed, does not require that conclusion at all** — in
+which case there was never a requirement, LB-0 shows it, and nothing was removed. That is a finding
+about the request, established before any narrowing, and it is recorded as such.
+
+**Rule RS-13 — a conclusion the user asked for cannot be narrowed away.** Where the user's request
+asks for a conclusion in terms — a communication strategy, a legal position, a recommendation — and
+no approved Role owns it, the architecture does not produce a narrower result and present it as the
+answer. It blocks and escalates. Narrowing is available only where the original deliverable permits
+it under LB-0 and LB-1, and a plan may never establish that permission by narrowing first.
 
 **Rule RS-10 — a constrained plan says what it does not cover.** Where the planner proceeds without
 a Role, the plan states in terms the user will read: *this plan does not produce a legal position,
@@ -192,21 +237,28 @@ firm but professional response."
 
 The fourth row is the honest result. At the Phase 13 baseline the approved universe has **no Role
 that owns difficult-conversation communication strategy**; a candidate exists on a separate proposal
-branch and is not approved. So by RS-9 the planner either blocks or produces a constrained plan, and
-§6a decides which rather than leaving it to judgement:
+branch and is not approved. So by RS-9 this is the **third** row, not the second: there is no approved owner at all, which is
+a governance gap rather than an availability problem, and §6b keeps it out of F-5 entirely.
 
-| Determination | Value |
-|---|---|
-| `load_bearing` | `NOT_LOAD_BEARING` |
-| `load_bearing_basis` | LB-a does not fire: no declared deliverable must carry a communication-strategy conclusion once the reduced deliverable is stated. LB-b, LB-c and LB-e do not fire — no review, gate or fired condition names that capability. LB-d does not fire — every path to the reduced deliverable runs through the evidence and legal stages, neither of which it owns. Under LB-2 the surviving reduced deliverable is a draft carrying the evidence position and the legal position and **no** communication-strategy conclusion, stated as such |
+Whether it blocks turns on LB-0 — on the deliverable **as the user requested it**, before anything
+is narrowed:
 
-The disposition is therefore **CONSTRAIN**: evidence analysis and legal position, with drafting
-attached to the owning substantive Role and the plan stating that no communication-strategy
-conclusion is produced. Had the request been *"tell me how to handle this relationship"*, LB-a would
-fire on the declared deliverable and the same gap would **BLOCK**.
+| The request | The originally requested deliverable | Outcome |
+|---|---|---|
+| *"…prepare a firm but professional response. I do not want to damage the relationship."* | A reply that is **firm but professional** and **protects the relationship** — a communication-strategy conclusion, asked for in terms | **BLOCK**, `NO_APPROVED_ROLE_OWNS_CONCLUSION` (F-14), escalated as a governance gap |
+| *"Check whether they are right."* and nothing further | An evidence position | No communication-strategy conclusion was ever required. LB-0 shows it, nothing is removed, and the plan proceeds |
+
+The first row is the one the exemplar works through, and the earlier version of this document got
+it wrong: it removed the communication-strategy conclusion, called the remainder the deliverable,
+and concluded from the remainder that the removed conclusion had not been needed. LB-6 now names
+that reasoning as a validation failure. A user who asks for a firm reply that preserves a
+relationship has asked for exactly the conclusion the approved universe has no owner for, and the
+honest answer is that the system cannot produce it — not a narrower answer presented as the answer
+(RS-13).
 
 What the planner must **not** do is assign the drafting to whichever Role sounds closest and call
-the gap covered. `exemplars.md` Example 2 works this through in full.
+the gap covered, and it must not narrow the deliverable in order to prove the gap did not matter.
+`exemplars.md` Example 2 works this through in full.
 
 ## 9. Non-Runtime Statement
 

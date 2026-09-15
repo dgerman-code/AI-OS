@@ -3,7 +3,7 @@
 Status: `PROPOSED` — Phase 15 architecture candidate
 Version: 0.1
 
-## 1. Thirteen planning failure modes
+## 1. Fourteen planning failure modes
 
 Every one has exactly one disposition. A failure mode with two possible outcomes is a failure mode
 that will be resolved by whoever is in a hurry.
@@ -14,8 +14,8 @@ that will be resolved by whoever is in a hurry.
 | F-2 | `AMBIGUOUS_SCOPE` | **CLARIFY**, blocking; **BLOCK** if unanswerable | Choosing changes applicable knowledge, authority, residency or sensitivity (CS-7) |
 | F-3 | `NO_MATCHING_WORKFLOW` | **COMPOSE** | Not an error. It is the ordinary trigger for the COMPOSE path |
 | F-4 | `PLAN_COMPOSITION_REQUIRED` | **COMPOSE** | An admissible candidate exists but does not cover the work |
-| F-5 | `REQUIRED_ROLE_UNAVAILABLE` | **BLOCK** where `load_bearing = LOAD_BEARING`; otherwise **CONSTRAIN** with the gap stated | The predicate is `role-skill-requirement-inference.md` §6a (LB-1…LB-5); RS-9, RS-10 |
-| F-6 | `REQUIRED_SKILL_UNAVAILABLE` | **BLOCK** where `load_bearing = LOAD_BEARING`; otherwise **CONSTRAIN** with the gap stated | The same predicate, applied to the Skill's Role (RS-8, §6a) |
+| F-5 | `REQUIRED_ROLE_UNAVAILABLE` — an **approved** owning Role exists and is unavailable, unmapped or not activatable | **BLOCK** where `load_bearing = LOAD_BEARING`; otherwise **CONSTRAIN** with the gap stated | The predicate is `role-skill-requirement-inference.md` §6a (LB-0…LB-6), evaluated against the **originally requested** deliverable; RS-9, RS-10. Where **no** approved Role owns the conclusion, the mode is F-14, not this one |
+| F-6 | `REQUIRED_SKILL_UNAVAILABLE` — an **approved** Skill exists and is not activatable | **BLOCK** where `load_bearing = LOAD_BEARING`; otherwise **CONSTRAIN** with the gap stated | The same predicate, on the same original-deliverable basis, applied to the Skill's Role (RS-8, §6a) |
 | F-7 | `REVIEW_PROFILE_UNAVAILABLE` | **BLOCK** + escalate | An unreviewable deliverable at a band that requires review is not shippable |
 | F-8 | `NO_APPLICABLE_DECISION_RIGHT` | **BLOCK** + escalate | GP-4. There is no alternative branch |
 | F-9 | `EVIDENCE_REQUIREMENT_UNSATISFIED` | **BLOCK the plan**, before handoff | §2a. Phase 15 has no stages to block, and no partial handoff exists (HO-2, G-11) |
@@ -23,6 +23,7 @@ that will be resolved by whoever is in a hurry.
 | F-11 | `CONFLICTING_REQUIREMENTS` | **ESCALATE** | Two governed requirements cannot both be met; a planner may not choose between them |
 | F-12 | `UNSAFE_INFERENCE` | **CLARIFY**, blocking; **BLOCK** if unanswerable | The planner would have to guess about scope, authority or an irreversible act |
 | F-13 | `PLAN_VALIDATION_FAILED` | **BLOCK** | Preflight failed; §5 of the preflight document names the locus |
+| F-14 | `NO_APPROVED_ROLE_OWNS_CONCLUSION` | **BLOCK** + escalate | The originally requested deliverable needs a conclusion the approved universe has **no owner** for. Distinct from F-5: no approved owner exists, so there is no load-bearing determination to make (`role-skill-requirement-inference.md` §6b, RS-12) |
 
 **Rule FE-1 — `RECOMMENDATION_ONLY` is an outcome, not a fallback.** Where the user asked for a
 recommendation (`execute_or_prepare = RECOMMEND`), the plan produces one and no act is contemplated.
@@ -72,6 +73,11 @@ whole plan or no plan. Where the approved Phase 11 semantics permit an unresolve
 plan represents it exactly as Phase 11 defines it and lets Phase 11 do the waiting; where they do
 not, the plan blocks before the handoff. There is no third behaviour, and no Phase 15 rule may be
 written as *"stage X blocks while stage Y proceeds"*.
+
+**Rule FE-13 — a prerequisite reference is `RESOLVED`, `FUTURE_GOVERNANCE_REFERENCE`, or
+blocking.** There is no fourth state and no passable `UNKNOWN`: an unresolved, dangling or
+unclassified reference blocks, and is never relabelled as a declared future reference to get past
+the handoff (`orchestrator-handoff-contract.md` HO-15).
 
 **Rule FE-12 — a `FUTURE_GOVERNANCE_REFERENCE` is not a satisfied requirement.** It is a declared,
 non-executable dependency. It does not make the evidence available, does not permit the dependent

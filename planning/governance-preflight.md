@@ -21,8 +21,8 @@ work, the conclusions, or the acts.
 | **G-2** | Every `WorkIntent` field is present as a value or an explicit `UNKNOWN` (RI-3) | **BLOCK** — an unconsidered field is a planner defect |
 | **G-3** | The criticality band resolves | **BLOCK** — `CRITICALITY_UNRESOLVED`. Never defaults to Routine |
 | **G-4** | Sensitivity, handling and residency are present or explicitly `UNASSESSED`, and `UNASSESSED` is treated as restricted | **BLOCK** |
-| **G-5** | Every `RoleRequirement` resolves to an approved, available Role; every fired conditional requirement is met (RS-6); every unavailable Role records `load_bearing` **and** `load_bearing_basis` (LB-3) | **BLOCK** — `REQUIRED_ROLE_UNAVAILABLE` where the determination is `LOAD_BEARING`, or a recorded constrained plan (RS-10). A missing determination is itself a **BLOCK** |
-| **G-6** | Every `SkillRequirement` resolves to an approved Skill with a Phase 4 basis; no candidate Skill is activated (RS-8); every unavailable Skill records `load_bearing` **and** `load_bearing_basis` (LB-3) | **BLOCK** — `REQUIRED_SKILL_UNAVAILABLE` where the determination is `LOAD_BEARING`. A missing determination is itself a **BLOCK** |
+| **G-5** | Every `RoleRequirement` resolves to an approved, available Role; every fired conditional requirement is met (RS-6); every unavailable Role records `load_bearing` **and** `load_bearing_basis`, determined against the **originally requested** deliverable (LB-0, LB-3), with no basis citing a reduced deliverable (LB-6) | **BLOCK** — `REQUIRED_ROLE_UNAVAILABLE` where the determination is `LOAD_BEARING`, or a recorded constrained plan (RS-10). A missing determination is itself a **BLOCK** |
+| **G-6** | Every `SkillRequirement` resolves to an approved Skill with a Phase 4 basis; no candidate Skill is activated (RS-8); every unavailable Skill records `load_bearing` **and** `load_bearing_basis` on the same original-deliverable basis (LB-0, LB-3, LB-6) | **BLOCK** — `REQUIRED_SKILL_UNAVAILABLE` where the determination is `LOAD_BEARING`. A missing determination is itself a **BLOCK** |
 | **G-7** | No blocking `ClarificationRequirement` is open; none carries a `default_if_unanswered` (CL-15) | **BLOCK** |
 | **G-8** | Every `ReviewRequirement` names an approved Review Profile, and **none is marked satisfied** | **BLOCK** — `REVIEW_PROFILE_UNAVAILABLE`, or a planner defect if satisfaction was asserted |
 | **G-9** | `constraint_overrides_attempted` is empty (MC-17) | **BLOCK** — the planner did the thing MC-4 forbids |
@@ -35,6 +35,8 @@ work, the conclusions, or the acts.
 | **G-16** | No confidence value is used as a basis for any of G-1, G-5, G-8, G-10 or G-13 (OM-13) | **BLOCK** |
 | **G-17** | The gate stage, where one exists, has no Role participation (MC-13) | **BLOCK** |
 | **G-18** | Every inherited floor — criticality, sensitivity, residency, review, decision — is at or above what the approved inputs require (MC-11, WC-10) | **BLOCK** |
+| **G-19** | Every `prerequisite_ref` is `RESOLVED` or `FUTURE_GOVERNANCE_REFERENCE`; no reference is a plain `UNKNOWN`, unresolved, dangling or unclassified (HO-15, FE-13) | **BLOCK** — a dangling reference has no executable handoff, and `UNKNOWN` is never rewritten as a declared future reference |
+| **G-20** | No conclusion the originally requested deliverable needs is left without an approved owner (RS-12, RS-13) | **BLOCK** — `NO_APPROVED_ROLE_OWNS_CONCLUSION` (F-14), escalated as a governance gap |
 
 **Rule GP-2 — a failed check is recorded with its evidence.** The `PlanValidationResult` names the
 check, the element that failed it, and what would satisfy it. "Validation failed" with no locus is
@@ -97,7 +99,7 @@ run to act on (HO-2, FE-11).
 | Field | Content |
 |---|---|
 | `outcome` | `PASSED` · `FAILED` |
-| `checks` | G-1…G-18, each `PASS` · `FAIL` · `NOT_APPLICABLE` with a reason |
+| `checks` | G-1…G-20, each `PASS` · `FAIL` · `NOT_APPLICABLE` with a reason |
 | `failures` | The failed check, the element, and what would satisfy it (GP-2) |
 | `act_posture` | One of the five (GP-6) |
 | `constrained` | Whether the plan is constrained, and what it does not cover (RS-10) |

@@ -76,15 +76,32 @@ A multi-part request — *"check whether they are right and prepare a response"*
 two primaries, as a compound value such as `ANALYSIS_AND_DRAFTING`, or as prose the implementer has
 to re-parse. The derivation is deterministic:
 
-| Question | Answer |
-|---|---|
-| Which mode does the **requested deliverable** belong to? | That is the primary |
-| Where two modes each produce a separately named deliverable? | The one the later stages depend on is the primary; the dependency order is already recorded in the plan stages (MC-12) |
-| Where the primary is still undetermined? | `primary_work_mode = UNKNOWN`. It is never picked to break the tie |
+**The derivation reads the Request and nothing else.** `WorkIntent` is produced at step 2 of the
+planning sequence, before any `PlanStage` exists, so a rule that derived the primary mode from stage
+dependency order would be reading an object that has not been built yet — and would make the
+sequence circular. The tests below are applied **in order**, and the first that resolves wins:
+
+| # | Test, over the Request text and the stated Work Intent fields only | Resolves the primary as |
+|---:|---|---|
+| 1 | The user **states a priority** — "first work out whether they are right, then draft a reply", "mainly I need the analysis" | The mode of the result they put first |
+| 2 | The request names **exactly one end result** | The mode of that result |
+| 3 | An **explicit execution verb** governs the request — send, file, submit, publish, post, pay, sign — and `transmission_contemplated` or `commitment_possible` is `YES` | `ACTION`. A consequential act leads whatever else is asked for |
+| 4 | The request has one **direct grammatical target** and the rest is subordinate to it — "prepare a response *based on* whether they are right" | The mode of the main clause's object |
+| 5 | None of the above resolves | **`UNKNOWN`** |
+
+**Rule RI-13 — the primary mode is derived upstream, or it is `UNKNOWN`.** It is never derived from
+a `PlanStage`, a dependency order, a Workflow candidate, a Role requirement or anything else the
+planner builds later, and it is never invented to avoid an `UNKNOWN`. Where test 5 is reached, the
+primary is `UNKNOWN` and **every** applicable mode is carried in `secondary_work_modes` — the set is
+complete, not a remainder after an arbitrary pick. Downstream consumers read `UNKNOWN` as what it is
+(RI-3): a determinate finding that the request did not settle which result leads.
 
 `secondary_work_modes` is a **set**: unordered, unique, possibly empty, and never containing the
-primary. Downstream logic that needs a single leading mode reads `primary_work_mode` and nothing
-else, so there is no place where a reader has to decide which of several modes leads.
+primary — except where the primary is `UNKNOWN`, which names no mode and therefore excludes none.
+Downstream logic that needs a single leading mode reads `primary_work_mode` and nothing else, so
+there is no place where a reader has to decide which of several modes leads; where it reads
+`UNKNOWN`, the honest answer is that no mode leads, and the conservative routing of WC-6 applies to
+the consequences rather than to the mode.
 
 **Rule RI-5 — the mode does not decide the gate.** A `DRAFTING` request whose draft is going to be
 sent carries a transmission gate exactly as an `ACTION` request does. The mode describes the shape

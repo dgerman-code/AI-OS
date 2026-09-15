@@ -41,10 +41,29 @@ Built to make the Orchestrator's seven intake checks answerable
 | 8 | `residency` | Constraints, or explicit `UNASSESSED` | 4 |
 | 9 | `criticality_band` | The resolved band | 5 |
 | 10 | `idempotency_key` | Derived from the `Request` identity | 6 |
-| 11 | `prerequisite_refs` | Every declared artifact, evidence and decision reference, each resolved or explicitly `UNKNOWN` | 7 |
+| 11 | `prerequisite_refs` | Every declared artifact, evidence and decision reference, each in exactly one of the three states of §2a | 7 |
 | 12 | `planning_provenance` | `request.<id>`, `intent.<id>`, `work_plan.<id>`, `plan_validation.<id>` | — |
 | 13 | `act_posture` | One of the five postures of `governance-preflight.md` GP-6 | — |
 | 14 | `open_items` | Assumptions, `UNKNOWN`s and findings carried forward, each with the rule permitting it | — |
+
+### 2a. The three prerequisite states, and why `UNKNOWN` is not one of the passable ones
+
+The approved intake check 7 reads: *"Every declared prerequisite artifact, evidence or decision
+reference resolves, or is declared `FUTURE_GOVERNANCE_REFERENCE` and therefore non-executable —
+BLOCK on a dangling reference."* Two states pass it; a third does not.
+
+| State | Means | At intake |
+|---|---|---|
+| **`RESOLVED`** | The reference resolves, at an ID and a version | Eligible to proceed, subject to the rest of the intake contract |
+| **`FUTURE_GOVERNANCE_REFERENCE`** | A declared future reference, named as such | Permitted, and the dependent act is **non-executable** until it is satisfied |
+| **`UNKNOWN`** | The planner does not hold the reference and cannot classify it as a declared future one | **Dangling. BLOCK.** No executable handoff |
+
+**Rule HO-15 — a plain `UNKNOWN` prerequisite blocks, and is never rewritten as a declared future
+reference.** `UNKNOWN` is a determinate finding about the planner's knowledge (RI-3);
+`FUTURE_GOVERNANCE_REFERENCE` is a governed declaration about the work. Relabelling the first as the
+second would turn "I do not know" into "this is deliberately deferred", which is the one move that
+makes a dangling reference look handled. The two are never equivalent, in this document or any
+other.
 
 **Rule HO-3 — fields 2 and 3 are mutually exclusive.** A `WORK_PLAN` envelope carries no
 `workflow_ref`, and a `WORKFLOW_SELECTION` envelope carries no `work_plan_ref`. An envelope
@@ -61,16 +80,18 @@ as a basis.
 ## 3. Planned Work Item Specifications
 
 `work_item.<id>` is a **runtime** identity owned by the run (`orchestration/execution-run-model.md`
-§3, row 6). It comes into existence after Phase 11 has created a run, and only Phase 11 creates it.
-Phase 15 produces something else, in its own identifier space:
+§3, row 6), and a **Task / Activity** is something else again: what an approved Workflow definition
+says is to be done, defined once and unchanged by any run (§4 of that document). Phase 15 produces
+neither. It produces a planning record, in its own identifier space:
 
-> `PLANNED WORK ITEM SPEC != WORK ITEM`
+> `TASK != PLANNED WORK ITEM SPEC != WORK ITEM`
 
 **Rule HO-6 — the planner produces `PlannedWorkItemSpec` records and never instantiates a runtime
-Work Item.** A spec is derived only from validated plan stages bound to approved definitions — not
-from an intent, not from a draft stage, not from a stage whose requirements are unmet. It is
-`planned_work_item_spec.<id>`, never `work_item.<id>`, and it is not a Work Item in an earlier
-state: there is no transition between the two, and no Phase 15 process creates one from the other.
+Work Item.** A spec is derived only from a **validated** plan stage bound to approved definitions —
+not from an intent, not from a draft stage, not from a stage whose requirements are unmet, and never
+before validation has run (`intent-work-planning-architecture.md` PL-8, step 12). It is
+`planned_work_item_spec.<id>`, never `work_item.<id>` and never a Task; it is not a Work Item in an
+earlier state, and there is no transition between them.
 
 Each `PlannedWorkItemSpec` carries, at minimum:
 
@@ -106,17 +127,44 @@ decided later, elsewhere.
 | A routing action, dispatch, claim or attempt | Those are acts, and the planner performs none |
 | Orchestration semantics — activation, waiting, retry, rework, completion | PL-1 |
 
-**Rule HO-14 — Phase 11 alone instantiates the runtime Work Item.** A spec **describes what Phase
-11 would need** in order to instantiate one after a run exists. Phase 11 reads it, re-validates it
-at intake, and creates `work_item.<id>` itself, or refuses. Nothing in Phase 15 obliges it to, and a
-spec that was never instantiated has caused nothing.
+### 3a. What the approved Orchestrator does with a spec today: nothing
+
+**Rule HO-14 — no approved contract consumes a `PlannedWorkItemSpec`, and Phase 15 may not claim
+one does.** `PlannedWorkItemSpec` is a **proposed** Phase 15 planning object. No approved Phase 11
+artifact defines it as an intake object, and this package therefore states none of the following as
+current behaviour:
+
+| Not claimed as current behaviour | Why not |
+|---|---|
+| That the approved Orchestrator reads a `PlannedWorkItemSpec` | No approved intake contract names it |
+| That it re-validates one at intake | Intake validates the seven approved checks against the approved envelope, and a spec is not one of their inputs |
+| That it instantiates a Work Item from one | Work Item creation is Phase 11's, from what its own approved contract accepts |
+| That runtime identity is derived from one | Runtime identity comes into being inside a run, from approved inputs |
+
+What **is** true today, and all that is:
+
+- Phase 15 may **produce** a `PlannedWorkItemSpec` as non-runtime planning output.
+- It may be carried in a **proposed** handoff envelope only where an approved execution-basis
+  contract permits it — and none currently does.
+- The translation and consumption semantics — what a downstream consumer would do with a spec, and
+  under what conditions — require **explicit Phase 11 change control**, or another separately
+  approved execution-basis mechanism.
+- Until that exists, **COMPOSE remains non-executable under PO-4**, and producing specs changes
+  nothing about that.
+- **MATCH** continues to hand off through the approved Workflow-based intake path only, and its
+  compatibility rests on `workflow.<id>` @ version — not on any spec.
+
+**Rule HO-16 — a spec is not a bridge over PO-4.** Introducing `PlannedWorkItemSpec` fixed an
+identity error; it did not create an execution route. No Phase 15 statement may say that producing
+specs lets a Work Plan reach a run, because no such route exists — saying so would resolve PO-4 by
+assertion, which `open-items.md` §2a forbids.
 
 ## 4. What crosses, and what does not
 
 | Crosses | Does not cross |
 |---|---|
 | The envelope of §2 | The planner's reasoning traces |
-| `PlannedWorkItemSpec` records of §3 | Confidence values as decision inputs |
+| `PlannedWorkItemSpec` records of §3, **only where an approved execution-basis contract permits** (§3a) | Confidence values as decision inputs |
 | Resolved references, as ID and version | Unresolved candidates the planner rejected |
 | Open items with the rule permitting each | Any assertion the planner could not support |
 

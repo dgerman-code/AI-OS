@@ -72,7 +72,7 @@ directory, which is arguably more coherent anyway. Phase 12 is back to `55/55`.
 | N-8 | Convert AI output into approved knowledge | OM-9, OM-11, RI-11 | `generated planning knowledge stays correctly typed` |
 | N-9 | Create a permanent autonomous agent | PL-2, UX-11 | Structural: no persona is specified anywhere |
 | N-10 | Choose a Model Profile | HO-4, HO-8, G-14 | `the planner never selects a Model Profile`; `no planning object selects a model, spec included` |
-| N-11 | Instantiate a Phase 11 runtime `Work Item` | HO-6, HO-13, HO-14, OM-16 | `planned work item specs are never runtime Work Items` |
+| N-11 | Instantiate a Phase 11 runtime `Work Item`, or define a Task | HO-6, HO-13, HO-14, HO-16, OM-16 | `planned work item specs are never runtime Work Items`; `Task, planned spec and Work Item stay three separate things`; `no approved contract is claimed to consume a planned spec` |
 
 ## 4. Identifier integrity — checked, not asserted
 
@@ -108,7 +108,7 @@ capability instead of naming one, and then having no way to tell that the capabi
 
 ## 6. Known limitations
 
-- **Eleven open items** (PO-1…PO-11, the canonical inventory being `open-items.md` itself, from
+- **Twelve open items** (PO-1…PO-12, the canonical inventory being `open-items.md` itself, from
   which `validation/phase_15_validation.py` now derives this count rather than trusting the prose).
   One of them, PO-4, determines whether half this phase is buildable at all.
   It is stated in full rather than resolved, because resolving it would mean amending an approved
@@ -159,6 +159,39 @@ attack set. §7 stands as written, with one addition: an independent reviewer fo
 and 12 escapes in a package whose own harness reported 32/32 and 28/28. The producer's green board
 was worth what §7 says it is worth.
 
+## 6b. What the V2 re-audit returned, and what was changed
+
+The V2 independent re-audit of `fa9447dedc8077783ab61f116988371128de8476` returned **`FAIL`** at
+**`HIGH`** credibility, with six blockers, and found **4 of 21** second-location mutations still
+escaping. Four of the six blockers were introduced by the V1 remediation itself — the object that
+fixed the first review's ownership error brought three new errors with it. That is the more useful
+fact about this package's assurance, and §7 now says so.
+
+| # | Blocker | What was wrong | What it is now |
+|---:|---|---|---|
+| 1 | `TASK != WORK ITEM` was lost | The identity table gave the two objects a single shared row, implying neither belongs where the approved model puts it: a Task in the Workflow **definition**, unchanged by any run, and a Work Item in the **run** | Three rows, three objects, and `TASK != PLANNED WORK ITEM SPEC != WORK ITEM` stated on its own line in two documents. Scans reject the pairing and reject a Task created in a run |
+| 2 | Phase 11 was claimed to consume a spec | HO-14 said Phase 11 "reads it, re-validates it at intake, and creates `work_item.<id>`". No approved contract defines `PlannedWorkItemSpec` as an intake object, so that was a claim about behaviour nobody has approved | §3a states the boundary in full: Phase 15 may **produce** a spec; it crosses only where an approved execution-basis contract permits, **and none currently does**; the consumption semantics need explicit Phase 11 change control; COMPOSE stays non-executable under PO-4; MATCH keeps to the approved Workflow-based path. **HO-16**: a spec is not a bridge over PO-4. New open item **PO-12** |
+| 3 | Spec generation preceded validation | Step 9a produced a spec before requirements and preflight, while HO-6 said a spec derives from a **validated** stage — a cycle | Step **12**, after validation, conditional on the execution path being eligible. **PL-8** states the ordering, and a check rejects any preflight rule that reads a spec |
+| 4 | `primary_work_mode` was derived downstream | The tie-break read plan stage dependency order, which does not exist when `WorkIntent` is built | Five ordered tests over the Request and stated intent fields only — stated priority, single end result, execution verb, main-clause target, else `UNKNOWN` with the **complete** set of applicable modes in `secondary_work_modes` (**RI-13**) |
+| 5 | The load-bearing example was circular | It removed the missing conclusion, called the remainder the deliverable, and concluded the removed conclusion had not been needed | **LB-0**: every test reads the **originally requested** deliverable, before any reduction. **LB-6**: a reduced deliverable is a consequence, never evidence. **RS-12 / RS-13** and new failure mode **F-14** separate *no approved owner* from *approved owner unavailable*; G-20 enforces it |
+| 6 | Prerequisites were "resolved or explicitly `UNKNOWN`" | Which conflicts with approved intake check 7 | Three states — `RESOLVED`, `FUTURE_GOVERNANCE_REFERENCE`, and a plain `UNKNOWN` that **blocks** — in §2a of the handoff contract, **HO-15**, **FE-13** and new preflight check **G-19**. `UNKNOWN` is never relabelled as a declared deferral |
+
+### The exemplar that had to change its answer
+
+Example 2 — *"prepare a firm but professional response. I do not want to damage the relationship."* —
+previously produced a **constrained plan**. Under LB-0 it **blocks**: the user asked for a
+communication-strategy conclusion in terms, no approved Role owns it, and the earlier reasoning
+reached CONSTRAIN only by narrowing the deliverable first and then reading the narrowed version as
+proof that nothing had been lost. The narrower plan is still shown, as what a **different** request
+would compose — not as what a blocked plan quietly becomes.
+
+### Assurance added in V2
+
+Six new cross-document checks (53 total) and sixteen new probes (61 total), each planted in a second
+location. The validator gained two further repairs to its own machinery: a numbered list item is now
+a statement in its own right rather than being merged into its neighbours, and the forward half of
+the negation test now reads only as far as a row's answering cell.
+
 ## 7. Harness credibility
 
 **Not high, and the reasons are specific rather than modest.**
@@ -169,10 +202,12 @@ was worth what §7 says it is worth.
 2. **Text-consistency checks cannot test an architecture.** Every check here reads documents. None
    executes a planner, because there is no planner. A package can be perfectly self-consistent and
    architecturally wrong, and this harness would report `PASS`.
-3. **The prior phases of this repository establish a pattern worth stating.** In Phases 12–14 a
-   green validator repeatedly coexisted with blockers an independent reader found — including, in
-   two rounds, defects the harness's own author had introduced in the previous round. There is no
-   reason to expect Phase 15's first harness to be better than Phase 14's fifth.
+3. **The pattern has now repeated inside Phase 15 itself, twice.** The first harness reported
+   32/32 and 28/28; an independent reader found five blockers and 12 escapes. The second reported
+   47/47 and 45/45; an independent reader found six blockers and four escapes, **four of the six
+   introduced by the first remediation**. A green board from this harness has twice meant nothing
+   about whether the architecture is right, and there is no reason to treat the third as different.
+   In Phases 12–14 the same pattern held.
 4. **The probes test the checks, not the architecture.** A high detection rate means the checks are
    load-bearing against the weakenings the same author thought to write. It says nothing about the
    weakenings nobody thought of, and those are the ones independent reviewers keep finding.
@@ -184,8 +219,8 @@ its first run.
 
 | Run | Result |
 |---|---|
-| `validation/phase_15_validation.py` | **47/47 PASS** on default, `--verbose` and `--json` |
-| `validation/phase_15_mutation_probes.py` | **45 probes, 45 DETECTED, 0 REDUNDANT, 0 ERROR** |
+| `validation/phase_15_validation.py` | **53/53 PASS** on default, `--verbose` and `--json` |
+| `validation/phase_15_mutation_probes.py` | **61 probes, 61 DETECTED, 0 REDUNDANT, 0 ERROR** |
 | Phase 8 validator | `119/119 PASS` |
 | Phase 9 validator | `277/277 PASS` |
 | Phase 10 validator | `145/147 PASS` — **inherited**, unchanged, not repaired here |
@@ -197,7 +232,29 @@ its first run.
 There is no separate Phase 12 unit suite in this repository; `validation/phase_12_validation.py` is
 the whole of it, and it is reported above.
 
-### Probes that came back REDUNDANT, and the validator defects behind them
+### V2: three probes came back REDUNDANT, and three more validator defects
+
+Three of the sixteen new probes were `REDUNDANT` on their first run, and each exposed a defect in a
+check rather than in the architecture:
+
+1. **A spec crossing the boundary unconditionally was not caught.** The weakening read *"specs …
+   which Phase 11 intake accepts and revalidates"* — object before subject, which a
+   subject-then-verb scan cannot match. The crossing row is now checked structurally: it must carry
+   its condition.
+2. **The load-bearing test moved back behind the reduction was not caught.** The forward half of the
+   negation test read past the row's answering cell and found a *later* cell's denial of something
+   else. The forward look now stops at the answering cell.
+3. **The object-model row describing the spec AS a runtime Work Item was not caught**, for the same
+   word-order reason as (1). That row is now checked structurally too.
+
+### V1: one probe REDUNDANT, three validator defects
+
+Recorded in full rather than dropped: the runtime-Work-Item probe was excused by a neighbouring
+clause's denial; a G-5 test for `load_bearing` was satisfied by the failure column; and a scan could
+not cross the dot inside `` `work_plan.<id>` ``. Two of those three were introduced by V1's own
+remediation.
+
+### The first round's probes and defects, retained
 
 **Three of the seventeen new probes were `REDUNDANT` on their first run.** Each exposed a defect in
 a check rather than a defect in the architecture, and each is recorded here rather than quietly
@@ -230,19 +287,21 @@ missing the word *nothing*.
 
 ## 9. Readiness
 
-This package is ready for an **independent architecture re-audit**, not for approval. The five
+This package is ready for an **independent architecture re-audit**, not for approval. The six V2
 blockers are closed and nothing here approves anything. The questions a re-auditor should press
 hardest:
 
 1. **PO-4**, still — is a validated Work Plan an admissible execution basis for the approved
    Orchestrator, and if not, what is the COMPOSE path for? It is preserved as an explicit blocked
    implementation dependency, not resolved.
-2. **Whether the new `PlannedWorkItemSpec` boundary holds under pressure.** It is asserted as an
-   identity and enforced by scans; whether Phase 11 can actually consume a spec without Phase 15
-   acquiring runtime semantics by increments is a Phase 11 question this package cannot settle.
-3. **Whether the LB-1…LB-5 predicate is decidable in practice.** It is deterministic on paper. LB-d
-   in particular — *every valid path depends on this stage* — is a claim about a graph the planner
-   built itself.
+2. **Whether `PlannedWorkItemSpec` should exist at all before a consumer does.** It now produces a
+   record no approved contract reads (PO-12). That is honest, and it may also be premature: an
+   object defined without its consumer tends to acquire one by assumption, which is exactly the
+   V2 blocker this round closed.
+3. **Whether the LB-0…LB-6 predicate is decidable in practice.** It is deterministic on paper, and
+   its hardest question is now the one LB-0 makes load-bearing: what *was* the originally requested
+   deliverable, as opposed to what the planner understood it to be? That reading is itself
+   `AI_SUGGESTION`, and the predicate rests on it.
 4. **Whether the planning layer can stay a planning layer.** Every pressure on a system like this
    pushes it toward re-planning mid-run, remembering across requests, and turning repeated patterns
    into registry entries. The boundaries here are structural (HO-11, HO-12, WL-4) precisely because

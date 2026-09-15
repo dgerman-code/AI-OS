@@ -58,9 +58,12 @@ and a system tuned to "don't bother the user" would have posted under the wrong 
 > "Review this partner email. They blame us for the delay. Check whether they are right and prepare
 > a firm but professional response. I do not want to damage the relationship."
 
-**`WorkIntent`:** `primary_work_mode` `ANALYSIS` — the requested deliverable the later stages
-depend on is the assessment of whether the partner is right — with `secondary_work_modes`
-`{DRAFTING}` (RI-12); `act_direction` `EXTERNAL`;
+**`WorkIntent`:** the request states its own priority — *"check whether they are right **and**
+prepare a … response"* — and names two end results with no stated order of importance and no single
+governing clause. Tests 1 to 4 of RI-12 do not resolve it, so test 5 does:
+`primary_work_mode` is **`UNKNOWN`** and `secondary_work_modes` is `{ANALYSIS, DRAFTING}` — the
+complete set, not a remainder after a pick (RI-13). Nothing downstream supplies the primary later.
+`act_direction` `EXTERNAL`;
 `commitment_possible` `UNKNOWN` → planned as `YES` (WC-6) — a reply about delay responsibility can
 concede; `execute_or_prepare` `PREPARE` ("prepare a response").
 
@@ -77,15 +80,37 @@ higher if the contract value puts it there.
 | `role.programme_partnership_manager` | The partnership position | `CONDITIONAL` on the partner class |
 | *communication strategy* | — | **No approved Role owns this at the Phase 13 baseline** |
 
-**`F-5 REQUIRED_ROLE_UNAVAILABLE`** on the fourth row. The disposition is not a judgement call: the
-requirement records `load_bearing = NOT_LOAD_BEARING`, with the basis that no LB-1 condition fires
-once the reduced deliverable is stated and that a valid reduced deliverable survives under LB-2 — a
-draft carrying the evidence and legal positions and no communication-strategy conclusion. Disposition:
-**CONSTRAIN**. The plan covers
-evidence and the legal position and attaches drafting to the substantive owner, and it states
-plainly that it produces no communication-strategy conclusion (RS-10).
+**Not F-5.** The fourth row is not an approved Role that happens to be unavailable — the approved
+universe has **no owner at all** for communication strategy in contested interactions. That is
+`role-skill-requirement-inference.md` §6b, and the mode is **`F-14
+NO_APPROVED_ROLE_OWNS_CONCLUSION`**, with no load-bearing determination to make (RS-12).
 
-**COMPOSE** — no approved Workflow covers evidence analysis plus legal position plus external reply:
+Whether it blocks is decided by **LB-0**, against the deliverable the user actually asked for:
+
+> *"prepare a **firm but professional** response. **I do not want to damage the relationship.**"*
+
+That is a communication-strategy conclusion, requested in terms. It is part of the original
+deliverable before anything is narrowed, so the disposition is **BLOCK** + escalate.
+
+**An earlier version of this exemplar got this wrong**, and the error is worth naming because it is
+the one this predicate exists to prevent: it removed the communication-strategy conclusion, called
+what remained the deliverable, and concluded from the remainder that the removed conclusion had not
+been load-bearing. LB-6 now makes that a validation failure. A narrower plan — evidence position
+plus legal position — is a perfectly good plan, and it is **not an answer to this request**;
+offering it as one would be the silent scope change UX-5 and FE-1 forbid.
+
+**What the user sees:** "I can check what the record shows about the delay and what the contract
+says about responsibility — that part I can do properly. What I can't do is judge how firmly to put
+it without damaging the relationship: nobody owns that conclusion in the approved system yet. Tell
+me if you want the evidence and the legal position on their own, and I'll be explicit that the tone
+call is yours."
+
+The narrower plan below is what the user gets **if they ask for it** — a new `Request`, with a
+deliverable that does not require the missing conclusion (RS-13). It is not what a blocked plan
+quietly becomes.
+
+**COMPOSE, on that narrower request** — no approved Workflow covers evidence analysis plus legal
+position plus an external reply, so the narrower request would compose:
 
 ```text
 S1  evidence intake        role.knowledge_evidence_steward
@@ -94,13 +119,16 @@ S1  evidence intake        role.knowledge_evidence_steward
 S2  contractual position   role.legal_regulatory_lead   depends: S1
                            owns the conclusion; S3 carries it verbatim (never restated)
 S3  drafting               <substantive owner>          depends: S1, S2
-S4  review                 review.legal_compliance  +  applicable communication review
+                           carries S1 and S2; makes no communication-strategy conclusion
+S4  review                 review.legal_compliance          (no communication review: none applies
+                                                            to a plan that makes no such conclusion)
 S5  human gate             decision.external_publication   ← no Role participates (MC-13)
 ```
 
 **The point.** Three of the four required conclusions have owners; the fourth does not, and the
-honest result is a constrained plan that says so — not a draft produced by whichever Role sounded
-closest.
+user asked for it in terms. The honest result is a **block** that says so — not a draft produced by
+whichever Role sounded closest, and not a narrower deliverable substituted for the requested one and
+presented as complete.
 
 ---
 
@@ -154,7 +182,8 @@ MATCH ambiguity that is resolved by a question about the meeting rather than abo
 
 > "Send them confirmation that we accept the terms."
 
-**`WorkIntent`:** `primary_work_mode` `ACTION`, `secondary_work_modes` empty; `act_direction`
+**`WorkIntent`:** `primary_work_mode` `ACTION` — RI-12 test 3, an explicit execution verb with
+`commitment_possible = YES` — and `secondary_work_modes` empty; `act_direction`
 `EXTERNAL`; `reversibility`
 `IRREVERSIBLE`; `commitment_possible` `YES`; `transmission_contemplated` `YES`;
 `execute_or_prepare` `EXECUTE`; `entities` — "them" `UNKNOWN`, "the terms" `UNKNOWN`.
@@ -211,10 +240,18 @@ S5  independent review         review.data_protection  +  review.grant_complianc
 S6  human gate                 decision.external_publication            ← no Role participates
 ```
 
-Each stage yields one `planned_work_item_spec.<id>` — a description of what Phase 11 would need in
-order to instantiate a Work Item once a run exists. **No `work_item.<id>` is created here** (N-11,
-HO-6, HO-14): the specs carry no run reference, no assignment, no execution status and no model, and
-Phase 11 instantiates its own runtime records at intake or refuses the envelope.
+Once the plan has **passed preflight** — and not before, because a spec derives only from a
+validated stage (PL-8, step 12) — each validated stage may yield one
+`planned_work_item_spec.<id>`. **No `work_item.<id>` is created here**, and no Task is defined here
+(N-11, HO-6): `TASK != PLANNED WORK ITEM SPEC != WORK ITEM`. The specs carry no run reference, no
+assignment, no execution status and no model.
+
+**What happens to them today: nothing.** No approved Phase 11 contract defines a
+`PlannedWorkItemSpec` as an intake object, so this exemplar does not claim the Orchestrator reads
+one, re-validates one, or instantiates anything from one (HO-14). They are non-runtime planning
+output. Carrying them across the boundary at all would need an approved execution-basis contract
+that permits it, and none exists — which is PO-4, unchanged and unresolved by their existence
+(HO-16).
 
 **`work_plan.<id>` is not `workflow.<id>`** (MC-14). It is bound to this request, this scope, this
 moment. Running the same request tomorrow produces a second plan, and the two are separate records

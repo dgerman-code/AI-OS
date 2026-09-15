@@ -70,20 +70,32 @@ is not even a Role).
 
 ## 3. The extended identity chain
 
-Phase 15 adds five objects upstream of the approved chain and separates all of them:
+Phase 15 adds four objects of its own — `Request`, `WorkIntent`, `WorkPlan` and
+`PlannedWorkItemSpec` — and separates every link in the chain they extend:
 
-> `REQUEST != INTENT != WORK PLAN != PLANNED WORK ITEM SPEC != WORKFLOW != WORKFLOW RUN != TASK !=`
-> `WORK ITEM != ROLE != MODEL != ORCHESTRATOR != HUMAN AUTHORITY`
+> `REQUEST != INTENT != WORK PLAN != WORKFLOW != WORKFLOW RUN != TASK !=`
+> `PLANNED WORK ITEM SPEC != WORK ITEM != ROLE != MODEL != ORCHESTRATOR != HUMAN AUTHORITY`
+
+The three-way separation in the middle of that chain is the one the approved Phase 11 model
+cares about most, so it is stated on its own as well:
+
+> `TASK != PLANNED WORK ITEM SPEC != WORK ITEM`
+
+A **Task / Activity** is defined once in an approved Workflow definition and is unchanged by any
+run (`orchestration/execution-run-model.md` §4). A **Work Item** is the run's instance of that
+Task, created inside a run. A **`PlannedWorkItemSpec`** is neither: it is a Phase 15 planning
+record written before any run exists, and it neither defines a Task nor is an instance of one.
 
 | Object | Is | Is not |
 |---|---|---|
 | **Request** | What the user actually wrote, verbatim, at a point in time | An instruction the system has understood |
 | **Work Intent** | The system's structured reading of that request | What the user meant — it is a reading, and it is `AI_SUGGESTION` |
 | **Work Plan** | An instance-level composition for **this** request | A Workflow. See §4 |
-| **Planned Work Item Spec** | A description of what Phase 11 would need to instantiate a Work Item | A Work Item, or a Work Item in an earlier state. It has no run, no runtime state and no assignment |
 | **Workflow** | An approved reusable registry pattern (Phase 5) | Anything Phase 15 may create |
 | **Workflow Run** | One bounded execution (Phase 11) | Anything Phase 15 may create |
-| **Task / Work Item** | A unit of assignable work, created by Phase 11 inside a run | Anything Phase 15 may create, assign or hold |
+| **Task / Activity** | What an approved Workflow definition says is to be done, defined once and unchanged by any run (Phase 5) | Something Phase 15 may define, edit or create |
+| **Planned Work Item Spec** | A Phase 15 planning record describing work a validated plan stage implies | A Task, a Work Item, or a Work Item in an earlier state. It has no run, no runtime state and no assignment |
+| **Work Item** | The run's instance of a Task, created by Phase 11 inside a run | Anything Phase 15 may create, assign or hold |
 | **Role** | An approved professional methodology profile | A persona the planner picks by vibe |
 | **Model** | A replaceable runtime chosen by the Phase 9 Router | Anything Phase 15 may choose |
 | **Orchestrator** | The coordinator of a run | Anything Phase 15 may act as |
@@ -146,10 +158,17 @@ Deterministic and inspectable. Every step records what it concluded and on what 
 | 7 | Search approved Workflow candidates | P4 | `WorkflowMatchAssessment` |
 | 8 | Score and rank applicability | P4 | scores on the assessment |
 | 9 | Select **or** compose | P4 | workflow selection, or `WorkPlan` + `PlanStage` set |
-| 9a | Describe each stage's work for Phase 11 | P4 | `PlannedWorkItemSpec` — **never** a `work_item.<id>` (N-11) |
-| 10 | Attach reviews, Decision Rights, evidence requirements, stop conditions | P4 | `ReviewRequirement`, `DecisionRequirement`, `EvidenceRequirement` |
+| 10 | Attach reviews, Decision Rights, evidence requirements, stop conditions and stage dependencies | P4 | `ReviewRequirement`, `DecisionRequirement`, `EvidenceRequirement` |
 | 11 | Validate | P5 | `PlanValidationResult` |
-| 12 | Hand off — **only** on a passing preflight | P5 | trigger envelope |
+| 12 | **Only then**, and only where the execution path is eligible to produce one, describe each **validated** stage's work | P5 | `PlannedWorkItemSpec` — **never** a `work_item.<id>` (N-11) |
+| 13 | Hand off — **only** on a passing preflight, and only through a basis the approved downstream contract accepts | P5 | trigger envelope |
+
+**Rule PL-8 — the sequence is acyclic, and step 12 is downstream of step 11.** A
+`PlannedWorkItemSpec` is derived from a **validated** `PlanStage` (HO-6), so it cannot exist before
+validation and it is never an input to the validation that must precede it. Nothing in steps 1–11
+reads a spec, and no preflight check takes one as evidence. Eligibility is decided at step 12 and
+nowhere earlier: where the execution path is not eligible to produce a specification at all, step 12
+produces nothing and the plan is no less valid for it.
 
 **Rule PL-6 — similarity never overrides a constraint.** A semantic score may rank candidates. It
 may not override a Workflow precondition, a Role constraint, a Review Profile requirement, a
@@ -170,7 +189,7 @@ answerable, not to perform them:
 | 4. Sensitivity, handling and residency present or explicitly assessed | Carried from `ScopeResolution` and the request material; **unassessed is restricted** |
 | 5. Criticality band resolves | The band from `work-classification-and-criticality.md` |
 | 6. Not a duplicate under the same idempotency key | An idempotency key derived from the Request identity |
-| 7. Every declared prerequisite reference resolves | `EvidenceRequirement` set, each reference resolved or explicitly `UNKNOWN` |
+| 7. Every declared prerequisite reference resolves, or is declared `FUTURE_GOVERNANCE_REFERENCE` and therefore non-executable | The `EvidenceRequirement` set, each reference in exactly one of three states: **`RESOLVED`**, **`FUTURE_GOVERNANCE_REFERENCE`** (declared, non-executable), or **`UNKNOWN`** — and a plain `UNKNOWN` is a dangling reference, which **blocks**. `UNKNOWN` is never equivalent to `FUTURE_GOVERNANCE_REFERENCE` |
 
 **Rule PL-7 — the Orchestrator re-checks everything.** Phase 15 supplying an answer does not
 relieve intake of validating it. A planner that could satisfy an intake check by asserting it would

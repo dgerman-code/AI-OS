@@ -19,6 +19,7 @@ Version: 0.1
 | **PO-9** | **Repeated-pattern detection has no defined threshold.** `workflow-candidate-learning-boundary.md` says what a suggestion may not do, not when one is emitted | Deliberate, and low-risk: a suggestion is inert (WL-3), so the threshold cannot cause harm | A later phase |
 | **PO-10** | **The clarification-answer channel is unspecified.** CL-13 says an answer is a new linked `Request`; how it is collected is a product question | Out of scope: no UI is specified | Product design |
 | **PO-11** | **The architecture document's final home.** It sits in `planning/` because adding a file under `architecture/` degrades the approved Phase 12 containment check (self-check §2a) | Whether system-level Phase 15 material belongs in `architecture/` is a repository-convention question, and moving it there requires the Phase 12 check to be amended first | Phase 12 / repository governance |
+| **PO-12** | **The downstream consumption contract for `PlannedWorkItemSpec` does not exist.** Phase 15 may produce the record; no approved artifact defines what a consumer does with one, or under what conditions | Defining it is **Phase 11 change control**, or another separately approved execution-basis mechanism. Phase 15 may not define it, and producing specs does not create the contract (`orchestrator-handoff-contract.md` §3a, HO-14, HO-16) | Phase 11 change control |
 
 ## 2. PO-4 in full, because it decides whether this phase is buildable
 
@@ -56,6 +57,7 @@ IMPLEMENTATION DEPENDENCY`**, and that classification is preserved here rather t
 | That Work Plan, **as a Work Plan, cannot currently start a Phase 11 run** | Stands. Intake check 1 requires a Workflow definition, and it is not one |
 | Enabling a Work Plan as an execution basis requires **explicit Phase 11 change control**, or another approved mechanism | Required. No Phase 15 artifact supplies it, and none may |
 | Registering the instance-level Work Plan as a Workflow to get past check 1 | **Never.** Reading C above; WL-1, WL-4, MC-14, G-15 |
+| Treating `PlannedWorkItemSpec` as the bridge | **It is not one.** It fixed an identity error — Phase 15 was instantiating a Phase 11 runtime `Work Item` — and created no execution route. No approved contract consumes a spec (HO-14), and none may be assumed to (HO-16). See PO-12 |
 
 The consequence is stated in both directions, because eliding either would be dishonest:
 

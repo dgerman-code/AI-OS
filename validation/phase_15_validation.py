@@ -101,6 +101,19 @@ DENIAL = re.compile(
     r"forbid\w*|prohibit\w*|refus\w*|excluded|rather than|instead of)\b", re.IGNORECASE)
 
 
+def row_answer(sentence, match, span=56):
+    """The beginning of the NEXT cell after a match, and nothing beyond it.
+
+    A table row answers itself in the following column, so a forward look is right for a row -
+    but only as far as that answer. Reading an arbitrary window forwards let a later cell's
+    denial of something else ("...no longer needs the conclusion") excuse the claim."""
+    rest = sentence[match.end():]
+    boundary = rest.find("|")
+    if boundary < 0:
+        return ""
+    return rest[boundary:boundary + span]
+
+
 def denied_near(sentence, match, window=64, after=0):
     """Is the matched verb negated by something close enough to govern it?
 
@@ -126,7 +139,10 @@ def scan(pattern, message, problems, docs=None, strict=True):
                 continue
             row = sentence.lstrip().startswith("|")
             if strict:
-                if denied_near(sentence, m, after=56 if row else 0):
+                before = sentence[max(0, m.start() - 64):m.end()]
+                if DENIAL.search(before):
+                    continue
+                if row and DENIAL.search(row_answer(sentence, m)):
                     continue
             elif CORRECTIVE.search(sentence):
                 continue
@@ -152,14 +168,14 @@ def statements(name):
         if fenced:
             units.append((i, line))
             continue
-        if line.lstrip().startswith("|") or re.match(r"\s*[-*+]\s+\S", line):
+        if line.lstrip().startswith("|") or re.match(r"\s*([-*+]|\d+\.)\s+\S", line):
             if buffer:
                 units.append((start, " ".join(buffer)))
                 buffer, start = [], None
             if line.lstrip().startswith("|"):
                 units.append((i, line))
             else:
-                # A wrapped bullet continues on indented lines. Orphaning them made the tail of
+                # A wrapped bullet or numbered item continues on indented lines. Orphaning them made the tail of
                 # a bullet a statement of its own, stripped of the denial that governs it - the
                 # defect that let "...may be read as saying COMPOSE is runnable today" read as a
                 # claim that it is. Joining a bullet to ITS OWN continuation is not the same as
@@ -369,8 +385,8 @@ check("identity", "every cited governed identifier resolves against approved arc
 
 
 def the_identity_chain_is_stated_and_extended():
-    chain = ("REQUEST", "INTENT", "WORK PLAN", "PLANNED WORK ITEM SPEC", "WORKFLOW",
-             "WORKFLOW RUN", "TASK", "WORK ITEM", "ROLE", "MODEL", "ORCHESTRATOR",
+    chain = ("REQUEST", "INTENT", "WORK PLAN", "WORKFLOW", "WORKFLOW RUN", "TASK",
+             "PLANNED WORK ITEM SPEC", "WORK ITEM", "ROLE", "MODEL", "ORCHESTRATOR",
              "HUMAN AUTHORITY")
     body = doc("intent-work-planning-architecture.md")
     problems = []
@@ -895,8 +911,9 @@ def planned_work_item_specs_are_never_runtime_work_items():
             ("the planner produces `PlannedWorkItemSpec` records and never instantiates a "
              "runtime work item", "orchestrator-handoff-contract.md"),
             ("a spec carries no runtime anything", "orchestrator-handoff-contract.md"),
-            ("phase 11 alone instantiates the runtime work item",
+            ("no approved contract consumes a `PlannedWorkItemSpec`, and Phase 15 may not claim",
              "orchestrator-handoff-contract.md"),
+            ("a spec is not a bridge over PO-4", "orchestrator-handoff-contract.md"),
             ("a spec is a specification of work, not an assignment",
              "orchestrator-handoff-contract.md"),
             ("a spec names no model", "orchestrator-handoff-contract.md"),
@@ -1001,8 +1018,8 @@ def the_missing_capability_disposition_is_deterministic():
             "it never reads a confidence value, an urgency, a deadline or a convenience"):
         problems.append("the predicate could be decided by confidence or convenience")
     if says("role-skill-requirement-inference.md",
-            "`NOT_LOAD_BEARING` requires a surviving reduced deliverable"):
-        problems.append("LB-2 is missing: NOT_LOAD_BEARING could be the residual case")
+            "a reduced deliverable is validated only after `NOT_LOAD_BEARING` is independently"):
+        problems.append("LB-2 is missing: a reduction could decide the determination")
     if says("role-skill-requirement-inference.md",
             "the determination is recorded as a first-class field"):
         problems.append("LB-3 is missing: the determination need not be recorded")
@@ -1141,11 +1158,11 @@ def the_failure_taxonomy_is_complete_and_dispositioned():
                 "REQUIRED_SKILL_UNAVAILABLE", "REVIEW_PROFILE_UNAVAILABLE",
                 "NO_APPLICABLE_DECISION_RIGHT", "EVIDENCE_REQUIREMENT_UNSATISFIED",
                 "CRITICALITY_UNRESOLVED", "CONFLICTING_REQUIREMENTS", "UNSAFE_INFERENCE",
-                "PLAN_VALIDATION_FAILED")
+                "PLAN_VALIDATION_FAILED", "NO_APPROVED_ROLE_OWNS_CONCLUSION")
     problems = []
     rows = {}
     for line in failures.splitlines():
-        m = re.match(r"^\|\s*F-\d+\s*\|\s*`([A-Z_]+)`\s*\|(.+?)\|", line)
+        m = re.match(r"^\|\s*F-\d+\s*\|\s*`([A-Z_]+)`[^|]*\|(.+?)\|", line)
         if m:
             rows[m.group(1)] = flat(m.group(2))
     for mode in required:
@@ -1175,7 +1192,7 @@ def the_preflight_checks_are_complete():
     preflight = doc("governance-preflight.md")
     problems = []
     declared = set(re.findall(r"\*\*(G-\d+)\*\*", preflight))
-    for n in range(1, 19):
+    for n in range(1, 21):
         if "G-%d" % n not in declared:
             problems.append("preflight check G-%d is not declared" % n)
     if says("governance-preflight.md", "passing preflight is not approval"):
@@ -1212,6 +1229,20 @@ def the_object_model_covers_every_record():
             problems.append("%s does not answer every column" % record)
     if says("work-plan-object-model.md", "every planning record is non-authoritative"):
         problems.append("OM-1 is missing")
+    # The spec's row is the one place a reader meets it in the record inventory. A weakening
+    # there ("the runtime Work Item the planner creates") puts the object before the verb, which
+    # the prohibited-verb scans cannot match, so the row's own content is checked.
+    spec_row = [ln for ln in model.splitlines()
+                if ln.startswith("|") and "`PlannedWorkItemSpec`" in ln]
+    if not spec_row:
+        problems.append("the object model has no PlannedWorkItemSpec row")
+    else:
+        low = flat(spec_row[0])
+        if "never a work_item.<id>" not in low:
+            problems.append("the spec's row does not deny runtime Work Item identity")
+        if "runtime work item the planner" in low or "the runtime work item" in low.replace(
+                "instantiate a runtime work item", ""):
+            problems.append("the spec's row describes it AS a runtime Work Item")
     # Exactly one record may affect execution, and only by withholding.
     # The column answers "affects execution directly". Anything other than a plain "no" is an
     # effect, however it is worded - PlanValidationResult says "Gates the handoff", and a check
@@ -1228,6 +1259,268 @@ def the_object_model_covers_every_record():
 
 check("preflight", "the planning object model covers every record and none carries authority",
       the_object_model_covers_every_record)
+
+
+def task_spec_and_work_item_stay_three_things():
+    """Blocker 1. The approved Phase 11 model distinguishes a Task from a Work Item; Phase 15
+    adds a third object and may not collapse any pair of the three."""
+    problems = []
+    for name in ("intent-work-planning-architecture.md", "orchestrator-handoff-contract.md"):
+        if says(name, "TASK != PLANNED WORK ITEM SPEC != WORK ITEM"):
+            problems.append("%s does not state the three-way separation" % name)
+    architecture = doc("intent-work-planning-architecture.md")
+    for role, phrase in (("Task", "defined once and unchanged by any run"),
+                         ("Work Item", "the run's instance of a task")):
+        if flat(phrase) not in flat(architecture):
+            problems.append("the identity table does not say what a %s is" % role)
+    # No document may pair them as one object, and none may say a Task is made in a run.
+    scan(re.compile(r"task\s*/\s*work item|work item\s*/\s*task", re.IGNORECASE),
+         "groups Task and Work Item as one object", problems)
+    made_in_a_run = re.compile(
+        r"(task|activity)[^.|]{0,50}?(is |are )?(created|instantiated|defined|made)"
+        r"[^.|]{0,30}?(inside|within|by|during)[^.|]{0,20}?(a |the )?(run|phase 11|orchestrator)",
+        re.IGNORECASE)
+    for name in all_docs():
+        for i, sentence in statements(name):
+            m = made_in_a_run.search(sentence)
+            if not m or denied_near(sentence, m):
+                continue
+            # "the run's instance of a Task, created inside a run" is a statement about the Work
+            # Item, not about the Task. The Task there is the thing being instanced, not made.
+            if re.search(r"instance of (a|that|the)\s*$", sentence[:m.start()],
+                         re.IGNORECASE):
+                continue
+            problems.append("%s:%d has a Task created inside a run" % (name, i))
+    scan(re.compile(
+        r"(spec|specification)[^.|]{0,40}?(is |are )?(a |an |the )?(task|activity)\b",
+        re.IGNORECASE),
+        "collapses a spec into a Task", problems)
+    return (not problems, str(problems)[:400] if problems
+            else "Task, PlannedWorkItemSpec and Work Item are three objects, stated as three")
+
+
+check("handoff", "Task, planned spec and Work Item stay three separate things",
+      task_spec_and_work_item_stay_three_things)
+
+
+def no_approved_contract_is_claimed_to_consume_a_spec():
+    """Blocker 2. `PlannedWorkItemSpec` is a proposed Phase 15 object. No approved Phase 11
+    contract names it, so no Phase 15 statement may describe Phase 11 consuming one today."""
+    problems = []
+    handoff = doc("orchestrator-handoff-contract.md")
+    for phrase in ("no approved Phase 11 artifact defines it as an intake object",
+                   "may be carried in a **proposed** handoff envelope only where an approved "
+                   "execution-basis contract permits it",
+                   "require **explicit Phase 11 change control**",
+                   "COMPOSE remains non-executable under PO-4",
+                   "MATCH** continues to hand off through the approved Workflow-based intake path"):
+        if says("orchestrator-handoff-contract.md", phrase):
+            problems.append("§3a does not state %r" % phrase[:50])
+    if "and none currently does" not in handoff:
+        problems.append("§3a does not say that no approved contract currently permits a spec")
+    # The crossing table is where a reader learns what actually leaves Phase 15, and a weakening
+    # there reads "spec ... which Phase 11 accepts" - subject before verb, which the scans below
+    # cannot see. So the row carries its condition, and the condition is checked directly.
+    crossing = [ln for ln in handoff.splitlines()
+                if ln.startswith("| `PlannedWorkItemSpec` records")]
+    if not crossing:
+        problems.append("the crossing table does not list the spec")
+    elif "only where an approved execution-basis contract permits" not in crossing[0]:
+        problems.append("the crossing table lets a spec cross unconditionally")
+    consumes = re.compile(
+        r"(phase 11|orchestrator|intake|run)[^.|]{0,70}?"
+        r"(reads?|consumes?|accepts?|ingests?|re-?validates?|instantiates? .{0,20}from|"
+        r"derives? .{0,30}from|translates?)[^.|]{0,40}?"
+        r"(`?planned_?work_?item_?spec`?|planned work item spec|planned spec)",
+        re.IGNORECASE)
+    scan(consumes, "claims an approved contract consumes a PlannedWorkItemSpec", problems)
+    scan(re.compile(
+        r"(spec|specification)[^.|]{0,60}?"
+        r"(lets?|allows?|enables?|bridges?|makes?)[^.|]{0,40}?"
+        r"(a |the )?(work.?plan|compose)[^.|]{0,30}?(run|executable|start)", re.IGNORECASE),
+        "claims a spec bridges the COMPOSE execution gap", problems)
+    return (not problems, str(problems)[:400] if problems
+            else "a spec is produced, consumed by nothing approved, and bridges nothing")
+
+
+check("handoff", "no approved contract is claimed to consume a planned spec",
+      no_approved_contract_is_claimed_to_consume_a_spec)
+
+
+def the_generation_order_is_acyclic():
+    """Blocker 3. A spec derives from a VALIDATED stage, so it cannot precede validation."""
+    architecture = doc("intent-work-planning-architecture.md")
+    problems = []
+    if says("intent-work-planning-architecture.md",
+            "the sequence is acyclic, and step 12 is downstream of step 11"):
+        problems.append("PL-8 is missing: the sequence does not declare its own order")
+    if says("intent-work-planning-architecture.md",
+            "it cannot exist before validation and it is never an input to the validation"):
+        problems.append("a spec could be an input to the validation that must precede it")
+    steps = {}
+    for line in architecture.splitlines():
+        m = re.match(r"^\|\s*(\d+[a-z]?)\s*\|(.+?)\|(.+?)\|(.+?)\|\s*$", line)
+        if m:
+            steps[m.group(1)] = flat(m.group(2) + " " + m.group(4))
+    def step_of(token):
+        found = [k for k, v in steps.items() if token in v]
+        return found[0] if found else None
+    validate, spec = step_of("planvalidationresult"), step_of("plannedworkitemspec")
+    envelope = step_of("trigger envelope")
+    order = []
+    for label, key in (("validation", validate), ("spec", spec), ("handoff", envelope)):
+        if key is None:
+            problems.append("the planning sequence has no %s step" % label)
+        else:
+            order.append((label, int(re.match(r"\d+", key).group())))
+    if len(order) == 3:
+        nums = [n for _, n in order]
+        if not nums[0] < nums[1] <= nums[2]:
+            problems.append("the sequence runs %s, which is not validate -> spec -> handoff"
+                            % order)
+    # Nor may any preflight check read a spec: that would close the loop from the other side.
+    scan(re.compile(
+        r"(preflight|validation|`?G-\d+`?|check)[^.|]{0,60}?"
+        r"(reads?|takes?|uses?|requires?|inspects?)[^.|]{0,30}?"
+        r"(`?planned_?work_?item_?spec`?|planned work item spec)", re.IGNORECASE),
+        "makes a spec an input to the validation that must precede it", problems)
+    return (not problems, str(problems)[:400] if problems
+            else "validate at step %s, spec at step %s, handoff at step %s"
+                 % (validate, spec, envelope))
+
+
+check("handoff", "a planned spec is generated after validation, never before",
+      the_generation_order_is_acyclic)
+
+
+def the_primary_mode_is_derived_upstream_only():
+    """Blocker 4 and escaped class 4. WorkIntent precedes PlanStage, so the primary mode may
+    not be read back from one."""
+    intent = doc("request-intent-model.md")
+    problems = []
+    if says("request-intent-model.md",
+            "the primary mode is derived upstream, or it is `UNKNOWN`"):
+        problems.append("RI-13 is missing: the derivation is not confined to upstream material")
+    if says("request-intent-model.md", "the derivation reads the Request and nothing else"):
+        problems.append("the derivation does not declare its own inputs")
+    if says("request-intent-model.md", "it is never invented to avoid an `UNKNOWN`"):
+        problems.append("an arbitrary primary could be picked to avoid UNKNOWN")
+    if says("request-intent-model.md", "complete, not a remainder after an arbitrary pick"):
+        problems.append("an UNKNOWN primary does not require the complete secondary set")
+    for token in ("`primary_work_mode`", "`secondary_work_modes`"):
+        if token not in intent:
+            problems.append("the intent model omits %s" % token)
+    scan(re.compile(
+        r"`?primary_work_mode`?[^.|]{0,80}?"
+        r"(from|by|reads?|derived|determined|decided)[^.|]{0,50}?"
+        r"(planstage|plan stage|stage dependency|dependency order|later stages|"
+        r"workflow candidate|plan stages)", re.IGNORECASE),
+        "derives the primary mode from a downstream planning object", problems)
+    scan(re.compile(
+        r"`?secondary_work_modes`?[^.|]{0,60}?(contains?|includes?|carries)"
+        r"[^.|]{0,30}?(the )?primary", re.IGNORECASE),
+        "lets the secondary set duplicate the primary", problems)
+    scan(re.compile(
+        r"(work intent|workintent)[^.|]{0,60}?(has no|omits|without)[^.|]{0,30}?"
+        r"primary_?work_?mode", re.IGNORECASE),
+        "lets a Work Intent omit the primary mode", problems, strict=False)
+    return (not problems, str(problems)[:400] if problems
+            else "five ordered upstream tests, UNKNOWN where none resolves, no downstream read")
+
+
+check("handoff", "the primary work mode is derived from upstream material only",
+      the_primary_mode_is_derived_upstream_only)
+
+
+def the_load_bearing_test_precedes_any_reduction():
+    """Blocker 5 and escaped class 2. The predicate is evaluated against the deliverable the
+    user asked for, and a reduction is its consequence rather than its evidence."""
+    roles = doc("role-skill-requirement-inference.md")
+    problems = []
+    for phrase in ("every test is evaluated against the deliverable the user originally requested",
+                   "before any constraint-induced reduction",
+                   "a reduced deliverable is never evidence about the removed capability",
+                   "the no-owner case is never routed through F-5",
+                   "a conclusion the user asked for cannot be narrowed away"):
+        if says("role-skill-requirement-inference.md", phrase):
+            problems.append("missing %r" % phrase[:52])
+    for token in ("LB-0", "LB-6", "RS-12", "RS-13", "NO_APPROVED_ROLE_OWNS_CONCLUSION"):
+        if token not in roles:
+            problems.append("the corrected predicate omits %s" % token)
+    # F-14 must exist, block, and be distinguished from F-5 and F-6.
+    failures = doc("failure-and-escalation-model.md")
+    row = [ln for ln in failures.splitlines()
+           if "NO_APPROVED_ROLE_OWNS_CONCLUSION" in ln and ln.startswith("|")]
+    if not row:
+        problems.append("F-14 has no row")
+    else:
+        low = flat(row[0])
+        if "block" not in low:
+            problems.append("F-14 does not block")
+        if "f-5" not in low:
+            problems.append("F-14 is not distinguished from F-5")
+    for mode in ("REQUIRED_ROLE_UNAVAILABLE", "REQUIRED_SKILL_UNAVAILABLE"):
+        r = [ln for ln in failures.splitlines() if mode in ln and ln.startswith("|")]
+        if r and "approved" not in flat(r[0]):
+            problems.append("%s does not confine itself to an approved owner" % mode)
+    if says("governance-preflight.md",
+            "No conclusion the originally requested deliverable needs is left without an "
+            "approved owner"):
+        problems.append("G-20 is missing: an unowned conclusion could pass preflight")
+    scan(re.compile(
+        r"(load.?bearing|not_load_bearing)[^.|]{0,80}?"
+        r"(because|since|as)[^.|]{0,50}?(reduced|narrowed|constrained) deliverable",
+        re.IGNORECASE),
+        "uses a reduced deliverable as evidence about the removed capability", problems)
+    scan(re.compile(
+        r"(load.?bearing|disposition|constrain)[^.|]{0,70}?"
+        r"(because of|on|from|given)[^.|]{0,30}?"
+        r"(urgency|the deadline|convenience|how confident|confidence|seniority)",
+        re.IGNORECASE),
+        "decides the load-bearing result from urgency, confidence or convenience", problems)
+    return (not problems, str(problems)[:400] if problems
+            else "the predicate reads the original deliverable; reduction follows, never decides")
+
+
+check("failure", "load-bearing is decided on the original deliverable, before any reduction",
+      the_load_bearing_test_precedes_any_reduction)
+
+
+def prerequisite_references_are_a_strict_tri_state():
+    """Blocker 6. RESOLVED, FUTURE_GOVERNANCE_REFERENCE, or blocking. Never a passable UNKNOWN."""
+    handoff = doc("orchestrator-handoff-contract.md")
+    problems = []
+    if says("orchestrator-handoff-contract.md",
+            "a plain `UNKNOWN` prerequisite blocks, and is never rewritten as a declared future"):
+        problems.append("HO-15 is missing: UNKNOWN could pass as a deferred reference")
+    if says("failure-and-escalation-model.md",
+            "a prerequisite reference is `RESOLVED`, `FUTURE_GOVERNANCE_REFERENCE`, or"):
+        problems.append("FE-13 is missing")
+    for state in ("`RESOLVED`", "`FUTURE_GOVERNANCE_REFERENCE`", "`UNKNOWN`"):
+        if state not in handoff:
+            problems.append("the prerequisite states omit %s" % state)
+    g19 = [ln for ln in doc("governance-preflight.md").splitlines()
+           if ln.startswith("| **G-19**")]
+    if not g19:
+        problems.append("preflight has no prerequisite-state check")
+    elif "future_governance_reference" not in flat(g19[0]):
+        problems.append("G-19 does not name the deferred state")
+    # The retired formulation must not survive in any active location.
+    scan(re.compile(
+        r"(prerequisite|reference|refs?)[^.|]{0,60}?"
+        r"(resolved or (?:explicitly )?`?unknown`?|`?unknown`? or resolved)", re.IGNORECASE),
+        "still permits a prerequisite to be 'resolved or explicitly UNKNOWN'", problems,
+        strict=False)
+    scan(re.compile(
+        r"`?unknown`?[^.|]{0,50}?(is|counts as|is treated as|equals?|amounts to)"
+        r"[^.|]{0,30}?`?future_governance_reference`?", re.IGNORECASE),
+        "equates UNKNOWN with a declared future reference", problems)
+    return (not problems, str(problems)[:400] if problems
+            else "three prerequisite states; a plain UNKNOWN blocks and is never relabelled")
+
+
+check("handoff", "a prerequisite reference is resolved, declared future, or blocking",
+      prerequisite_references_are_a_strict_tri_state)
 
 
 def the_self_check_inventory_matches_the_package():

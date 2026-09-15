@@ -53,14 +53,14 @@ PROBES = [
 
     ("the identity chain loses its tail",
      ARCH,
-     "> `REQUEST != INTENT != WORK PLAN != PLANNED WORK ITEM SPEC != WORKFLOW != WORKFLOW RUN != TASK !=`",
-     "> `REQUEST != INTENT != WORK PLAN != PLANNED WORK ITEM SPEC != WORKFLOW != WORKFLOW RUN !=`",
+     "> `REQUEST != INTENT != WORK PLAN != WORKFLOW != WORKFLOW RUN != TASK !=`",
+     "> `REQUEST != INTENT != WORK PLAN != WORKFLOW != WORKFLOW RUN !=`",
      "the extended identity chain"),
 
     ("the identity chain is reordered so a Work Plan follows a Workflow",
      ARCH,
-     "> `REQUEST != INTENT != WORK PLAN != PLANNED WORK ITEM SPEC != WORKFLOW != WORKFLOW RUN != TASK !=`",
-     "> `REQUEST != INTENT != WORKFLOW != WORK PLAN != PLANNED WORK ITEM SPEC != WORKFLOW RUN != TASK !=`",
+     "> `REQUEST != INTENT != WORK PLAN != WORKFLOW != WORKFLOW RUN != TASK !=`",
+     "> `REQUEST != INTENT != WORKFLOW != WORK PLAN != WORKFLOW RUN != TASK !=`",
      "the chain is ordered, not a set"),
 
     ("a candidate suggestion is allowed to self-register",
@@ -230,7 +230,7 @@ PROBES = [
 
     ("preflight stops requiring the load-bearing determination",
      "planning/governance-preflight.md",
-     "every unavailable Role records `load_bearing` **and** `load_bearing_basis` (LB-3)",
+     "every unavailable Role records `load_bearing` **and** `load_bearing_basis`, determined against the **originally requested** deliverable (LB-0, LB-3), with no basis citing a reduced deliverable (LB-6)",
      "the planner judges whether the gap matters",
      "F-5 and F-6 have one deterministic disposition"),
 
@@ -242,7 +242,7 @@ PROBES = [
 
     ("the self-check keeps a stale open-item count",
      "planning/phase-15-self-check.md",
-     "- **Eleven open items** (PO-1",
+     "- **Twelve open items** (PO-1",
      "- **Ten open items** (PO-1",
      "stated counts are the package's own counts"),
 
@@ -303,7 +303,7 @@ PROBES = [
 
     ("the planned work item spec names the model that will execute it",
      "planning/orchestrator-handoff-contract.md",
-     "| `PlannedWorkItemSpec` records of §3 | Confidence values as decision inputs |",
+     "| `PlannedWorkItemSpec` records of §3, **only where an approved execution-basis contract permits** (§3a) | Confidence values as decision inputs |",
      "| `PlannedWorkItemSpec` records of §3, each of which names the model profile to execute it | Confidence values as decision inputs |",
      "no planning object selects a model"),
 
@@ -318,6 +318,104 @@ PROBES = [
      "which is **not a Workflow definition**, so whether it is admissible at all is the Orchestrator's to decide and is open as PO-4 |",
      "which a validated plan satisfies directly, so COMPOSE needs nothing further |",
      "PO-4 stays explicit and fail-closed"),
+
+    # ---- V2: the six blockers, each attacked in a second location ------------------------
+    ("Task and Work Item are paired as one object again",
+     ARCH,
+     "| **Task / Activity** | What an approved Workflow definition says is to be done, defined once and unchanged by any run (Phase 5) | Something Phase 15 may define, edit or create |",
+     "| **Task / Work Item** | A unit of assignable work, created by Phase 11 inside a run | Anything Phase 15 may assign |",
+     "TASK != PLANNED WORK ITEM SPEC != WORK ITEM"),
+
+    ("a Task is described as created inside a run",
+     "planning/orchestrator-handoff-contract.md",
+     "and a **Task / Activity** is something else again: what an approved Workflow definition",
+     "and a **Task / Activity** is created by the Orchestrator inside a run: what a definition",
+     "a Task belongs to the definition, not the run"),
+
+    ("an exemplar has the approved Orchestrator consuming a spec",
+     "planning/exemplars.md",
+     "**What happens to them today: nothing.** No approved Phase 11 contract defines a",
+     "**What happens to them next.** The Orchestrator reads each spec at intake and instantiates a Work Item from it, because a Phase 11 contract defines a",
+     "no approved contract consumes a spec"),
+
+    ("the crossing table lets a spec cross unconditionally",
+     "planning/orchestrator-handoff-contract.md",
+     "| `PlannedWorkItemSpec` records of §3, **only where an approved execution-basis contract permits** (§3a) | Confidence values as decision inputs |",
+     "| `PlannedWorkItemSpec` records of §3, which Phase 11 intake accepts and revalidates | Confidence values as decision inputs |",
+     "a spec crosses only where an approved contract permits"),
+
+    ("spec generation is moved back before validation",
+     ARCH,
+     "| 12 | **Only then**, and only where the execution path is eligible to produce one, describe each **validated** stage's work | P5 | `PlannedWorkItemSpec`",
+     "| 9a | Describe each stage's work before validation runs | P4 | `PlannedWorkItemSpec`",
+     "validate, then specify, then hand off"),
+
+    ("a preflight check is allowed to read a spec",
+     "planning/governance-preflight.md",
+     "**Rule GP-14 — every preflight outcome is plan-level.**",
+     "**Rule GP-15 — every preflight check reads the `PlannedWorkItemSpec` set as its input.** Rule GP-14 — every preflight outcome is plan-level.",
+     "no spec is an input to the validation that precedes it"),
+
+    ("the primary mode is read back from plan stages, in the exemplar",
+     "planning/exemplars.md",
+     "Tests 1 to 4 of RI-12 do not resolve it, so test 5 does:",
+     "The primary_work_mode is determined from the plan stage dependency order, so:",
+     "the primary mode is upstream-derived"),
+
+    ("the secondary set is allowed to carry the primary",
+     "planning/request-intent-model.md",
+     "| 4 | `secondary_work_modes` | a unique set of zero or more further modes from the same enum | §3. Never contains the primary;",
+     "| 4 | `secondary_work_modes` | a set of further modes | §3. Also contains the primary;",
+     "the secondary set never duplicates the primary"),
+
+    ("the load-bearing test is evaluated after the reduction again",
+     "planning/role-skill-requirement-inference.md",
+     "| **1** | `LOAD_BEARING` or `NOT_LOAD_BEARING` (LB-1) | The **original** requested deliverable, un-narrowed |",
+     "| **1** | `LOAD_BEARING` or `NOT_LOAD_BEARING` (LB-1), because the narrowed deliverable no longer needs the conclusion | The reduced deliverable |",
+     "the original deliverable decides, before any reduction"),
+
+    ("the no-owner case is routed back through F-5",
+     "planning/failure-and-escalation-model.md",
+     "| F-14 | `NO_APPROVED_ROLE_OWNS_CONCLUSION` | **BLOCK** + escalate |",
+     "| F-14 | `NO_APPROVED_ROLE_OWNS_CONCLUSION` | Handled as F-5 |",
+     "no approved owner is a governance gap, not an availability problem"),
+
+    ("a prerequisite may be resolved or explicitly UNKNOWN again",
+     "planning/orchestrator-handoff-contract.md",
+     "| 11 | `prerequisite_refs` | Every declared artifact, evidence and decision reference, each in exactly one of the three states of §2a | 7 |",
+     "| 11 | `prerequisite_refs` | Every declared artifact, evidence and decision reference, each resolved or explicitly `UNKNOWN` | 7 |",
+     "prerequisites are a strict tri-state"),
+
+    ("UNKNOWN is equated with a declared future reference",
+     "planning/failure-and-escalation-model.md",
+     "blocking.** There is no fourth state and no passable `UNKNOWN`: an unresolved, dangling or",
+     "blocking.** A plain `UNKNOWN` is treated as `FUTURE_GOVERNANCE_REFERENCE`, so an unresolved or",
+     "UNKNOWN is never a declared deferral"),
+
+    # ---- V2: the four classes that still escaped the re-audit -----------------------------
+    ("a spec is described as a runtime Work Item, in the object model row",
+     "planning/work-plan-object-model.md",
+     "| 16 | `PlannedWorkItemSpec` | What Phase 11 would need to instantiate a runtime Work Item | None. **Never a `work_item.<id>`** |",
+     "| 16 | `PlannedWorkItemSpec` | The runtime Work Item the planner creates for each stage | None |",
+     "a spec is never a runtime Work Item"),
+
+    ("the load-bearing result is decided by urgency",
+     "planning/role-skill-requirement-inference.md",
+     "reads a confidence value, an urgency, a deadline or a convenience.",
+     "reads the deadline: where it is close, the disposition is CONSTRAIN on grounds of urgency.",
+     "the predicate reads the plan, never the pressure"),
+
+    ("F-9 lets Phase 15 stop and restart runtime stages, in the preflight document",
+     "planning/governance-preflight.md",
+     "| **G-11** | Every `EvidenceRequirement` names what must hold",
+     "| **G-11** | Phase 15 halts the affected stage and lets later stages proceed; every `EvidenceRequirement` names what must hold",
+     "Phase 15 never continues or halts a stage"),
+
+    ("an exemplar omits the primary mode entirely",
+     "planning/exemplars.md",
+     "| `primary_work_mode` | `DRAFTING` |",
+     "| `work_mode` | `DRAFTING`, `ANALYSIS` |",
+     "a Work Intent always carries a primary mode or UNKNOWN"),
 ]
 
 #: Checks that read repository state (git history, untracked files) rather than package content.
