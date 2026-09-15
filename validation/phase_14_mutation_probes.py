@@ -416,7 +416,7 @@ PROBES = [
 
     ("the crash point after provider acceptance is removed",
      "api-command-contracts.md",
-     '| After provider acceptance, before the stage 3/4 commit | Identical to the row above: an outcome the system did not commit is an outcome the system does not have | Stage 5, via T7. **Never a redispatch** unless PO-14 is satisfied |',
+     '| After provider acceptance, before the stage 3/4 commit | Identical to the row above: an outcome the system did not commit is an outcome the system does not have | Stage 5, via T7. **Never a redispatch of this dispatch item or its key** — PO-14 admits no exception, and reconciliation, not replay, resolves the unknown |',
      "| After provider acceptance, before the stage 3/4 commit | The attempt is `NOT_ATTEMPTED`, so nothing left the system | Re-dispatch |",
      "no local state is read as proof of non-occurrence after the boundary"),
 
@@ -571,6 +571,80 @@ PROBES = [
      "**Monotonicity is not claimed as a database guarantee.**",
      "**Monotonicity is enforced by the O5 constraint.**",
      "monotonicity lives in the CAS predicates, not in a row CHECK"),
+
+    # ---- V7 B1: external delivery / replay, each plant in a distinct active location ------
+    ("Q-26 reintroduces external at-least-once delivery",
+     "api-command-contracts.md",
+     "| External **at-least-once** | This protocol does not redeliver. A crossed item never presents its key again (PO-14); a lost call is resolved by **reconciliation** and, where reconciliation reports `CONFIRMED_NOT_APPLIED`, by a **new** governed attempt with a new attempt identity, a new dispatch item identity and a new provider idempotency key, linked to the prior lineage (PO-14a, PO-19) |",
+     "| External **at-least-once** | Provided across the boundary wherever the provider deduplicates on the attempt's idempotency key |",
+     "no active location claims external at-least-once"),
+
+    ("Q-24 conditionally permits same-item crossed-boundary redispatch",
+     "api-command-contracts.md",
+     "Stage 5, via T7. **Never a redispatch of this dispatch item or its key** — PO-14 admits no exception",
+     "Stage 5, via T7. **Never a redispatch** unless PO-14 is satisfied",
+     "the no-redispatch rule carries no condition"),
+
+    ("T5 reintroduces conditional redispatch of the crossed item",
+     "persistence-and-transaction-model.md",
+     "| T5 | `DISPATCH_PENDING` → `UNCERTAIN`, outcome **unknown to the caller itself** (timeout, reset, ambiguous response) | The row | `claim_state='DISPATCH_PENDING'` **AND** `claim_token = <held>` **AND** `claim_generation = <read>` | `claim_state='UNCERTAIN'`, owner columns cleared, `claim_generation`+1 | Token **and** generation | **Never** — PO-14 is unconditional |",
+     "| T5 | `DISPATCH_PENDING` → `UNCERTAIN`, outcome **unknown to the caller itself** (timeout, reset, ambiguous response) | The row | `claim_state='DISPATCH_PENDING'` **AND** `claim_token = <held>` **AND** `claim_generation = <read>` | `claim_state='UNCERTAIN'`, owner columns cleared, `claim_generation`+1 | Token **and** generation | **No** (except under PO-14) |",
+     "a crossed-boundary transition denies redispatch unconditionally"),
+
+    ("T7 reintroduces conditional redispatch of the crossed item",
+     "persistence-and-transaction-model.md",
+     "| T7 | `DISPATCH_PENDING` → `UNCERTAIN`, expired-claim recovery | The row | `claim_state='DISPATCH_PENDING'` **AND** `boundary_crossed = true` **AND** `lease_expires_at <= now()` **AND** `claim_generation = <read>` | `claim_state='UNCERTAIN'`, owner columns cleared, `claim_generation`+1 | Generation | **Never** — PO-14 is unconditional |",
+     "| T7 | `DISPATCH_PENDING` → `UNCERTAIN`, expired-claim recovery | The row | `claim_state='DISPATCH_PENDING'` **AND** `boundary_crossed = true` **AND** `lease_expires_at <= now()` **AND** `claim_generation = <read>` | `claim_state='UNCERTAIN'`, owner columns cleared, `claim_generation`+1 | Generation | **No** (except where the provider deduplicates) |",
+     "a crossed-boundary recovery denies redispatch unconditionally"),
+
+    ("a crash summary says provider dedup permits crossed-item replay",
+     "persistence-and-transaction-model.md",
+     "**T7** to `UNCERTAIN`; attempt `ATTEMPTED_OUTCOME_UNKNOWN`; **reconciliation, never redispatch** — PO-14 admits no exception, and a provider's deduplication guarantee is not one (PO-14b)",
+     "**T7** to `UNCERTAIN`; attempt `ATTEMPTED_OUTCOME_UNKNOWN`; reconciliation, or redispatch where provider deduplication permits it",
+     "crash recovery agrees with PO-17"),
+
+    ("CONFIRMED_NOT_APPLIED continuation reuses the old identity and key",
+     "persistence-and-transaction-model.md",
+     "| `UNCERTAIN`, reconciliation says `CONFIRMED_NOT_APPLIED` | **Never** | T8 to `SETTLED`. Continuation is a **new** governed provider attempt at the next ordinal, with a **new** key (PO-14) |",
+     "| `UNCERTAIN`, reconciliation says `CONFIRMED_NOT_APPLIED` | **Yes** | T8 to `SETTLED`, then the same dispatch item is presented again under its own key |",
+     "a continuation is a new attempt, identity and key"),
+
+    ("the orchestrator guarantee table drops the external at-most-once statement",
+     "orchestrator-runtime-contract.md",
+     "**Rule O-21a — across the provider boundary the guarantee is at-most-once per dispatch item and\nkey.**",
+     "**Rule O-21a — across the provider boundary the guarantee is at-least-once where the provider\ndeduplicates.**",
+     "the external guarantee is stated in the orchestrator contract too"),
+
+    # ---- V7 B2: retry classification, in the owner table and in a second location ---------
+    ("a Stage 1 governed-write command is labelled SAFE_AUTOMATIC_RETRY",
+     "api-command-contracts.md",
+     "| 1 | `InvokeModel` | `model_invocation`, `provider_attempt` — **two**, plus two audit events (Q-22a) | **2 `RETRY_REQUIRING_REVALIDATION`** |",
+     "| 1 | `InvokeModel` | `model_invocation`, `provider_attempt` — **two**, plus two audit events (Q-22a) | **1 `SAFE_AUTOMATIC_RETRY`** |",
+     "no governed-write command carries a no-governed-write class"),
+
+    ("a Stage 5 governed-write command is labelled SAFE_AUTOMATIC_RETRY",
+     "api-command-contracts.md",
+     "| 5 | `ReconcileExternalEffect` | `reconciliation`, `provider_attempt` state, and `model_result` where the effect is confirmed applied | **2 `RETRY_REQUIRING_REVALIDATION`** |",
+     "| 5 | `ReconcileExternalEffect` | `reconciliation`, `provider_attempt` state, and `model_result` where the effect is confirmed applied | **1 `SAFE_AUTOMATIC_RETRY`** |",
+     "no governed-write command carries a no-governed-write class"),
+
+    ("the branch table lets a governed-write step reach the class-1 branch",
+     "api-command-contracts.md",
+     "| **R1 automatic** | 1 `SAFE_AUTOMATIC_RETRY`, 5 `REPLAYABLE_READ_ONLY` — **neither class writes a governed record**, so no `InvokeModel` stage reaches this branch (Q-25) |",
+     "| **R1 automatic** | 1 `SAFE_AUTOMATIC_RETRY`, 5 `REPLAYABLE_READ_ONLY`, and the governed-write stages of `InvokeModel` |",
+     "a second-location table classifies no governed-write command as class 1"),
+
+    ("prose equates 'not authority-bearing' with safe automatic retry",
+     "api-command-contracts.md",
+     '**Rule Q-25b — "not authority-bearing" is not "not governed", and neither is "safe to re-run".**',
+     "**Rule Q-25b — a step that is not authority-bearing is SAFE_AUTOMATIC_RETRY.**",
+     "the three properties are kept apart"),
+
+    ("durable request identity is presented as the retry class itself",
+     "api-command-contracts.md",
+     "**Rule Q-25c — durable request identity is the mechanism, not the class.**",
+     "**Rule Q-25c — durable request identity makes these commands SAFE_AUTOMATIC_RETRY.**",
+     "deduplication is a mechanism, never a class"),
 ]
 
 

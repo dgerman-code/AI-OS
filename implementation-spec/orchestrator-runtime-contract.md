@@ -278,9 +278,19 @@ Re-running it is the duplicate-irreversible-act failure class 6 exists to preven
 
 | Guarantee | Where it holds | How |
 |---|---|---|
-| Idempotent-at-least-once | Classes 1, 2, 5, 7 | Repetition is safe or deduplicated at the receiver |
+| Idempotent-at-least-once | Classes 1, 2, 5, 7 — **an internal retry-class property, not an external delivery guarantee** | Repetition is safe or deduplicated at the receiver |
 | **At-most-once by governed record** | Class 4 | The governed record **is** the deduplication mechanism: the record either exists or does not, and the second attempt finds the first |
 | **Exactly-once** | **Nowhere** | **Not claimed** |
+
+**Rule O-21a — across the provider boundary the guarantee is at-most-once per dispatch item and
+key.** The class names above describe how the orchestrator may re-attempt a **step**. They say
+nothing about what crosses to a provider. Across that boundary,
+`persistence-and-transaction-model.md` PO-17 and `api-command-contracts.md` Q-26 give
+**at-most-once per dispatch item and per dispatch key** and nothing stronger: a crossed item never
+presents its key again (PO-14), an unknown effect reconciles rather than replays, and a
+`CONFIRMED_NOT_APPLIED` continuation is a **new** governed attempt with a new attempt identity, a
+new dispatch item identity and a new key, linked to the prior lineage. **No external at-least-once
+delivery is claimed**, and a provider's own deduplication licenses none (PO-14b).
 
 Class 4's guarantee is not achieved by the orchestrator being careful. It is achieved because
 the act's existence is a governed fact in an append-only store **with a durable uniqueness

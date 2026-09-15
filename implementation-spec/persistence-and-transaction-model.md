@@ -145,6 +145,15 @@ and any external system, exactly-once delivery is not achievable and this specif
 assert it. What is provided: idempotent-at-least-once for classes 1, 2, 5, 7; **at-most-once by
 governed record** for class 4; and **exactly-once nowhere**.
 
+**Rule P-9x — "at-least-once" names an internal retry class, never an external guarantee.** The
+class-7 name `IDEMPOTENT_AT_LEAST_ONCE` is the approved Phase 11 vocabulary for how the
+**orchestrator** may re-attempt a step whose target deduplicates. It is **not** a statement about
+what crosses the provider boundary. Across that boundary this specification provides
+**at-most-once per dispatch item and per dispatch key** and nothing stronger (PO-17): a crossed
+item never presents its key again (PO-14), and a lost call is resolved by reconciliation and a new
+governed attempt rather than by redelivery. Any active statement asserting external at-least-once
+delivery contradicts PO-17 and is wrong.
+
 ### 5.2a Row-currentness is a pointer, never a status
 
 An earlier revision keyed U19 on a status value `ACTIVE` that the approval-state vocabulary does
@@ -534,9 +543,9 @@ predicate must carry beyond `outbox_ref` and the state precondition.
 | T3 | Claim renewal, `CLAIMED` or `DISPATCH_PENDING` → same state | The row | `claim_state` unchanged **AND** `claim_token = <held>` **AND** `claim_generation = <read>` | `lease_expires_at` extended, `claim_generation`+1; **`claim_state` and `boundary_crossed` unchanged** | Token **and** generation | Unchanged by renewal | Unchanged by renewal |
 | — | **The external call** | — | **Not a transition. No database statement is atomic with it** (Rule PO-11) | — | — | — | — |
 | T4 | `DISPATCH_PENDING` → `SETTLED`, outcome **observed** (`CONFIRMED_APPLIED` or `CONFIRMED_NOT_APPLIED`) | The row, the provider response | `claim_state='DISPATCH_PENDING'` **AND** `claim_token = <held>` **AND** `claim_generation = <read>` | `claim_state='SETTLED'`, `lease_owner`/`claim_token`/`lease_expires_at` cleared (O4), `claim_generation`+1 | Token **and** generation | n/a — terminal | No |
-| T5 | `DISPATCH_PENDING` → `UNCERTAIN`, outcome **unknown to the caller itself** (timeout, reset, ambiguous response) | The row | `claim_state='DISPATCH_PENDING'` **AND** `claim_token = <held>` **AND** `claim_generation = <read>` | `claim_state='UNCERTAIN'`, owner columns cleared, `claim_generation`+1 | Token **and** generation | **No** (except under PO-14) | **Yes** |
+| T5 | `DISPATCH_PENDING` → `UNCERTAIN`, outcome **unknown to the caller itself** (timeout, reset, ambiguous response) | The row | `claim_state='DISPATCH_PENDING'` **AND** `claim_token = <held>` **AND** `claim_generation = <read>` | `claim_state='UNCERTAIN'`, owner columns cleared, `claim_generation`+1 | Token **and** generation | **Never** — PO-14 is unconditional | **Yes** |
 | T6 | `CLAIMED` → `PENDING`, expired-claim recovery | The row | `claim_state='CLAIMED'` **AND** `boundary_crossed = false` **AND** `lease_expires_at <= now()` **AND** `claim_generation = <read>` | `claim_state='PENDING'`, owner columns cleared, `claim_generation`+1 | Generation | **Yes** — PO-8 | No |
-| T7 | `DISPATCH_PENDING` → `UNCERTAIN`, expired-claim recovery | The row | `claim_state='DISPATCH_PENDING'` **AND** `boundary_crossed = true` **AND** `lease_expires_at <= now()` **AND** `claim_generation = <read>` | `claim_state='UNCERTAIN'`, owner columns cleared, `claim_generation`+1 | Generation | **No** (except under PO-14) | **Yes** |
+| T7 | `DISPATCH_PENDING` → `UNCERTAIN`, expired-claim recovery | The row | `claim_state='DISPATCH_PENDING'` **AND** `boundary_crossed = true` **AND** `lease_expires_at <= now()` **AND** `claim_generation = <read>` | `claim_state='UNCERTAIN'`, owner columns cleared, `claim_generation`+1 | Generation | **Never** — PO-14 is unconditional | **Yes** |
 | T8 | `UNCERTAIN` → `SETTLED`, reconciliation resolved | The row, the external system under the stable key | `claim_state='UNCERTAIN'` **AND** `claim_generation = <read>` | `claim_state='SETTLED'`, `claim_generation`+1 | Generation | n/a — terminal | The transition **is** the reconciliation outcome |
 | T9 | `UNCERTAIN` → `ABANDONED`, reconciliation unanswerable | The row | `claim_state='UNCERTAIN'` **AND** `claim_generation = <read>` | `claim_state='ABANDONED'`, `claim_generation`+1 | Generation | **Never** | Already attempted and failed; the run blocks and escalates |
 | T10 | `PENDING` → `SETTLED`, **unowned** retirement before any call (the governed intent was superseded, cancelled or terminated) | The row, the governed intent's terminal state | `claim_state = 'PENDING'` **AND** `boundary_crossed = false` **AND** `lease_owner IS NULL` **AND** `claim_generation = <read>` | `claim_state='SETTLED'`, `terminal_reason='RETIRED_BEFORE_DISPATCH'`, owner columns remain `NULL` (O4), `claim_generation`+1 | Generation. **No token exists, because no claimant holds the row** | n/a — terminal | No |
@@ -637,7 +646,7 @@ transaction.
 |---|---|---|
 | **Before the claim** | `PENDING`, unowned, `boundary_crossed = false` | T1. Nothing left the system |
 | **After the claim, before the dispatch intent** | `CLAIMED`, `boundary_crossed = false`, lease expired | **T6** back to `PENDING`. Nothing left the system, because no call is ever made from `CLAIMED` (PO-8) |
-| **At the call boundary — after `DISPATCH_PENDING` commits, before or during the call** | `DISPATCH_PENDING`, `boundary_crossed = true`, lease expired | **T7** to `UNCERTAIN`; attempt `ATTEMPTED_OUTCOME_UNKNOWN`; **reconciliation, never redispatch** unless PO-14 is satisfied |
+| **At the call boundary — after `DISPATCH_PENDING` commits, before or during the call** | `DISPATCH_PENDING`, `boundary_crossed = true`, lease expired | **T7** to `UNCERTAIN`; attempt `ATTEMPTED_OUTCOME_UNKNOWN`; **reconciliation, never redispatch** — PO-14 admits no exception, and a provider's deduplication guarantee is not one (PO-14b) |
 | **After provider acceptance, before local outcome persistence** | Identical to the row above, and deliberately so: an outcome the system did not commit is an outcome the system does not have | **T7**, as above |
 | **During reconciliation** | `UNCERTAIN`, unowned | Re-run the sweep. T8 on an answer, T9 where it remains unanswerable. Reconciliation is idempotent and records determinations of fact; it decides nothing (F-11) |
 

@@ -390,17 +390,45 @@ one rule in this section the whole staging exists for.
 | Before stage 1 commits | Nothing exists | None |
 | After stage 1, before the dispatch intent commits | Intent and attempt at `NOT_ATTEMPTED`; the dispatch item is `PENDING` or `CLAIMED` with `boundary_crossed = false` | The drain re-claims and calls under the **same idempotency key** — safe, because no call is ever made before `DISPATCH_PENDING` commits (PO-8) |
 | **At the call boundary** — after `DISPATCH_PENDING` commits, before or during the call | The dispatch item is `DISPATCH_PENDING` with **`boundary_crossed = true`**; the attempt is still `NOT_ATTEMPTED` locally, but the call **may have been made** | Recovery reads `boundary_crossed`, never the clock: the item becomes `UNCERTAIN` (T7) and the attempt `ATTEMPTED_OUTCOME_UNKNOWN`. **This is the only place where an optimistic reading would produce a duplicate external effect**, and PO-9 is why the reading cannot be optimistic |
-| After provider acceptance, before the stage 3/4 commit | Identical to the row above: an outcome the system did not commit is an outcome the system does not have | Stage 5, via T7. **Never a redispatch** unless PO-14 is satisfied |
+| After provider acceptance, before the stage 3/4 commit | Identical to the row above: an outcome the system did not commit is an outcome the system does not have | Stage 5, via T7. **Never a redispatch of this dispatch item or its key** — PO-14 admits no exception, and reconciliation, not replay, resolves the unknown |
 | Between stages 3 and 4 | **Unreachable.** They are one transaction (Q-22b): there is no committed outcome without its result | — |
 | After the stage 3/4 commit | Complete; the dispatch item is `SETTLED` in that same transaction (PO-13) | None |
 | During reconciliation | The item is `UNCERTAIN`, unowned | Re-run the sweep; T8 on an answer, T9 where it stays unanswerable |
 
-**Rule Q-25 — retry classes across the stages.** Stage 1 is `SAFE_AUTOMATIC_RETRY` — it is local
-and writes nothing external. Stage 2 is `IDEMPOTENT_AT_LEAST_ONCE` **only** where the provider
-deduplicates on the attempt's idempotency key, and `NON_REPLAYABLE_EXTERNAL_SIDE_EFFECT`
-otherwise. Stages 3, 4 and 5 are `SAFE_AUTOMATIC_RETRY`. **No stage is class 4**, because model
-invocation is not an authority-bearing act — which is exactly why its output is `AI_SUGGESTION`
-and satisfies no gate.
+**Rule Q-25 — retry classes across the stages, against what each stage actually writes.**
+The approved Phase 11 class 1 `SAFE_AUTOMATIC_RETRY` requires *"pure, internal, idempotent; no
+external effect; **no governed record written**"* (`orchestration/retry-replay-idempotency.md` §1).
+Four of these five stages write governed records, so none of them is class 1.
+
+| Stage | Command | Governed records it writes | Class | Why that class |
+|---:|---|---|---|---|
+| 1 | `InvokeModel` | `model_invocation`, `provider_attempt` — **two**, plus two audit events (Q-22a) | **2 `RETRY_REQUIRING_REVALIDATION`** | It writes governed records, so class 1 is excluded by its own contract. A re-attempt re-evaluates preconditions, evidence freshness, scope, sensitivity and assignment eligibility before it writes again (branch R2) |
+| 2 | — (C16 drains, C8 calls) | none | **7 `IDEMPOTENT_AT_LEAST_ONCE`** where the Provider Profile records receiver-side deduplication, **6 `NON_REPLAYABLE_EXTERNAL_SIDE_EFFECT`** otherwise | Unchanged. See Q-25a for what the class does and does not license |
+| 3 + 4 | `RecordProviderAttemptOutcome` — one transaction (Q-22b) | `provider_attempt` state, and `model_result` on a confirmed response | **2 `RETRY_REQUIRING_REVALIDATION`** | Governed records again. The attempt's external-effect state must be re-read before a second handler execution, never assumed from the first |
+| 5 | `ReconcileExternalEffect` | `reconciliation`, `provider_attempt` state, and `model_result` where the effect is confirmed applied | **2 `RETRY_REQUIRING_REVALIDATION`** | Governed records, and the external state it reconciles against may have changed between attempts |
+
+**No stage is class 4.** Model invocation is not an authority-bearing act — which is why its
+output is `AI_SUGGESTION` and satisfies no gate.
+
+**Rule Q-25b — "not authority-bearing" is not "not governed", and neither is "safe to re-run".**
+Three distinct properties, conflated by an earlier revision of Q-25, which assigned class 1 to
+stages 1, 3, 4 and 5 on the reasoning that they are local and carry no authority:
+
+| Property | Means | Does **not** mean |
+|---|---|---|
+| Not authority-bearing | The act satisfies no gate and its output is `AI_SUGGESTION` | That it writes no governed record. Stage 1 writes two |
+| Governed record written | The write is audited, is in the append-only store, and is subject to the uniqueness inventory | That the command may never be re-executed |
+| Replay-safe command handling | A repeat of the **same** command, under the **same** `idempotency_key`, returns the original result and performs no second act (Q-9, Q-10) | Class 1. Durable deduplication is what makes a **client or network** retry harmless; the orchestrator's retry class is a separate question, answered by what the step writes |
+
+**Rule Q-25c — durable request identity is the mechanism, not the class.** Every command carries a
+caller-supplied `idempotency_key` scoped to `(scope, command, caller)` with a durable uniqueness
+constraint behind it (§6). That is why a client that retries `InvokeModel` after a dropped response
+does not create a second `model_invocation`: the second call meets the first key and returns the
+original identity, and a repeat with a different payload hash is refused with
+`IDEMPOTENCY_KEY_CONFLICT`. **Re-executing a handler safely because the prior governed write is
+durably deduplicated is not the Phase 11 class `SAFE_AUTOMATIC_RETRY`**, and this specification
+does not use one to argue the other. Where the class or the prior outcome cannot be established,
+the behaviour is the fail-closed one: RX in §5.6 — block, escalate, write the refusal record.
 
 **Rule Q-25a — the declared class governs the governed layer, never the dispatch item.** Stage 2's
 class decides whether the **orchestrator** may create a *new* provider attempt automatically after
@@ -410,9 +438,21 @@ receiver-side deduplication is a property recorded on a Provider Profile rather 
 A step that is `IDEMPOTENT_AT_LEAST_ONCE` and whose attempt is `ATTEMPTED_OUTCOME_UNKNOWN` still
 reconciles; it does not replay.
 
-**Rule Q-26 — no distributed transaction and no exactly-once.** The staging above is
-at-most-once *locally* by U7 and U8, at-least-once *externally* where the provider deduplicates,
-and neither where it does not. That is stated, not hidden behind a boundary that looks atomic.
+**Rule Q-26 — no distributed transaction, no exactly-once, and no external at-least-once.**
+The staging above is at-most-once *locally* by U7 and U8, and **at-most-once per dispatch item and
+per dispatch key** across the provider boundary — the guarantee
+`persistence-and-transaction-model.md` PO-17 defines, and nothing stronger.
+
+| Not claimed | Why |
+|---|---|
+| End-to-end **exactly-once** | Unachievable across a local database and a remote provider, and asserted nowhere |
+| External **at-least-once** | This protocol does not redeliver. A crossed item never presents its key again (PO-14); a lost call is resolved by **reconciliation** and, where reconciliation reports `CONFIRMED_NOT_APPLIED`, by a **new** governed attempt with a new attempt identity, a new dispatch item identity and a new provider idempotency key, linked to the prior lineage (PO-14a, PO-19) |
+| Anything licensed by **provider deduplication** | Receiver-side deduplication is defence-in-depth recorded on a Provider Profile. It bears on the retry class a step declares and licenses **no** same-item crossed-boundary replay (PO-14b) |
+
+An earlier revision of this rule claimed external at-least-once "where the provider deduplicates",
+which contradicted PO-17 in the one direction that produces a duplicate irreversible act. That is
+stated rather than quietly corrected, because a reader who saw only this rule would have built a
+redelivering client.
 
 **Rule Q-27 — compensation is never a retry.** Where a confirmed external effect must be undone,
 that is the compensation lineage of `failure-recovery-race-model.md` §7 — its own request, its
@@ -426,7 +466,7 @@ written", which cannot both be true. Halting and escalating **is** a write.
 
 | Branch | Classes | Precondition | Phase before → after | Posture before → after | Wait reason · escalation | Governed writes | Audit | Exec | Dispatch occurs? | Dispatch record? | Escalation record? |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| **R1 automatic** | 1 `SAFE_AUTOMATIC_RETRY`, 5 `REPLAYABLE_READ_ONLY` | Halted guard; attempt limit not reached | `RETRY_PENDING` → `RUNNING` | unchanged → unchanged | none · none | `retry_attempt`, run state → `RUNNING` | **2** | 1 | **Yes** | **Yes** | No |
+| **R1 automatic** | 1 `SAFE_AUTOMATIC_RETRY`, 5 `REPLAYABLE_READ_ONLY` — **neither class writes a governed record**, so no `InvokeModel` stage reaches this branch (Q-25) | Halted guard; attempt limit not reached | `RETRY_PENDING` → `RUNNING` | unchanged → unchanged | none · none | `retry_attempt`, run state → `RUNNING` | **2** | 1 | **Yes** | **Yes** | No |
 | **R2 revalidating** | 2 `RETRY_REQUIRING_REVALIDATION` | As R1, **plus** preconditions, evidence freshness, scope, sensitivity and assignment eligibility re-evaluated **before** dispatch | `RETRY_PENDING` → `RUNNING` | unchanged → unchanged | none · none | `revalidation_record`, `retry_attempt`, run state → `RUNNING` | **3** | 2 | **Yes** | **Yes** | No |
 | **R2f revalidation fails** | 2 | A re-evaluated precondition no longer holds | `RETRY_PENDING` → `BLOCKED` | unchanged → **`GATE_UNSATISFIED`** | none · **no escalation** | `revalidation_record`, run state → `BLOCKED` **carrying posture `GATE_UNSATISFIED`** | **2** | 1 | **No** | No | No — a block, not an escalation |
 | **R3 awaiting acknowledgement** | 3 `RETRY_REQUIRING_HUMAN_ACKNOWLEDGEMENT` | No acknowledgement intervention yet | `RETRY_PENDING` → `WAITING` | unchanged → unchanged | **`WAITING_FOR_HUMAN`, subject the acknowledgement** · none | `retry_hold_record`, run state → `WAITING` carrying the wait reason and subject | **2** | 1 | **No** | No | No |

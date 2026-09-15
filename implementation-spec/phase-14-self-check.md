@@ -139,9 +139,9 @@ authorised. The four most consequential:
 | Item | Count |
 |---|---|
 | Specification documents under `implementation-spec/` | 20 |
-| Validator checks | **106**, in 14 groups: `structure` 6 · `containment` 6 · `invariants` 5 · `knowledge` 6 · `scope` 6 · `routing` 3 · `events` 5 · `authority` 5 · `persistence` 7 · `races` 5 · `approval` 4 · `completeness` 6 · `fidelity` 11 · `crossdoc` 31 |
+| Validator checks | **108**, in 14 groups: `structure` 6 · `containment` 6 · `invariants` 5 · `knowledge` 6 · `scope` 6 · `routing` 3 · `events` 5 · `authority` 5 · `persistence` 7 · `races` 5 · `approval` 4 · `completeness` 6 · `fidelity` 11 · `crossdoc` 33 |
 | Validator | `validation/phase_14_validation.py`, standard library only, deterministic, no network |
-| Adversarial fixture | `validation/phase_14_mutation_probes.py`, **87 committed controlled weakenings**, 87 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
+| Adversarial fixture | `validation/phase_14_mutation_probes.py`, **99 committed controlled weakenings**, 99 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
 | Governed commands | **36**, each with exactly one transaction contract; the two sets are compared and equal |
 | Durable uniqueness constraints | **23** (U1–U23), one canonical inventory, every stated count derived from it |
 | Executable production code, migrations, manifests, SDK dependencies | **0** |
@@ -166,7 +166,7 @@ Two harness artefacts were found while building it and are recorded rather than 
    checks were added for exactly those rules, and one probe was re-targeted from a
    divergence-table description to the load-bearing statement it was supposed to attack.
 
-Current result: **87 probes, 87 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR`**, each caught by a named
+Current result: **99 probes, 99 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR`**, each caught by a named
 substantive check. The fourteen added in revision 7 are in §13.1, the fourteen from revision 6 in
 §12.1, the twelve from revision 5 in §11.1, the sixteen from revision 4 in §10.1, the twelve from
 revision 3 in §9.1, and the original set is:
@@ -436,3 +436,42 @@ was exempt from the check written to catch exactly that. Both are fixed and both
    six blockers, five of which were cross-document disagreements no single-document check could
    see. The `crossdoc` group exists because of that, and the honest reading is that it closes the
    contradictions that were found — not that no others remain.
+
+## 7z. The V7 remediation — B1 and B2
+
+The V7 independent re-audit returned two HIGH blockers against `46a7a89`. Both were the same
+shape as the ones before them: an owner contract that was already right, contradicted by active
+second locations that nobody had read.
+
+| Blocker | What contradicted the owner contract | What it is now |
+|---|---|---|
+| **B1** — external delivery / replay | PO-17 defined at-most-once per dispatch item. Q-26 claimed **external at-least-once** "where the provider deduplicates"; Q-24's crash row, the T5 and T7 transition cells and the §9.6 crash summary all carried a stale "unless / except under PO-14" qualifier, left behind when PO-14 became unconditional | Q-26 is a three-row *not claimed* table — no exactly-once, no external at-least-once, nothing licensed by provider deduplication. The qualifiers are gone: T5 and T7 read **"Never — PO-14 is unconditional"**, and §9.6 says PO-14 admits no exception. **P-9x** and **O-21a** state, in the two documents whose class tables use the word *at-least-once*, that it names an internal retry class and never an external guarantee |
+| **B2** — governed writes in a no-governed-write class | Q-25 assigned `SAFE_AUTOMATIC_RETRY` to stages 1, 3, 4 and 5. The approved Phase 11 class 1 requires *"no governed record written"*, and stage 1 alone writes two | Q-25 is now a per-stage table of **what each stage writes** against **its class**: stages 1, 3+4 and 5 are class 2 `RETRY_REQUIRING_REVALIDATION`; stage 2 is unchanged. **Q-25b** separates three properties an earlier revision had collapsed — *not authority-bearing*, *writes a governed record*, *replay-safe under a durable key*. **Q-25c** states that durable request identity (§6, Q-9/Q-10) is the **mechanism** that makes a client retry harmless, and is not the Phase 11 class. The approved class definitions are unchanged |
+
+### Assurance, and four probes that came back REDUNDANT
+
+Two checks were added and twelve probes, each planted in a distinct active location. Four probes
+were `REDUNDANT` on their first run and one on the second, and every one exposed a defect in a
+check rather than in the specification:
+
+1. **A conditional redispatch planted in Q-24 was not observed.** `_HISTORICAL` carries the token
+   `before the`, which every crash row contains — *"before the stage 3/4 commit"* — so the whole
+   row was exempt. A qualifier **on** the no-redispatch rule is now judged without that exemption.
+2. **T5 was read by nothing.** The crash-safety check filtered transitions whose text says
+   *recovery*; T5 is a caller-observed unknown, not a recovery. Every transition leaving
+   `DISPATCH_PENDING` is now read, and each must deny redispatch unconditionally.
+3. **"Redispatch where provider deduplication permits it" was not observed.** The scan read one
+   word order only. It now reads both.
+4. **A governed-write step reaching the class-1 branch was not observed**, because the row scan
+   did not recognise the hyphenated form *governed-write*.
+5. **On the second run, the Q-26 probe was REDUNDANT** — and this one was a defect in the
+   **probe**, not the check: it replaced only the row's prefix, leaving the original cell's
+   *"never presents its key again"* in place, so the mutated row still denied what it was
+   supposed to assert. The probe now replaces the whole row, and the check additionally reads
+   Q-26's *not claimed* table as data, so a row that flips to *provided* fails whatever words it
+   uses.
+
+Also repaired, and worth naming because it is the mirror image of the usual defect: the
+crash-safety check demanded the literal substring `no` in the redispatch cell and therefore
+**rejected the stronger wording "Never — PO-14 is unconditional"**. A check keyed on one spelling
+of a denial is not a check on the denial.

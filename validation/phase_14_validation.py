@@ -3066,8 +3066,34 @@ def the_external_call_boundary_is_crash_safe():
         if not crossed or not uncrossed:
             problems.append("recovery does not branch on boundary_crossed in its predicate")
         for c in crossed:
-            if "no" not in flat(c[5]):
-                problems.append("a crossed-boundary recovery permits redispatch unconditionally")
+            # The cell must DENY redispatch. A substring test for "no" rejected the stronger
+            # wording "Never - PO-14 is unconditional", which is the opposite defect: the check
+            # was keyed on one spelling of the denial rather than on the denial.
+            if not re.match(r"(no|never)\b", flat(c[5])):
+                problems.append("a crossed-boundary recovery does not deny redispatch: %r"
+                                % c[5][:60])
+            # And the denial must be unconditional: no exception clause may qualify it.
+            if re.search(r"\b(except|unless|where|provided|if)\b", flat(c[5])):
+                problems.append("a crossed-boundary recovery qualifies its denial: %r"
+                                % c[5][:60])
+
+    # 3a. EVERY transition leaving DISPATCH_PENDING denies redispatch unconditionally, not only
+    # the two whose transition text happens to say "recovery". T5 is a caller-observed unknown
+    # rather than a recovery, so the filter above never read it, and a conditional qualifier
+    # planted there survived.
+    for t, c in rows.items():
+        if "dispatch_pending" not in flat(c[0]) or "→" not in c[0]:
+            continue
+        if "settled" in flat(c[0]):          # T4: terminal on an observed outcome
+            continue
+        if "→ same state" in c[0] or "renewal" in flat(c[0]):   # T3 changes no state at all
+            continue
+        cell = flat(c[5])
+        if not re.match(r"(no|never)\b", cell):
+            problems.append("%s leaves DISPATCH_PENDING without denying redispatch: %r"
+                            % (t, c[5][:60]))
+        if re.search(r"\b(except|unless|where|provided|if)\b", cell):
+            problems.append("%s qualifies its redispatch denial: %r" % (t, c[5][:60]))
             if "yes" not in flat(c[6]):
                 problems.append("a crossed-boundary recovery does not mandate reconciliation")
         for c in uncrossed:
@@ -3506,6 +3532,182 @@ def no_active_location_reclassifies_the_outbox_as_governed():
 
 check("crossdoc", "no active location reclassifies the outbox as governed",
       no_active_location_reclassifies_the_outbox_as_governed)
+
+
+def no_active_location_claims_external_at_least_once():
+    """B1. The external boundary guarantee is at-most-once per dispatch item and key.
+
+    PO-17 has always said so. The V7 reviewer found Q-26 claiming external at-least-once "where
+    the provider deduplicates", and stale "except under PO-14" qualifiers in the T5/T7 rows and
+    the crash summaries. This check reads the ACTIVE local statements, not the owner rule."""
+    problems = []
+    # 1. The owner contract, and its agreeing second locations, must each state the guarantee.
+    for phrase, name in (
+            ("at-most-once-per-item and **nothing stronger**",
+             "persistence-and-transaction-model.md"),
+            ('"at-least-once" names an internal retry class, never an external guarantee',
+             "persistence-and-transaction-model.md"),
+            ("no distributed transaction, no exactly-once, and no external at-least-once",
+             "api-command-contracts.md"),
+            ("across the provider boundary the guarantee is at-most-once per dispatch item and",
+             "orchestrator-runtime-contract.md")):
+        if says(name, phrase):
+            problems.append("%s: missing %r" % (name, phrase[:52]))
+    # 2. No active statement may assert external at-least-once, or let dedup license replay.
+    asserts = re.compile(
+        r"at-?least-?once[^.]{0,60}?(external\w*|across the (?:provider )?boundary|delivery)"
+        r"|(external\w*|across the (?:provider )?boundary)[^.]{0,60}?at-?least-?once",
+        re.IGNORECASE)
+    #: Both word orders. "dedup ... permits ... redispatch" AND "redispatch ... where dedup
+    #: permits it" say the same thing, and a single-order scan read only the first - which is
+    #: how a crash summary mutated into "redispatch where provider deduplication permits it"
+    #: survived.
+    licenses = re.compile(
+        r"(provider |receiver-side |)dedup\w*[^.]{0,70}?"
+        r"(permits?|licens\w*|allows?|makes? it safe to)[^.]{0,50}?"
+        r"(redispatch|re-?dispatch|replay|present.{0,20}again|second (?:call|dispatch))"
+        r"|(redispatch|re-?dispatch|replay|second (?:call|dispatch))[^.]{0,70}?"
+        r"(where|when|if|because)[^.]{0,40}?dedup\w*",
+        re.IGNORECASE)
+    conditional = re.compile(
+        r"(never a redispatch|no redispatch|not redispatch\w*|never redispatch\w*)"
+        r"[^.]{0,40}?\b(unless|except|where|provided|if)\b", re.IGNORECASE)
+    denial = re.compile(r"\b(never|not|no|none|nor|cannot|forbid\w*|prohibit\w*|licenses nothing|"
+                        r"nothing stronger|is wrong|unconditional|admits no exception|"
+                        r"not an external|internal retry-class)\b", re.IGNORECASE)
+    for name in REQUIRED_DOCS:
+        for i, sentence in _statements(name):
+            # A qualifier ON the no-redispatch rule is a defect however the sentence is framed,
+            # so it is judged WITHOUT the historical exemption. _HISTORICAL carries the token
+            # "before the", which every crash row contains ("before the stage 3/4 commit") - and
+            # that is how a conditional redispatch planted in Q-24 went unobserved.
+            if conditional.search(sentence):
+                problems.append("%s:%d qualifies the no-redispatch rule with a condition"
+                                % (name, i))
+            if _HISTORICAL.search(sentence):
+                continue
+            if asserts.search(sentence) and not denial.search(sentence):
+                problems.append("%s:%d asserts external at-least-once delivery" % (name, i))
+            if licenses.search(sentence) and not denial.search(sentence):
+                problems.append("%s:%d lets provider deduplication license a replay" % (name, i))
+    # 2a. Q-26's "Not claimed" table, read as data. Every row in it names a guarantee the
+    # specification does NOT provide, so a row whose answer cell grants one is the defect -
+    # whatever words the cell uses.
+    api = spec("api-command-contracts.md")
+    if "| Not claimed | Why |" not in api:
+        problems.append("Q-26 has no not-claimed table to read")
+    else:
+        table = api.split("| Not claimed | Why |")[1].split("\n\n")[0]
+        seen = 0
+        for row in table.splitlines():
+            if not row.startswith("| ") or row.startswith("|---"):
+                continue
+            cells = [c.strip() for c in row.strip("|").split("|")]
+            if len(cells) < 2:
+                continue
+            seen += 1
+            answer = flat(cells[1])
+            if re.match(r"(provided|yes|available|guaranteed|supported)\b", answer):
+                problems.append("Q-26's not-claimed table grants %r: %r"
+                                % (flat(cells[0])[:40], cells[1][:60]))
+        if seen < 3:
+            problems.append("Q-26's not-claimed table lost a row: %d remain" % seen)
+
+    # 3. CONFIRMED_NOT_APPLIED continuation is a NEW identity, never the old one.
+    for phrase, name in (
+            ("Continuation is a **new** governed provider attempt at the next ordinal, with a "
+             "**new** key (PO-14)", "persistence-and-transaction-model.md"),
+            ("the key is reused only where the boundary was not crossed",
+             "persistence-and-transaction-model.md")):
+        if says(name, phrase):
+            problems.append("%s: missing %r" % (name, phrase[:52]))
+    reuses = re.compile(
+        r"`?CONFIRMED_NOT_APPLIED`?[^.]{0,90}?"
+        r"(same|existing|original|its own) (?:key|idempotency key|dispatch item|attempt)",
+        re.IGNORECASE)
+    for name in REQUIRED_DOCS:
+        for i, sentence in _statements(name):
+            if reuses.search(sentence) and not denial.search(sentence) \
+                    and not _HISTORICAL.search(sentence):
+                problems.append("%s:%d reuses the old identity after CONFIRMED_NOT_APPLIED"
+                                % (name, i))
+    return (not problems, str(problems)[:500] if problems
+            else "at-most-once per dispatch item and key, in every active location")
+
+
+check("crossdoc", "no active location claims external at-least-once or licenses a replay",
+      no_active_location_claims_external_at_least_once)
+
+
+def no_governed_write_command_is_a_no_governed_write_retry_class():
+    """B2. Class 1 says "no governed record written". Four of five stages write governed records.
+
+    The check reads the stage table and the retry-class table as DATA rather than looking for a
+    corrective rule: a document can carry the right rule and still classify a row wrongly, which
+    is exactly what the V7 reviewer found."""
+    problems = []
+    api = spec("api-command-contracts.md")
+    # The approved class-1 contract, quoted from the approved Phase 11 document, must be present.
+    if says("api-command-contracts.md", "no governed record written"):
+        problems.append("Q-25 does not quote the approved class-1 condition it must satisfy")
+    # Parse the stage/class table: any row with governed writes may not be class 1.
+    rows = [ln for ln in api.splitlines()
+            if ln.startswith("| ") and "SAFE_AUTOMATIC_RETRY" in ln and "|" in ln]
+    for row in rows:
+        cells = [c.strip() for c in row.strip("|").split("|")]
+        low = flat(row)
+        # A row that both names governed writes and class 1 is the defect, in any table.
+        names_writes = re.search(
+            r"(model_invocation|provider_attempt|model_result|reconciliation|"
+            r"governed record|governed writes|governed-write)", low)
+        if names_writes and "neither class writes a governed record" not in low:
+            problems.append("a row classifies a governed-write step as SAFE_AUTOMATIC_RETRY: %r"
+                            % row[:90])
+    # The stage table must classify stages 1, 3+4 and 5 as something other than class 1.
+    if "| 1 | `InvokeModel` |" not in api:
+        problems.append("Q-25 has no per-stage classification table")
+    else:
+        table = api.split("| Stage | Command | Governed records it writes | Class |")[1] \
+            if "| Stage | Command | Governed records it writes | Class |" in api else ""
+        if not table:
+            problems.append("Q-25's table does not state each stage's governed writes")
+        else:
+            body = table.split("\n\n")[0]
+            for stage in ("| 1 |", "| 3 + 4 |", "| 5 |"):
+                row = [ln for ln in body.splitlines() if ln.startswith(stage)]
+                if not row:
+                    problems.append("Q-25's table has no row for stage %s" % stage.strip("| "))
+                    continue
+                low = flat(row[0])
+                if "safe_automatic_retry" in low:
+                    problems.append("stage %s is classified SAFE_AUTOMATIC_RETRY while writing "
+                                    "governed records" % stage.strip("| "))
+                if "retry_requiring_revalidation" not in low:
+                    problems.append("stage %s has no governed-write-compatible class"
+                                    % stage.strip("| "))
+    # The three properties must be kept apart, in terms.
+    for phrase in ('"not authority-bearing" is not "not governed", and neither is "safe to '
+                   're-run"',
+                   "durable request identity is the mechanism, not the class",
+                   "is not the Phase 11 class `SAFE_AUTOMATIC_RETRY`"):
+        if says("api-command-contracts.md", phrase):
+            problems.append("missing %r" % phrase[:52])
+    # And no prose may equate the two.
+    equates = re.compile(
+        r"not authority-?bearing[^.]{0,80}?(safe_automatic_retry|safe automatic retry|"
+        r"class 1|safely retried automatically)", re.IGNORECASE)
+    denial = re.compile(r"\b(never|not|no|nor|cannot|is not)\b", re.IGNORECASE)
+    for name in REQUIRED_DOCS:
+        for i, sentence in _statements(name):
+            if equates.search(sentence) and not denial.search(sentence) \
+                    and not _HISTORICAL.search(sentence):
+                problems.append("%s:%d equates 'not authority-bearing' with class 1" % (name, i))
+    return (not problems, str(problems)[:500] if problems
+            else "no governed-write command is classified as a no-governed-write retry class")
+
+
+check("crossdoc", "no governed-write command carries a no-governed-write retry class",
+      no_governed_write_command_is_a_no_governed_write_retry_class)
 
 
 # =========================================================== main
