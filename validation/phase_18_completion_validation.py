@@ -60,25 +60,19 @@ def normalize(value):
     return value
 
 
-def has_active_mode_b_claim(value):
-    """Reject affirmative statements that make Mode B active/current.
+def semantic_segments(value):
+    raw = value.lower()
+    raw = re.sub(r"[*_`~]+", "", raw)
+    return [part.strip() for part in re.split(r"[\n.!?;]+", raw) if part.strip()]
 
-    Negative/deferred wording is accepted. Keep this deliberately narrow: Phase
-    18 is a completion validator, while Phase 17 owns detailed Mode A conformance.
-    """
-    t = normalize(value)
+
+def has_active_mode_b_claim(value):
     unsafe = [
         r"\bmode b\b.{0,35}\b(is|remains|now|currently)\s+(active|enabled|implemented|operational)\b",
         r"\b(ai-os|system)\b.{0,35}\b(calls|invokes|routes)\b.{0,25}\b(provider|model)\s+apis?\b",
     ]
-    safe_markers = ["not active", "not implemented", "deferred", "out of scope", "must not be implemented"]
-    if any(marker in t for marker in safe_markers):
-        # Still scan by sentence so one safe clause cannot hide another unsafe claim.
-        pass
-    for segment in re.split(r"[\n.!?;]+", t):
-        segment = segment.strip()
-        if not segment:
-            continue
+    safe_markers = ["not active", "not implemented", "deferred", "out of scope", "must not be implemented", "does not call"]
+    for segment in semantic_segments(value):
         if any(marker in segment for marker in safe_markers):
             continue
         if any(re.search(pattern, segment) for pattern in unsafe):
@@ -87,13 +81,12 @@ def has_active_mode_b_claim(value):
 
 
 def has_mass_promotion_claim(value):
-    t = normalize(value)
     unsafe = [
         r"\ball\s+(skills?|workflows?|roles?|artifacts?)\s+(are|become|became)\s+(approved|canonical)\b",
         r"\bphase approval\b.{0,45}\b(all|every)\b.{0,20}\b(approved|canonical)\b",
         r"\bchild artifacts?\b.{0,30}\bautomatically\s+(approved|canonical)\b",
     ]
-    for segment in re.split(r"[\n.!?;]+", t):
+    for segment in semantic_segments(value):
         if any(re.search(pattern, segment) for pattern in unsafe):
             if "does not" not in segment and "not " not in segment and "do not" not in segment:
                 return True
@@ -101,19 +94,18 @@ def has_mass_promotion_claim(value):
 
 
 def has_unsupported_production_claim(value):
-    t = normalize(value)
+    """Reject affirmative production/deployment claims, not negative scope notes."""
     unsafe = [
-        r"\bproduction[- ]ready\b",
-        r"\bready for production\b",
-        r"\bdeployed production service\b",
-        r"\bproduction deployment is complete\b",
+        r"\b(ai-os|system|repository|programme)\b.{0,25}\b(is|remains|now|currently)\s+production[- ]ready\b",
+        r"\b(ai-os|system|repository|programme)\b.{0,25}\b(is|now|currently)\s+ready\s+for\s+production\b",
+        r"\b(ai-os|system|service)\b.{0,25}\b(is|has been)\s+deployed\s+(to|in)\s+production\b",
+        r"\bproduction\s+deployment\s+(is|has been)\s+complete\b",
     ]
-    for segment in re.split(r"[\n.!?;]+", t):
-        if not any(re.search(pattern, segment) for pattern in unsafe):
-            continue
-        if any(marker in segment for marker in ("not production", "does not claim", "not claim", "no deployed", "not a deployed")):
-            continue
-        return True
+    for segment in semantic_segments(value):
+        if any(re.search(pattern, segment) for pattern in unsafe):
+            if any(marker in segment for marker in ("not production", "does not claim", "not claim", "no deployed", "not deployed")):
+                continue
+            return True
     return False
 
 
@@ -189,6 +181,18 @@ def main_validate():
           "access:least-privilege", "read-only least-privilege default documented", results)
     check("recommendations only" in access.lower() or "does not claim" in access.lower(),
           "access:no-settings-claim", "guidance does not pretend repository settings were changed", results)
+
+    # Small semantic self-controls for the completion-specific detectors.
+    check(has_active_mode_b_claim("Mode B is currently active."),
+          "selfcontrol:active-mode-b", "active Mode B claim is detected", results)
+    check(not has_active_mode_b_claim("Mode B is deferred and not implemented."),
+          "selfcontrol:safe-mode-b", "deferred Mode B wording is accepted", results)
+    check(has_mass_promotion_claim("All Skills are approved."),
+          "selfcontrol:mass-promotion", "mass Skill approval claim is detected", results)
+    check(has_unsupported_production_claim("AI-OS is production-ready."),
+          "selfcontrol:production-claim", "affirmative production-readiness claim is detected", results)
+    check(not has_unsupported_production_claim("AI-OS does not claim production readiness."),
+          "selfcontrol:safe-production-boundary", "negative production boundary is accepted", results)
 
     failed = [r for r in results if not r["pass"]]
     return results, failed
