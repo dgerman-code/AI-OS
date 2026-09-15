@@ -21,13 +21,13 @@ work, the conclusions, or the acts.
 | **G-2** | Every `WorkIntent` field is present as a value or an explicit `UNKNOWN` (RI-3) | **BLOCK** — an unconsidered field is a planner defect |
 | **G-3** | The criticality band resolves | **BLOCK** — `CRITICALITY_UNRESOLVED`. Never defaults to Routine |
 | **G-4** | Sensitivity, handling and residency are present or explicitly `UNASSESSED`, and `UNASSESSED` is treated as restricted | **BLOCK** |
-| **G-5** | Every `RoleRequirement` resolves to an approved, available Role; every fired conditional requirement is met (RS-6) | **BLOCK** — `REQUIRED_ROLE_UNAVAILABLE`, or a recorded constrained plan (RS-10) |
-| **G-6** | Every `SkillRequirement` resolves to an approved Skill with a Phase 4 basis; no candidate Skill is activated (RS-8) | **BLOCK** — `REQUIRED_SKILL_UNAVAILABLE` |
+| **G-5** | Every `RoleRequirement` resolves to an approved, available Role; every fired conditional requirement is met (RS-6); every unavailable Role records `load_bearing` **and** `load_bearing_basis` (LB-3) | **BLOCK** — `REQUIRED_ROLE_UNAVAILABLE` where the determination is `LOAD_BEARING`, or a recorded constrained plan (RS-10). A missing determination is itself a **BLOCK** |
+| **G-6** | Every `SkillRequirement` resolves to an approved Skill with a Phase 4 basis; no candidate Skill is activated (RS-8); every unavailable Skill records `load_bearing` **and** `load_bearing_basis` (LB-3) | **BLOCK** — `REQUIRED_SKILL_UNAVAILABLE` where the determination is `LOAD_BEARING`. A missing determination is itself a **BLOCK** |
 | **G-7** | No blocking `ClarificationRequirement` is open; none carries a `default_if_unanswered` (CL-15) | **BLOCK** |
 | **G-8** | Every `ReviewRequirement` names an approved Review Profile, and **none is marked satisfied** | **BLOCK** — `REVIEW_PROFILE_UNAVAILABLE`, or a planner defect if satisfaction was asserted |
 | **G-9** | `constraint_overrides_attempted` is empty (MC-17) | **BLOCK** — the planner did the thing MC-4 forbids |
 | **G-10** | Every contemplated act has its `DecisionRequirement` resolved to an **applicable approved** Right, or the act is removed from the plan | **BLOCK** — `NO_APPLICABLE_DECISION_RIGHT`. §3 |
-| **G-11** | Every `EvidenceRequirement` names what must hold, with its epistemic type; none asserts an unestablished claim (OM-9) | **BLOCK** — `EVIDENCE_REQUIREMENT_UNSATISFIED` where a stage cannot start |
+| **G-11** | Every `EvidenceRequirement` names what must hold, with its epistemic type; none asserts an unestablished claim (OM-9); any requirement unsatisfied before the first executable dependent act is unmet, and any legitimately deferred one is declared `FUTURE_GOVERNANCE_REFERENCE` (FE-11, FE-12) | **BLOCK the plan** — `EVIDENCE_REQUIREMENT_UNSATISFIED`. Plan-level, never per-stage: preflight has no stages to block and there is no partial handoff (HO-2) |
 | **G-12** | The plan is acyclic and every stage declares entry and exit criteria (MC-12) | **BLOCK** — `PLAN_VALIDATION_FAILED` |
 | **G-13** | No stage requires crossing the resolved scope boundary (CS-4) | **BLOCK** |
 | **G-14** | No plan element names a Model Profile, a provider or a routing decision (N-10) | **BLOCK** — model selection is Phase 9's |
@@ -55,7 +55,7 @@ parallel. `NO_APPLICABLE_DECISION_RIGHT` stops the act.
 not the user's insistence, not a high confidence that the act is obviously fine, and not the
 observation that a similar act was authorised before.
 
-**Rule GP-6 — the four act postures.** A plan involving an external act states exactly which:
+**Rule GP-6 — the five act postures.** A plan involving an external act states exactly which:
 
 | Posture | Means |
 |---|---|
@@ -86,6 +86,11 @@ until met.
 
 **Rule GP-12 — it never relaxes on a re-run.** A plan that failed and was revised is re-validated in
 full. There is no "previously checked" shortcut, because the revision is what changed.
+
+**Rule GP-14 — every preflight outcome is plan-level.** A check passes or fails for the plan. No
+check produces a per-stage verdict, no check holds one stage while releasing another, and no check
+emits a partial envelope — because activating and holding stages is Phase 11's and Phase 15 has no
+run to act on (HO-2, FE-11).
 
 ## 5. The `PlanValidationResult` record
 

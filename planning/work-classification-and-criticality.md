@@ -19,7 +19,7 @@ alone is sufficient: the intent says what is being asked, the scope says what go
 
 | Requirement | Derived from |
 |---|---|
-| Deliverable class | `requested_outcome`, `work_mode` |
+| Deliverable class | `requested_outcome`, `primary_work_mode`, `secondary_work_modes` |
 | Domain set | `entities`, subject matter, the scope's own domain |
 | Act set | `act_direction`, `transmission_contemplated`, `commitment_possible` |
 | Criticality band | §3 |
@@ -140,14 +140,17 @@ informs planning; it establishes nothing about the world.
 | Element | Value |
 |---|---|
 | Deliverable class | Meeting preparation pack |
-| Triggers fired | T-1 (EIB is an IFI), T-3 (municipal counterparty), T-4 (regulated infrastructure), T-11 (an IFI meeting is submission-adjacent) |
+| Triggers fired | T-1 (EIB is an IFI), T-3 (municipal counterparty), T-4 (regulated infrastructure) |
+| Triggers **not** fired | T-11. It is an *external submission*; a meeting is not one. Treating it as "submission-adjacent" would claim a trigger the approved policy does not give (WC-4) |
+| Conservative escalation | `commitment_possible` `UNKNOWN` → `YES` (WC-6), and the band is raised under WC-2. Recorded as escalation, **not** as a fourth fired trigger (WC-7) |
 | Value stated | None — and by WC-3 that does not make it Routine |
-| Band | **Enhanced Decision-Grade**, on four triggers with no stated value |
+| Band | **Enhanced Decision-Grade**, on three fired triggers plus the conservative escalation, with no stated value |
 | `act_direction` | `EXTERNAL` — the meeting is with an external institution |
 | `commitment_possible` | `UNKNOWN` → planned as `YES` (WC-6): a meeting with a lender can produce a commitment |
 | Stop conditions | Evidence: the project's financial and technical basis must resolve at a version; Authority: any commitment made in the meeting requires its own Right |
 
-Four triggers on a request whose surface reading is "help me get ready for a meeting". That gap —
+Three fired triggers and a conservative escalation on a request whose surface reading is "help
+me get ready for a meeting". That gap —
 between what the sentence looks like and what the work is — is what this stage exists to close.
 
 ## 9. Non-Runtime Statement

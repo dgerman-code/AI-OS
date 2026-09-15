@@ -14,11 +14,11 @@ that will be resolved by whoever is in a hurry.
 | F-2 | `AMBIGUOUS_SCOPE` | **CLARIFY**, blocking; **BLOCK** if unanswerable | Choosing changes applicable knowledge, authority, residency or sensitivity (CS-7) |
 | F-3 | `NO_MATCHING_WORKFLOW` | **COMPOSE** | Not an error. It is the ordinary trigger for the COMPOSE path |
 | F-4 | `PLAN_COMPOSITION_REQUIRED` | **COMPOSE** | An admissible candidate exists but does not cover the work |
-| F-5 | `REQUIRED_ROLE_UNAVAILABLE` | **CONSTRAIN** with a stated gap, or **BLOCK** where the conclusion is load-bearing | RS-9, RS-10 |
-| F-6 | `REQUIRED_SKILL_UNAVAILABLE` | **CONSTRAIN** or **BLOCK**, as F-5 | A candidate Skill is unavailable (RS-8) |
+| F-5 | `REQUIRED_ROLE_UNAVAILABLE` | **BLOCK** where `load_bearing = LOAD_BEARING`; otherwise **CONSTRAIN** with the gap stated | The predicate is `role-skill-requirement-inference.md` §6a (LB-1…LB-5); RS-9, RS-10 |
+| F-6 | `REQUIRED_SKILL_UNAVAILABLE` | **BLOCK** where `load_bearing = LOAD_BEARING`; otherwise **CONSTRAIN** with the gap stated | The same predicate, applied to the Skill's Role (RS-8, §6a) |
 | F-7 | `REVIEW_PROFILE_UNAVAILABLE` | **BLOCK** + escalate | An unreviewable deliverable at a band that requires review is not shippable |
 | F-8 | `NO_APPLICABLE_DECISION_RIGHT` | **BLOCK** + escalate | GP-4. There is no alternative branch |
-| F-9 | `EVIDENCE_REQUIREMENT_UNSATISFIED` | **BLOCK the affected stage**; plan may proceed where later stages do not depend on it | An unmet requirement is not a missing nicety |
+| F-9 | `EVIDENCE_REQUIREMENT_UNSATISFIED` | **BLOCK the plan**, before handoff | §2a. Phase 15 has no stages to block, and no partial handoff exists (HO-2, G-11) |
 | F-10 | `CRITICALITY_UNRESOLVED` | **BLOCK** | Never defaults to Routine (WC-2) |
 | F-11 | `CONFLICTING_REQUIREMENTS` | **ESCALATE** | Two governed requirements cannot both be met; a planner may not choose between them |
 | F-12 | `UNSAFE_INFERENCE` | **CLARIFY**, blocking; **BLOCK** if unanswerable | The planner would have to guess about scope, authority or an irreversible act |
@@ -50,6 +50,32 @@ not.
 **Rule FE-4 — no disposition is reachable by confidence.** A high-confidence planner does not get a
 lighter disposition, and a low-confidence one does not get a heavier one. Dispositions follow the
 mode (OM-13).
+
+## 2a. F-9, and why it is plan-level
+
+The first version of this document disposed of F-9 per stage: hold the one that lacks its evidence
+and let the rest go on. That was wrong twice over. Phase 15 can never hold a single stage, because
+stage activation is Phase 11's (HO-1, PL-1); and it can never let some stages go on, because no
+partial handoff exists (HO-2). A rule that has Phase 15 continuing or halting stages describes a
+second Orchestrator.
+
+The disposition is therefore plan-level, and it has two branches decided by the approved Phase 11
+prerequisite semantics rather than by Phase 15's preference:
+
+| The unsatisfied `EvidenceRequirement` is | Outcome | Basis |
+|---|---|---|
+| Required before the **first executable dependent act** of the plan | **BLOCK the plan.** No envelope is produced | The plan cannot start; handing it over would hand over a run that must immediately wait or fail |
+| Legitimately deferred, and declarable under the approved mechanism as `FUTURE_GOVERNANCE_REFERENCE` | The plan stays valid and the reference is carried in `prerequisite_refs` **as** `FUTURE_GOVERNANCE_REFERENCE`, which the approved intake check 7 already accepts and which marks the dependent act **non-executable** | `architecture/orchestrator-architecture.md` §5 check 7 |
+
+**Rule FE-11 — Phase 15 neither continues nor halts a stage, in any failure mode.** It produces a
+whole plan or no plan. Where the approved Phase 11 semantics permit an unresolved prerequisite, the
+plan represents it exactly as Phase 11 defines it and lets Phase 11 do the waiting; where they do
+not, the plan blocks before the handoff. There is no third behaviour, and no Phase 15 rule may be
+written as *"stage X blocks while stage Y proceeds"*.
+
+**Rule FE-12 — a `FUTURE_GOVERNANCE_REFERENCE` is not a satisfied requirement.** It is a declared,
+non-executable dependency. It does not make the evidence available, does not permit the dependent
+act, and is never used to move a blocking requirement out of the way of a handoff.
 
 ## 3. Combination
 

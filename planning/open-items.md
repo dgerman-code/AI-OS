@@ -44,6 +44,28 @@ COMPOSE path is specified and **not yet executable**. `orchestrator-handoff-cont
 carries `execution_basis` so that the distinction is explicit in the envelope rather than discovered
 at intake.
 
+### 2a. PO-4's classification, and what it does and does not block
+
+The independent architecture review classified PO-4 as **`APPROVABLE WITH EXPLICIT BLOCKED
+IMPLEMENTATION DEPENDENCY`**, and that classification is preserved here rather than resolved.
+
+| Statement | Status |
+|---|---|
+| MATCH is **executable in principle** where it resolves an approved `workflow.<id>@version` and every other intake condition is satisfied | Stands |
+| COMPOSE produces a **valid non-runtime Work Plan** | Stands |
+| That Work Plan, **as a Work Plan, cannot currently start a Phase 11 run** | Stands. Intake check 1 requires a Workflow definition, and it is not one |
+| Enabling a Work Plan as an execution basis requires **explicit Phase 11 change control**, or another approved mechanism | Required. No Phase 15 artifact supplies it, and none may |
+| Registering the instance-level Work Plan as a Workflow to get past check 1 | **Never.** Reading C above; WL-1, WL-4, MC-14, G-15 |
+
+The consequence is stated in both directions, because eliding either would be dishonest:
+
+- It is **not** a blocker to approving the Phase 15 *architecture*, provided it stays explicit and
+  fail-closed — which it is: a COMPOSE envelope declares `execution_basis = WORK_PLAN`, the
+  Orchestrator's own intake is what refuses it, and Phase 15 has no route around that refusal
+  (`orchestrator-handoff-contract.md` HO-10).
+- It **is** a blocker to **activating or executing the COMPOSE path**. Nothing in this package may
+  be read as saying COMPOSE is runnable today.
+
 ## 3. What is deliberately not open
 
 Stated so that a reviewer does not read silence as uncertainty:

@@ -16,7 +16,8 @@ Version: 0.1
 | Field | Value |
 |---|---|
 | `objective` | Publish a short post about a news item |
-| `work_mode` | `DRAFTING` |
+| `primary_work_mode` | `DRAFTING` |
+| `secondary_work_modes` | empty |
 | `act_direction` | `EXTERNAL` — a LinkedIn post leaves the entity |
 | `reversibility` | `COSTLY_TO_REVERSE` — deletion removes availability, not the fact of posting |
 | `transmission_contemplated` | `YES` |
@@ -57,7 +58,9 @@ and a system tuned to "don't bother the user" would have posted under the wrong 
 > "Review this partner email. They blame us for the delay. Check whether they are right and prepare
 > a firm but professional response. I do not want to damage the relationship."
 
-**`WorkIntent`:** `work_mode` `ANALYSIS` **and** `DRAFTING`; `act_direction` `EXTERNAL`;
+**`WorkIntent`:** `primary_work_mode` `ANALYSIS` — the requested deliverable the later stages
+depend on is the assessment of whether the partner is right — with `secondary_work_modes`
+`{DRAFTING}` (RI-12); `act_direction` `EXTERNAL`;
 `commitment_possible` `UNKNOWN` → planned as `YES` (WC-6) — a reply about delay responsibility can
 concede; `execute_or_prepare` `PREPARE` ("prepare a response").
 
@@ -74,7 +77,11 @@ higher if the contract value puts it there.
 | `role.programme_partnership_manager` | The partnership position | `CONDITIONAL` on the partner class |
 | *communication strategy* | — | **No approved Role owns this at the Phase 13 baseline** |
 
-**`F-5 REQUIRED_ROLE_UNAVAILABLE`** on the fourth row. Disposition: **CONSTRAIN**. The plan covers
+**`F-5 REQUIRED_ROLE_UNAVAILABLE`** on the fourth row. The disposition is not a judgement call: the
+requirement records `load_bearing = NOT_LOAD_BEARING`, with the basis that no LB-1 condition fires
+once the reduced deliverable is stated and that a valid reduced deliverable survives under LB-2 — a
+draft carrying the evidence and legal positions and no communication-strategy conclusion. Disposition:
+**CONSTRAIN**. The plan covers
 evidence and the legal position and attaches drafting to the substantive owner, and it states
 plainly that it produces no communication-strategy conclusion (RS-10).
 
@@ -101,9 +108,17 @@ closest.
 
 > "Prepare me for a meeting with EIB about this municipal infrastructure project."
 
-**Triggers:** T-1 (IFI), T-3 (municipal), T-4 (regulated infrastructure), T-11
-(submission-adjacent). No value stated — and WC-3 says that does not make it Routine. Band:
-**Enhanced Decision-Grade**.
+**Triggers:** T-1 (IFI), T-3 (municipal counterparty), T-4 (regulated infrastructure). **T-11 does
+not fire.** T-11 is an *external submission* to a lender, investor, regulator, granting authority or
+board, and a meeting is not a submission; calling it "submission-adjacent" would be claiming a
+trigger the approved policy does not give, which is precisely what WC-4 forbids. What raises the
+treatment instead is **conservative escalation**, and the plan says so as escalation rather than as
+a fourth trigger: `commitment_possible` is `UNKNOWN` and routes to `YES` (WC-6), and WC-2 permits
+raising a band and never lowering one. No value stated — and WC-3 says that does not make it
+Routine. Band: **Enhanced Decision-Grade**, on three fired triggers plus that escalation.
+
+Where a submission **is** actually contemplated — the meeting is to hand over an appraisal pack —
+T-11 fires literally, on the submission, and is recorded as fired rather than as adjacency.
 
 `commitment_possible`: `UNKNOWN` → planned as `YES`. A meeting with a lender can produce a
 commitment, and the plan says what would need authority if one arises.
@@ -125,7 +140,10 @@ unchanged (MC-6).
 
 **`EvidenceRequirement`s:** the financial model at a version; the technical basis at a version; the
 project's approved positions. Where the model is `STALE_AND_BLOCKING` for this use, **F-9** blocks
-that stage — freshness is evaluated at the point of use, not at intake.
+the **plan**, before the handoff — freshness is evaluated at the point of use, not at intake, and
+Phase 15 has no stage to block (FE-11). Where the reference is one the approved intake check 7
+accepts as `FUTURE_GOVERNANCE_REFERENCE`, it is carried as exactly that and the dependent act is
+non-executable (FE-12); it is not a way to get a blocking requirement past the handoff.
 
 **The point.** One sentence, four triggers, a band the user never mentioned, and a material
 MATCH ambiguity that is resolved by a question about the meeting rather than about the registry.
@@ -136,7 +154,8 @@ MATCH ambiguity that is resolved by a question about the meeting rather than abo
 
 > "Send them confirmation that we accept the terms."
 
-**`WorkIntent`:** `work_mode` `ACTION`; `act_direction` `EXTERNAL`; `reversibility`
+**`WorkIntent`:** `primary_work_mode` `ACTION`, `secondary_work_modes` empty; `act_direction`
+`EXTERNAL`; `reversibility`
 `IRREVERSIBLE`; `commitment_possible` `YES`; `transmission_contemplated` `YES`;
 `execute_or_prepare` `EXECUTE`; `entities` — "them" `UNKNOWN`, "the terms" `UNKNOWN`.
 
@@ -191,6 +210,11 @@ S4  drafting                   role.deliverables_reporting_specialist   depends:
 S5  independent review         review.data_protection  +  review.grant_compliance
 S6  human gate                 decision.external_publication            ← no Role participates
 ```
+
+Each stage yields one `planned_work_item_spec.<id>` — a description of what Phase 11 would need in
+order to instantiate a Work Item once a run exists. **No `work_item.<id>` is created here** (N-11,
+HO-6, HO-14): the specs carry no run reference, no assignment, no execution status and no model, and
+Phase 11 instantiates its own runtime records at intake or refuses the envelope.
 
 **`work_plan.<id>` is not `workflow.<id>`** (MC-14). It is bound to this request, this scope, this
 moment. Running the same request tomorrow produces a second plan, and the two are separate records

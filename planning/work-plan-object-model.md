@@ -3,7 +3,7 @@
 Status: `PROPOSED` — Phase 15 architecture candidate
 Version: 0.1
 
-## 1. Sixteen records, and one question asked of each
+## 1. Seventeen records, and one question asked of each
 
 For every planning record: what it is, whether it carries authority, where its truth lives, how it
 is versioned, whether AI may create it, whether a human must approve it, whether it persists, and
@@ -32,17 +32,18 @@ nothing, satisfies nothing and authorises nothing.
 | 13 | `ClarificationRequirement` | A question that must be answered | None | The clarification policy | **Yes** | No — the **answer** comes from a human | Yes | No — it blocks |
 | 14 | `PlanningFinding` | Something the planner noticed | None | The planner | **Yes** | No | Yes | No |
 | 15 | `PlanValidationResult` | The preflight verdict | None. Passing is not approval | The preflight checks | **Yes** | No | Yes | **Gates** the handoff |
-| 16 | `WorkflowCandidateSuggestion` | A pattern worth a human's attention | None. `PROPOSED`, permanently, until a human acts | The planner's observation | **Yes** | **Yes** — to become anything at all | Yes | **No** |
+| 16 | `PlannedWorkItemSpec` | What Phase 11 would need to instantiate a runtime Work Item | None. **Never a `work_item.<id>`** | Its validated plan stage | **Yes** | No | Yes | No — Phase 11 instantiates, or refuses |
+| 17 | `WorkflowCandidateSuggestion` | A pattern worth a human's attention | None. `PROPOSED`, permanently, until a human acts | The planner's observation | **Yes** | **Yes** — to become anything at all | Yes | **No** |
 
-**Rule OM-2 — "affects execution directly" is `No` for fifteen of sixteen.** Only
+**Rule OM-2 — "affects execution directly" is `No` for sixteen of seventeen.** Only
 `PlanValidationResult` touches execution, and only by **withholding** the handoff. Nothing in this
 model starts anything.
 
 ## 3. Identity and versioning
 
 **Rule OM-3 — planning identifiers are their own space.** `request.<id>`, `intent.<id>`,
-`work_plan.<id>`, `plan_stage.<id>` and the rest. None is ever minted in, written to, or resolved
-against a governed registry's namespace, and `work_plan.<id>` is never rendered as `workflow.<id>`.
+`work_plan.<id>`, `plan_stage.<id>`, `planned_work_item_spec.<id>` and the rest. None is ever
+minted in, written to, or resolved against a governed registry's namespace, and `work_plan.<id>` is never rendered as `workflow.<id>`.
 
 **Rule OM-4 — planning records are immutable once complete; revision is a new version.** A plan
 that changes after a clarification is `work_plan.<id>@v2` linked to `@v1`. Nothing is edited in
@@ -51,6 +52,18 @@ place, because a reviewer must be able to see what the system believed before th
 **Rule OM-5 — every governed reference is recorded as ID **and** version, as a value.** The same
 rule Phase 11 applies to run references. A plan that referenced "the current version" of a Workflow
 would mean something different tomorrow.
+
+**Rule OM-16 — `PlannedWorkItemSpec` is a planning record, and `work_item.<id>` is a runtime one.**
+
+> `PLANNED WORK ITEM SPEC != WORK ITEM`
+
+The Phase 11 `Work Item` is runtime state owned by a run (`orchestration/execution-run-model.md` §3,
+row 6). Phase 15 writes before any run exists, so it cannot own one, cannot pre-create one, and
+cannot hold one in a pre-runtime state. A `PlannedWorkItemSpec` carries no run reference, no
+assignment or execution status, no model, no routing action and no orchestration semantics
+(`orchestrator-handoff-contract.md` HO-13). There is **no transition** from a spec to a Work Item:
+Phase 11 reads the spec, re-validates it at intake, and instantiates its own record — or refuses
+(HO-14). A spec that was never instantiated has caused nothing.
 
 ## 4. Lifecycle
 

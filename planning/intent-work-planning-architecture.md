@@ -70,19 +70,20 @@ is not even a Role).
 
 ## 3. The extended identity chain
 
-Phase 15 adds four objects upstream of the approved chain and separates all of them:
+Phase 15 adds five objects upstream of the approved chain and separates all of them:
 
-> `REQUEST != INTENT != WORK PLAN != WORKFLOW != WORKFLOW RUN != TASK != WORK ITEM != ROLE !=`
-> `MODEL != ORCHESTRATOR != HUMAN AUTHORITY`
+> `REQUEST != INTENT != WORK PLAN != PLANNED WORK ITEM SPEC != WORKFLOW != WORKFLOW RUN != TASK !=`
+> `WORK ITEM != ROLE != MODEL != ORCHESTRATOR != HUMAN AUTHORITY`
 
 | Object | Is | Is not |
 |---|---|---|
 | **Request** | What the user actually wrote, verbatim, at a point in time | An instruction the system has understood |
 | **Work Intent** | The system's structured reading of that request | What the user meant — it is a reading, and it is `AI_SUGGESTION` |
 | **Work Plan** | An instance-level composition for **this** request | A Workflow. See §4 |
+| **Planned Work Item Spec** | A description of what Phase 11 would need to instantiate a Work Item | A Work Item, or a Work Item in an earlier state. It has no run, no runtime state and no assignment |
 | **Workflow** | An approved reusable registry pattern (Phase 5) | Anything Phase 15 may create |
 | **Workflow Run** | One bounded execution (Phase 11) | Anything Phase 15 may create |
-| **Task / Work Item** | A unit of assignable work | Anything Phase 15 may assign |
+| **Task / Work Item** | A unit of assignable work, created by Phase 11 inside a run | Anything Phase 15 may create, assign or hold |
 | **Role** | An approved professional methodology profile | A persona the planner picks by vibe |
 | **Model** | A replaceable runtime chosen by the Phase 9 Router | Anything Phase 15 may choose |
 | **Orchestrator** | The coordinator of a run | Anything Phase 15 may act as |
@@ -128,6 +129,7 @@ enforced somewhere specific.
 | N-8 | Convert AI output into approved or canonical knowledge | `work-plan-object-model.md` §6 |
 | N-9 | Create a permanent autonomous agent | PL-2, `user-experience-contract.md` |
 | N-10 | Choose a Model Profile | `orchestrator-handoff-contract.md` |
+| N-11 | Instantiate a Phase 11 runtime `Work Item`, or any other runtime identity | `orchestrator-handoff-contract.md` HO-6, HO-13, HO-14; `work-plan-object-model.md` OM-16 |
 
 ## 6. The planning sequence
 
@@ -144,6 +146,7 @@ Deterministic and inspectable. Every step records what it concluded and on what 
 | 7 | Search approved Workflow candidates | P4 | `WorkflowMatchAssessment` |
 | 8 | Score and rank applicability | P4 | scores on the assessment |
 | 9 | Select **or** compose | P4 | workflow selection, or `WorkPlan` + `PlanStage` set |
+| 9a | Describe each stage's work for Phase 11 | P4 | `PlannedWorkItemSpec` — **never** a `work_item.<id>` (N-11) |
 | 10 | Attach reviews, Decision Rights, evidence requirements, stop conditions | P4 | `ReviewRequirement`, `DecisionRequirement`, `EvidenceRequirement` |
 | 11 | Validate | P5 | `PlanValidationResult` |
 | 12 | Hand off — **only** on a passing preflight | P5 | trigger envelope |
@@ -161,7 +164,7 @@ answerable, not to perform them:
 
 | Intake check | What Phase 15 supplies |
 |---|---|
-| 1. Workflow definition resolves at a named version | A `workflow.<id>` @ version (MATCH), or a validated `work_plan.<id>` whose stages each bind approved definitions (COMPOSE) |
+| 1. Workflow definition resolves at a named version | A `workflow.<id>` @ version (MATCH). For COMPOSE, a validated `work_plan.<id>` whose stages each bind approved definitions — which is **not a Workflow definition**, so whether it is admissible at all is the Orchestrator's to decide and is open as PO-4 |
 | 2. Orchestrator Policy resolves at a named version | The policy reference the plan assumes; the Orchestrator still resolves it |
 | 3. Exactly one governed scope, and the originator may act in it | `ScopeResolution` with exactly one scope, or a blocking failure |
 | 4. Sensitivity, handling and residency present or explicitly assessed | Carried from `ScopeResolution` and the request material; **unassessed is restricted** |
@@ -183,7 +186,7 @@ be a planner that can start a run, and PL-1 says it cannot.
 | `planning/work-classification-and-criticality.md` | Work class, criticality, risk flags, high-stakes detection |
 | `planning/role-skill-requirement-inference.md` | Deriving Role and Skill requirements from semantics |
 | `planning/workflow-matching-and-composition.md` | MATCH scoring, COMPOSE rules, the precedence of constraints over scores |
-| `planning/work-plan-object-model.md` | The sixteen planning records, their authority status and lifecycle; the confidence model |
+| `planning/work-plan-object-model.md` | The seventeen planning records, their authority status and lifecycle; the confidence model |
 | `planning/clarification-policy.md` | Infer-when-safe; the five ambiguity classes |
 | `planning/governance-preflight.md` | The validation gate before handoff |
 | `planning/orchestrator-handoff-contract.md` | The trigger envelope and what crosses the boundary |

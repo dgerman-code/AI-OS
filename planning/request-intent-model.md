@@ -33,26 +33,27 @@ and absence is never silently treated as a default.
 |---:|---|---|---|
 | 1 | `objective` | free text \| `UNKNOWN` | What the user is trying to achieve, not what they asked for |
 | 2 | `requested_outcome` | free text \| `UNKNOWN` | The deliverable as the user framed it |
-| 3 | `work_mode` | `ACTION` · `ANALYSIS` · `ADVICE` · `DRAFTING` · `MONITORING` · `DECISION_SUPPORT` \| `UNKNOWN` | §3 |
-| 4 | `entities` | list of references \| empty | Counterparties, projects, documents, instruments named or implied |
-| 5 | `scope_candidates` | ordered list \| empty | Handed to the Context Resolver; never resolved here |
-| 6 | `urgency` | free text \| `UNKNOWN` | Only where stated. Never inferred from tone |
-| 7 | `deadline` | date \| `UNKNOWN` | Only where stated |
-| 8 | `act_direction` | `INTERNAL` · `EXTERNAL` \| `UNKNOWN` | Does anything leave the entity? |
-| 9 | `reversibility` | `REVERSIBLE` · `COSTLY_TO_REVERSE` · `IRREVERSIBLE` \| `UNKNOWN` | Of the **act**, not the artifact |
-| 10 | `commitment_possible` | `YES` · `NO` \| `UNKNOWN` | Could this bind the entity? |
-| 11 | `transmission_contemplated` | `YES` · `NO` \| `UNKNOWN` | Is sending, publishing or filing in view? |
-| 12 | `execute_or_prepare` | `EXECUTE` · `PREPARE` · `RECOMMEND` \| `UNKNOWN` | §4 |
-| 13 | `language` | language tag \| `UNKNOWN` | Where an output language matters |
-| 14 | `audience` | free text \| `UNKNOWN` | Who receives the output |
-| 15 | `channel` | `EMAIL` · `CHAT` · `MEETING` · `DOCUMENT` · `PUBLICATION` · `SUBMISSION` · `OTHER` \| `UNKNOWN` | |
+| 3 | `primary_work_mode` | exactly one of `ACTION` · `ANALYSIS` · `ADVICE` · `DRAFTING` · `MONITORING` · `DECISION_SUPPORT` \| `UNKNOWN` | §3. Never a set |
+| 4 | `secondary_work_modes` | a unique set of zero or more further modes from the same enum | §3. Never contains the primary; never `UNKNOWN` — an empty set is the absence |
+| 5 | `entities` | list of references \| empty | Counterparties, projects, documents, instruments named or implied |
+| 6 | `scope_candidates` | ordered list \| empty | Handed to the Context Resolver; never resolved here |
+| 7 | `urgency` | free text \| `UNKNOWN` | Only where stated. Never inferred from tone |
+| 8 | `deadline` | date \| `UNKNOWN` | Only where stated |
+| 9 | `act_direction` | `INTERNAL` · `EXTERNAL` \| `UNKNOWN` | Does anything leave the entity? |
+| 10 | `reversibility` | `REVERSIBLE` · `COSTLY_TO_REVERSE` · `IRREVERSIBLE` \| `UNKNOWN` | Of the **act**, not the artifact |
+| 11 | `commitment_possible` | `YES` · `NO` \| `UNKNOWN` | Could this bind the entity? |
+| 12 | `transmission_contemplated` | `YES` · `NO` \| `UNKNOWN` | Is sending, publishing or filing in view? |
+| 13 | `execute_or_prepare` | `EXECUTE` · `PREPARE` · `RECOMMEND` \| `UNKNOWN` | §4 |
+| 14 | `language` | language tag \| `UNKNOWN` | Where an output language matters |
+| 15 | `audience` | free text \| `UNKNOWN` | Who receives the output |
+| 16 | `channel` | `EMAIL` · `CHAT` · `MEETING` · `DOCUMENT` · `PUBLICATION` · `SUBMISSION` · `OTHER` \| `UNKNOWN` | |
 
 **Rule RI-3 — `UNKNOWN` is a determinate finding, not a blank.** It says the question was asked and
 the answer is not held. A field that was never considered is a defect in the interpreter, not an
 `UNKNOWN`, and `governance-preflight.md` check G-2 fails a Work Intent with a missing field rather
 than treating absence as `UNKNOWN`.
 
-**Rule RI-4 — the four safety fields are never inferred permissively.** Fields 8, 9, 10 and 11
+**Rule RI-4 — the four safety fields are never inferred permissively.** Fields 9, 10, 11 and 12
 decide whether this request can cause something irreversible. Where the material does not settle
 one, it is `UNKNOWN`, and `UNKNOWN` on any of the four routes to the conservative branch in
 `work-classification-and-criticality.md` §5 — never to the convenient one. "Probably internal" is
@@ -69,9 +70,25 @@ one, it is `UNKNOWN`, and `UNKNOWN` on any of the four routes to the conservativ
 | `MONITORING` | To be told when something changes | A watch condition and a report |
 | `DECISION_SUPPORT` | Material for a decision someone will make | A decision pack |
 
+**Rule RI-12 — one primary mode, a set of secondary modes, and no free-form third form.**
+A multi-part request — *"check whether they are right and prepare a response"* — is represented as
+`primary_work_mode = ANALYSIS` with `secondary_work_modes = {DRAFTING}`. It is never represented as
+two primaries, as a compound value such as `ANALYSIS_AND_DRAFTING`, or as prose the implementer has
+to re-parse. The derivation is deterministic:
+
+| Question | Answer |
+|---|---|
+| Which mode does the **requested deliverable** belong to? | That is the primary |
+| Where two modes each produce a separately named deliverable? | The one the later stages depend on is the primary; the dependency order is already recorded in the plan stages (MC-12) |
+| Where the primary is still undetermined? | `primary_work_mode = UNKNOWN`. It is never picked to break the tie |
+
+`secondary_work_modes` is a **set**: unordered, unique, possibly empty, and never containing the
+primary. Downstream logic that needs a single leading mode reads `primary_work_mode` and nothing
+else, so there is no place where a reader has to decide which of several modes leads.
+
 **Rule RI-5 — the mode does not decide the gate.** A `DRAFTING` request whose draft is going to be
 sent carries a transmission gate exactly as an `ACTION` request does. The mode describes the shape
-of the work; fields 8–11 describe its consequences, and the consequences drive governance.
+of the work; fields 9–12 describe its consequences, and the consequences drive governance.
 
 ## 4. Execute, prepare, recommend
 
@@ -134,7 +151,8 @@ For "Send them confirmation that we accept the terms":
 | Field | Value | Basis |
 |---|---|---|
 | `objective` | Communicate acceptance of terms to a counterparty | Inferred from the verb and object |
-| `work_mode` | `ACTION` | "Send" |
+| `primary_work_mode` | `ACTION` | "Send" |
+| `secondary_work_modes` | empty | Nothing else is requested |
 | `entities` | "them" → `UNKNOWN`; "the terms" → `UNKNOWN` | **Neither resolves.** Two unresolved entities on a committing act |
 | `act_direction` | `EXTERNAL` | "Send them" |
 | `reversibility` | `IRREVERSIBLE` | Acceptance of terms is not retractable by the sender |
@@ -142,7 +160,7 @@ For "Send them confirmation that we accept the terms":
 | `transmission_contemplated` | `YES` | "Send" |
 | `execute_or_prepare` | `EXECUTE` | Stated |
 
-Eight fields, and the two `UNKNOWN`s are the ones that matter: the planner does not know **who** or
+Nine fields, and the two `UNKNOWN`s are the ones that matter: the planner does not know **who** or
 **which terms**. `clarification-policy.md` classifies both as material, and
 `governance-preflight.md` blocks regardless, because an `EXECUTE` + `IRREVERSIBLE` +
 `commitment_possible = YES` request requires a resolved Decision Right before anything is planned.

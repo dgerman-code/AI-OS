@@ -18,8 +18,11 @@ rework, block, escalate or complete. Every one of those is Phase 11's, and the a
 architecture is unchanged by this phase.
 
 **Rule HO-2 — the handoff happens only on a passing preflight.** `PlanValidationResult.outcome`
-must be `PASSED`. There is no reduced handoff, no "hand over the parts that validated", and no
-provisional run.
+must be `PASSED`. There is no reduced handoff, no "hand over the parts that validated", no
+provisional run, and no envelope carrying some stages while others are still unsatisfied. A plan is
+handed over whole or not at all, and `failure-and-escalation-model.md` F-9 and
+`governance-preflight.md` G-11 are written to the same rule: an unsatisfied requirement is a
+**plan-level** outcome, never a per-stage one, because Phase 15 has no stages to run.
 
 ## 2. The trigger envelope
 
@@ -55,13 +58,21 @@ An envelope naming a model would be choosing a runtime from outside the router b
 the system understood. It is not evidence for anything the run concludes, and a run may not cite it
 as a basis.
 
-## 3. Work Items
+## 3. Planned Work Item Specifications
 
-**Rule HO-6 — the planner may instantiate Work Items only from validated plan stages bound to
-approved definitions.** Not from an intent, not from a draft stage, not from a stage whose
-requirements are unmet.
+`work_item.<id>` is a **runtime** identity owned by the run (`orchestration/execution-run-model.md`
+§3, row 6). It comes into existence after Phase 11 has created a run, and only Phase 11 creates it.
+Phase 15 produces something else, in its own identifier space:
 
-Each Work Item carries, at minimum:
+> `PLANNED WORK ITEM SPEC != WORK ITEM`
+
+**Rule HO-6 — the planner produces `PlannedWorkItemSpec` records and never instantiates a runtime
+Work Item.** A spec is derived only from validated plan stages bound to approved definitions — not
+from an intent, not from a draft stage, not from a stage whose requirements are unmet. It is
+`planned_work_item_spec.<id>`, never `work_item.<id>`, and it is not a Work Item in an earlier
+state: there is no transition between the two, and no Phase 15 process creates one from the other.
+
+Each `PlannedWorkItemSpec` carries, at minimum:
 
 | # | Field |
 |---:|---|
@@ -77,18 +88,35 @@ Each Work Item carries, at minimum:
 | 10 | Completion criteria |
 | 11 | Failure and escalation disposition |
 
-**Rule HO-7 — a Work Item is a specification of work, not an assignment.** It states which Role
-envelope is required. Binding a Role instance to it is an assignment, and assignment is Phase 11's.
+**Rule HO-7 — a spec is a specification of work, not an assignment.** It states which Role envelope
+is required. Binding a Role instance to it is an assignment, and assignment is Phase 11's.
 
-**Rule HO-8 — a Work Item names no model.** Field 4 is a Role and Skill envelope. What executes it
-is decided later, elsewhere.
+**Rule HO-8 — a spec names no model.** Field 4 is a Role and Skill envelope. What executes it is
+decided later, elsewhere.
+
+**Rule HO-13 — a spec carries no runtime anything.** Specifically, and exhaustively, a
+`PlannedWorkItemSpec` has:
+
+| No | Because |
+|---|---|
+| Runtime state, or any state from the Phase 11 state machine | State belongs to a run, and no run exists yet |
+| Run ownership, or a `run.<id>` reference | It is written before any run is created |
+| Assignment or execution status | Assignment is Phase 11's (HO-7) |
+| A model, provider or routing decision | Phase 9's (HO-8) |
+| A routing action, dispatch, claim or attempt | Those are acts, and the planner performs none |
+| Orchestration semantics — activation, waiting, retry, rework, completion | PL-1 |
+
+**Rule HO-14 — Phase 11 alone instantiates the runtime Work Item.** A spec **describes what Phase
+11 would need** in order to instantiate one after a run exists. Phase 11 reads it, re-validates it
+at intake, and creates `work_item.<id>` itself, or refuses. Nothing in Phase 15 obliges it to, and a
+spec that was never instantiated has caused nothing.
 
 ## 4. What crosses, and what does not
 
 | Crosses | Does not cross |
 |---|---|
 | The envelope of §2 | The planner's reasoning traces |
-| Work Items of §3 | Confidence values as decision inputs |
+| `PlannedWorkItemSpec` records of §3 | Confidence values as decision inputs |
 | Resolved references, as ID and version | Unresolved candidates the planner rejected |
 | Open items with the rule permitting each | Any assertion the planner could not support |
 

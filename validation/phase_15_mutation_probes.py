@@ -53,14 +53,14 @@ PROBES = [
 
     ("the identity chain loses its tail",
      ARCH,
-     "> `REQUEST != INTENT != WORK PLAN != WORKFLOW != WORKFLOW RUN != TASK != WORK ITEM != ROLE !=`",
-     "> `REQUEST != INTENT != WORK PLAN != WORKFLOW != WORKFLOW RUN != TASK != WORK ITEM !=`",
+     "> `REQUEST != INTENT != WORK PLAN != PLANNED WORK ITEM SPEC != WORKFLOW != WORKFLOW RUN != TASK !=`",
+     "> `REQUEST != INTENT != WORK PLAN != PLANNED WORK ITEM SPEC != WORKFLOW != WORKFLOW RUN !=`",
      "the extended identity chain"),
 
     ("the identity chain is reordered so a Work Plan follows a Workflow",
      ARCH,
-     "> `REQUEST != INTENT != WORK PLAN != WORKFLOW != WORKFLOW RUN != TASK != WORK ITEM != ROLE !=`",
-     "> `REQUEST != INTENT != WORKFLOW != WORK PLAN != WORKFLOW RUN != TASK != WORK ITEM != ROLE !=`",
+     "> `REQUEST != INTENT != WORK PLAN != PLANNED WORK ITEM SPEC != WORKFLOW != WORKFLOW RUN != TASK !=`",
+     "> `REQUEST != INTENT != WORKFLOW != WORK PLAN != PLANNED WORK ITEM SPEC != WORKFLOW RUN != TASK !=`",
      "the chain is ordered, not a set"),
 
     ("a candidate suggestion is allowed to self-register",
@@ -115,8 +115,8 @@ PROBES = [
 
     ("a work item is allowed to bind a model",
      "planning/orchestrator-handoff-contract.md",
-     "**Rule HO-8 — a Work Item names no model.**",
-     "**Rule HO-8 — a Work Item names the model that will execute it.**",
+     "**Rule HO-8 — a spec names no model.**",
+     "**Rule HO-8 — a spec names the model that will execute it.**",
      "no model binding in planning"),
 
     # ---- confidence ---------------------------------------------------------------------
@@ -214,6 +214,110 @@ PROBES = [
      "**Rule CL-15 — `default_if_unanswered` on a blocking class is a validation failure.**",
      "**Rule CL-15 — a blocking clarification falls back to its default after a timeout.**",
      "C4 and C5 block, without a default"),
+
+    # ---- the five remediated blockers, re-attacked ---------------------------------------
+    ("a runtime Work Item is created before any run exists",
+     "planning/work-plan-object-model.md",
+     "Phase 15 writes before any run exists, so it cannot own one, cannot pre-create one, and",
+     "Phase 15 creates the runtime Work Item for each validated stage, and",
+     "PLANNED WORK ITEM SPEC != WORK ITEM"),
+
+    ("the exemplar reinstates the singular multi-valued work_mode",
+     "planning/exemplars.md",
+     "| `primary_work_mode` | `DRAFTING` |",
+     "| `work_mode` | `DRAFTING` and `ANALYSIS` |",
+     "one primary mode, a set of secondaries"),
+
+    ("preflight stops requiring the load-bearing determination",
+     "planning/governance-preflight.md",
+     "every unavailable Role records `load_bearing` **and** `load_bearing_basis` (LB-3)",
+     "the planner judges whether the gap matters",
+     "F-5 and F-6 have one deterministic disposition"),
+
+    ("a preflight check may hold one stage and release the rest",
+     "planning/governance-preflight.md",
+     "no check holds one stage while releasing another, and no check",
+     "a check may hold one stage while releasing another, and a check may",
+     "no partial handoff, no stage progression"),
+
+    ("the self-check keeps a stale open-item count",
+     "planning/phase-15-self-check.md",
+     "- **Eleven open items** (PO-1",
+     "- **Ten open items** (PO-1",
+     "stated counts are the package's own counts"),
+
+    # ---- the twelve classes that escaped the independent review, in second locations -----
+    ("a repeated pattern auto-registers as an approved Workflow",
+     "planning/exemplars.md",
+     "**Nothing else happens.** The suggestion is not matched against (WL-3), does not influence any plan,",
+     "**What happens next.** The recurring pattern auto-registers as an approved Workflow, is matched against thereafter,",
+     "no repeated pattern reaches the registry"),
+
+    ("high confidence skips the C4 question, in an exemplar rather than the policy",
+     "planning/exemplars.md",
+     "That single question is asked; nothing else is.",
+     "Where semantic confidence is high the C4 question is skipped.",
+     "C4 blocks regardless of confidence"),
+
+    ("a sibling scope is chosen by name proximity, in an exemplar",
+     "planning/exemplars.md",
+     "**`ScopeResolution`:** if two municipal projects are live, **`AMBIGUOUS_SCOPE`** — clarify and",
+     "**`ScopeResolution`:** if two municipal projects are live, the closest project name determines the scope, and",
+     "ancestry never comes from a name"),
+
+    ("an unavailable Role's conclusion passes to the closest available Role",
+     "planning/role-skill-requirement-inference.md",
+     "What the planner must **not** do is assign the drafting to whichever Role sounds closest and call",
+     "Where the owning Role is unavailable, the closest available Role covers the conclusion and calls",
+     "never substitute a capability"),
+
+    ("the unapproved communication capability is treated as approved",
+     "planning/exemplars.md",
+     "| *communication strategy* | — | **No approved Role owns this at the Phase 13 baseline** |",
+     "| *communication strategy* | The response strategy | The candidate communication specialist is approved for this |",
+     "a candidate capability is absent"),
+
+    ("a ReviewRequirement is satisfied inside the plan",
+     "planning/exemplars.md",
+     "S5  independent review         review.data_protection  +  review.grant_compliance",
+     "S5  the ReviewRequirement is satisfied by the planner and counts as the review",
+     "a requirement is never its own satisfaction"),
+
+    ("a DecisionRequirement is exercised by the planner",
+     "planning/exemplars.md",
+     "under its name. Neither is exercised by the planner.",
+     "under its name. Each DecisionRequirement is exercised by the planner once resolved.",
+     "a Right is exercised by a human, during the run"),
+
+    ("planning provenance becomes governance evidence",
+     "planning/orchestrator-handoff-contract.md",
+     "the system understood. It is not evidence for anything the run concludes, and a run may not cite it",
+     "the system understood. The planning provenance is governance evidence for what the run concludes, and a run may cite it",
+     "a planning record is never evidence"),
+
+    ("a confirmed reading is promoted to a FACT_CLAIM, in the typing table",
+     "planning/request-intent-model.md",
+     "| The Work Intent, and every inferred field | `AI_SUGGESTION` |",
+     "| The Work Intent, once the user confirms it | `AI_SUGGESTION` becomes `FACT_CLAIM` |",
+     "no epistemic promotion"),
+
+    ("the planned work item spec names the model that will execute it",
+     "planning/orchestrator-handoff-contract.md",
+     "| `PlannedWorkItemSpec` records of §3 | Confidence values as decision inputs |",
+     "| `PlannedWorkItemSpec` records of §3, each of which names the model profile to execute it | Confidence values as decision inputs |",
+     "no planning object selects a model"),
+
+    ("the planner performs the intake checks in advance",
+     "planning/orchestrator-handoff-contract.md",
+     "Built to make the Orchestrator's seven intake checks answerable",
+     "Built so that the planner performs the Orchestrator's seven intake checks in advance",
+     "intake checks are made answerable, never performed"),
+
+    ("COMPOSE is declared to satisfy intake check 1",
+     ARCH,
+     "which is **not a Workflow definition**, so whether it is admissible at all is the Orchestrator's to decide and is open as PO-4 |",
+     "which a validated plan satisfies directly, so COMPOSE needs nothing further |",
+     "PO-4 stays explicit and fail-closed"),
 ]
 
 #: Checks that read repository state (git history, untracked files) rather than package content.
