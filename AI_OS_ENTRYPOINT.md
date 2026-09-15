@@ -2,17 +2,20 @@
 
 AI-OS is a provider-neutral governance and work-execution framework stored in this repository. In Mode A, a human uses an external AI that can read GitHub; the external AI reads AI-OS and follows it. AI-OS does **not** call model APIs in Mode A.
 
+Current system/completion status: `SYSTEM_STATUS.md`.
+
 ## Canonical source
 
 For governed work, this repository at the exact Git commit/ref you were given is the source of truth. Provider memory, chat history, hidden instructions, generated summaries and model output are not canonical AI-OS state unless a governed repository change explicitly makes them so.
 
 ## Read in this order
 
-1. Read `ai-os.yaml`.
-2. Read the governing principles and registries referenced by the manifest.
-3. Resolve the request scope and inspect the relevant Role, Workflow, Review Profile and Decision Right sources before claiming eligibility.
-4. Read Phase 15 planning and Phase 16 planner-activation contracts when the task requires planning or execution-basis reasoning.
-5. Return work using `contracts/ai-result-envelope.schema.json`.
+1. Read `SYSTEM_STATUS.md` to understand the approved/deferred boundary.
+2. Read `ai-os.yaml` for the machine-readable repository map.
+3. Read the governing principles and registries referenced by the manifest.
+4. Resolve the request scope and inspect the relevant Role, Workflow, Review Profile and Decision Right sources before claiming eligibility.
+5. Read Phase 15 planning and Phase 16 planner-activation contracts when the task requires planning or execution-basis reasoning.
+6. Return work using `contracts/ai-result-envelope.schema.json`.
 
 ## Before acting
 
@@ -30,5 +33,12 @@ If evidence, approval state, scope, authority or a required source is missing or
 
 Every governed result must report the repository identity, branch/ref and exact commit SHA actually used. If you cannot resolve an exact SHA, say so explicitly and treat the result as unpinned.
 
+## Operational references
+
 Machine-readable repository map: `ai-os.yaml`.
 Connection guide: `docs/HOW_TO_CONNECT_ANY_AI.md`.
+Operational checklist: `docs/MODE_A_OPERATIONAL_CHECKLIST.md`.
+GitHub access model: `docs/GITHUB_ACCESS_MODEL.md`.
+Main-readiness map: `docs/MAIN_READINESS.md`.
+
+The final fresh external-AI cold-start test is defined in `tests/FINAL_COLD_START_TEST_PLAN.md` and is intentionally not executed until Phase 18 has human approval.
