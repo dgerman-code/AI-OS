@@ -50,13 +50,15 @@ ADAPTERS = [
     "adapters/mode-a/google-gemini.md",
 ]
 
+# Only affirmative governance-fork language is forbidden. Negative statements such as
+# "adds no provider-specific Role" and "cannot self-approve" are required safety language.
 FORBIDDEN_ADAPTER_GOVERNANCE = [
-    "provider-specific decision right",
-    "provider-specific role",
-    "provider-specific workflow",
-    "self-approve",
-    "automatically approved",
+    "provider-specific role is authoritative",
+    "provider-specific workflow is authoritative",
+    "provider-specific decision right is authoritative",
     "provider memory is canonical",
+    "automatically approved by the provider",
+    "the provider may approve governance",
 ]
 
 
