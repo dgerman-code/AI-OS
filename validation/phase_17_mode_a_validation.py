@@ -2,9 +2,9 @@
 """Static fail-closed conformance checks for Phase 17 Mode A.
 
 No runtime service, provider API or model invocation is performed.
-The validator intentionally combines positive contract checks with semantic
-contradiction checks so that unsafe wording cannot pass only because a marker
-phrase is still present elsewhere in the same artifact.
+The validator combines positive contract checks with semantic contradiction
+checks. Contradiction detection is match-local: an unrelated safe/negative
+clause must not hide an affirmative unsafe claim elsewhere in the sentence.
 """
 
 import argparse
@@ -55,10 +55,15 @@ ADAPTERS = [
 ]
 
 JSON_SCHEMA_TYPES = {"null", "boolean", "object", "array", "number", "string", "integer"}
-NEGATION_MARKERS = (
-    "do not", "does not", "must not", "may not", "cannot", "can't", "never",
-    "not canonical", "not approved", "not automatically", "prohibited", "forbidden",
-    "deferred", "out of scope", "doesn't", "is not", "are not",
+
+# Negation is intentionally evaluated only near the unsafe match. A safe clause such as
+# "Do not infer approval from card existence; provider output is automatically approved"
+# must still be rejected because the second clause is affirmative.
+NEGATION_RE = re.compile(
+    r"\b(do\s+not|does\s+not|must\s+not|may\s+not|cannot|can\s+not|never|"
+    r"is\s+not|are\s+not|not\s+automatically|not\s+canonical|not\s+approved|"
+    r"prohibited|forbidden|deferred|out\s+of\s+scope)\b",
+    re.IGNORECASE,
 )
 
 
@@ -86,12 +91,41 @@ def iter_strings(value):
             yield from iter_strings(item)
 
 
-def sentences(text):
-    return [part.strip() for part in re.split(r"[\n.!?]+", text.lower()) if part.strip()]
+def normalize_text(text):
+    """Normalize presentation-only Markdown without changing semantic words."""
+    text = text.lower()
+    text = re.sub(r"[*_`~]+", "", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
 
 
-def is_negated(sentence):
-    return any(marker in sentence for marker in NEGATION_MARKERS)
+def semantic_segments(text):
+    """Split at strong clause boundaries so unrelated negation cannot mask a claim."""
+    normalized = normalize_text(text)
+    return [
+        part.strip()
+        for part in re.split(r"[\n.!?;]+|\s+\b(?:but|however|whereas|yet)\b\s+", normalized)
+        if part.strip()
+    ]
+
+
+def match_is_locally_negated(segment, match):
+    """Treat a match as negated only when a negation marker is close before it.
+
+    Looking at a bounded prefix avoids the old sentence-wide suppression bug while
+    accepting natural safety wording such as "does **not** call model APIs".
+    """
+    prefix = segment[max(0, match.start() - 42):match.start()]
+    return bool(NEGATION_RE.search(prefix))
+
+
+def any_affirmative_match(text, patterns):
+    for segment in semantic_segments(text):
+        for pattern in patterns:
+            for match in re.finditer(pattern, segment, flags=re.IGNORECASE):
+                if not match_is_locally_negated(segment, match):
+                    return True
+    return False
 
 
 def unsafe_approval_assertion(text):
@@ -102,52 +136,42 @@ def unsafe_approval_assertion(text):
         r"\b(provider|model|ai)\b.{0,35}\bmay\s+approve\b.{0,30}\b(governance|role|skill|workflow|decision|review|canonical)\b",
         r"\bautomatically\s+approved\s+by\s+(the\s+)?(provider|model|ai)\b",
     ]
-    for sentence in sentences(text):
-        if is_negated(sentence):
-            continue
-        if any(re.search(pattern, sentence) for pattern in patterns):
-            return True
-    return False
+    return any_affirmative_match(text, patterns)
 
 
 def unsafe_skill_assertion(text):
     """Detect affirmative Skill-card existence -> approval/eligibility claims."""
     patterns = [
         r"\b(carded\s+skills?|skill\s+cards?|card\s+existence|existing\s+skill\s+cards?)\b.{0,50}\b(are|is|means|implies|confers|grants|counts?\s+as)\b.{0,25}\b(approved|eligible|approval|eligibility)\b",
-        r"\b(carded\s+skills?|skill\s+cards?)\b.{0,20}\bapproved\b",
+        r"\b(carded\s+skills?|skill\s+cards?)\b.{0,20}\b(automatically\s+)?(approved|eligible)\b",
         r"\bphase\s*4\b.{0,60}\b(individually\s+)?approved\b.{0,25}\bskills?\b",
     ]
-    for sentence in sentences(text):
-        if is_negated(sentence):
-            continue
-        if any(re.search(pattern, sentence) for pattern in patterns):
-            return True
-    return False
+    return any_affirmative_match(text, patterns)
 
 
 def unsafe_mode_b_assertion(text):
-    """Detect active Mode B/API orchestration presented as Mode A adapter behavior."""
+    """Detect active Mode B/API orchestration presented as Mode A behavior."""
     patterns = [
         r"\b(call|calls|invoke|invokes|route|routes|orchestrate|orchestrates|dispatch|dispatches)\b.{0,45}\b(provider|model|llm|api)\b",
-        r"\b(provider|model|llm)\s+api\b.{0,45}\b(call|invoke|route|retry|fallback|worker|queue|scheduler|billing|key\s+management)\b",
+        r"\b(provider|model|llm)\s+api\b.{0,45}\b(call|calls|invoke|invokes|route|routes|retry|fallback|worker|queue|scheduler|billing|key\s+management)\b",
         r"\b(active|enabled|implemented)\b.{0,35}\b(mode\s*b|provider\s+api|model\s+api|routing|retry|fallback|worker|queue|scheduler)\b",
         r"\b(use|uses)\b.{0,30}\b(provider|model)\s+api\b.{0,25}\b(to|for)\b",
     ]
-    for sentence in sentences(text):
-        if is_negated(sentence):
-            continue
-        if any(re.search(pattern, sentence) for pattern in patterns):
-            return True
-    return False
+    return any_affirmative_match(text, patterns)
+
+
+def unsafe_governance_fork_assertion(text):
+    """Detect provider-specific governance or provider memory made authoritative."""
+    patterns = [
+        r"\bprovider\s+memory\b.{0,30}\b(is|becomes|counts?\s+as)\b.{0,20}\bcanonical\b",
+        r"\b(chatgpt|claude|codex|gemini|provider|model)[-\s]+specific\s+(role|workflow|skill|review\s+profile|decision\s+right)\b.{0,35}\b(is|becomes|remains|counts?\s+as)\b.{0,20}\b(authoritative|canonical|governing)\b",
+        r"\b(provider|model)\b.{0,35}\bmay\s+(define|override|replace|change)\b.{0,30}\b(role|workflow|skill|review\s+profile|decision\s+right|governance)\b",
+    ]
+    return any_affirmative_match(text, patterns)
 
 
 def schema_structure_errors(node, path="$", errors=None):
-    """Dependency-free JSON Schema structural checks for the subset we publish.
-
-    If jsonschema is installed, validate_schema_document() also runs the official
-    Draft 2020-12 meta-schema check. These checks keep invalid core syntax from
-    becoming a false green even when the optional dependency is absent.
-    """
+    """Dependency-free JSON Schema structural checks for the subset we publish."""
     if errors is None:
         errors = []
     if isinstance(node, bool):
@@ -208,7 +232,7 @@ def schema_structure_errors(node, path="$", errors=None):
 def validate_schema_document(schema):
     errors = schema_structure_errors(schema)
     try:
-        import jsonschema  # optional; use when the environment provides it
+        import jsonschema
         jsonschema.Draft202012Validator.check_schema(schema)
     except ImportError:
         pass
@@ -225,11 +249,9 @@ def validate():
 
     manifest_path = ROOT / "ai-os.yaml"
     manifest = None
-    manifest_text = ""
     if manifest_path.exists():
         try:
-            manifest_text = manifest_path.read_text(encoding="utf-8")
-            manifest = json.loads(manifest_text)
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             check(True, "manifest:parse", "JSON-compatible YAML parsed", results)
         except Exception as exc:
             check(False, "manifest:parse", "%s: %s" % (type(exc).__name__, exc), results)
@@ -262,6 +284,10 @@ def validate():
         check(not unsafe_mode_b_assertion(manifest_strings),
               "manifest:no-active-mode-b",
               "no active Mode B/API orchestration semantics",
+              results)
+        check(not unsafe_governance_fork_assertion(manifest_strings),
+              "manifest:no-governance-fork",
+              "no provider-memory canonicalisation or provider-specific governance fork",
               results)
 
         prohibited = " ".join(manifest.get("prohibited_assumptions", [])).lower()
@@ -324,6 +350,10 @@ def validate():
               "adapter:no-active-mode-b:%s" % rel,
               "no active Mode B/API orchestration semantics",
               results)
+        check(not unsafe_governance_fork_assertion(text),
+              "adapter:no-governance-fork:%s" % rel,
+              "no provider-memory canonicalisation or provider-specific authoritative governance",
+              results)
         check("if" in low and ("access" in low or "capability" in low),
               "adapter:conditional-capability:%s" % rel,
               "provider capabilities are conditional, not assumed",
@@ -361,14 +391,29 @@ def validate():
               "entrypoint:no-active-mode-b",
               "entrypoint contains no active Mode B/API orchestration semantics",
               results)
+        check(not unsafe_governance_fork_assertion(text),
+              "entrypoint:no-governance-fork",
+              "entrypoint contains no provider-memory canonicalisation/governance fork",
+              results)
 
-    # Detector self-controls: protect against weakening the semantic contradiction checks.
+    # Detector self-controls: protect against the exact false-positive/false-green classes
+    # found by independent Phase 17 review.
+    check(not unsafe_mode_b_assertion("AI-OS does **not** call model APIs in Mode A."),
+          "selfcontrol:markdown-negation", "Markdown-formatted negative Mode B statement is accepted", results)
     check(unsafe_approval_assertion("Provider output is automatically approved."),
           "selfcontrol:auto-approval", "unsafe auto-approval example is detected", results)
+    check(unsafe_approval_assertion("Do not infer approval from card existence; provider output is automatically approved."),
+          "selfcontrol:mixed-safe-unsafe-approval", "unrelated safe clause cannot hide unsafe approval claim", results)
     check(unsafe_skill_assertion("Carded Skills are approved."),
           "selfcontrol:skill-approval", "unsafe Skill-card approval example is detected", results)
     check(unsafe_mode_b_assertion("This adapter calls provider model APIs."),
           "selfcontrol:active-mode-b", "unsafe active Mode B example is detected", results)
+    check(unsafe_governance_fork_assertion("Provider memory is canonical."),
+          "selfcontrol:provider-memory-canonical", "provider-memory canonicalisation is detected", results)
+    check(unsafe_governance_fork_assertion("Provider-specific Role is authoritative."),
+          "selfcontrol:provider-specific-role-authority", "provider-specific authoritative Role is detected", results)
+    check(not unsafe_governance_fork_assertion("Provider memory is not canonical."),
+          "selfcontrol:safe-provider-memory", "negative provider-memory safety wording is accepted", results)
     invalid_schema = {"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "not-a-json-schema-type"}
     check(bool(validate_schema_document(invalid_schema)),
           "selfcontrol:invalid-schema", "invalid JSON Schema type is rejected", results)
