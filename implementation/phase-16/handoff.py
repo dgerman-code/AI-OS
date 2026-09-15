@@ -17,7 +17,7 @@ from typing import Dict, List, Optional, Tuple
 
 from domain import (
     ActivationError, BasisStatus, ExecutionBasis, ExecutionMode, GovernanceError,
-    PlannerOutput,
+    IMPLEMENTATION_SPEC_VERSION, PlannerOutput,
 )
 
 #: Governed records a caller might try to smuggle into a trigger. Each is created only by its
@@ -100,17 +100,82 @@ class TriggerEnvelope:
         }
 
 
-def build_trigger(basis: ExecutionBasis, plan: PlannerOutput, *, originator: str,
-                  sensitivity: str = "UNASSESSED",
-                  residency: str = "UNASSESSED") -> TriggerEnvelope:
+#: Everything the presented basis must agree with the plan about, checked one field at a time
+#: so that a refusal names the field rather than "mismatch". Each entry is
+#: (basis attribute, plan attribute, human description).
+_BINDINGS = (
+    ("request_id", "request_id", "originating request identity"),
+    ("intent_id", "intent_id", "intent identity"),
+    ("scope_ref", "scope_ref", "governed scope"),
+    ("scope_ancestry", "scope_ancestry", "scope ancestry"),
+    ("execution_mode", "execution_mode", "execution mode"),
+    ("criticality", "criticality", "criticality band"),
+    ("orchestrator_policy_ref", "orchestrator_policy_ref", "Orchestrator policy binding"),
+    ("workflow_ref", "workflow_ref", "approved Workflow binding"),
+)
+
+
+def verify_basis(basis: ExecutionBasis, plan: PlannerOutput, store) -> None:
+    """Every integrity condition a trigger depends on. Raises on the first failure.
+
+    This is deliberately exhaustive rather than a digest comparison alone. A digest says the
+    planning inputs match; it says nothing about whether the basis was ever ISSUED, whether it
+    still holds the payload that was sealed, whether it belongs to THIS request, or whether it
+    quietly claims to be an approval. Each of those was reachable before.
+    """
+    if store is None:
+        raise ActivationError(
+            "a trigger is built only from an ISSUED basis, so the issuing store must be "
+            "presented; a basis verified against nothing is a basis trusted on sight")
+
+    ok, why = store.verify(basis)
+    if not ok:
+        raise ActivationError(why)
+
     if basis.status is not BasisStatus.EXECUTABLE:
         raise ActivationError(
             "only an EXECUTABLE Execution Basis produces a trigger; this one is %s"
             % basis.status.value)
+
+    # Cross-request reuse. Checked on IDENTITY, not on the digest: two different requests can
+    # produce byte-identical planning material, and the basis issued for one of them is still
+    # not a basis for the other.
+    for basis_attr, plan_attr, description in _BINDINGS:
+        left = getattr(basis, basis_attr)
+        right = getattr(plan, plan_attr)
+        if left != right:
+            raise ActivationError(
+                "the basis and the plan disagree on the %s: basis %r, plan %r"
+                % (description, left, right))
+
+    expected_plan_ref = plan.work_plan.ref if plan.work_plan is not None else None
+    if basis.work_plan_ref != expected_plan_ref:
+        raise ActivationError(
+            "the basis and the plan disagree on the Work Plan binding: basis %r, plan %r"
+            % (basis.work_plan_ref, expected_plan_ref))
+
     if basis.planning_digest != plan.material_digest():
         raise ActivationError(
             "the basis was issued against different planning inputs; it is stale and a trigger "
             "may not be built from it")
+
+    if basis.implementation_spec_version != IMPLEMENTATION_SPEC_VERSION:
+        raise ActivationError(
+            "the basis was validated under implementation specification %r; this bridge is "
+            "written against %r" % (basis.implementation_spec_version,
+                                    IMPLEMENTATION_SPEC_VERSION))
+
+    if basis.is_approval or basis.is_authority:
+        raise GovernanceError(
+            "an Execution Basis is neither an approval nor an authority; one claiming to be "
+            "either is refused rather than carried into a trigger")
+
+
+def build_trigger(basis: ExecutionBasis, plan: PlannerOutput, *, originator: str,
+                  store=None,
+                  sensitivity: str = "UNASSESSED",
+                  residency: str = "UNASSESSED") -> TriggerEnvelope:
+    verify_basis(basis, plan, store)
     for field in FORBIDDEN_IN_TRIGGER:
         if field in plan.unknown_fields or field in plan.injected_governed_records:
             raise GovernanceError(
@@ -133,6 +198,12 @@ def build_trigger(basis: ExecutionBasis, plan: PlannerOutput, *, originator: str
                 criticality=basis.criticality.value,
                 is_gate=stage.is_gate,
             ))
+
+    spec_ids = [spec.spec_id for spec in specs]
+    if len(set(spec_ids)) != len(spec_ids):
+        raise ActivationError(
+            "planned work item spec identities collided; a spec identity is derived from the "
+            "basis ref and the stage id and must be unique by construction")
 
     return TriggerEnvelope(
         command="CreateWorkflowRun",

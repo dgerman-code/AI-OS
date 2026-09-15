@@ -19,16 +19,25 @@ There is no operation in this package that writes to the Workflow registry. A re
 **Rule CC-2 — materiality is a computed property, not a judgement.** A change is material where
 it changes the digest of the plan's material fields:
 
-| Material — changes the digest | Non-material — does not |
+| Material — changes the digest | Not digested, and why |
 |---|---|
-| `scope_ref` | `request_text` wording |
-| `objective`, `deliverables` | `intent_id` |
-| `primary_work_mode`, `secondary_work_modes` | Presentation, ordering of prose, summaries |
-| `criticality` | Anything the user sees but the plan does not depend on |
+| `scope_ref` **and `scope_ancestry`** | `request_text` — presentation. A reworded request is not a new plan |
+| `objective`, `deliverables` | `request_id` and `intent_id` — **identity**, bound exactly and separately by EB-2e. Folding them into a hash would hide a cross-request reuse behind a digest mismatch instead of naming it |
+| `primary_work_mode`, `secondary_work_modes` | `injected_governed_records` — refused outright, before any digest is taken |
+| `criticality` | |
 | `execution_mode` | |
 | Role, Skill, Review, Decision, Evidence requirements | |
+| **`clarifications`, including each one's blocking flag and its default** | |
 | `workflow_ref` | |
-| The stage graph — identities, roles, dependencies, gate flags | |
+| The whole Work Plan — stage identities, owners, dependencies, gate flags **and each stage's `expected_artifact`** | |
+| **`orchestrator_policy_ref`** | |
+| **`unknown_fields`** — the declared open items, which the trigger carries | |
+
+**Rule CC-2a — a new planner field cannot be silently non-material.** Every declared field of
+`PlannerOutput` is classified as material, presentation-only, identity or refused, and the module
+refuses to load if one is unclassified. The five families in bold above were originally missing:
+each was read downstream, so a change to any of them left an issued basis standing that no longer
+described the plan, and none of them changed the digest.
 
 **Rule CC-3 — a material change invalidates every live basis for that request.** The store marks
 them `STALE`, and `build_trigger` refuses a digest mismatch independently. Two mechanisms, because

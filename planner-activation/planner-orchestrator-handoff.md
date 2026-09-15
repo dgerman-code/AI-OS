@@ -55,6 +55,16 @@ builder raises on an envelope carrying one.
 **Rule HB-4 — a stale basis produces nothing.** The builder recomputes the planning digest and
 refuses a mismatch, so a basis cannot be used against planning inputs it was not issued against.
 
+**Rule HB-4a — the builder verifies before it builds, and a digest is only one of the checks.**
+`verify_basis` requires that the basis was ISSUED by the store presented, that its version and
+its payload seal match what the store holds, that its status is `EXECUTABLE`, that request
+identity, intent identity, scope, scope ancestry, execution mode, criticality, policy binding,
+Workflow binding and Work Plan binding all agree with the plan, that the implementation-spec
+version is the one this bridge is written against, and that `is_approval` and `is_authority` are
+both still `false`. Each is checked separately so a refusal names the field. The rules are in
+`execution-basis-contract.md` §4a; a digest comparison alone can say nothing about whether the
+basis was ever issued, or whether it belongs to this request.
+
 ## 4. What the planner never sees again
 
 **Rule HB-5 — there is no return path.** The builder receives no run state, no stage outcome, no

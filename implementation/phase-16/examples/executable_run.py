@@ -69,7 +69,8 @@ def main():
     result = run_preflight(plan, author_identity="human.alice",
                            reviewer_identity="human.bob")
     print("\npreflight        :", result.state.value)
-    basis = ActivationStore().issue(result.basis)
+    store = ActivationStore()
+    basis = store.issue(result.basis)
     print("execution basis  :", basis.ref, "-", basis.status.value)
     print("  mode           :", basis.execution_mode.value,
           "| work plan:", basis.work_plan_ref, "| workflow:", basis.workflow_ref)
@@ -77,7 +78,7 @@ def main():
     print("  reviews        : REQUIRED, unsatisfied ->", list(basis.review_requirements))
     print("  rights         : REQUIRED, unexercised ->", list(basis.decision_requirements))
 
-    trigger = build_trigger(basis, plan, originator="human.alice",
+    trigger = build_trigger(basis, plan, originator="human.alice", store=store,
                             sensitivity="CONFIDENTIAL", residency="EU")
     print("\ntrigger          :", trigger.command,
           "| creates_run:", trigger.creates_run, "| is_approval:", trigger.is_approval)
@@ -89,6 +90,11 @@ def main():
     for spec in trigger.planned_work_item_specs:
         print("   %-46s stage %s  role=%s  gate=%s"
               % (spec.spec_id, spec.stage_id, spec.role_envelope, spec.is_gate))
+
+    lineage, created = store.record_trigger(trigger.idempotency_key, basis.ref)
+    repeat_lineage, repeat_created = store.record_trigger(trigger.idempotency_key, basis.ref)
+    print("\nrun lineage      :", lineage, "| created:", created,
+          "| on a repeat:", repeat_created, "->", repeat_lineage)
 
     print("\nnothing above created a run, satisfied a review, exercised a Right,")
     print("registered a capability, or promoted a Work Plan to a Workflow.")

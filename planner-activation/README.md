@@ -60,6 +60,7 @@ no consumer can read an `EXECUTABLE` basis as either.
 | `clarification-and-ambiguity-contract.md` | Infer when safe; clarify when it matters; never activate while open |
 | `criticality-review-authority-binding.md` | Floors, requirements, and what planning may never grant |
 | `role-skill-assignment-binding.md` | Inference vs assignability; SoD |
+| `registry-eligibility-contract.md` | What makes an identity eligible: declared cards, not mentions |
 | `idempotency-versioning-replay.md` | Durable identity, lineage, and no duplicate execution lineage |
 | `observability-audit-provenance.md` | Operational vs governed events; end-to-end provenance |
 | `po-4-and-po-12-closure.md` | What is closed, what it depends on, and what remains open |
@@ -78,13 +79,16 @@ Assurance: `validation/phase_16_validation.py`, `validation/phase_16_mutation_pr
 | A-3 | Create a Decision Record, approval or Review Instance | `preflight.py` G-1, G-7, G-8 |
 | A-4 | Let a material plan change leave a live basis standing | `store.invalidate_on_material_change` |
 | A-5 | Accept an unapproved or stale Workflow under MATCH | `preflight.py` G-11 |
-| A-6 | Make an unregistered Role or Skill assignable | `preflight.py` G-5, G-6 |
+| A-6 | Make an unregistered Role or Skill assignable | `preflight.py` G-5, G-6; `registry-eligibility-contract.md` |
 | A-7 | Let an author be the final critical reviewer | `preflight.py` G-10 |
 | A-8 | Activate while a blocking clarification is open | `preflight.py` G-2 |
 | A-9 | Create duplicate execution lineage for one request version | `handoff.idempotency_key`, `store.record_trigger` |
 | A-10 | Promote a Work Plan to a reusable Workflow | `WorkPlan.__post_init__`; the store has no registration path |
 | A-11 | Carry a caller-injected governed record into a trigger | `handoff.FORBIDDEN_IN_TRIGGER` |
-| A-12 | Hand off on a stale or mismatched scope or version | `handoff.build_trigger` digest check |
+| A-12 | Hand off on a stale or mismatched scope or version | `handoff.verify_basis`, field by field |
+| A-13 | Edit, fabricate or cross-request-reuse an issued basis | `ExecutionBasis` is frozen and sealed; `ActivationStore.verify` |
+| A-14 | Treat a mention, a slug or an uncarded candidate as approved | `registries.py`; `registry-eligibility-contract.md` |
+| A-15 | Issue a basis over duplicate stage ids or an unmapped Skill/Role binding | `preflight.py` G-6, `_check_plan_shape` |
 
 ## 5. Non-Runtime Statement
 

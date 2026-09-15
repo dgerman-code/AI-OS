@@ -23,6 +23,12 @@ import json
 from typing import Dict, List, Optional, Tuple
 
 
+#: The Phase 14 implementation-specification baseline this bridge is written against. It lives
+#: here rather than in the preflight so that the trigger builder can compare against it without
+#: importing the preflight, and so that a basis carrying a different value is detectable.
+IMPLEMENTATION_SPEC_VERSION = "phase-14@ba9e3fee"
+
+
 class ActivationError(Exception):
     """A refusal. Raised where a rule makes an action impossible, never logged and continued."""
 
@@ -105,6 +111,11 @@ class BlockReason(enum.Enum):
     SCOPE_AMBIGUOUS = "SCOPE_AMBIGUOUS"
     INJECTED_GOVERNED_RECORD = "INJECTED_GOVERNED_RECORD"
     BASIS_NOT_EXECUTABLE = "BASIS_NOT_EXECUTABLE"
+    DUPLICATE_STAGE_IDENTITY = "DUPLICATE_STAGE_IDENTITY"
+    STAGE_OWNER_UNRESOLVED = "STAGE_OWNER_UNRESOLVED"
+    SKILL_ROLE_INCOMPATIBLE = "SKILL_ROLE_INCOMPATIBLE"
+    BASIS_NOT_ISSUED = "BASIS_NOT_ISSUED"
+    BASIS_INTEGRITY_FAILED = "BASIS_INTEGRITY_FAILED"
 
 
 # --------------------------------------------------------------------------- requirements
@@ -247,30 +258,71 @@ class PlannerOutput:
 
     # -- the staleness mechanism -------------------------------------------------------------
 
+    #: Every input whose change can alter preflight, basis issuance, the handoff envelope, or
+    #: an authority / review / evidence requirement. The first version omitted five families -
+    #: clarifications, scope ancestry, the Orchestrator policy reference, the composed stages'
+    #: expected artifacts, and the declared open items - each of which is read downstream, so a
+    #: change to any of them left an issued basis standing that no longer described the plan.
     MATERIAL_FIELDS = (
-        "scope_ref", "objective", "deliverables", "primary_work_mode", "secondary_work_modes",
-        "criticality", "execution_mode", "role_requirements", "skill_requirements",
-        "review_requirements", "decision_requirements", "evidence_requirements",
-        "workflow_ref",
+        "scope_ref", "scope_ancestry", "objective", "deliverables", "primary_work_mode",
+        "secondary_work_modes", "criticality", "execution_mode", "role_requirements",
+        "skill_requirements", "review_requirements", "decision_requirements",
+        "evidence_requirements", "clarifications", "workflow_ref", "work_plan",
+        "orchestrator_policy_ref", "unknown_fields",
     )
 
-    def material_digest(self) -> str:
-        """A digest over the fields whose change invalidates an issued Execution Basis.
+    #: The ONLY excluded fields, each excluded for a stated reason rather than by omission.
+    #: `request_text` is presentation: a reworded summary is not a new plan. The two identity
+    #: fields are excluded because identity is bound EXACTLY and separately - see the trigger
+    #: builder's request/intent equality check - and folding them into the digest would hide a
+    #: cross-request reuse behind a digest mismatch instead of naming it.
+    PRESENTATION_ONLY_FIELDS = ("request_text",)
+    IDENTITY_FIELDS = ("request_id", "intent_id")
+    #: Never digested because a plan carrying one is refused outright, before any digest.
+    REFUSED_FIELDS = ("injected_governed_records",)
 
-        `request_text`, `intent_id` and presentation-only fields are deliberately excluded: a
-        reworded summary is not a new plan, and a changed scope or deliverable is.
+    def material_digest(self) -> str:
+        """A digest over every load-bearing planning input.
+
+        `_canonical` expands dataclasses recursively, so a stage's `expected_artifact`, a
+        clarification's blocking flag and its default, and each requirement's every field are
+        all inside the digest. Changing any of them changes the digest, which is what makes an
+        already-issued basis unusable and forces re-preflight.
         """
         payload = {}
         for name in self.MATERIAL_FIELDS:
-            value = getattr(self, name)
-            payload[name] = _canonical(value)
-        if self.work_plan is not None:
-            payload["work_plan"] = self.work_plan.ref
-            payload["stages"] = [
-                [s.stage_id, s.role_ref, list(s.depends_on), s.is_gate]
-                for s in self.work_plan.stages]
+            payload[name] = _canonical(getattr(self, name))
         return hashlib.sha256(
             json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+    @classmethod
+    def classified_fields(cls):
+        """Every declared field, partitioned. Used by the completeness invariant below."""
+        return (set(cls.MATERIAL_FIELDS) | set(cls.PRESENTATION_ONLY_FIELDS)
+                | set(cls.IDENTITY_FIELDS) | set(cls.REFUSED_FIELDS))
+
+
+def _assert_every_planner_field_is_classified() -> None:
+    """A new PlannerOutput field must be classified before it can be added.
+
+    Without this, the ordinary way a digest goes stale is silent: somebody adds a load-bearing
+    field, forgets MATERIAL_FIELDS, and a change to it stops invalidating the basis. Here the
+    omission is an ImportError at load, not a defect discovered later.
+    """
+    declared = {f.name for f in dataclasses.fields(PlannerOutput)}
+    classified = PlannerOutput.classified_fields()
+    unclassified = declared - classified
+    phantom = classified - declared
+    if unclassified:
+        raise ActivationError(
+            "PlannerOutput field(s) %s are neither material, presentation-only, identity nor "
+            "refused. Classify them before use." % sorted(unclassified))
+    if phantom:
+        raise ActivationError(
+            "PlannerOutput classifies field(s) %s that do not exist" % sorted(phantom))
+
+
+_assert_every_planner_field_is_classified()
 
 
 def _canonical(value):
@@ -286,13 +338,23 @@ def _canonical(value):
 # --------------------------------------------------------------------------- execution basis
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class ExecutionBasis:
     """The governed object that authorises a valid plan to ENTER Orchestrator intake.
 
     It authorises entry and nothing else. It exercises no Decision Right, satisfies no review,
     registers nothing, and grants no permission to perform any act: every gate the plan names
     still stands, and the Orchestrator still runs its own intake checks 1-7.
+
+    IMMUTABLE BY CONSTRUCTION. The first version was a mutable dataclass, so any holder could
+    set `status = EXECUTABLE`, repoint `scope_ref`, or blank `review_requirements` on a basis
+    the store had already issued, and nothing downstream could tell. A governed record that any
+    caller can edit in place is not a governed record. Every field is frozen; a lifecycle
+    transition produces a NEW snapshot through `with_status`, and the store keeps the history.
+
+    `payload_seal()` covers every field except `status`, which is lifecycle state the store
+    owns. The trigger builder recomputes the seal and compares it with the seal taken at issue,
+    so a fabricated or edited basis is refused by evidence rather than by trust.
     """
     basis_id: str
     version: int
@@ -324,6 +386,23 @@ class ExecutionBasis:
     def ref(self) -> str:
         return "%s@%d" % (self.basis_id, self.version)
 
+    #: Excluded from the seal: the store owns the lifecycle, the issuer owns the payload.
+    _UNSEALED_FIELDS = ("status",)
+
+    def payload_seal(self) -> str:
+        """A digest over the issued payload. Any edit to any sealed field changes it."""
+        payload = {}
+        for field in dataclasses.fields(self):
+            if field.name in self._UNSEALED_FIELDS:
+                continue
+            payload[field.name] = _canonical(getattr(self, field.name))
+        return hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+    def with_status(self, status: "BasisStatus", **changes) -> "ExecutionBasis":
+        """A new snapshot. The old one stays exactly as it was issued."""
+        return dataclasses.replace(self, status=status, **changes)
+
     def exercise(self, *_args, **_kwargs):
         raise GovernanceError(
             "an Execution Basis exercises nothing. A Decision Right is exercised by a human "
@@ -334,12 +413,12 @@ class ExecutionBasis:
             "an Execution Basis satisfies no review. A review is satisfied by a reviewer "
             "through SubmitReviewInstance")
 
-    def mark_stale(self, reason: str = "material planning change") -> None:
-        if self.status in (BasisStatus.SUPERSEDED,):
-            return
-        self.status = BasisStatus.STALE
-        self._stale_reason = reason
+    def mark_stale(self, *_args, **_kwargs):
+        raise GovernanceError(
+            "an issued Execution Basis is immutable; a lifecycle transition is recorded by the "
+            "store, which keeps the prior snapshot. Use ActivationStore.invalidate_on_material_"
+            "change or ActivationStore.issue")
 
-    def mark_superseded(self, by_ref: str) -> None:
-        self.status = BasisStatus.SUPERSEDED
-        self._superseded_by = by_ref
+    def mark_superseded(self, *_args, **_kwargs):
+        raise GovernanceError(
+            "an issued Execution Basis is immutable; superseding is recorded by the store")

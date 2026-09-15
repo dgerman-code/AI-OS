@@ -67,12 +67,53 @@ including `STALE`. There is no "proceed with a warning".
 transition, and it says intake **may accept**. A reader who takes it for approval has read the
 two declared `false` fields and disbelieved them.
 
+## 4a. Integrity — an issued basis is immutable and sealed
+
+**Rule EB-2a — an issued Execution Basis is immutable.** Every field is frozen. A holder cannot
+set `status` back to `EXECUTABLE`, repoint `scope_ref`, blank `review_requirements` or flip
+`is_approval`. The first implementation made it a mutable record handed back to every caller,
+so "the issued basis" and "whatever the last holder edited" were the same object, and no
+downstream check could tell them apart. A governed record any caller can edit in place is not a
+governed record.
+
+**Rule EB-2b — the store owns the lifecycle; a transition is a new snapshot.** `STALE` and
+`SUPERSEDED` are recorded by `ActivationStore`, which writes a new snapshot beside the old one
+rather than over it. `mark_stale()` and `mark_superseded()` on the object itself raise.
+
+**Rule EB-2c — every issued basis is sealed.** The store takes a digest of the whole payload
+(every field except `status`, which it owns) at issue. `verify()` compares a presented basis
+against that seal, so a fabricated reference, an altered field or a version mismatch is refused
+by **evidence**, not by trust.
+
+**Rule EB-2d — the trigger builder verifies before it builds.** `verify_basis` checks, one
+condition at a time so the refusal names the field: the basis was ISSUED by the presented store;
+its version matches; its seal matches; its status is `EXECUTABLE`; request identity, intent
+identity, scope, scope ancestry, execution mode, criticality, policy binding, Workflow binding
+and Work Plan binding all agree with the plan; the planning digest matches; the
+implementation-spec version is the one this bridge is written against; and `is_approval` and
+`is_authority` are both still `false`.
+
+**Rule EB-2e — cross-request reuse is refused on identity, not on the digest.** Two different
+requests can produce byte-identical planning material. The basis issued for one of them is
+still not a basis for the other, and a digest comparison alone can never say so.
+
 ## 5. Staleness — the mechanism, not the intention
 
-**Rule EB-4 — the basis is bound to a digest of the plan's material fields.** Scope, objective,
-deliverables, work modes, criticality, execution mode, role / skill / review / decision / evidence
-requirements, the workflow reference and the stage graph. Request wording, intent identifier and
-presentation are **excluded**: a reworded request is not a new plan.
+**Rule EB-4 — the basis is bound to a digest of the plan's material fields.** Every load-bearing
+input: scope and **scope ancestry**, objective, deliverables, work modes, criticality, execution
+mode, role / skill / review / decision / evidence requirements, **clarifications including their
+blocking flag and their default**, the workflow reference, the whole Work Plan including each
+stage's **`expected_artifact`**, the **Orchestrator policy reference**, and the declared open
+items. The exclusions are three and each is stated: `request_text` is presentation, a reworded
+request is not a new plan; `request_id` and `intent_id` are identity, bound exactly and
+separately by EB-2e rather than folded into a hash; and an injected governed record is refused
+before any digest is taken.
+
+**Rule EB-4a — a new planner field cannot be silently non-material.** `PlannerOutput` classifies
+every declared field as material, presentation-only, identity or refused, and the module refuses
+to load if any field is unclassified. The ordinary way a digest goes stale — somebody adds a
+load-bearing field and forgets to list it — is an error at import rather than a defect found
+later.
 
 **Rule EB-5 — a material change makes every live basis for that request `STALE`.** Not "should";
 the store does it, and `build_trigger` re-computes the digest and refuses a mismatch. A basis

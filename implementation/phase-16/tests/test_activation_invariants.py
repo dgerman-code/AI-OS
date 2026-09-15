@@ -43,6 +43,42 @@ def a_workflow():
     return sorted(registries.approved_workflows())[0]
 
 
+def a_workflow_ref():
+    """`workflow.<id>@<version>` at the version the approved card DECLARES.
+
+    Not `@1`. The registry used to invent version 1 for every Workflow, so every MATCH test
+    bound a version nobody approved and still passed.
+    """
+    wf = a_workflow()
+    return "%s@%s" % (wf, registries.approved_workflows()[wf])
+
+
+def a_skill_for(role_ref):
+    """An approved Skill the authoritative mapping records actually allow for that Role."""
+    for skill in sorted(registries.approved_skills()):
+        ok, _why = registries.skill_is_compatible_with_role(skill, role_ref)
+        if ok:
+            return skill
+    raise AssertionError("no approved Skill is mapped to %s" % role_ref)
+
+
+def a_mapped_role():
+    """An approved Role that the mapping records give at least one carded Skill."""
+    for role in sorted(registries.approved_roles()):
+        for skill in sorted(registries.approved_skills()):
+            if registries.skill_is_compatible_with_role(skill, role)[0]:
+                return role
+    raise AssertionError("no approved Role is mapped to a carded Skill")
+
+
+def issued(plan, **preflight_kwargs):
+    """Preflight, then ISSUE. A basis that was never issued produces no trigger at all."""
+    store = ActivationStore()
+    result = run_preflight(plan, **preflight_kwargs)
+    assert result.basis is not None, result.detail
+    return store, store.issue(result.basis)
+
+
 def base(**overrides):
     fields = dict(
         request_id="request.001",
@@ -70,15 +106,15 @@ class TestMatchPath(unittest.TestCase):
     """Scenario 1 — simple MATCH reaches intake through an approved Workflow at its version."""
 
     def test_match_produces_an_executable_basis_and_a_trigger(self):
-        wf = a_workflow()
         plan = base(execution_mode=ExecutionMode.MATCH, work_plan=None,
-                    workflow_ref="%s@1" % wf)
+                    workflow_ref=a_workflow_ref())
         result = run_preflight(plan)
         self.assertIs(result.state, PlannerState.VALIDATED, result.detail)
         self.assertIs(result.basis.status, BasisStatus.EXECUTABLE)
-        trigger = build_trigger(result.basis, plan, originator="human.alice")
+        store, basis = issued(plan)
+        trigger = build_trigger(basis, plan, originator="human.alice", store=store)
         self.assertEqual(trigger.command, "CreateWorkflowRun")
-        self.assertEqual(trigger.workflow_ref, "%s@1" % wf)
+        self.assertEqual(trigger.workflow_ref, a_workflow_ref())
         self.assertIsNone(trigger.work_plan_ref)
         self.assertFalse(trigger.creates_run)
         self.assertEqual(set(trigger.intake_answers()), {1, 2, 3, 4, 5, 6, 7})
@@ -93,7 +129,7 @@ class TestMatchPath(unittest.TestCase):
     def test_stale_workflow_version_blocks(self):
         """Scenario 11 — a version that is not the approved one is not a binding."""
         plan = base(execution_mode=ExecutionMode.MATCH, work_plan=None,
-                    workflow_ref="%s@99" % a_workflow())
+                    workflow_ref="%s@99.9" % a_workflow())
         result = run_preflight(plan)
         self.assertIs(result.state, PlannerState.BLOCKED)
         self.assertIn(BlockReason.WORKFLOW_VERSION_STALE, result.reasons)
@@ -110,7 +146,8 @@ class TestComposePath(unittest.TestCase):
         self.assertIs(basis.status, BasisStatus.EXECUTABLE)
         self.assertIsNone(basis.workflow_ref)
         self.assertEqual(basis.work_plan_ref, "work_plan.001@1")
-        trigger = build_trigger(basis, plan, originator="human.alice")
+        store, basis = issued(plan)
+        trigger = build_trigger(basis, plan, originator="human.alice", store=store)
         self.assertIsNone(trigger.workflow_ref)
         self.assertTrue(trigger.work_plan_ref.startswith("work_plan."))
         self.assertNotIn("workflow.", trigger.work_plan_ref)
@@ -245,7 +282,8 @@ class TestEvidenceAndPrerequisites(unittest.TestCase):
                                 required_before_first_act=False),))
         result = run_preflight(plan)
         self.assertIs(result.state, PlannerState.VALIDATED, result.detail)
-        trigger = build_trigger(result.basis, plan, originator="human.alice")
+        store, basis = issued(plan)
+        trigger = build_trigger(basis, plan, originator="human.alice", store=store)
         self.assertIn(("artifact.later@1", "FUTURE_GOVERNANCE_REFERENCE"),
                       trigger.prerequisite_refs)
 
@@ -261,9 +299,11 @@ class TestVersioningAndReplay(unittest.TestCase):
 
         changed = base(deliverables=("A drafted response", "A published statement"))
         store.invalidate_on_material_change(plan.request_id, changed.material_digest())
-        self.assertIs(first.status, BasisStatus.STALE)
+        # The issued basis is immutable, so the caller's copy is not silently rewritten: the
+        # STORE is the authority on lifecycle, and it now reports STALE.
+        self.assertIs(store.issued(first.ref).status, BasisStatus.STALE)
         with self.assertRaises(ActivationError):
-            build_trigger(first, changed, originator="human.alice")
+            build_trigger(first, changed, originator="human.alice", store=store)
 
         second = store.issue(run_preflight(changed).basis)
         self.assertEqual(second.version, 2)
@@ -279,7 +319,10 @@ class TestVersioningAndReplay(unittest.TestCase):
         store = ActivationStore()
         first = store.issue(run_preflight(one).basis)
         second = store.issue(run_preflight(two).basis)
-        self.assertIs(first, second)
+        # Snapshots are values, not shared mutable objects, so identity is the wrong question;
+        # what matters is that the SAME issued basis came back and no second one was minted.
+        self.assertEqual(first.ref, second.ref)
+        self.assertEqual(first.payload_seal(), second.payload_seal())
         self.assertEqual(len(store.history(one.request_id)), 1)
 
     def test_duplicate_request_is_idempotent(self):
@@ -322,13 +365,13 @@ class TestHandoffPurity(unittest.TestCase):
 
     def test_a_valid_handoff_contains_no_synthetic_authority_object(self):
         """Scenario 14 — the trigger carries requirements, never satisfied gates."""
-        wf = a_workflow()
         plan = base(execution_mode=ExecutionMode.MATCH, work_plan=None,
-                    workflow_ref="%s@1" % wf,
+                    workflow_ref=a_workflow_ref(),
                     criticality=Criticality.ENHANCED_DECISION_GRADE,
                     review_requirements=(ReviewRequirement(a_review(), True),),
                     decision_requirements=(DecisionRequirement(a_right(), "publish"),))
-        trigger = build_trigger(run_preflight(plan).basis, plan, originator="human.alice")
+        store, basis = issued(plan)
+        trigger = build_trigger(basis, plan, originator="human.alice", store=store)
         rendered = repr(trigger).lower()
         for forbidden in ("decision_record", "review_instance", "gate_outcome",
                           "approval_state", "routing_decision"):
@@ -344,7 +387,8 @@ class TestHandoffPurity(unittest.TestCase):
 
     def test_a_planned_spec_is_never_a_work_item(self):
         plan = base()
-        trigger = build_trigger(run_preflight(plan).basis, plan, originator="human.alice")
+        store, basis = issued(plan)
+        trigger = build_trigger(basis, plan, originator="human.alice", store=store)
         for spec in trigger.planned_work_item_specs:
             self.assertTrue(spec.spec_id.startswith("planned_work_item_spec."))
             self.assertNotIn("work_item.", spec.spec_id)
@@ -357,10 +401,409 @@ class TestHandoffPurity(unittest.TestCase):
             base(unknown_fields=("model_profile",))
 
     def test_a_non_executable_basis_produces_no_trigger(self):
-        result = run_preflight(base())
-        result.basis.status = BasisStatus.BLOCKED
+        plan = base()
+        store, basis = issued(plan)
+        for status in (BasisStatus.DRAFT, BasisStatus.VALIDATED, BasisStatus.BLOCKED,
+                       BasisStatus.STALE, BasisStatus.SUPERSEDED):
+            with self.assertRaises(ActivationError, msg=status.value):
+                build_trigger(basis.with_status(status), plan,
+                              originator="human.alice", store=store)
+
+
+# =========================================================== B1 — registry eligibility
+
+
+class TestRegistryEligibility(unittest.TestCase):
+    """Eligibility is declared evidence, never a slug or a mention."""
+
+    #: The three IDs the previous display-name slugger invented. Each is what you get by
+    #: splitting an ampersand into its own word: "Asset O&M", "ESG / E&S", "FP&A".
+    MISPARSED = (
+        "role.asset_o_m_technical_operations_specialist",
+        "role.esg_e_s_specialist",
+        "role.fp_a_management_finance_specialist",
+    )
+    #: What the Role Cards actually declare.
+    DECLARED = (
+        "role.asset_om_technical_operations_specialist",
+        "role.esg_es_specialist",
+        "role.fpa_management_finance_specialist",
+    )
+
+    def test_the_three_misparsed_role_ids_are_not_eligible(self):
+        approved = registries.approved_roles()
+        for invented in self.MISPARSED:
+            self.assertNotIn(invented, approved)
+            result = run_preflight(base(
+                role_requirements=(RoleRequirement(invented, "a conclusion"),),
+                work_plan=WorkPlan("work_plan.mp", 1, (
+                    PlanStage("S1", invented, (), False, "draft"),))))
+            self.assertIs(result.state, PlannerState.BLOCKED, invented)
+            self.assertIn(BlockReason.UNREGISTERED_CAPABILITY, result.reasons)
+
+    def test_the_three_declared_role_ids_are_eligible(self):
+        approved = registries.approved_roles()
+        for declared in self.DECLARED:
+            self.assertIn(declared, approved)
+            result = run_preflight(base(
+                role_requirements=(RoleRequirement(declared, "a conclusion"),),
+                work_plan=WorkPlan("work_plan.dc", 1, (
+                    PlanStage("S1", declared, (), False, "draft"),))))
+            self.assertIs(result.state, PlannerState.VALIDATED, result.detail)
+
+    def test_the_approved_role_universe_is_exactly_fifty_nine(self):
+        self.assertEqual(len(registries.approved_roles()), 59)
+
+    def test_every_eligible_identity_resolves_to_a_declaring_card(self):
+        for kind, identities in (("role", registries.approved_roles()),
+                                 ("skill", registries.approved_skills()),
+                                 ("review", registries.approved_review_profiles()),
+                                 ("decision", registries.approved_decision_rights()),
+                                 ("workflow", set(registries.approved_workflows()))):
+            for identity in identities:
+                self.assertIsNotNone(registries.card_path(kind, identity),
+                                     "%s has no declaring card" % identity)
+
+    def test_an_uncarded_universe_entry_is_not_eligible(self):
+        """A candidate held in a consolidation group is a mention, not a registration."""
+        uncarded = {
+            "review": "review.legal_regulatory",
+            "decision": "decision.stage_gate_progression_routine",
+            "workflow": "workflow.feasibility_study_preparation",
+            "skill": "skill.scope_definition",
+        }
+        self.assertNotIn(uncarded["review"], registries.approved_review_profiles())
+        self.assertNotIn(uncarded["decision"], registries.approved_decision_rights())
+        self.assertNotIn(uncarded["workflow"], registries.approved_workflows())
+        self.assertNotIn(uncarded["skill"], registries.approved_skills())
+
+    def test_an_uncarded_workflow_is_blocked_under_match(self):
+        plan = base(execution_mode=ExecutionMode.MATCH, work_plan=None,
+                    workflow_ref="workflow.feasibility_study_preparation@0.1")
+        result = run_preflight(plan)
+        self.assertIs(result.state, PlannerState.BLOCKED)
+        self.assertIn(BlockReason.WORKFLOW_NOT_APPROVED, result.reasons)
+
+    def test_an_uncarded_review_profile_blocks(self):
+        plan = base(criticality=Criticality.ENHANCED_DECISION_GRADE,
+                    review_requirements=(ReviewRequirement("review.legal_regulatory", True),))
+        result = run_preflight(plan)
+        self.assertIs(result.state, PlannerState.BLOCKED)
+        self.assertIn(BlockReason.REVIEW_UNRESOLVED, result.reasons)
+
+    def test_an_uncarded_decision_right_blocks(self):
+        plan = base(decision_requirements=(
+            DecisionRequirement("decision.stage_gate_progression_routine", "progress"),))
+        result = run_preflight(plan)
+        self.assertIs(result.state, PlannerState.BLOCKED)
+        self.assertIn(BlockReason.NO_APPLICABLE_DECISION_RIGHT, result.reasons)
+
+    def test_a_retired_id_named_only_by_a_supersedes_line_is_not_eligible(self):
+        """`Supersedes: `skill.legal_source_currency_check`` names a RETIRED identity."""
+        self.assertNotIn("skill.legal_source_currency_check", registries.approved_skills())
+
+    def test_the_approved_workflow_version_is_the_one_the_card_declares(self):
+        for wf, version in registries.approved_workflows().items():
+            self.assertNotEqual(version, 1, "%s: version 1 was invented, never declared" % wf)
+            self.assertRegex(version, r"^\d+\.\d+$")
+
+
+# =========================================================== B2 — digest completeness
+
+
+class TestMaterialDigestCompleteness(unittest.TestCase):
+    """Every load-bearing input is inside the digest; every exclusion is stated."""
+
+    def test_every_planner_field_is_classified(self):
+        import dataclasses as _dc
+        declared = {f.name for f in _dc.fields(PlannerOutput)}
+        self.assertEqual(declared, PlannerOutput.classified_fields())
+
+    def test_only_the_request_text_is_presentation_only(self):
+        self.assertEqual(PlannerOutput.PRESENTATION_ONLY_FIELDS, ("request_text",))
+
+    def _digest_changes(self, **overrides):
+        return base().material_digest() != base(**overrides).material_digest()
+
+    def test_a_clarification_changes_the_digest(self):
+        self.assertTrue(self._digest_changes(clarifications=(
+            ClarificationRequirement("Bullets or prose?", False, "prose"),)))
+
+    def test_a_clarifications_default_changes_the_digest(self):
+        one = base(clarifications=(ClarificationRequirement("Q?", False, "prose"),))
+        two = base(clarifications=(ClarificationRequirement("Q?", False, "bullets"),))
+        self.assertNotEqual(one.material_digest(), two.material_digest())
+
+    def test_a_clarifications_blocking_flag_changes_the_digest(self):
+        one = base(clarifications=(ClarificationRequirement("Q?", False, "prose"),))
+        two = base(clarifications=(ClarificationRequirement("Q?", True),))
+        self.assertNotEqual(one.material_digest(), two.material_digest())
+
+    def test_scope_ancestry_changes_the_digest(self):
+        self.assertTrue(self._digest_changes(
+            scope_ancestry=("scope.org.root", "scope.programme.x", "scope.project.alpha")))
+
+    def test_the_orchestrator_policy_reference_changes_the_digest(self):
+        self.assertTrue(self._digest_changes(orchestrator_policy_ref="policy.strict@2"))
+
+    def test_a_stages_expected_artifact_changes_the_digest(self):
+        one = base()
+        two = base(work_plan=WorkPlan("work_plan.001", 1, (
+            PlanStage("S1", a_role(), (), False, "a materially different artifact"),
+            PlanStage("S2", None, ("S1",), True, ""))))
+        self.assertNotEqual(one.material_digest(), two.material_digest())
+
+    def test_a_declared_open_item_changes_the_digest(self):
+        self.assertTrue(self._digest_changes(unknown_fields=("residency",)))
+
+    def test_an_evidence_requirements_timing_flag_changes_the_digest(self):
+        one = base(evidence_requirements=(EvidenceRequirement(
+            "artifact.x@1", PrerequisiteState.RESOLVED, required_before_first_act=True),))
+        two = base(evidence_requirements=(EvidenceRequirement(
+            "artifact.x@1", PrerequisiteState.RESOLVED, required_before_first_act=False),))
+        self.assertNotEqual(one.material_digest(), two.material_digest())
+
+    def test_each_omitted_family_makes_the_issued_basis_unusable(self):
+        """The point of the digest: a load-bearing change must invalidate, not merely differ."""
+        cases = {
+            "clarification": dict(clarifications=(
+                ClarificationRequirement("Bullets or prose?", False, "prose"),)),
+            "scope ancestry": dict(
+                scope_ancestry=("scope.org.root", "scope.programme.x", "scope.project.alpha")),
+            "policy binding": dict(orchestrator_policy_ref="policy.strict@2"),
+            "expected artifact": dict(work_plan=WorkPlan("work_plan.001", 1, (
+                PlanStage("S1", a_role(), (), False, "something else"),
+                PlanStage("S2", None, ("S1",), True, "")))),
+            "open items": dict(unknown_fields=("residency",)),
+        }
+        for label, override in cases.items():
+            plan = base()
+            store, basis = issued(plan)
+            changed = base(**override)
+            stale = store.invalidate_on_material_change(plan.request_id,
+                                                        changed.material_digest())
+            self.assertTrue(stale, "%s did not invalidate the basis" % label)
+            self.assertIs(store.issued(basis.ref).status, BasisStatus.STALE, label)
+            with self.assertRaises(ActivationError, msg=label):
+                build_trigger(basis, changed, originator="human.alice", store=store)
+
+
+# =========================================================== B3 — basis integrity
+
+
+class TestBasisIntegrity(unittest.TestCase):
+
+    def test_an_issued_basis_is_immutable(self):
+        _store, basis = issued(base())
+        for field, value in (("status", BasisStatus.BLOCKED), ("scope_ref", "scope.other"),
+                             ("planning_digest", "0" * 64), ("is_approval", True)):
+            with self.assertRaises(Exception, msg=field):
+                setattr(basis, field, value)
+
+    def test_an_issued_basis_may_not_be_marked_stale_by_its_holder(self):
+        _store, basis = issued(base())
+        with self.assertRaises(GovernanceError):
+            basis.mark_stale()
+        with self.assertRaises(GovernanceError):
+            basis.mark_superseded("execution_basis.x@2")
+
+    def test_a_never_issued_basis_produces_no_trigger(self):
+        plan = base()
+        candidate = run_preflight(plan).basis          # valid, EXECUTABLE, and never issued
         with self.assertRaises(ActivationError):
-            build_trigger(result.basis, base(), originator="human.alice")
+            build_trigger(candidate, plan, originator="human.alice",
+                          store=ActivationStore())
+
+    def test_a_trigger_may_not_be_built_without_the_issuing_store(self):
+        plan = base()
+        _store, basis = issued(plan)
+        with self.assertRaises(ActivationError):
+            build_trigger(basis, plan, originator="human.alice")
+
+    def test_a_fabricated_basis_is_refused(self):
+        import dataclasses as _dc
+        plan = base()
+        store, basis = issued(plan)
+        forged = _dc.replace(basis, basis_id="execution_basis.forged")
+        with self.assertRaises(ActivationError):
+            build_trigger(forged, plan, originator="human.alice", store=store)
+
+    def test_a_tampered_basis_is_refused_field_by_field(self):
+        import dataclasses as _dc
+        # A plan that actually CARRIES every field the tamper list edits: blanking an empty
+        # tuple is not a tamper, and a test that blanked one would be asserting nothing.
+        plan = base(criticality=Criticality.ENHANCED_DECISION_GRADE,
+                    review_requirements=(ReviewRequirement(a_review(), True),),
+                    decision_requirements=(DecisionRequirement(a_right(), "publish"),),
+                    evidence_requirements=(EvidenceRequirement(
+                        "artifact.x@1", PrerequisiteState.RESOLVED),))
+        store, basis = issued(plan)
+        self.assertTrue(basis.review_requirements and basis.decision_requirements
+                        and basis.evidence_requirements)
+        tampers = {
+            "scope_ref": "scope.project.someone_elses",
+            "scope_ancestry": ("scope.org.root",),
+            "planning_digest": "0" * 64,
+            "implementation_spec_version": "phase-14@deadbeef",
+            "orchestrator_policy_ref": "policy.permissive@9",
+            "criticality": Criticality.ROUTINE if plan.criticality is not Criticality.ROUTINE
+            else Criticality.CRITICAL,
+            "review_requirements": (),
+            "decision_requirements": (),
+            "evidence_requirements": (),
+            "skill_bindings": ("skill.invented",),
+            "role_bindings": ("role.invented",),
+            "work_plan_ref": "work_plan.someone_elses@1",
+            "is_approval": True,
+            "is_authority": True,
+            "version": 7,
+        }
+        for field, value in tampers.items():
+            with self.assertRaises(ActivationError, msg=field):
+                build_trigger(_dc.replace(basis, **{field: value}), plan,
+                              originator="human.alice", store=store)
+
+    def test_cross_request_reuse_is_refused_even_when_the_digests_match(self):
+        """Two requests, byte-identical planning material, one basis. Not transferable."""
+        first = base(request_id="request.aaa", intent_id="intent.aaa")
+        second = base(request_id="request.bbb", intent_id="intent.bbb")
+        self.assertEqual(first.material_digest(), second.material_digest(),
+                         "the premise of this test is that the digests DO match")
+        store, basis = issued(first)
+        with self.assertRaises(ActivationError):
+            build_trigger(basis, second, originator="human.alice", store=store)
+
+    def test_a_trigger_may_not_be_recorded_against_an_unissued_basis(self):
+        plan = base()
+        candidate = run_preflight(plan).basis
+        with self.assertRaises(ActivationError):
+            ActivationStore().record_trigger(idempotency_key(plan), candidate.ref)
+
+    def test_lineage_survives_stale_and_superseded(self):
+        store = ActivationStore()
+        plan = base()
+        first = store.issue(run_preflight(plan).basis)
+        changed = base(objective="A materially different objective")
+        store.invalidate_on_material_change(plan.request_id, changed.material_digest())
+        second = store.issue(run_preflight(changed).basis)
+        lineage = store.lineage(plan.request_id)
+        self.assertEqual(len(lineage), 2)
+        self.assertEqual(lineage[0][0], first.ref)
+        self.assertEqual(lineage[0][1], "SUPERSEDED")
+        self.assertEqual(lineage[0][2], second.ref)
+        self.assertEqual(second.version, 2)
+        self.assertEqual(second.supersedes, first.ref)
+        self.assertIsNotNone(store.issued(first.ref),
+                             "a superseded basis stays readable; history is append-only")
+
+    def test_a_basis_claiming_to_be_an_approval_is_never_issued(self):
+        import dataclasses as _dc
+        candidate = run_preflight(base()).basis
+        for field in ("is_approval", "is_authority"):
+            with self.assertRaises(GovernanceError, msg=field):
+                ActivationStore().issue(_dc.replace(candidate, **{field: True}))
+
+
+# =========================================================== B4 — composition bindings
+
+
+class TestCompositionBindings(unittest.TestCase):
+
+    def test_duplicate_stage_ids_block(self):
+        plan = base(work_plan=WorkPlan("work_plan.dup", 1, (
+            PlanStage("S1", a_role(), (), False, "draft"),
+            PlanStage("S1", a_role(), (), False, "a different artifact"),
+            PlanStage("S2", None, ("S1",), True, ""))))
+        result = run_preflight(plan)
+        self.assertIs(result.state, PlannerState.BLOCKED)
+        self.assertIn(BlockReason.DUPLICATE_STAGE_IDENTITY, result.reasons)
+
+    def test_an_unregistered_stage_owner_blocks(self):
+        plan = base(work_plan=WorkPlan("work_plan.uo", 1, (
+            PlanStage("S1", "role.invented_by_the_planner", (), False, "draft"),
+            PlanStage("S2", None, ("S1",), True, ""))))
+        result = run_preflight(plan)
+        self.assertIs(result.state, PlannerState.BLOCKED)
+        self.assertIn(BlockReason.UNREGISTERED_CAPABILITY, result.reasons)
+
+    def test_a_stage_owner_the_plan_declares_no_conclusion_for_blocks(self):
+        other = sorted(registries.approved_roles())[5]
+        plan = base(work_plan=WorkPlan("work_plan.nd", 1, (
+            PlanStage("S1", other, (), False, "draft"),
+            PlanStage("S2", None, ("S1",), True, ""))))
+        result = run_preflight(plan)
+        self.assertIs(result.state, PlannerState.BLOCKED)
+        self.assertIn(BlockReason.STAGE_OWNER_UNRESOLVED, result.reasons)
+
+    def test_a_non_gate_stage_with_no_owner_blocks(self):
+        plan = base(work_plan=WorkPlan("work_plan.no", 1, (
+            PlanStage("S1", None, (), False, "draft"),
+            PlanStage("S2", None, ("S1",), True, ""))))
+        result = run_preflight(plan)
+        self.assertIs(result.state, PlannerState.BLOCKED)
+        self.assertIn(BlockReason.STAGE_OWNER_UNRESOLVED, result.reasons)
+
+    def test_a_skill_bound_to_the_wrong_role_blocks(self):
+        role = a_mapped_role()
+        skill = a_skill_for(role)
+        wrong = next(r for r in sorted(registries.approved_roles())
+                     if not registries.skill_is_compatible_with_role(skill, r)[0])
+        plan = base(
+            role_requirements=(RoleRequirement(wrong, "a conclusion"),),
+            skill_requirements=(SkillRequirement(skill, wrong),),
+            work_plan=WorkPlan("work_plan.ws", 1, (
+                PlanStage("S1", wrong, (), False, "draft"),)))
+        result = run_preflight(plan)
+        self.assertIs(result.state, PlannerState.BLOCKED)
+        self.assertIn(BlockReason.SKILL_ROLE_INCOMPATIBLE, result.reasons)
+
+    def test_a_skill_bound_to_a_role_the_mapping_allows_passes(self):
+        role = a_mapped_role()
+        skill = a_skill_for(role)
+        plan = base(
+            role_requirements=(RoleRequirement(role, "a conclusion"),),
+            skill_requirements=(SkillRequirement(skill, role),),
+            work_plan=WorkPlan("work_plan.rs", 1, (
+                PlanStage("S1", role, (), False, "draft"),)))
+        result = run_preflight(plan)
+        self.assertIs(result.state, PlannerState.VALIDATED, result.detail)
+
+    def test_a_skill_claimed_for_an_unresolved_role_blocks(self):
+        role = a_mapped_role()
+        plan = base(
+            role_requirements=(RoleRequirement(role, "a conclusion"),),
+            skill_requirements=(SkillRequirement(a_skill_for(role), "role.not_a_role"),),
+            work_plan=WorkPlan("work_plan.ur", 1, (
+                PlanStage("S1", role, (), False, "draft"),)))
+        result = run_preflight(plan)
+        self.assertIs(result.state, PlannerState.BLOCKED)
+        self.assertIn(BlockReason.UNREGISTERED_CAPABILITY, result.reasons)
+
+    def test_an_unmapped_but_registered_skill_blocks(self):
+        """Silence in the authoritative mapping records is not permission."""
+        role = a_mapped_role()
+        unmapped = next(
+            (s for s in sorted(registries.approved_skills())
+             if not registries.skill_is_compatible_with_role(s, role)[0]), None)
+        self.assertIsNotNone(unmapped)
+        plan = base(
+            role_requirements=(RoleRequirement(role, "a conclusion"),),
+            skill_requirements=(SkillRequirement(unmapped, role),),
+            work_plan=WorkPlan("work_plan.um", 1, (
+                PlanStage("S1", role, (), False, "draft"),)))
+        result = run_preflight(plan)
+        self.assertIs(result.state, PlannerState.BLOCKED)
+        self.assertIn(BlockReason.SKILL_ROLE_INCOMPATIBLE, result.reasons)
+
+    def test_planned_spec_identities_are_unique(self):
+        plan = base(work_plan=WorkPlan("work_plan.many", 1, tuple(
+            [PlanStage("S%d" % n, a_role(), (), False, "draft") for n in range(1, 8)]
+            + [PlanStage("G", None, ("S1",), True, "")])))
+        store, basis = issued(plan)
+        trigger = build_trigger(basis, plan, originator="human.alice", store=store)
+        ids = [s.spec_id for s in trigger.planned_work_item_specs]
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(len(ids), 8)
 
 
 if __name__ == "__main__":                                       # pragma: no cover

@@ -63,6 +63,17 @@ which a human decides. A composed plan whose gate stage names a Role is refused 
 the stage graph iteratively and blocks on a cycle or a dangling dependency. A plan the
 Orchestrator could not schedule is not a plan that should reach it.
 
+**Rule WR-11 — stage identity is unique before a basis is issued.** Duplicate stage ids used to
+collapse into one another silently: two stages with the same id became one, and the second
+stage's owner, artifact and dependencies simply disappeared. Every planned work item spec is
+derived from stage identity, so a collision is not cosmetic. `DUPLICATE_STAGE_IDENTITY`.
+
+**Rule WR-12 — every effective stage owner resolves.** A non-gate stage must name an owner; the
+owner must be in the approved Role universe; and the plan must have declared an owned conclusion
+for it. An owner appearing only inside a stage is an assignment nobody declared and no approved
+registry was asked about. `STAGE_OWNER_UNRESOLVED`. The Role and Skill eligibility rules the
+check resolves against are in `registry-eligibility-contract.md`.
+
 ## 6. Non-Runtime Statement
 
 This document is declarative architecture. It specifies no scoring implementation, index,

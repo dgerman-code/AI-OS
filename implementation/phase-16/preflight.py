@@ -16,11 +16,11 @@ from typing import List, Optional, Tuple
 import registries
 from domain import (
     ActivationError, BasisStatus, BlockReason, Criticality, ExecutionBasis, ExecutionMode,
-    GovernanceError, PlannerOutput, PlannerState, PrerequisiteState, REVIEW_FLOOR,
+    GovernanceError, IMPLEMENTATION_SPEC_VERSION, PlannerOutput, PlannerState,
+    PrerequisiteState, REVIEW_FLOOR,
 )
 
-#: The Phase 14 implementation-specification baseline this bridge is written against.
-IMPLEMENTATION_SPEC_VERSION = "phase-14@ba9e3fee"
+__all__ = ["IMPLEMENTATION_SPEC_VERSION", "PreflightResult", "run_preflight"]
 
 
 class PreflightResult:
@@ -91,12 +91,25 @@ def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
             block(BlockReason.UNREGISTERED_CAPABILITY,
                   "%s is not in the approved Role universe" % role.role_ref)
 
-    # G-6  Skills: approved and registered, or non-assignable.
+    # G-6  Skills: approved, registered, AND compatible with the Role they are claimed for.
+    #      Registration alone was never enough: a registered Skill bound to the wrong Role is
+    #      an unassignable binding, and an unmapped pair is silence in the authoritative
+    #      mapping records, which is not permission.
     approved_skills = registries.approved_skills()
     for skill in plan.skill_requirements:
         if skill.skill_ref not in approved_skills or not skill.registered:
             block(BlockReason.UNREGISTERED_CAPABILITY,
                   "%s is not a registered Skill and is not assignable" % skill.skill_ref)
+            continue
+        if skill.for_role is None or skill.for_role not in approved_roles:
+            block(BlockReason.UNREGISTERED_CAPABILITY,
+                  "%s is claimed for %r, which is not an approved Role"
+                  % (skill.skill_ref, skill.for_role))
+            continue
+        compatible, why = registries.skill_is_compatible_with_role(
+            skill.skill_ref, skill.for_role)
+        if not compatible:
+            block(BlockReason.SKILL_ROLE_INCOMPATIBLE, why)
 
     # G-7  Reviews are requirements. Planning never marks one satisfied.
     approved_reviews = registries.approved_review_profiles()
@@ -157,20 +170,18 @@ def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
             elif not version:
                 block(BlockReason.WORKFLOW_VERSION_STALE,
                       "%s is bound without a version" % wf_id)
-            else:
-                try:
-                    bound = int(version)
-                except ValueError:
-                    bound = -1
-                if bound != approved[wf_id]:
-                    block(BlockReason.WORKFLOW_VERSION_STALE,
-                          "%s is bound at v%s; the approved version is v%d"
-                          % (wf_id, version, approved[wf_id]))
+            elif version != approved[wf_id]:
+                # The approved version is the one the Workflow Card DECLARES. The previous
+                # view invented `1` for every Workflow, so a MATCH at a version nobody
+                # approved resolved cleanly.
+                block(BlockReason.WORKFLOW_VERSION_STALE,
+                      "%s is bound at version %s; the approved card declares version %s"
+                      % (wf_id, version, approved[wf_id]))
     else:
         if plan.work_plan is None:
             block(BlockReason.BASIS_NOT_EXECUTABLE, "COMPOSE produced no Work Plan")
         else:
-            _check_plan_shape(plan, block)
+            _check_plan_shape(plan, block, approved_roles)
 
     if reasons:
         return PreflightResult(PlannerState.BLOCKED, None, tuple(reasons), tuple(detail))
@@ -200,17 +211,54 @@ def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
     )
     # VALIDATED -> EXECUTABLE is the whole of what this phase adds. It says intake MAY accept
     # the trigger. It says nothing about whether any gate is satisfied or any act permitted.
-    basis.status = BasisStatus.EXECUTABLE
+    #
+    # The basis is frozen, so the transition is a NEW snapshot rather than an assignment. What
+    # comes back is a CANDIDATE basis: it is not issued until ActivationStore.issue seals it,
+    # and the trigger builder refuses any basis the store cannot produce.
+    basis = basis.with_status(BasisStatus.EXECUTABLE)
     return PreflightResult(PlannerState.VALIDATED, basis, (), ())
 
 
-def _check_plan_shape(plan: PlannerOutput, block) -> None:
-    """A composed plan is acyclic, and its gate stage has no Role participation."""
+def _check_plan_shape(plan: PlannerOutput, block, approved_roles) -> None:
+    """A composed plan is uniquely identified, owned by approved Roles, and acyclic."""
+    # Uniqueness FIRST. The previous version built `{s.stage_id: s}`, which silently collapsed
+    # a duplicate stage id: two stages with the same id became one, the second one's Role,
+    # artifact and dependencies simply vanished, and the plan passed. Stage identity is what
+    # every planned work item spec is derived from, so a collision is not a cosmetic defect.
+    seen = set()
+    duplicates = set()
+    for stage in plan.work_plan.stages:
+        if stage.stage_id in seen:
+            duplicates.add(stage.stage_id)
+        seen.add(stage.stage_id)
+    for duplicate in sorted(duplicates):
+        block(BlockReason.DUPLICATE_STAGE_IDENTITY,
+              "stage id %s appears more than once; stage identity must be unique before a "
+              "basis is issued" % duplicate)
+
+    owned_conclusions = {r.role_ref for r in plan.role_requirements if r.role_ref}
     stages = {s.stage_id: s for s in plan.work_plan.stages}
     for stage in plan.work_plan.stages:
-        if stage.is_gate and stage.role_ref is not None:
-            block(BlockReason.BASIS_NOT_EXECUTABLE,
-                  "gate stage %s has Role participation; a gate is not work" % stage.stage_id)
+        if stage.is_gate:
+            if stage.role_ref is not None:
+                block(BlockReason.BASIS_NOT_EXECUTABLE,
+                      "gate stage %s has Role participation; a gate is not work"
+                      % stage.stage_id)
+        else:
+            # Every effective owner resolves, is approved, and is a Role the plan actually
+            # declared an owned conclusion for. An owner that appears only in a stage is an
+            # assignment nobody declared and no approved registry was asked about.
+            if stage.role_ref is None:
+                block(BlockReason.STAGE_OWNER_UNRESOLVED,
+                      "stage %s has no effective owner and is not a gate" % stage.stage_id)
+            elif stage.role_ref not in approved_roles:
+                block(BlockReason.UNREGISTERED_CAPABILITY,
+                      "stage %s is owned by %s, which is not in the approved Role universe"
+                      % (stage.stage_id, stage.role_ref))
+            elif stage.role_ref not in owned_conclusions:
+                block(BlockReason.STAGE_OWNER_UNRESOLVED,
+                      "stage %s is owned by %s, which the plan declares no owned conclusion "
+                      "for" % (stage.stage_id, stage.role_ref))
         for dep in stage.depends_on:
             if dep not in stages:
                 block(BlockReason.BASIS_NOT_EXECUTABLE,
