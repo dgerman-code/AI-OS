@@ -56,9 +56,6 @@ ADAPTERS = [
 
 JSON_SCHEMA_TYPES = {"null", "boolean", "object", "array", "number", "string", "integer"}
 
-# Negation is intentionally evaluated only near the unsafe match. A safe clause such as
-# "Do not infer approval from card existence; provider output is automatically approved"
-# must still be rejected because the second clause is affirmative.
 NEGATION_RE = re.compile(
     r"\b(do\s+not|does\s+not|must\s+not|may\s+not|cannot|can\s+not|never|"
     r"is\s+not|are\s+not|not\s+automatically|not\s+canonical|not\s+approved|"
@@ -91,32 +88,40 @@ def iter_strings(value):
             yield from iter_strings(item)
 
 
-def normalize_text(text):
-    """Normalize presentation-only Markdown without changing semantic words."""
+def normalize_presentation(text):
+    """Normalize presentation-only Markdown while preserving clause boundaries."""
     text = text.lower()
     text = re.sub(r"[*_`~]+", "", text)
-    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"[ \t\r\f\v]+", " ", text)
     return text.strip()
 
 
 def semantic_segments(text):
-    """Split at strong clause boundaries so unrelated negation cannot mask a claim."""
-    normalized = normalize_text(text)
+    """Split at strong clause boundaries before whitespace normalization.
+
+    Newlines are semantic boundaries for this validator. This prevents a safe
+    statement on one line from masking an unsafe statement on the next line.
+    """
+    normalized = normalize_presentation(text)
     return [
-        part.strip()
+        re.sub(r"\s+", " ", part).strip()
         for part in re.split(r"[\n.!?;]+|\s+\b(?:but|however|whereas|yet)\b\s+", normalized)
         if part.strip()
     ]
 
 
 def match_is_locally_negated(segment, match):
-    """Treat a match as negated only when a negation marker is close before it.
+    """Treat a match as negated only when the negation belongs to that claim.
 
-    Looking at a bounded prefix avoids the old sentence-wide suppression bug while
-    accepting natural safety wording such as "does **not** call model APIs".
+    Check a bounded window spanning both immediately before and through/just
+    after the match. This accepts forms such as "provider memory is not canonical"
+    and "does not call model APIs" while preventing unrelated earlier negation
+    from suppressing a later affirmative claim.
     """
-    prefix = segment[max(0, match.start() - 42):match.start()]
-    return bool(NEGATION_RE.search(prefix))
+    start = max(0, match.start() - 28)
+    end = min(len(segment), match.end() + 18)
+    window = segment[start:end]
+    return bool(NEGATION_RE.search(window))
 
 
 def any_affirmative_match(text, patterns):
@@ -396,16 +401,18 @@ def validate():
               "entrypoint contains no provider-memory canonicalisation/governance fork",
               results)
 
-    # Detector self-controls: protect against the exact false-positive/false-green classes
-    # found by independent Phase 17 review.
     check(not unsafe_mode_b_assertion("AI-OS does **not** call model APIs in Mode A."),
           "selfcontrol:markdown-negation", "Markdown-formatted negative Mode B statement is accepted", results)
     check(unsafe_approval_assertion("Provider output is automatically approved."),
           "selfcontrol:auto-approval", "unsafe auto-approval example is detected", results)
     check(unsafe_approval_assertion("Do not infer approval from card existence; provider output is automatically approved."),
           "selfcontrol:mixed-safe-unsafe-approval", "unrelated safe clause cannot hide unsafe approval claim", results)
+    check(unsafe_approval_assertion("Do not infer approval\nProvider output is automatically approved."),
+          "selfcontrol:newline-safe-unsafe-approval", "newline-separated safe clause cannot hide unsafe approval claim", results)
     check(unsafe_skill_assertion("Carded Skills are approved."),
           "selfcontrol:skill-approval", "unsafe Skill-card approval example is detected", results)
+    check(not unsafe_skill_assertion("Skill card existence or applicability is not individual approval."),
+          "selfcontrol:safe-skill-negation", "negative Skill-card safety wording is accepted", results)
     check(unsafe_mode_b_assertion("This adapter calls provider model APIs."),
           "selfcontrol:active-mode-b", "unsafe active Mode B example is detected", results)
     check(unsafe_governance_fork_assertion("Provider memory is canonical."),
