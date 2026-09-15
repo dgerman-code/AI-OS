@@ -1,9 +1,11 @@
 {
   "schema": "ai-os-manifest/v1",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "mode": "A",
+  "mode_b_status": "DEFERRED",
   "repository": "dgerman-code/AI-OS",
   "entrypoint": "AI_OS_ENTRYPOINT.md",
+  "system_status": "SYSTEM_STATUS.md",
   "governing_principles": [
     "architecture/system-principles.md",
     "architecture/project-criticality-policy.md"
@@ -23,7 +25,8 @@
   },
   "approvals": {
     "records": "reviews",
-    "phase_16": "reviews/phase-16-final-approval.md"
+    "phase_16": "reviews/phase-16-final-approval.md",
+    "phase_17": "reviews/phase-17-final-approval.md"
   },
   "canonical_and_memory": {
     "knowledge": "knowledge",
@@ -31,6 +34,14 @@
   },
   "result_envelope": "contracts/ai-result-envelope.schema.json",
   "connection_guide": "docs/HOW_TO_CONNECT_ANY_AI.md",
+  "completion": {
+    "system_status": "SYSTEM_STATUS.md",
+    "main_readiness": "docs/MAIN_READINESS.md",
+    "mode_a_operational_checklist": "docs/MODE_A_OPERATIONAL_CHECKLIST.md",
+    "github_access_model": "docs/GITHUB_ACCESS_MODEL.md",
+    "final_cold_start_test_plan": "tests/FINAL_COLD_START_TEST_PLAN.md",
+    "phase_18_validator": "validation/phase_18_completion_validation.py"
+  },
   "adapters": {
     "generic": "adapters/mode-a/generic.md",
     "openai_chatgpt": "adapters/mode-a/openai-chatgpt.md",
@@ -47,6 +58,6 @@
     "Do not infer authority from successful analysis, planning, validation or execution.",
     "Do not change Role, Workflow, Skill, Review Profile or Decision Right semantics per provider.",
     "Do not treat provider memory or conversation state as canonical AI-OS state.",
-    "Do not implement Mode B model API calling, provider routing, retries, queues, billing or key management in Mode A."
+    "Mode B is deferred. Do not implement Mode B model API calling, provider routing, retries, queues, billing or key management in Mode A."
   ]
 }
