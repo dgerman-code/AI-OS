@@ -11,22 +11,21 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-LEGACY = os.path.join(HERE, "phase_16_validation_legacy.py")
+LEGACY = os.path.join(HERE, "_planner_activation_validator_core.py")
 
 
 def main():
     as_json = "--json" in sys.argv
-    args = [sys.executable, LEGACY]
+    args = [sys.executable, LEGACY, "--json"]
     if "--verbose" in sys.argv:
         args.append("--verbose")
-    args.append("--json")
     proc = subprocess.run(args, capture_output=True, text=True, env=dict(os.environ))
     try:
         report = json.loads(proc.stdout)
     except Exception as err:
         payload = {
             "status": "RUNNER_ERROR",
-            "runner_errors": ["legacy validator produced malformed/no JSON: %s" % err],
+            "runner_errors": ["validator produced malformed/no JSON: %s" % err],
             "stderr": (proc.stderr or "")[-500:],
         }
         if as_json:
