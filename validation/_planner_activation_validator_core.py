@@ -13,11 +13,18 @@ do the forbidden thing, because a rule that is only written down is a rule a mut
 by editing one sentence. The prose layer then checks that the package says what the code does,
 so the two cannot drift apart silently.
 
-STRUCTURE. Every check lives inside a registered section, and a section that raises records a
-FAIL naming the exception rather than killing the run. That matters for the mutation harness:
-a mutation that makes a check blow up is a DETECTION, and must be distinguishable from a
-harness that could not run at all. With `--json` this file writes valid JSON to stdout and
-nothing else, so the harness can tell those two apart by parsing rather than by exit code.
+STRUCTURE. Every check lives inside a registered section, and a section that raises is caught
+rather than killing the run. What it is caught AS is the whole point:
+
+  * an INFRASTRUCTURE fault - the harness could not run - becomes `status: RUNNER_ERROR`, and
+    is never counted by the mutation harness as a semantic detection;
+  * any other exception means the implementation under test behaved differently enough to
+    break a fixture, which is a finding, so it becomes an ordinary FAIL.
+
+`refuses()` applies the same rule rather than absorbing everything: see its docstring for the
+defect that made this necessary. With `--json` this file writes valid JSON to stdout and
+nothing else, carrying an explicit top-level status, so the harness reads a field rather than
+guessing from an exit code.
 
 It modifies no approved validator and reads no approved artifact except its own registries and
 approval records, read-only.
@@ -78,17 +85,43 @@ def flat(text):
     return " ".join(text.split()).lower()
 
 
+def is_infrastructure_fault(err, expected=()):
+    """Is this exception the HARNESS failing to run, rather than a finding about the code?
+
+    One rule, used by both the refusal helper and the section runner, so the two cannot drift.
+    An exception the caller explicitly expects is never infrastructure: a check may legitimately
+    assert that an `OSError` is raised, and asserting it must not make the run unclassifiable.
+    """
+    if expected and isinstance(err, tuple(expected)):
+        return False
+    return isinstance(err, INFRASTRUCTURE_FAULTS)
+
+
 def refuses(fn, *exc):
     """Did the call refuse with one of the expected governance exceptions?
 
     A rule that can be violated and merely logged is not enforced, so a check that accepted a
     returned error object instead of a raised one would be testing nothing.
+
+    THREE OUTCOMES, NOT TWO. This helper used to end in `except Exception -> (False, "wrong
+    exception")`, which swallowed everything: an injected `RuntimeError` inside a refusal check
+    came back as an ordinary failed check, the validator reported `status: FAIL`, and the
+    mutation harness counted a crash as a semantic DETECTION. That is exactly the confusion the
+    whole RUNNER_ERROR path exists to prevent, and the helper was quietly undoing it one check
+    at a time.
+
+    So an unexpected infrastructure fault is now RE-RAISED. It escapes into the section runner,
+    which classifies it as RUNNER_ERROR. A wrong but ordinary domain or governance exception
+    still returns `(False, ...)`: that is a real finding about the implementation, and filing it
+    under "infrastructure" would let a regression hide behind the word.
     """
     try:
         fn()
     except exc as err:
         return True, "%s: %s" % (type(err).__name__, str(err)[:110])
     except Exception as err:
+        if is_infrastructure_fault(err, exc):
+            raise
         return False, "wrong exception %s: %s" % (type(err).__name__, err)
     return False, "the call returned instead of refusing"
 
@@ -1152,7 +1185,7 @@ def main():
     for name, fn in SECTIONS:
         try:
             fn()
-        except INFRASTRUCTURE_FAULTS as err:
+        except INFRASTRUCTURE_FAULTS as err:      # see is_infrastructure_fault
             # The harness could not RUN: an import failed, a path is missing, the interpreter
             # itself faulted. That is never a semantic finding, and the mutation harness must
             # not read it as one, so it is carried into the top-level status as RUNNER_ERROR.

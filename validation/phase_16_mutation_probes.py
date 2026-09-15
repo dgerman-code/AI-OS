@@ -444,9 +444,17 @@ probe("a blank or placeholder owned conclusion is accepted", impl(P),
 probe("the placeholder set empties, so TBD counts as a conclusion", impl(P),
       r"(?s)_PLACEHOLDER_CONCLUSIONS = \{.*?\}", "_PLACEHOLDER_CONCLUSIONS = set()")
 
-# B5. The harness's own invariant: an unexpected runtime fault is never a detection. Two
-# probes, because there are two distinct paths to it: a fault at IMPORT, which leaves no JSON
-# on stdout at all, and a fault INSIDE a running section, which the validator classifies.
+# B5. The harness's own invariant: an unexpected runtime fault is never a detection. Three
+# probes, because there are three distinct paths to it: a fault at IMPORT, which leaves no JSON
+# on stdout at all; a fault INSIDE a running section; and - the one the final review found - a
+# fault raised by a call the assurance REFUSAL HELPER is wrapping. The helper used to absorb
+# that third case into an ordinary failed check, so a crash was counted as a DETECTION. It now
+# re-raises, and this probe is what holds it to that.
+probe("an unexpected RuntimeError is raised THROUGH the assurance refusal helper", impl(D),
+      r"(    def exercise\(self, \*_args, \*\*_kwargs\):\n)(        raise GovernanceError\()",
+      '\\1        raise RuntimeError("deliberate unexpected fault injected by the Phase 16 '
+      'probe harness")\n\\2',
+      1, RUNNER_ERROR)
 probe("an unexpected RuntimeError is raised inside a running validator section", impl(R),
       r"(?m)^    mappings: Dict\[str, Dict\[str, str\]\] = \{\}$",
       '    raise RuntimeError("deliberate unexpected fault injected by the Phase 16 probe '

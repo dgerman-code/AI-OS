@@ -15,8 +15,8 @@ creates no Decision Right, and does not make this proposal correct.
 | Suite | Result |
 |---|---|
 | `validation/phase_16_validation.py` | **245/245 PASS**, top-level status `PASS`, 0 runner errors |
-| `validation/phase_16_mutation_probes.py` | **101 DETECTED, 11 ESCAPED, 0 REDUNDANT, 2 RUNNER_ERROR of 114**; **103/114 returned the outcome they assert** (both RUNNER_ERROR results are asserted, not accidents), against a pristine copied control at 245/245 |
-| `implementation/phase-16/tests/` | **83 tests, OK** — the 15 mandatory acceptance scenarios, the B1–B4 negative cases, and the survivor regressions |
+| `validation/phase_16_mutation_probes.py` | **101 DETECTED, 11 ESCAPED, 0 REDUNDANT, 3 RUNNER_ERROR of 115**; **104/115 returned the outcome they assert** (all three RUNNER_ERROR results are asserted, not accidents), against a pristine copied control at 245/245 |
+| `implementation/phase-16/tests/` | **92 tests, OK** — the 15 mandatory acceptance scenarios, the B1–B4 negative cases, the survivor regressions, and the B5 runtime-classification regressions |
 | `implementation/phase-16/examples/executable_run.py` | runs; reaches an `EXECUTABLE` basis and a trigger answering all seven intake checks |
 | `implementation/phase-16/examples/blocked_run.py` | runs; every blocked path blocks or refuses, none silently proceeds |
 
@@ -118,6 +118,42 @@ counted as a detection, while an exception caused by the implementation under te
 differently is a semantic `FAIL`, because recording that as "infrastructure" would let a real
 regression hide behind the word.
 
+## 2d. The B5 refusal-helper defect, and why it is worth naming
+
+The assurance synchronisation in §2c gave the validator a RUNNER_ERROR path and claimed that an
+unexpected runtime fault could never be counted as a semantic detection. A final independent
+review showed that claim was **false in one place**, and the place was mine.
+
+`refuses()` — the helper almost every behavioural check goes through — ended in a bare
+`except Exception -> (False, "wrong exception ...")`. So a `RuntimeError` raised by the call it
+was wrapping never reached the section runner at all: it came back as an ordinary failed check.
+The validator reported `status: FAIL`, exit 1, and the mutation harness counted a crash as
+`DETECTED`. The RUNNER_ERROR path was intact everywhere except inside the helper that was
+quietly undoing it, one check at a time.
+
+That is a worse shape of defect than a missing check, because it is a *correct-looking*
+mechanism with a hole in the one component every check passes through — and the earlier probes
+did not find it, because both of them injected their fault outside the helper.
+
+The fix is narrow: `refuses()` now re-raises an unexpected infrastructure fault so it escapes
+into the section runner, and both the helper and the runner ask the same predicate,
+`is_infrastructure_fault`, so the two cannot drift apart again. A wrong but *ordinary* domain or
+governance exception still returns a semantic failure — filing a real regression under
+"infrastructure" would be the mirror-image mistake.
+
+Three outcomes, held apart by tests and by probes rather than by prose:
+
+| Situation | Validator | Harness |
+|---|---|---|
+| The expected refusal is raised | check passes | — |
+| A wrong ordinary exception, or no refusal at all | `status: FAIL`, exit 1 | `DETECTED` |
+| An unexpected `RuntimeError` through the helper | `status: RUNNER_ERROR`, exit 2 | `RUNNER_ERROR` |
+
+Reproduced directly against a throwaway copy: pristine `PASS 245/245` exit 0; the fault through
+the helper `RUNNER_ERROR` exit 2 with the classifier agreeing; and the same attack with the
+helper restored to its old form reproducing the blocker exactly — `FAIL`, exit 1, zero runner
+errors.
+
 ## 3. Where the assurance is weak, stated plainly
 
 | # | Limit |
@@ -149,6 +185,13 @@ and each forbidden item is probed separately rather than as a set.
 governed records iterated `FORBIDDEN_IN_TRIGGER` itself, so deleting an entry from that list
 deleted the check along with it. The probe that removed `review_instance` escaped for exactly
 that reason. The validator now also lists the required members literally.
+
+**Pattern 5 — a correct mechanism with a hole in its shared helper.** The RUNNER_ERROR path
+was right at the section runner and wrong inside `refuses()`, which every behavioural check goes
+through, so the guarantee held everywhere except in the component that mattered most. Both
+existing runtime probes injected their fault outside the helper and so could not see it. The
+mitigation is that the helper and the runner now ask one predicate, and a third probe injects a
+fault through the helper specifically.
 
 **Pattern 4 — a mutation masked by a different guard.** A probe that disables one check while a
 stronger check still refuses looks like a validator gap and is not one. Several C-6 probes
