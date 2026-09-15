@@ -6,8 +6,7 @@ Inherits: `standard.workflow.common_constraints@0.1`
 
 ## Identity
 - Workflow Name: **Formal Escalation**
-- Workflow ID: `workflow.communication.formal_escalation@0.1`
-- Registry-normalised alternative (open item **OG-1**): `workflow.communication_formal_escalation@0.1`
+- Workflow ID: `workflow.communication_formal_escalation@0.1`
 - Version: 0.1 · Status: PROPOSED
 - Workflow Family: Communication / Stakeholder Interaction
 - Governance Owner: AI-OS architecture governance
@@ -77,7 +76,7 @@ nothing, and the instance is `BLOCKED`.
 
 | Capability ID | For Role | Phase 4 basis |
 |---|---|---|
-| `pack.communication.difficult_conversations@0.1` *(candidate)* | `role.communication_difficult_conversations_specialist` *(candidate)* | Pending mapping record (`skill-pack.md` SP-1) |
+| `skill_pack.communication_difficult_conversations@0.1` *(candidate)* | `role.communication_difficult_conversations_specialist` *(candidate)* | Pending mapping record (`skill-pack.md` SP-1) |
 
 ## Inputs
 

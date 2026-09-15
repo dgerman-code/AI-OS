@@ -10,9 +10,7 @@ Inherits: `standard.skill.common_constraints@0.1`
 
 ## Identity
 - Pack Name: **Difficult Conversations & Communication Control**
-- Pack ID (as fixed by the source prompt): `pack.communication.difficult_conversations@0.1`
-- Registry-normalised alternative (see `README.md` §7, open item **OG-1**):
-  `skill_pack.communication_difficult_conversations@0.1`
+- Pack ID: `skill_pack.communication_difficult_conversations@0.1`
 - Type: Skill Pack
 - Pack Class: `METHOD`
 - Contributing Skill Families: Strategy & Analysis; Research & Evidence; Knowledge, Documentation
@@ -23,7 +21,7 @@ Inherits: `standard.skill.common_constraints@0.1`
 - Governance Owner: AI-OS architecture governance
 - Effective Date: on approval, not before
 - Review Date: 12 months from approval
-- Expiry / Invalidation Trigger: a change to `method.communication.calm_direct_control`, to the
+- Expiry / Invalidation Trigger: a change to `method.communication_calm_direct_control`, to the
   role's Decision Right references, or to the approved skill universe entries below
 - Inherits: `standard.skill.common_constraints@0.1`
 - Supersedes / Superseded By: none
@@ -186,7 +184,7 @@ transmit, and never converts a drafted message into an approved one.
 
 | Source / authority | Identifier | Version | Effective date | Status |
 |---|---|---|---|---|
-| AI-OS architecture governance | `method.communication.calm_direct_control` | 0.1 | on approval | PROPOSED |
+| AI-OS architecture governance | `method.communication_calm_direct_control` | 0.1 | on approval | PROPOSED |
 
 No external controlled source is required, and **no AI-generated content is listed as a
 controlled source**. Public communication principles are general knowledge and are not cited as a
@@ -327,6 +325,10 @@ Advisory:
 
 If this pack begins to own a recurring standalone professional artifact or an authority boundary
 independent of an assigned Role, stop and reassess whether the capability belongs in the Role
-Registry instead. That reassessment is precisely why
-`role.communication_difficult_conversations_specialist` is proposed as a Role rather than as a
-specialisation bolted onto an existing one — see `self-check.md` §7.
+Registry instead. That reassessment ran, and a human governance authority decided it: OG-2,
+**`HUMAN DECISION RECORDED: PROFESSIONAL DELIVERY ROLE`**, 2026-09-15, commit `903c58df`.
+`role.communication_difficult_conversations_specialist` is therefore a candidate Professional
+Delivery Role rather than a specialisation bolted onto an existing one — see `self-check.md` §7 and
+`role-skill-mapping-candidates.md`. The decision settles the modelling question and registers,
+approves and activates nothing: the pack remains non-activatable while any Required Skill is a
+candidate (SP-1), and all eight candidate Skills remain candidates (OG-5).

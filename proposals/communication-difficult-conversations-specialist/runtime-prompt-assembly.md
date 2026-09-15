@@ -27,8 +27,8 @@ Each layer may **narrow** what the layers above it permit. No layer may widen on
 |---:|---|---|---|
 | 1 | Common role constraints | `standard.role.common_constraints@0.2` | — (the floor) |
 | 2 | Role Card | `role.communication_difficult_conversations_specialist` | **No** |
-| 3 | Methodology | `method.communication.calm_direct_control@0.1` | **No** |
-| 4 | Skill pack | `pack.communication.difficult_conversations@0.1` | **No** |
+| 3 | Methodology | `method.communication_calm_direct_control@0.1` | **No** |
+| 4 | Skill pack | `skill_pack.communication_difficult_conversations@0.1` | **No** |
 | 5 | Workflow stage | the active stage of the active workflow candidate | **No** |
 | 6 | Scope constraints | the run's scope binding, sensitivity, residency and disclosure labels | **No** |
 | 7 | Adjacent specialist findings | conclusions supplied by owning Roles, at their versions | **No** |

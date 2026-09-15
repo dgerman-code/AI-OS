@@ -6,8 +6,7 @@ Inherits: `standard.workflow.common_constraints@0.1`
 
 ## Identity
 - Workflow Name: **Refusal**
-- Workflow ID: `workflow.communication.refusal@0.1`
-- Registry-normalised alternative (open item **OG-1**): `workflow.communication_refusal@0.1`
+- Workflow ID: `workflow.communication_refusal@0.1`
 - Version: 0.1 · Status: PROPOSED
 - Workflow Family: Communication / Stakeholder Interaction
 - Governance Owner: AI-OS architecture governance
@@ -71,7 +70,7 @@ own action alone, the instance is `BLOCKED`. The slot is not widened and the lea
 
 | Capability ID | For Role | Phase 4 basis |
 |---|---|---|
-| `pack.communication.difficult_conversations@0.1` *(candidate)* | `role.communication_difficult_conversations_specialist` *(candidate)* | Pending mapping record (`skill-pack.md` SP-1) |
+| `skill_pack.communication_difficult_conversations@0.1` *(candidate)* | `role.communication_difficult_conversations_specialist` *(candidate)* | Pending mapping record (`skill-pack.md` SP-1) |
 
 ## Inputs
 
@@ -173,7 +172,7 @@ own action alone, the instance is `BLOCKED`. The slot is not widened and the lea
 - `EXCEPTION_PATH` **Refusal would breach an obligation.** The instance is `ESCALATED` to the
   owning Role and the Decision Right holder for the obligation. Communication does not resolve it.
 - `EXCEPTION_PATH` **Transmission requested.** Re-enters
-  `workflow.communication.difficult_interaction_response@0.1` at its S11 gate.
+  `workflow.communication_difficult_interaction_response@0.1` at its S11 gate.
 
 No exception path bypasses a review or gate reference carried by the normal path.
 

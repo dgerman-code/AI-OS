@@ -6,8 +6,7 @@ Inherits: `standard.workflow.common_constraints@0.1`
 
 ## Identity
 - Workflow Name: **Meeting / Call / Negotiation Communication Preparation**
-- Workflow ID: `workflow.communication.meeting_preparation@0.1`
-- Registry-normalised alternative (open item **OG-1**): `workflow.communication_meeting_preparation@0.1`
+- Workflow ID: `workflow.communication_meeting_preparation@0.1`
 - Version: 0.1 · Status: PROPOSED
 - Workflow Family: Communication / Stakeholder Interaction
 - Governance Owner: AI-OS architecture governance
@@ -73,14 +72,14 @@ high-stakes matter at any score.
 
 | Referenced Workflow | Version | Bounded purpose | Expected inputs | Expected outputs | Parent Stage(s) | Activation |
 |---|---|---|---|---|---|---|
-| `workflow.communication.boundary_setting@0.1` | pinned 0.1 | Produce the boundary set | Positions, constraints | Boundary formulations (`DRAFT`) | S3 | `ALWAYS` |
-| `workflow.communication.refusal@0.1` | pinned 0.1 | Prepare a refusal for an anticipated ask | Anticipated ask, constraints | Refusal script (`DRAFT`) | S4 | `CONDITIONAL(a refusal is anticipated)` |
+| `workflow.communication_boundary_setting@0.1` | pinned 0.1 | Produce the boundary set | Positions, constraints | Boundary formulations (`DRAFT`) | S3 | `ALWAYS` |
+| `workflow.communication_refusal@0.1` | pinned 0.1 | Prepare a refusal for an anticipated ask | Anticipated ask, constraints | Refusal script (`DRAFT`) | S4 | `CONDITIONAL(a refusal is anticipated)` |
 
 ## Activated Skills / Packs
 
 | Capability ID | For Role | Phase 4 basis |
 |---|---|---|
-| `pack.communication.difficult_conversations@0.1` *(candidate)* | `role.communication_difficult_conversations_specialist` *(candidate)* | Pending mapping record (`skill-pack.md` SP-1) |
+| `skill_pack.communication_difficult_conversations@0.1` *(candidate)* | `role.communication_difficult_conversations_specialist` *(candidate)* | Pending mapping record (`skill-pack.md` SP-1) |
 
 ## Inputs
 

@@ -6,8 +6,7 @@ Inherits: `standard.workflow.common_constraints@0.1`
 
 ## Identity
 - Workflow Name: **Thread Diagnostics**
-- Workflow ID: `workflow.communication.thread_diagnostics@0.1`
-- Registry-normalised alternative (open item **OG-1**): `workflow.communication_thread_diagnostics@0.1`
+- Workflow ID: `workflow.communication_thread_diagnostics@0.1`
 - Version: 0.1 · Status: PROPOSED
 - Workflow Family: Communication / Stakeholder Interaction
 - Governance Owner: AI-OS architecture governance
@@ -26,7 +25,7 @@ common way a difficult exchange gets worse.
 ## Trigger
 
 `TRIGGER` — a request to understand an interaction; or invocation as a child of
-`workflow.communication.difficult_interaction_response@0.1` at its S2–S4.
+`workflow.communication_difficult_interaction_response@0.1` at its S2–S4.
 
 ## Preconditions
 
@@ -61,7 +60,7 @@ with no drafting stage, deliberately.
 transmissible is produced, no Decision Right is required **for this act**, and the diagnostic
 records `human_gate_status: NOT_APPLICABLE`. That is not a statement that authority is present,
 and it does not travel: where this diagnostic later feeds
-`workflow.communication.difficult_interaction_response@0.1`, that workflow resolves its own gate
+`workflow.communication_difficult_interaction_response@0.1`, that workflow resolves its own gate
 at its S11 independently and may not inherit `NOT_APPLICABLE` from its input (DC-7a).
 
 ## Participating Roles
@@ -80,7 +79,7 @@ None. This Workflow composes nothing: it is the leaf pattern the others compose.
 
 | Capability ID | For Role | Phase 4 basis |
 |---|---|---|
-| `pack.communication.difficult_conversations@0.1` *(candidate)* | `role.communication_difficult_conversations_specialist` *(candidate)* | Pending mapping record (`skill-pack.md` SP-1) |
+| `skill_pack.communication_difficult_conversations@0.1` *(candidate)* | `role.communication_difficult_conversations_specialist` *(candidate)* | Pending mapping record (`skill-pack.md` SP-1) |
 
 ## Inputs
 
@@ -165,12 +164,12 @@ None. This Workflow composes nothing: it is the leaf pattern the others compose.
 ## Branches / Exception Paths
 
 - `BRANCH` **Invoked as a child.** Where composed by
-  `workflow.communication.difficult_interaction_response@0.1`, the diagnostic is handed to that
+  `workflow.communication_difficult_interaction_response@0.1`, the diagnostic is handed to that
   parent's S5 and this instance completes. It does not continue into drafting.
 - `EXCEPTION_PATH` **Record inadmissible.** S1 blocks. A diagnosis of a record that may not be read
   is a disclosure event, not a deliverable.
 - `EXCEPTION_PATH` **Drafting requested mid-instance.** The request is routed to
-  `workflow.communication.difficult_interaction_response@0.1`. This Workflow does not acquire a
+  `workflow.communication_difficult_interaction_response@0.1`. This Workflow does not acquire a
   drafting stage because someone asked for one.
 - `EXCEPTION_PATH` **A gate is demanded anyway.** Where a caller expects a Decision Right to be
   named for the diagnosis itself, the answer is `NOT_APPLICABLE` with its reason, not a fabricated

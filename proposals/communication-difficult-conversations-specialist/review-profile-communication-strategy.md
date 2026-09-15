@@ -7,7 +7,6 @@ Inherits: `standard.review.common_constraints@0.1`
 ## Identity
 - Review Name: **Communication Strategy Review**
 - Review ID: `review.communication_strategy@0.1`
-- Registry-normalised alternative (open item **OG-1**): `review.communication_strategy` at version 0.1
 - Version: 0.1 · Status: PROPOSED
 - Review Family: Communication / Stakeholder Interaction
 - Governance Owner: AI-OS architecture governance
@@ -213,11 +212,11 @@ gate identification and that the producer did not present the draft as ready to 
 
 ## Workflow / Handoff References
 
-- `workflow.communication.difficult_interaction_response@0.1` S10 — `REVIEW_REQUIRED_REFERENCE`
-- `workflow.communication.meeting_preparation@0.1` S6
-- `workflow.communication.boundary_setting@0.1` S4
-- `workflow.communication.refusal@0.1` S5
-- `workflow.communication.formal_escalation@0.1` S5
+- `workflow.communication_difficult_interaction_response@0.1` S10 — `REVIEW_REQUIRED_REFERENCE`
+- `workflow.communication_meeting_preparation@0.1` S6
+- `workflow.communication_boundary_setting@0.1` S4
+- `workflow.communication_refusal@0.1` S5
+- `workflow.communication_formal_escalation@0.1` S5
 
 Any Handoff transferring a Draft Communication for transmission requires this review `SATISFIED`
 before transfer.

@@ -50,7 +50,15 @@ DOCS = (
     "examples.md",
     "self-check.md",
     "governance-decision-note.md",
+    "role-skill-mapping-candidates.md",
 )
+
+#: The human governance decision record. It is NOT a candidate artifact: it is a record of a
+#: decision a human authority made, and it is legitimately `APPROVED — HUMAN DECISION`. It is held
+#: separately so that the PROPOSED and no-APPROVED checks keep their meaning for everything else,
+#: and so that its own content can be checked for the one thing that matters - that it approves
+#: OG-1 and OG-2 and nothing else.
+DECISION_RECORD = "human-governance-decisions-og1-og2.md"
 
 #: The ten factors are normative. They are listed once, here, and every comparison derives from
 #: the filter document rather than from this tuple - the tuple exists only so that a document
@@ -176,15 +184,16 @@ def says(name, *phrases):
 
 def the_package_is_exactly_its_declared_artifacts():
     present = sorted(f for f in os.listdir(PKG) if not f.startswith("."))
-    missing = [d for d in DOCS if d not in present]
-    unexpected = [f for f in present if f not in DOCS]
+    missing = [d for d in DOCS + (DECISION_RECORD,) if d not in present]
+    unexpected = [f for f in present if f not in DOCS + (DECISION_RECORD,)]
     problems = []
     if missing:
         problems.append("missing: %s" % missing)
     if unexpected:
         problems.append("unexpected: %s" % unexpected)
     return (not problems, str(problems) if problems
-            else "%d package documents, and nothing else" % len(DOCS))
+            else "%d candidate documents and one human decision record, and nothing else"
+                 % len(DOCS))
 
 
 check("structure", "the package is exactly its declared artifact set",
@@ -208,6 +217,51 @@ def nothing_claims_approved_or_canonical():
 
 check("structure", "no artifact claims APPROVED or CANONICAL status",
       nothing_claims_approved_or_canonical)
+
+
+def the_decision_record_approves_only_og1_and_og2():
+    """One file in the package is APPROVED, and only because a human decided two questions.
+
+    The risk a recorded decision creates is over-reading: a reader, or a later drafting pass,
+    treating "a human approved something here" as "the package is approved". The record says
+    otherwise in terms, and this check holds it to that."""
+    record = doc(DECISION_RECORD)
+    problems = []
+    if "Status: `APPROVED — HUMAN DECISION`" not in record:
+        problems.append("the decision record does not declare itself a human decision")
+    for token in ("DECIDE OG-1: NORMALIZE IDENTIFIERS",
+                  "DECIDE OG-2: PROFESSIONAL DELIVERY ROLE"):
+        if token not in record:
+            problems.append("the record does not carry %r" % token)
+    low = flat(record)
+    for denial in ("approve the communication-specialist package",
+                   "approve or activate the candidate role",
+                   "approve candidate skills, skill packs, workflows or review profiles",
+                   "create or approve any decision right",
+                   "grant publication, sending, contractual, legal or other authority",
+                   "claim runtime, production or deployment readiness"):
+        if denial not in low:
+            problems.append("the record does not deny %r" % denial[:44])
+    if "requires an independent package re-audit" not in low:
+        problems.append("the record does not require a re-audit before package approval")
+    # And no candidate artifact may cite it as approving anything beyond the two items.
+    overread = re.compile(
+        r"(human (?:decision|authority)|og-[12]|decision record|903c58)[^.|]{0,80}?"
+        r"(approves?|approved|activat\w*|registers?|authoris\w*)[^.|]{0,40}?"
+        r"(the package|the role|the skills?|the capability|activation|production)",
+        re.IGNORECASE)
+    for name in DOCS:
+        for i, sentence in statements(name):
+            if overread.search(sentence) and not CORRECTIVE.search(sentence) \
+                    and not re.search(r"\b(not|never|no|nothing|neither|does not|did not)\b",
+                                      sentence, re.IGNORECASE):
+                problems.append("%s:%d over-reads the human decision" % (name, i))
+    return (not problems, str(problems)[:400] if problems
+            else "the record decides OG-1 and OG-2, denies approving anything else")
+
+
+check("structure", "the human decision record approves only OG-1 and OG-2",
+      the_decision_record_approves_only_og1_and_og2)
 
 
 #: The approved Phase 13 architecture baseline. Containment is measured against approved
@@ -673,30 +727,181 @@ check("identity", "runtime prompt assembly stays projection-only and narrowing-o
 # =========================================================== governance
 
 
-def og1_and_og2_remain_human_decisions():
+def og1_and_og2_are_recorded_human_decisions():
+    """Both were decided by a human authority. The package records them; it decided neither.
+
+    Two failure directions, and the check covers both: drifting back to "undecided", which would
+    make the package contradict a record it cites; and the package deciding a governance item for
+    itself, which is what the earlier version of this check existed to prevent and still is."""
     note = doc("governance-decision-note.md")
     problems = []
-    for token in ("HUMAN GOVERNANCE DECISION REQUIRED — OG-1",
-                  "HUMAN GOVERNANCE DECISION REQUIRED — OG-2"):
+    for token in ("HUMAN DECISION RECORDED: NORMALIZE IDENTIFIERS",
+                  "HUMAN DECISION RECORDED: PROFESSIONAL DELIVERY ROLE"):
         if token not in note:
-            problems.append("the note does not leave %s open" % token[-4:])
+            problems.append("the note does not record %r" % token)
+    if "HUMAN GOVERNANCE DECISION REQUIRED" in note:
+        problems.append("the note still shows a decided item as requiring a decision")
+    # The record and its commit must be cited wherever the status is claimed.
+    for name in ("governance-decision-note.md", "self-check.md", "README.md"):
+        body = doc(name)
+        if "903c58df" not in body:
+            problems.append("%s claims a decision without citing the record's commit" % name)
+        if "human-governance-decisions-og1-og2.md" not in body:
+            problems.append("%s claims a decision without citing the record" % name)
+    # The package still decides nothing of its own.
     decided = re.compile(r"(this (?:package|note) decides|we (?:decide|choose|adopt)|"
-                         r"hereby decid|og-[12] is (?:now )?(?:resolved|decided)|"
-                         r"option [ab] is (?:adopted|chosen|selected)|is decided here)",
-                         re.IGNORECASE)
-    for i, sentence in statements("governance-decision-note.md"):
-        if decided.search(sentence) and not CORRECTIVE.search(sentence):
-            problems.append("governance-decision-note.md:%d decides a human item" % i)
-    if says("governance-decision-note.md", "this note decides nothing"):
+                         r"hereby decid|option [ab] is (?:adopted|chosen|selected) here|"
+                         r"is decided here)", re.IGNORECASE)
+    for name in DOCS:
+        for i, sentence in statements(name):
+            if decided.search(sentence) and not CORRECTIVE.search(sentence):
+                problems.append("%s:%d decides a governance item for itself" % (name, i))
+    if says("governance-decision-note.md", "this note **decides nothing**"):
         problems.append("the note does not disclaim deciding")
-    if "no role is created, registered or approved by" not in flat(note):
+    if "no role is created, registered or approved here" not in flat(note):
         problems.append("the note does not deny creating the Role")
-    return (not problems, str(problems)[:300] if problems
-            else "OG-1 and OG-2 recorded with options, consequences and a recommendation, undecided")
+    # A decision that settled the modelling question did not register or approve anything.
+    for phrase in ("does not register the Role", "remains 59"):
+        if says("role-card.md", phrase):
+            problems.append("the Role Card does not bound the decision: missing %r" % phrase)
+    # The history must survive: the earlier baseline deferred both, correctly.
+    for phrase in ("The earlier baseline was right to defer this",
+                   "The earlier baseline was right to defer this too"):
+        if says("governance-decision-note.md", phrase):
+            problems.append("the note rewrites history: missing %r" % phrase[:40])
+    return (not problems, str(problems)[:400] if problems
+            else "OG-1 and OG-2 recorded as human decisions, cited, bounded, and decided elsewhere")
 
 
-check("governance", "OG-1 and OG-2 remain HUMAN GOVERNANCE DECISION REQUIRED",
-      og1_and_og2_remain_human_decisions)
+check("governance", "OG-1 and OG-2 are recorded human decisions, not package decisions",
+      og1_and_og2_are_recorded_human_decisions)
+
+
+def identifiers_are_normalized_with_one_canonical_form_each():
+    """OG-1 applied: the approved registry shapes, one identity per object, no dotted survivors."""
+    problems = []
+    dotted = re.compile(r"`?(?:pack|method|workflow|skill_pack|review|role|skill)"
+                        r"\.[a-z0-9_]+\.[a-z0-9_]+", re.IGNORECASE)
+    traceability = doc("README.md")
+    marker = "### Historical identifiers — traceability metadata only"
+    historical = traceability.split(marker)[1].split("\n\n**One correction")[0] \
+        if marker in traceability else ""
+    if not historical:
+        problems.append("README has no historical-identifier traceability section")
+    for name in DOCS:
+        body = doc(name)
+        for i, line in enumerate(body.splitlines(), 1):
+            if name == "README.md" and line in historical:
+                continue
+            m = dotted.search(line)
+            if m:
+                problems.append("%s:%d keeps a dotted identifier %r" % (name, i, m.group(0)))
+    # Exactly one canonical ID per object: the dual-identity lines must be gone everywhere.
+    for name in DOCS:
+        if "Registry-normalised alternative" in doc(name):
+            problems.append("%s still carries a second canonical identity" % name)
+    # The normalized IDs must actually be present where they belong.
+    expected = {
+        "skill-pack.md": "skill_pack.communication_difficult_conversations@0.1",
+        "methodology-card.md": "method.communication_calm_direct_control@0.1",
+        "workflow-difficult-interaction-response.md":
+            "workflow.communication_difficult_interaction_response@0.1",
+        "workflow-meeting-preparation.md": "workflow.communication_meeting_preparation@0.1",
+        "workflow-boundary-setting.md": "workflow.communication_boundary_setting@0.1",
+        "workflow-refusal.md": "workflow.communication_refusal@0.1",
+        "workflow-formal-escalation.md": "workflow.communication_formal_escalation@0.1",
+        "workflow-thread-diagnostics.md": "workflow.communication_thread_diagnostics@0.1",
+        "review-profile-communication-strategy.md": "review.communication_strategy@0.1",
+    }
+    for name, identifier in expected.items():
+        if identifier not in doc(name):
+            problems.append("%s does not carry its canonical ID %s" % (name, identifier))
+    # And the traceability table may not be read as a live alias.
+    for phrase in ("are **not** identities", "may not be used in any reference"):
+        if says("README.md", phrase):
+            problems.append("the historical IDs are not disclaimed: missing %r" % phrase[:34])
+    return (not problems, str(problems)[:400] if problems
+            else "one canonical identifier per object, in the approved shape, no dotted survivors")
+
+
+check("identity", "identifiers are normalized to one canonical form each",
+      identifiers_are_normalized_with_one_canonical_form_each)
+
+
+def the_role_is_a_candidate_professional_delivery_role():
+    """OG-2 applied: a Role, candidate, bounded - and never quietly demoted to a pack again."""
+    card = doc("role-card.md")
+    problems = []
+    # The Identity line is the one a reader and a registry pass both take the Role Type from.
+    # Testing the whole document let the type survive in the decision blockquote while the
+    # Identity line said "Specialisation" - which is exactly the weakening a probe planted.
+    type_rows = [ln for ln in card.splitlines() if ln.startswith("- Role Type:")]
+    if not type_rows:
+        problems.append("the Role Card has no Role Type line")
+    for row in type_rows:
+        if "professional delivery role" not in flat(row):
+            problems.append("the Role Type line does not state the decided type: %r" % row[:70])
+        if re.search(r"specialisation|specialization|skill pack", flat(row)):
+            problems.append("the Role Type line names a specialisation: %r" % row[:70])
+    position = [ln for ln in card.splitlines() if ln.startswith("- Position in the Role universe:")]
+    if not position:
+        problems.append("the Role Card does not state its proposed position in the universe")
+    if says("role-card.md", "HUMAN DECISION RECORDED: PROFESSIONAL DELIVERY ROLE"):
+        problems.append("the Role Card does not record the OG-2 decision")
+    if says("role-card.md", "60th"):
+        problems.append("the Role Card does not state its proposed position")
+    # The mapping proposal must exist, and must disclaim being a Phase 4 record.
+    mapping = doc("role-skill-mapping-candidates.md")
+    for phrase in ("This is a proposal surface, not a mapping record",
+                   "authorises no activation", "a candidate Skill is unavailable",
+                   "this document authorises nothing",
+                   "no approved registry is edited by this package"):
+        if says("role-skill-mapping-candidates.md", phrase):
+            problems.append("the candidate mapping does not say %r" % phrase[:40])
+    # The candidate REQUIRED_CORE block must say, in its own words, that none of them exists.
+    if "### REQUIRED_CORE — candidate Skills" in mapping:
+        block = flat(mapping.split("### REQUIRED_CORE — candidate Skills")[1]
+                     .split("### REQUIRED_FOR_CONTEXT")[0])
+        if "none of these exists" not in block:
+            problems.append("the candidate Skill block does not say none of them exists")
+        if "skill registry change control" not in block:
+            problems.append("the candidate Skill block does not require Skill Registry change "
+                            "control")
+        if re.search(r"available for activation|activatable|ready to activate", block):
+            problems.append("the candidate Skill block presents them as activatable")
+    else:
+        problems.append("the candidate mapping has no candidate REQUIRED_CORE block")
+    for candidate in ("skill.interaction_response_triage", "skill.boundary_formulation",
+                      "skill.refusal_design", "skill.de_escalation_framing",
+                      "skill.communication_reactivity_detection", "skill.conversational_control",
+                      "skill.non_response_strategy", "skill.communication_control_filtering"):
+        if candidate not in mapping:
+            problems.append("the candidate mapping omits %s" % candidate)
+        row = [ln for ln in mapping.splitlines() if candidate in ln]
+        if row and "candidate" not in flat(row[0]):
+            problems.append("%s is listed without being marked a candidate" % candidate)
+    # No statement may reduce the decided Role back to a specialisation or pack-only capability.
+    demoted = re.compile(
+        r"(the )?(capability|role|communication specialist)[^.|]{0,60}?"
+        r"(is|remains|should be|stays)[^.|]{0,30}?"
+        r"(only a|just a|merely a)?\s?(specialisation|specialization|skill pack|pack)\b",
+        re.IGNORECASE)
+    for name in DOCS:
+        for i, sentence in statements(name):
+            if demoted.search(sentence) and not CORRECTIVE.search(sentence) \
+                    and not re.search(r"\b(not|never|rather than|instead of)\b", sentence,
+                                      re.IGNORECASE):
+                problems.append("%s:%d demotes the decided Role to a specialisation"
+                                % (name, i))
+    # The approved universe is untouched.
+    if says("role-card.md", "roles/master-role-universe.md` is untouched"):
+        problems.append("the Role Card does not say the approved universe is untouched")
+    return (not problems, str(problems)[:400] if problems
+            else "a candidate Professional Delivery Role, 60th proposed, registering nothing")
+
+
+check("governance", "the capability is a candidate Professional Delivery Role",
+      the_role_is_a_candidate_professional_delivery_role)
 
 
 def the_role_never_overrides_a_substantive_conclusion():

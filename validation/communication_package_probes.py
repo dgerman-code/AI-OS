@@ -154,9 +154,77 @@ PROBES = [
 
     ("the governance note decides OG-2 on its own authority",
      "governance-decision-note.md",
-     "**`HUMAN GOVERNANCE DECISION REQUIRED — OG-2`.** No Role is created, registered or approved by\nthis package.",
-     "OG-2 is now resolved: option A is adopted and the Role is registered.",
-     "OG-1 and OG-2 remain human decisions"),
+     "No Role is created,\nregistered or approved here.",
+     "Option A is adopted here and the Role is registered by this package.",
+     "the package decides no governance item for itself"),
+
+    # ---- OG-1 applied: one canonical identifier per object -------------------------------
+    ("a dotted identifier survives in an active workflow card",
+     "workflow-refusal.md",
+     "- Workflow ID: `workflow.communication_refusal@0.1`",
+     "- Workflow ID: `workflow.communication.refusal@0.1`",
+     "no dotted identifier survives"),
+
+    ("a dotted identifier survives in the skill pack",
+     "skill-pack.md",
+     "- Pack ID: `skill_pack.communication_difficult_conversations@0.1`",
+     "- Pack ID: `pack.communication.difficult_conversations@0.1`",
+     "no dotted identifier survives"),
+
+    ("the methodology reverts to the prompt-fixed identifier",
+     "methodology-card.md",
+     "Methodology ID: `method.communication_calm_direct_control@0.1`",
+     "Methodology ID: `method.communication.calm_direct_control@0.1`",
+     "no dotted identifier survives"),
+
+    ("a second canonical identity is restored beside a primary ID",
+     "workflow-meeting-preparation.md",
+     "- Workflow ID: `workflow.communication_meeting_preparation@0.1`",
+     "- Workflow ID: `workflow.communication_meeting_preparation@0.1`\n- Registry-normalised alternative (open item **OG-1**): `workflow.meeting_preparation@0.1`",
+     "exactly one canonical identifier per object"),
+
+    ("the historical identifiers stop being disclaimed",
+     "README.md",
+     "The IDs below were fixed by the commissioning prompt and are **not** identities. They resolve to\nnothing, may not be used in any reference, mapping, workflow, evaluation fixture or validator\nassertion, and are recorded here so that the originating text remains traceable.",
+     "The IDs below were fixed by the commissioning prompt and remain valid alternatives for any\nreference, mapping, workflow, evaluation fixture or validator assertion.",
+     "a historical alias never becomes a second identity"),
+
+    # ---- OG-2 applied: a candidate Professional Delivery Role ----------------------------
+    ("the Role is demoted back to a specialisation",
+     "self-check.md",
+     "| A new Role being created where a specialisation would do | **OG-2 — decided by a human authority**, Professional Delivery Role. See below | Decided; the Role is still a candidate and still unregistered |",
+     "| A new Role being created where a specialisation would do | The capability is only a specialisation attached to existing Roles | Resolved |",
+     "the capability is a candidate Professional Delivery Role"),
+
+    ("the Role Card drops the Role Type the decision settled",
+     "role-card.md",
+     "- Role Type: **Professional Delivery Role** — candidate, per the OG-2 human decision above",
+     "- Role Type: Specialisation attached to existing Roles",
+     "the capability is a candidate Professional Delivery Role"),
+
+    ("the candidate Role is described as registered by the decision",
+     "role-card.md",
+     "The decision settles the\n> *modelling question only*. It does not register the Role, approve it, activate it, make it\n> assignable, or change the approved Role universe, which remains **59 approved Roles**.",
+     "The decision registers the Role and approves it for assignment, taking the approved Role\n> universe to 60.",
+     "a human decision on modelling registers nothing"),
+
+    ("the candidate mapping is presented as a Phase 4 mapping record",
+     "role-skill-mapping-candidates.md",
+     "> **This is a proposal surface, not a mapping record.**",
+     "> **This is the authoritative Phase 4 mapping record for this Role.**",
+     "no candidate mapping authorises activation"),
+
+    ("candidate Skills are presented as activatable",
+     "role-skill-mapping-candidates.md",
+     "**None of these exists.** Each is a candidate under OG-5 and requires Skill Registry change control\nbefore it can be activated for any Role.",
+     "Each of these is available for activation once the Role is assigned.",
+     "a candidate Skill is unavailable"),
+
+    ("the human decision record is read as approving the package",
+     "self-check.md",
+     "are recorded here as decided. The rest are recorded, not resolved: each requires a governance\ndecision this package must not make for itself.",
+     "are recorded here as decided, and the human decision therefore approves the package and\nactivates the capability.",
+     "the human decision record approves only OG-1 and OG-2"),
 
     ("a package artifact is promoted out of PROPOSED",
      "self-check.md",

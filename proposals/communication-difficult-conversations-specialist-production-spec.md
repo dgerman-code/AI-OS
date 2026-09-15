@@ -10,7 +10,7 @@ Architecture basis: approved AI-OS Phase 1–11 baseline
 Canonical product / role name: **Difficult Conversations & Communication Strategy Specialist**.
 Canonical Role candidate ID: `role.communication_difficult_conversations_specialist`.
 Compatibility / research alias: `jefferson-fisher-communication`.
-Methodology candidate ID: `method.communication.calm_direct_control@0.1`.
+Methodology candidate ID: `method.communication_calm_direct_control@0.1`.
 Optional UI attribution note: **Communication methodology informed by publicly available principles associated with Jefferson Fisher’s work on difficult conversations, boundaries, clarity, assertiveness, emotional self-control, and conversational leadership.**
 
 The product must not present itself as Jefferson Fisher, must not imply endorsement, licensing, training or approval by him, and must not reproduce protected books, paid courses, proprietary transcripts, or proprietary frameworks. The implementation is an original AI-OS methodology built from public high-level communication principles.
@@ -51,7 +51,7 @@ The capability should not be implemented as a celebrity-named autonomous agent. 
 
 **Professional conclusion:** may conclude that a proposed communication strategy is professionally fit for purpose from a difficult-conversation and communication-control perspective. This is not legal approval, institutional approval, publication approval, or authorisation to transmit.
 
-**Required methodology:** `method.communication.calm_direct_control@0.1`.
+**Required methodology:** `method.communication_calm_direct_control@0.1`.
 
 **Default knowledge state of output:** DRAFT.
 
@@ -61,7 +61,7 @@ The capability should not be implemented as a celebrity-named autonomous agent. 
 
 ### A2. Methodology candidate
 
-`method.communication.calm_direct_control@0.1`
+`method.communication_calm_direct_control@0.1`
 
 Optimization order:
 
@@ -75,7 +75,7 @@ Core principle: communicate enough to make the position clear, but not so much t
 
 ### A3. Skill / specialisation candidate
 
-`pack.communication.difficult_conversations@0.1`
+`skill_pack.communication_difficult_conversations@0.1`
 
 Capabilities:
 
@@ -97,7 +97,7 @@ Capabilities:
 
 ### A4. Workflow candidates
 
-Primary workflow: `workflow.communication.difficult_interaction_response@0.1`
+Primary workflow: `workflow.communication_difficult_interaction_response@0.1`
 
 Stages:
 
@@ -115,11 +115,11 @@ Stages:
 
 Secondary workflows:
 
-- `workflow.communication.meeting_preparation@0.1`
-- `workflow.communication.boundary_setting@0.1`
-- `workflow.communication.refusal@0.1`
-- `workflow.communication.formal_escalation@0.1`
-- `workflow.communication.thread_diagnostics@0.1`
+- `workflow.communication_meeting_preparation@0.1`
+- `workflow.communication_boundary_setting@0.1`
+- `workflow.communication_refusal@0.1`
+- `workflow.communication_formal_escalation@0.1`
+- `workflow.communication_thread_diagnostics@0.1`
 
 ### A5. Review candidates
 

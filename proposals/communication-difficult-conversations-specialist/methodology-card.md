@@ -1,7 +1,7 @@
 # Calm Direct Control — Methodology Candidate
 
 Status: `PROPOSED`
-Methodology ID: `method.communication.calm_direct_control@0.1`
+Methodology ID: `method.communication_calm_direct_control@0.1`
 Version: 0.1
 Governance Owner: AI-OS architecture governance
 Owning Role: `role.communication_difficult_conversations_specialist`

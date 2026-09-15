@@ -6,8 +6,7 @@ Inherits: `standard.workflow.common_constraints@0.1`
 
 ## Identity
 - Workflow Name: **Difficult Interaction Response**
-- Workflow ID (as fixed by the source prompt): `workflow.communication.difficult_interaction_response@0.1`
-- Registry-normalised alternative (open item **OG-1**): `workflow.difficult_interaction_response@0.1`
+- Workflow ID: `workflow.communication_difficult_interaction_response@0.1`
 - Version: 0.1
 - Status: PROPOSED
 - Workflow Family: Communication / Stakeholder Interaction
@@ -83,10 +82,10 @@ communication Role does not fill the gap.
 
 | Referenced Workflow | Version / reference policy | Bounded purpose | Expected inputs | Expected outputs | Parent Stage(s) | Activation |
 |---|---|---|---|---|---|---|
-| `workflow.communication.thread_diagnostics@0.1` | pinned 0.1 | Produce the Conversation Diagnostic | Interaction record, scope binding | Conversation Diagnostic (`DRAFT`) | S2–S4 | `ALWAYS` |
-| `workflow.communication.boundary_setting@0.1` | pinned 0.1 | Produce a boundary formulation where one is required | Diagnostic, constraints | Boundary text (`DRAFT`) | S7 | `CONDITIONAL(a boundary issue is classified material)` |
-| `workflow.communication.refusal@0.1` | pinned 0.1 | Produce a refusal where the posture is to decline | Diagnostic, constraints | Refusal text (`DRAFT`) | S7 | `CONDITIONAL(response posture = refuse)` |
-| `workflow.communication.formal_escalation@0.1` | pinned 0.1 | Produce a formal escalation where the ladder is exhausted | Diagnostic, chronology | Escalation artifact (`DRAFT`) | S7 | `CONDITIONAL(escalation recommended and accepted)` |
+| `workflow.communication_thread_diagnostics@0.1` | pinned 0.1 | Produce the Conversation Diagnostic | Interaction record, scope binding | Conversation Diagnostic (`DRAFT`) | S2–S4 | `ALWAYS` |
+| `workflow.communication_boundary_setting@0.1` | pinned 0.1 | Produce a boundary formulation where one is required | Diagnostic, constraints | Boundary text (`DRAFT`) | S7 | `CONDITIONAL(a boundary issue is classified material)` |
+| `workflow.communication_refusal@0.1` | pinned 0.1 | Produce a refusal where the posture is to decline | Diagnostic, constraints | Refusal text (`DRAFT`) | S7 | `CONDITIONAL(response posture = refuse)` |
+| `workflow.communication_formal_escalation@0.1` | pinned 0.1 | Produce a formal escalation where the ladder is exhausted | Diagnostic, chronology | Escalation artifact (`DRAFT`) | S7 | `CONDITIONAL(escalation recommended and accepted)` |
 
 A reference is declarative: it names a child pattern and does not execute it. It transfers no Role
 ownership, Skill compatibility, review identity, Decision Right, gate or knowledge-state
@@ -96,7 +95,7 @@ authority. Self-reference, direct or transitive, is a registry defect and none e
 
 | Capability ID | For Role | Phase 4 basis |
 |---|---|---|
-| `pack.communication.difficult_conversations@0.1` *(candidate)* | `role.communication_difficult_conversations_specialist` *(candidate)* | Pending — the mapping record does not yet exist (`skill-pack.md` SP-1) |
+| `skill_pack.communication_difficult_conversations@0.1` *(candidate)* | `role.communication_difficult_conversations_specialist` *(candidate)* | Pending — the mapping record does not yet exist (`skill-pack.md` SP-1) |
 
 A Workflow cannot make a Role compatible with a Skill that Phase 4 does not allow. Until the
 mapping exists, an instance of this Workflow is not executable in a governed run.

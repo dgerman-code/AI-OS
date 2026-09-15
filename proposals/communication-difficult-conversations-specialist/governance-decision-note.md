@@ -4,11 +4,12 @@ Status: `PROPOSED`
 Version: 0.1
 Governance Owner: AI-OS architecture governance
 
-> This note **decides nothing**. It sets out two questions that require human governance
-> authority, the options, the consequences of each, and a recommendation. It creates no Decision
-> Right, promotes no artifact, and approves nothing. Both items remain
-> **`HUMAN GOVERNANCE DECISION REQUIRED`** until a human with the applicable authority decides
-> them.
+> This note **decides nothing**. It set out two questions that required human governance
+> authority, with options, consequences and a recommendation. **A human governance authority has
+> since decided both**, in `human-governance-decisions-og1-og2.md` (decision date 2026-09-15,
+> commit `903c58dfa565f5f14a9af19efcccceabae328f26`). This note records those decisions; it did
+> not make them, and it creates no Decision Right, promotes no artifact and approves nothing.
+> Neither decision approves the package, activates any capability, or makes any runtime claim.
 
 ## 1. Why this note exists
 
@@ -30,9 +31,9 @@ use?
 
 | | Dotted form (as written) | Normalised form |
 |---|---|---|
-| Skill pack | `pack.communication.difficult_conversations@0.1` | `skill_pack.communication_difficult_conversations@0.1` |
-| Methodology | `method.communication.calm_direct_control@0.1` | `method.communication_calm_direct_control@0.1` |
-| Workflows | `workflow.communication.difficult_interaction_response@0.1` | `workflow.communication_difficult_interaction_response@0.1` |
+| Skill pack | `skill_pack.communication_difficult_conversations@0.1` | `skill_pack.communication_difficult_conversations@0.1` |
+| Methodology | `method.communication_calm_direct_control@0.1` | `method.communication_calm_direct_control@0.1` |
+| Workflows | `workflow.communication_difficult_interaction_response@0.1` | `workflow.communication_difficult_interaction_response@0.1` |
 | Reviews | `review.communication_strategy@0.1` | already conformant |
 
 ### Is the answer mechanical?
@@ -67,9 +68,18 @@ the prompt said so, and the prompt did not know it was choosing a second convent
 
 ### Status
 
-**`HUMAN GOVERNANCE DECISION REQUIRED — OG-1`.** The package continues to use the dotted IDs
-until this is decided, and each affected artifact states the normalised alternative beside its
-primary ID so the change stays mechanical.
+**`HUMAN DECISION RECORDED: NORMALIZE IDENTIFIERS`** — OG-1, decided 2026-09-15 by the human
+governance authority, recorded in `human-governance-decisions-og1-og2.md` at commit
+`903c58dfa565f5f14a9af19efcccceabae328f26`. **Option B.**
+
+Applied in the package: every candidate object now carries exactly one canonical identifier in the
+approved registry shape, and the dual-identity lines are removed. The prompt-fixed IDs are recorded
+as traceability metadata in `README.md` §7 and resolve to nothing.
+
+**The earlier baseline was right to defer this.** At `9686c90` the package used the prompt's IDs
+and recorded the divergence rather than normalising it, because a drafting agent normalising a
+prompt-fixed identifier would have been making this governance choice quietly. That was the correct
+posture then; it is superseded now by a decision, not by a better argument.
 
 ## 3. OG-2 — Role versus Specialisation
 
@@ -125,8 +135,22 @@ governance's call, not this package's.
 
 ### Status
 
-**`HUMAN GOVERNANCE DECISION REQUIRED — OG-2`.** No Role is created, registered or approved by
-this package. The Role Card in it is a **candidate** and says so in its first line.
+**`HUMAN DECISION RECORDED: PROFESSIONAL DELIVERY ROLE`** — OG-2, decided 2026-09-15 by the human
+governance authority, recorded in `human-governance-decisions-og1-og2.md` at commit
+`903c58dfa565f5f14a9af19efcccceabae328f26`. **Option A.**
+
+The capability is modelled as a candidate **Professional Delivery Role**, proposed as the 60th in
+the Role universe, subject to the normal Role Registry, Skill Registry, mapping, review and
+approval process.
+
+**What the decision does not do**, stated because a recorded decision is the easiest thing in a
+package to over-read: it does not register the Role, does not approve it, does not activate it,
+does not make it assignable, and does not add it to the approved Role universe — which remains 59
+approved Roles. `roles/master-role-universe.md` is untouched by this package. No Role is created,
+registered or approved here. The Role Card remains a **candidate** and says so in its first line.
+
+**The earlier baseline was right to defer this too.** Recommending Option A while leaving the
+choice open was the correct posture for a proposal that does not hold Role Registry authority.
 
 ## 4. Recorded for governance: the withdrawn candidate Decision Right
 
@@ -165,12 +189,21 @@ package does not fill it.
 | OG-7 | Routing weights are declared, not validated | An evidence question, not an authority question |
 | OG-8 | No full-Profile reviewer for the high-stakes review | Recorded deliberately; follows OG-2 |
 
-## 6. What a decision on OG-1 and OG-2 unblocks
+## 6. What the decisions on OG-1 and OG-2 unblocked, and what they did not
 
-Neither decision makes the package approvable. Both are prerequisites to the work that would:
-registering the candidate Skills, writing the Role-to-Skill mapping records, and running the
-evaluation suite against a built capability. Until all of that exists, the package remains a
-specification nobody has executed.
+Neither decision makes the package approvable. Both were prerequisites to work that is now done or
+now possible:
+
+| Now done in the package | Now possible, and still outside it |
+|---|---|
+| Identifiers normalised to one canonical shape each (OG-1) | Registering the eight candidate Skills — Skill Registry change control (OG-5) |
+| The Role modelled as a candidate Professional Delivery Role, aligned to the Role Card standard (OG-2) | Registering the Role — Role Registry change control |
+| Candidate Role-to-Skill mapping recorded as a proposal surface (`role-skill-mapping-candidates.md`) | Making any of those mappings authoritative — Phase 4 mapping is its own governed act (OG-6) |
+| The full-Profile reviewer question re-read against the Role decision (OG-8) | Approving a reviewer path for the high-stakes Profile |
+
+What remains true is what mattered before either decision: **the package specifies a capability
+nobody has executed.** No Skill exists, no mapping is authoritative, no evaluation has run against a
+built capability, and nothing here is approved.
 
 ## 7. Non-Runtime Statement
 

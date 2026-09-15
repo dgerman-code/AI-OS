@@ -7,12 +7,22 @@ Inherits: `standard.role.common_constraints@0.2`
 > Candidate only. Not registered, not approved, not part of the approved role universe. Adding
 > this Role requires Role Registry change control.
 
+> **OG-2 — `HUMAN DECISION RECORDED: PROFESSIONAL DELIVERY ROLE`.** A human governance authority
+> decided on 2026-09-15 (`human-governance-decisions-og1-og2.md`, commit
+> `903c58dfa565f5f14a9af19efcccceabae328f26`) that this capability is modelled as a candidate
+> **Professional Delivery Role** rather than as a Specialisation or methodology pack attached to
+> existing Roles — proposed as the **60th** in the Role universe. The decision settles the
+> *modelling question only*. It does not register the Role, approve it, activate it, make it
+> assignable, or change the approved Role universe, which remains **59 approved Roles**.
+> `roles/master-role-universe.md` is untouched by this package.
+
 ## Identity
 - Role Name: **Difficult Conversations & Communication Strategy Specialist**
 - Role ID: `role.communication_difficult_conversations_specialist`
 - Compatibility / research alias (never canonical, never a display name): `jefferson-fisher-communication`
 - Capability Domain: Communication / Negotiation / Executive Support
-- Role Type: Professional Delivery Role
+- Role Type: **Professional Delivery Role** — candidate, per the OG-2 human decision above
+- Position in the Role universe: proposed **60th** Professional Delivery Role; the approved universe is 59 and is unchanged by this package
 - Profile Level: **EXTENDED**
 - Version: 0.1
 - Status: PROPOSED
@@ -209,7 +219,7 @@ Input **artifact classes**, not named upstream Roles:
 
 ## Required Methodologies
 
-- `method.communication.calm_direct_control@0.1` — mandatory. The Role has no second methodology
+- `method.communication_calm_direct_control@0.1` — mandatory. The Role has no second methodology
   and no "off" mode; Calm Direct Mode is a parameterisation of this methodology, not an
   alternative to it.
 

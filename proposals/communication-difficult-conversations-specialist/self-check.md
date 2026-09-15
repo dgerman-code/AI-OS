@@ -101,20 +101,40 @@ The inherited standards cited — `standard.role.common_constraints@0.2`,
 | Missing authority fails closed | DG-5 | ✓ |
 | No celebrity impersonation or endorsement | `README.md` CP-1, CP-2; `methodology-card.md` S-6; `evaluation-spec.md` HF-3; `runtime-prompt-assembly.md` A7 | ✓ |
 
-## 6. Open governance gaps
+## 6. Governance items — two decided, six open
 
-Recorded, not resolved. Each requires a governance decision this package must not make for itself.
+OG-1 and OG-2 were decided by a human governance authority on 2026-09-15
+(`human-governance-decisions-og1-og2.md`, commit `903c58dfa565f5f14a9af19efcccceabae328f26`) and
+are recorded here as decided. The rest are recorded, not resolved: each requires a governance
+decision this package must not make for itself.
 
 | # | Gap | Why it is not resolved here |
 |---:|---|---|
-| **OG-1** | **Identifier-shape divergence.** The prompt fixes IDs with a dotted namespace (`pack.communication.*`, `workflow.communication.*`, `method.communication.*`), while the approved Phase 4 / 5 templates use `skill_pack.<snake_case>` and `workflow.<snake_case>` | Normalising either side is a registry change-control decision. Each affected artifact states the normalised alternative beside its primary ID so the choice is mechanical later |
-| **OG-2** | **Role vs specialisation.** Whether this capability should be a new Role at all, rather than a specialisation attached to `role.institutional_communications_editorial_specialist`, `role.institutional_affairs_stakeholder_specialist` or `role.people_organisation_specialist` | This is the question `skill-pack.md` §Reclassification Warning names. §7 below states the package's own position and its cost |
+| **OG-1** | ~~Identifier-shape divergence~~ | **`HUMAN DECISION RECORDED: NORMALIZE IDENTIFIERS`**, 2026-09-15, commit `903c58df`. Applied: one canonical identifier per candidate object, in the approved registry shape; the dual-identity lines removed; the prompt-fixed IDs kept as traceability metadata in `README.md` §7. Normalising approved nothing |
+| **OG-2** | ~~Role vs specialisation~~ | **`HUMAN DECISION RECORDED: PROFESSIONAL DELIVERY ROLE`**, 2026-09-15, commit `903c58df`. The capability is a candidate Professional Delivery Role, proposed as the 60th, subject to the normal Role Registry, Skill Registry, mapping, review and approval process. The approved universe remains **59 Roles**; `roles/master-role-universe.md` is untouched. Deciding registered nothing |
 | **OG-3** | ~~The TA-7 Decision Right~~ | **Closed, not resolved by decision.** The gap was an error: the approved subject of `decision.external_publication` contains no publicity element, so TA-7 is covered. The candidate is withdrawn (`governance-decision-note.md` §4) |
 | **OG-4** | **Uncarded adjacent Rights.** `decision.disclosure_authorisation`, `decision.external_data_transmission` and `decision.legal_filing_or_representation` | Those carding decisions are Phase 7's. Their absence leaves **no act ungated** — the release Right gates the act — but leaves three act classes with fewer controls than a mature register would apply |
-| **OG-5** | **Eight candidate skills.** None exists in the approved skill universe | Skill Registry change control. `skill-pack.md` SP-1 makes the pack non-activatable while any Required Skill is a candidate |
-| **OG-6** | **No Role-to-Skill mapping records exist.** The pack lists eligible Roles; no mapping record authorises activation for any of them | Phase 4 mapping is its own governed act; a pack card is explicitly not the authoritative source |
+| **OG-5** | **Eight candidate skills.** None exists in the approved skill universe | **Open, and unchanged by OG-2.** Reassessed after the Role decision: deciding that a Role owns the capability says nothing about whether the eight Skills exist, and none of them does. Skill Registry change control. `skill-pack.md` SP-1 makes the pack non-activatable while any Required Skill is a candidate, and §6a records what the Role decision did and did not move |
+| **OG-6** | **No *authoritative* Role-to-Skill mapping record exists.** | **Partially advanced, not closed.** The Role decision made the mapping writable as a proposal: `role-skill-mapping-candidates.md` now states which Skills the Role requires and on what basis. That document is a **candidate proposal surface**, not a Phase 4 mapping record, and it authorises no activation. Phase 4 mapping remains its own governed act |
 | **OG-7** | **Routing weights are declared, not validated.** | `trigger-routing-spec.md` §9 and `evaluation-spec.md` §7. They must not be treated as settled before the suite runs |
-| **OG-8** | **No full-Profile reviewer exists for the high-stakes review.** No approved Role's scope spans legal, institutional, data-protection, integrity, risk and communication criteria | Recorded deliberately in that Profile's Reviewer Eligibility. Satisfaction requires per-dimension coverage; inventing a full-Profile reviewer would be the error |
+| **OG-8** | **No full-Profile reviewer exists for the high-stakes review.** No approved Role's scope spans legal, institutional, data-protection, integrity, risk and communication criteria | **Open, and only partly touched by OG-2.** Reassessed: the Role decision supplies a candidate full-Profile reviewer for `review.communication_strategy@0.1` — *once the Role is registered and approved, which it is not*. It supplies nothing for the high-stakes Profile, whose criteria still span five domains no single Role covers. Satisfaction requires per-dimension coverage; inventing a full-Profile reviewer would be the error |
+
+### 6a. Mechanical reassessment of OG-5, OG-6 and OG-8 after OG-2
+
+The decision changes what is *possible*, not what *exists*. Read strictly:
+
+| Item | What OG-2 changed | What it did not change | Status |
+|---|---|---|---|
+| **OG-5** — eight candidate Skills | Nothing. A Role owning the capability does not bring a Skill into existence | All eight remain candidates in no approved registry; the pack stays non-activatable (SP-1) | **Open** |
+| **OG-6** — Role-to-Skill mapping | The mapping is now writable as a **candidate proposal**, because there is a decided Role to map from. `role-skill-mapping-candidates.md` records it | No mapping is authoritative. Phase 4 mapping is a separate governed act, and a proposal-side document is explicitly not the authoritative source | **Advanced, not closed** |
+| **OG-8** — full-Profile reviewer | For `review.communication_strategy@0.1`, a candidate full-Profile reviewer now exists *in candidate form* — conditional on Role registration and approval, neither of which has happened | For `review.high_stakes_external_communication@0.1`, nothing. Its criteria span legal, institutional, data-protection, integrity and risk dimensions, and no Role covers all five | **Open** |
+
+**Not closed, and not reassessed here:**
+
+| Item | Why it stays exactly as it was |
+|---|---|
+| **OG-4** — uncarded adjacent Rights | A Phase 7 matter. The approved Phase 7 register has not changed, so neither has this |
+| **OG-7** — routing weights declared, not validated | An evidence question. No evaluation has run against a built capability, so no evidence exists to close it with |
 
 ## 7. Scope-creep checks
 
@@ -127,16 +147,21 @@ Recorded, not resolved. Each requires a governance decision this package must no
 | The filter becoming a gate | CF-6; S9 and S11 are separate stages in the primary workflow | Separated by construction |
 | Thread diagnostics acquiring a drafting stage | That workflow's Versioning section forbids it in any future version | Explicit |
 | The package approving its own Decision Right | DG-3, and §7 of that document | Refused, with the reason stated |
-| A new Role being created where a specialisation would do | **OG-2 — not resolved.** See below | Open |
+| A new Role being created where a specialisation would do | **OG-2 — decided by a human authority**, Professional Delivery Role. See below | Decided; the Role is still a candidate and still unregistered |
 
-**On OG-2, the package's position and its cost.** This package proposes a Role because the
+**On OG-2, what was decided and what it cost.** The human decision adopted the Role. The reasoning
+the package had offered is preserved below unchanged, because a decision does not retroactively make
+the argument for it stronger, and a reviewer should be able to see what the decision was made on.
+This package proposed a Role because the
 capability owns a recurring standalone professional artifact (a communication strategy), issues a
 professional conclusion of its own, and operates across domains rather than inside one — the three
 conditions `skills/_templates/skill-pack-template.md` names as the trigger to reassess *toward* the
 Role Registry. The cost is a 60th Role in a universe of 59, with the discoverability and maintenance
 burden that carries. The alternative — attaching the pack to an existing owning Role — is cheaper
 and weakens cross-domain discoverability, which is precisely where difficult-conversation work
-arises. **The package states its preference and does not decide.**
+arises. **The package stated its preference and did not decide.** A human authority decided, and
+the cost named here — a 60th Role, its mappings, its maintenance — is now a cost the package
+carries rather than a risk it flags.
 
 ## 8. Safety checks
 
@@ -162,14 +187,19 @@ arises. **The package states its preference and does not decide.**
 | 4 | A nine-field object presented as the ten-factor filter | Two namespaces — `communication_control_filter` (exactly the ten factors and the seven derived figures) and `diagnostic_risks` (seven risk dimensions, its own names). **DC-13a** explains why `escalation_risk` legitimately appears in both and is a different number in each. The validator compares the factor names **both directions** and rejects a collision |
 | 5 | TA-7 misread as outside `decision.external_publication` | **The approved subject has four elements and publicity is not one of them.** TA-1…TA-7 all resolve to that Right, with submission and commitment Rights applying **in addition** where the act also does those things. The candidate Right is `WITHDRAWN_FROM_CURRENT_PACKAGE`. **DG-3**: a Right's name is not its subject |
 | 6 | The evaluation suite missed all of the above | Six new scenarios (E31–E36), six new hard fails (HF-15–HF-20) and two new positive controls (PC-6, PC-7), each keyed to one of the findings. HF-15 and HF-17 are the two the first revision would have failed |
-| 7 | OG-1 and OG-2 need human decisions | `governance-decision-note.md` — options, consequences, a recommendation and status **`HUMAN GOVERNANCE DECISION REQUIRED`** for both. Neither is decided here, and the validator fails if the note decides one |
+| 7 | OG-1 and OG-2 need human decisions | `governance-decision-note.md` set out options, consequences and a recommendation for each and decided neither. A human governance authority decided both on 2026-09-15 (`human-governance-decisions-og1-og2.md`, commit `903c58df`), and the package now records them as **`HUMAN DECISION RECORDED`**. The validator fails if the note or the package decides a governance item for itself, and fails if either status drifts back to undecided |
 
 ## 12. Package assurance tooling
 
 | Item | Count |
 |---|---|
-| Package validator | `validation/communication_package_validation.py` — **19 checks** in 8 groups: `structure` 5 · `epistemic` 2 · `review` 1 · `gates` 1 · `schema` 1 · `authority` 1 · `rights` 2 · `identity` 2 · `governance` 4 |
-| Package mutation fixture | `validation/communication_package_probes.py` — **21 committed controlled weakenings**, 21 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
+| Package validator | `validation/communication_package_validation.py` — **22 checks** in 9 groups |
+| Package mutation fixture | `validation/communication_package_probes.py` — **32 committed controlled weakenings**, 32 `DETECTED`, 0 `REDUNDANT`, 0 `ERROR` |
+
+Three checks and eleven probes were added when the OG-1 and OG-2 human decisions were applied:
+identifier normalization (one canonical form per object, no dotted survivors, no second identity,
+historical IDs disclaimed), the candidate Professional Delivery Role and its candidate mapping, and
+the decision record's own boundary — that it approves OG-1 and OG-2 and nothing else.
 
 Each probe weakens one rule in a temporary copy and re-runs the validator; classification is from
 executed behaviour, and a probe whose target text is not found is an **error**, not a skip.
@@ -177,8 +207,23 @@ Containment checks read git state and cannot be evaluated in a temporary tree, s
 are **discarded** (`GIT_DEPENDENT`) — counting them would make every probe look detected by an
 artefact of the harness.
 
-**Three probes were `REDUNDANT` on their first run**, and all three exposed a weakness in the
-checks rather than in the package: a lowercase-only scan that could not see a filter factor
+**Two of the eleven new probes were `REDUNDANT` on their first run**, and both exposed a weakness
+in the checks rather than in the package:
+
+1. **The Role Card's Role Type reverted to "Specialisation" and was not caught.** The check tested
+   whether the phrase "Professional Delivery Role" appeared anywhere in the card — and it still did,
+   in the decision blockquote above the Identity section. The Identity line is what a reader and a
+   registry pass actually take the type from, so that line is now parsed on its own and rejected if
+   it names a specialisation.
+2. **The candidate Skills were presented as activatable and were not caught.** The check confirmed
+   that each Skill was *listed* as a candidate and that the fail-closed rule existed; it never read
+   the block that says none of them exists. That block is now read directly.
+
+Both are the same class of error: a check satisfied by the rule surviving *somewhere* while the
+place a reader looks had been weakened.
+
+**Three earlier probes were `REDUNDANT` on their first run**, and all three exposed a weakness in
+the checks rather than in the package: a lowercase-only scan that could not see a filter factor
 smuggled into the risk namespace in its own casing; a review-trigger scan keyed on the word
 "review" that could not see a stage's `Mandatory at:` line narrowed without it; and a paragraph
 merge that let one bullet's qualifier exempt the bullet beside it. All three are fixed, and the
@@ -194,8 +239,10 @@ third changed how the harness reads prose: **a bullet is now its own statement.*
 3. **Whether the attribution wording is legally sufficient.** `README.md` §3 states a wording and a
    disclaimer. Whether that is adequate in a given jurisdiction is a legal question this package
    does not answer and must not be read as answering.
-4. **Whether a 60th Role is the right structural answer** — OG-2, open and recorded in
-   `governance-decision-note.md` with a recommendation this package does not act on.
+4. **Whether a 60th Role is the right structural answer** — OG-2 is **decided**, and this
+   self-check cannot tell you whether the decision was right. It records that a human authority
+   made it, on the reasoning in `governance-decision-note.md` §3, and that the reasoning was held
+   weakly by its own author.
 5. **Whether the eight candidate skills are the right decomposition.** They are the capabilities
    the methodology needs; whether they are eight skills or three is a Skill Registry question.
 6. **Whether the approved registries themselves are complete.** The reference check in §3 confirms
@@ -212,9 +259,11 @@ third changed how the harness reads prose: **a bullet is now its own statement.*
 - What is actually true: every transmitting act resolves to a carded Right, and the human holding
   it decides. Three adjacent Phase 7 candidates remain uncarded, which leaves those act classes
   with **fewer controls**, not ungated.
-- The pack is not activatable while any Required Skill is a candidate (SP-1), and no Role-to-Skill
-  mapping record exists (OG-6). In its current state the package specifies a capability that cannot
-  yet be run at all.
+- The pack is not activatable while any Required Skill is a candidate (SP-1), and no **authoritative**
+  Role-to-Skill mapping record exists (OG-6) — the candidate mapping in
+  `role-skill-mapping-candidates.md` is a proposal surface and authorises nothing. In its current
+  state the package specifies a capability that cannot yet be run at all, and the two governance
+  decisions did not change that.
 - The high-stakes review has no full-Profile reviewer (OG-8), so its satisfaction depends on
   assembling per-dimension coverage every time.
 - The routing weights are guesses with a rationale (OG-7).

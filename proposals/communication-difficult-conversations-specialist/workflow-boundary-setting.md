@@ -6,8 +6,7 @@ Inherits: `standard.workflow.common_constraints@0.1`
 
 ## Identity
 - Workflow Name: **Boundary Setting**
-- Workflow ID: `workflow.communication.boundary_setting@0.1`
-- Registry-normalised alternative (open item **OG-1**): `workflow.communication_boundary_setting@0.1`
+- Workflow ID: `workflow.communication_boundary_setting@0.1`
 - Version: 0.1 · Status: PROPOSED
 - Workflow Family: Communication / Stakeholder Interaction
 - Governance Owner: AI-OS architecture governance
@@ -60,7 +59,7 @@ explicitly requests a boundary formulation.
 
 | Capability ID | For Role | Phase 4 basis |
 |---|---|---|
-| `pack.communication.difficult_conversations@0.1` *(candidate)* | `role.communication_difficult_conversations_specialist` *(candidate)* | Pending mapping record (`skill-pack.md` SP-1) |
+| `skill_pack.communication_difficult_conversations@0.1` *(candidate)* | `role.communication_difficult_conversations_specialist` *(candidate)* | Pending mapping record (`skill-pack.md` SP-1) |
 
 ## Inputs
 
@@ -149,7 +148,7 @@ explicitly requests a boundary formulation.
   consequence the user cannot bring about is a threat, and `methodology-card.md` S-3 puts it out
   of scope.
 - `EXCEPTION_PATH` **Transmission requested.** Setting a boundary is not sending one. Transmission
-  re-enters `workflow.communication.difficult_interaction_response@0.1` at its S11 gate.
+  re-enters `workflow.communication_difficult_interaction_response@0.1` at its S11 gate.
 
 No exception path bypasses a review or gate reference carried by the normal path.
 

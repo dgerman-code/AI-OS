@@ -29,7 +29,7 @@ in §4.
 |---:|---|---|
 | 1 | `README.md` | This document: package map, provenance, non-goals, governance boundary |
 | 2 | `role-card.md` | The Role Card candidate, following the Role Card Standard and inheriting `standard.role.common_constraints@0.2` |
-| 3 | `methodology-card.md` | `method.communication.calm_direct_control@0.1` — principles, optimisation order, anti-goals, safety limits |
+| 3 | `methodology-card.md` | `method.communication_calm_direct_control@0.1` — principles, optimisation order, anti-goals, safety limits |
 | 4 | `skill-pack.md` | The skill pack candidate, mapped to **existing approved skill IDs** where they exist; only genuinely missing capabilities are marked as candidates |
 | 5 | `workflow-difficult-interaction-response.md` | The primary workflow candidate |
 | 6 | `workflow-meeting-preparation.md` | Meeting / call / negotiation preparation |
@@ -124,18 +124,42 @@ This package does **not**:
 - diagnose mental state, personality or pathology;
 - provide legal, financial, regulatory, compliance, tax, technical or clinical conclusions.
 
-## 7. Identifier-shape divergence — an open governance item
+## 7. Identifier normalization — a recorded human decision
 
-The prompt fixes the canonical candidate IDs used throughout this package
-(`method.communication.calm_direct_control@0.1`, `pack.communication.difficult_conversations@0.1`,
-`workflow.communication.difficult_interaction_response@0.1`, …). These use a **dotted namespace
-segment**, while the approved Phase 4 and Phase 5 templates use
-`skill_pack.<stable_snake_case_name>` and `workflow.<stable_snake_case_name>`.
+**`HUMAN DECISION RECORDED: NORMALIZE IDENTIFIERS`** — OG-1, decided
+2026-09-15 in `human-governance-decisions-og1-og2.md`, commit `903c58df`.
 
-This package uses the IDs the prompt fixes, and records the divergence as **OG-1** in
-`self-check.md` §6 rather than silently normalising either side. Normalisation is a registry
-change-control decision, not a drafting decision. Each affected artifact states the normalised
-alternative next to its primary ID so that either choice is mechanical later.
+The package now uses the existing AI-OS registry conventions throughout: `skill_pack.<id>`,
+`method.<id>`, `workflow.<stable_snake_case_name>`, `review.<stable_snake_case_name>`. Each
+candidate object has **exactly one** canonical identifier. The dual-identity lines that earlier
+carried a "registry-normalised alternative" beside each primary ID are removed, because two
+canonical identities for one object was the defect OG-1 existed to prevent.
+
+### Historical identifiers — traceability metadata only
+
+The IDs below were fixed by the commissioning prompt and are **not** identities. They resolve to
+nothing, may not be used in any reference, mapping, workflow, evaluation fixture or validator
+assertion, and are recorded here so that the originating text remains traceable.
+
+| Historical (prompt-fixed) | Canonical now |
+|---|---|
+| `pack.communication.difficult_conversations@0.1` | `skill_pack.communication_difficult_conversations@0.1` |
+| `method.communication.calm_direct_control@0.1` | `method.communication_calm_direct_control@0.1` |
+| `workflow.communication.difficult_interaction_response@0.1` | `workflow.communication_difficult_interaction_response@0.1` |
+| `workflow.communication.meeting_preparation@0.1` | `workflow.communication_meeting_preparation@0.1` |
+| `workflow.communication.boundary_setting@0.1` | `workflow.communication_boundary_setting@0.1` |
+| `workflow.communication.refusal@0.1` | `workflow.communication_refusal@0.1` |
+| `workflow.communication.formal_escalation@0.1` | `workflow.communication_formal_escalation@0.1` |
+| `workflow.communication.thread_diagnostics@0.1` | `workflow.communication_thread_diagnostics@0.1` |
+| `review.communication_strategy@0.1` | unchanged — already conformant |
+| `review.high_stakes_external_communication@0.1` | unchanged — already conformant |
+
+**One correction made while applying the decision.** The earlier package proposed
+`workflow.difficult_interaction_response@0.1` as the normalised form for one workflow and
+`workflow.communication_<name>@0.1` for the other five. That was an inconsistency inside the
+proposal itself, not a choice the human decision made; all six now carry the family segment.
+
+Normalization is mechanical and it approves nothing. Every artifact remains `PROPOSED`.
 
 ## 7a. What the independent review corrected
 

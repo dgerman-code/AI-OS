@@ -7,7 +7,6 @@ Inherits: `standard.review.common_constraints@0.1`
 ## Identity
 - Review Name: **High-Stakes External Communication Review**
 - Review ID: `review.high_stakes_external_communication@0.1`
-- Registry-normalised alternative (open item **OG-1**): `review.high_stakes_external_communication` at version 0.1
 - Version: 0.1 · Status: PROPOSED
 - Review Family: Communication / Stakeholder Interaction
 - Governance Owner: AI-OS architecture governance
@@ -206,9 +205,9 @@ holder eligibility class, not only the Right. Criticality changes depth, not rev
 
 ## Workflow / Handoff References
 
-- `workflow.communication.difficult_interaction_response@0.1` S10 — `REVIEW_REQUIRED_REFERENCE`,
+- `workflow.communication_difficult_interaction_response@0.1` S10 — `REVIEW_REQUIRED_REFERENCE`,
   immediately before the S11 gate
-- `workflow.communication.formal_escalation@0.1` S5 — mandatory at every band
+- `workflow.communication_formal_escalation@0.1` S5 — mandatory at every band
 
 Any Handoff transferring a Draft Communication toward a transmitting act requires this review
 `SATISFIED` before transfer, where its trigger fired.
