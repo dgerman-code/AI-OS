@@ -42,6 +42,14 @@ sys.path.insert(0, IMPL)
 RESULTS = []
 SECTIONS = []
 
+#: Exceptions that mean THE HARNESS could not run, as opposed to the implementation under test
+#: behaving differently. Only these become RUNNER_ERROR. `RuntimeError` is here deliberately:
+#: it is the class the probe harness injects to prove that an unexpected runtime fault is never
+#: counted as a semantic detection.
+INFRASTRUCTURE_FAULTS = (
+    ImportError, OSError, SyntaxError, RuntimeError, MemoryError, RecursionError, SystemError,
+)
+
 
 def section(name):
     def register(fn):
@@ -149,6 +157,47 @@ def plan(**overrides):
     return PlannerOutput(**fields)
 
 
+class simulated_individual_skill_approval(object):
+    """A LABELLED TEST DOUBLE that temporarily makes named Skills individually approved.
+
+    It creates no approval and asserts none: it exists because the downstream Skill gates -
+    Role compatibility, wrong-Role binding - live BEHIND the individual-approval gate, and with
+    no Skill individually approved in the repository today those gates are unreachable and
+    would silently lose coverage. Every use is explicit, scoped to one check, and restored.
+
+    It is never used to claim a Skill is approved. The check that asks that question reads the
+    real `approved_skills()` and expects the empty set.
+    """
+
+    def __init__(self, *skills):
+        self.skills = set(skills)
+        self._original = None
+
+    def __enter__(self):
+        self._original = registries.approved_skills
+        registries.approved_skills = lambda: set(self.skills)
+        return self
+
+    def __exit__(self, *_exc):
+        registries.approved_skills = self._original
+        return False
+
+
+def a_mapped_pair():
+    """(role, skill) that the AUTHORITATIVE MAPPING RECORDS positively relate.
+
+    Drawn from `carded_skills()`, never from `approved_skills()`: a mapping is evidence of
+    applicability, and carries no implication of execution eligibility whatsoever.
+    """
+    mappings = registries.role_skill_mappings()
+    for role_ref in sorted(registries.approved_roles()):
+        for skill_ref in sorted(registries.carded_skills()):
+            if mappings.get(role_ref, {}).get(skill_ref) in \
+                    registries.COMPATIBLE_RELATIONSHIPS:
+                return role_ref, skill_ref
+    return None, None
+
+
 def issued(**overrides):
     """A plan, its issuing store, and the ISSUED basis. Never the unissued candidate."""
     p = plan(**overrides)
@@ -240,7 +289,10 @@ def _registry_eligibility():
             "review": registries.approved_review_profiles(),
             "decision": registries.approved_decision_rights(),
             "workflow": set(registries.approved_workflows()),
-            "skill": registries.approved_skills(),
+            # Skills are checked against the CARDED set, which is the wider of the two: an id
+            # absent from the carded set is absent from the approved set a fortiori, and
+            # checking the empty set would prove nothing.
+            "skill": registries.carded_skills(),
         }[kind]
         check(G, "the uncarded %s %s is not eligible" % (kind, identity),
               identity not in registered)
@@ -254,16 +306,11 @@ def _registry_eligibility():
         check(G, "every eligible %s resolves to a declaring card" % kind, not missing,
               "uncarded: %r" % missing)
 
-    # Counts and identities the approval records themselves state. A card that loses its
-    # declaration, gains a Superseded By line or changes its version is visible here; a check
-    # that only asked "does every eligible id have a card" would say yes to a shrunken set.
     for kind, expected, known in (
-            ("skill", 6, "skill.source_verification"),
             ("review", 6, "review.security"),
             ("decision", 8, "decision.external_publication"),
             ("workflow", 4, "workflow.software_change_delivery")):
         registered = {
-            "skill": registries.approved_skills(),
             "review": registries.approved_review_profiles(),
             "decision": registries.approved_decision_rights(),
             "workflow": set(registries.approved_workflows()),
@@ -271,6 +318,25 @@ def _registry_eligibility():
         check(G, "the carded %s set is the %d its approval record names" % (kind, expected),
               len(registered) == expected, "%d: %r" % (len(registered), sorted(registered)))
         check(G, "%s is eligible" % known, known in registered)
+
+    # -- CARDED is not APPROVED --------------------------------------------------------
+    #
+    # This block used to assert `len(approved_skills()) == 6`, reading the Phase 4 architecture
+    # approval as if it individually approved the six exemplar Skill cards. It does not, and
+    # says so in terms: cards "may remain individually PROPOSED", and the phase decision "must
+    # not be interpreted as a mass status promotion". So the two questions are separated here,
+    # and the answer to the second one is currently NONE.
+    carded = registries.carded_skills()
+    approved = registries.approved_skills()
+    check(G, "the six Phase 4 exemplar Skill cards exist as declared cards",
+          len(carded) == 6 and "skill.source_verification" in carded,
+          "%d: %r" % (len(carded), sorted(carded)))
+    check(G, "carded Skills are NOT individually approved by the Phase 4 architecture approval",
+          approved == set(),
+          "approved_skills() = %r; the Phase 4 record approves the architecture and denies "
+          "mass individual promotion" % sorted(approved))
+    check(G, "every individually approved Skill, if any, is also carded",
+          approved <= carded, "%r" % sorted(approved - carded))
 
     versions = registries.approved_workflows()
     check(G, "every approved Workflow Card declares version 0.1, the current carded state",
@@ -285,6 +351,13 @@ def _registry_eligibility():
           all(k.approval_record and k.approved_scope_phrase
               for k in registries.KINDS.values()),
           ", ".join(sorted(registries.KINDS)))
+    # The Skill KIND still carries a phase-level record for symmetry, but that record is NOT
+    # what decides Skill eligibility - see C-15. This check exists so nobody reads the table
+    # above as meaning it is.
+    check(G, "the Skill kind's phase-level record does not decide Skill eligibility",
+          registries.approved_skills() == set()
+          and registries._approval_is_recorded(registries.KINDS["skill"]),
+          "the phase record reads as present, and the registry is still empty")
     check(G, "the implementation-spec version names the approved Phase 14 baseline",
           IMPLEMENTATION_SPEC_VERSION == "phase-14@ba9e3fee", IMPLEMENTATION_SPEC_VERSION)
     # Source-level, deliberately: the invariant's whole job is to fail at IMPORT, so a check
@@ -304,7 +377,7 @@ def _registry_eligibility():
     # Found from the mapping records themselves, not guessed: a pair that appears in NO record
     # is the case the rule exists for, and a check that quietly tested a MAPPED pair would
     # prove the opposite of its name.
-    absent = [(s_, r_) for s_ in sorted(registries.approved_skills())
+    absent = [(s_, r_) for s_ in sorted(registries.carded_skills())
               for r_ in sorted(registries.approved_roles())
               if s_ not in mappings.get(r_, {})]
     check(G, "the mapping records leave some carded Skill/Role pairs unrecorded",
@@ -484,7 +557,7 @@ def _c6():
     r = run_preflight(plan(request_id="request.C6c", execution_mode=ExecutionMode.MATCH,
                            work_plan=None, workflow_ref=a_workflow_ref(),
                            skill_requirements=(SkillRequirement(
-                               sorted(registries.approved_skills())[0], "role.not_a_role"),)))
+                               sorted(registries.carded_skills())[0], "role.not_a_role"),)))
     check(G, "a Skill claimed for an unresolved Role blocks as unregistered, not as incompatible",
           r.state is PlannerState.BLOCKED
           and BlockReason.UNREGISTERED_CAPABILITY in r.reasons, r.detail)
@@ -769,42 +842,70 @@ def _c14():
           r.state is PlannerState.BLOCKED
           and BlockReason.STAGE_OWNER_UNRESOLVED in r.reasons, r.detail)
 
-    # Skill-to-Role compatibility, both directions.
-    mapped_role = mapped = None
-    for candidate_role in sorted(registries.approved_roles()):
-        for skill in sorted(registries.approved_skills()):
-            if registries.skill_is_compatible_with_role(skill, candidate_role)[0]:
-                mapped_role, mapped = candidate_role, skill
-                break
-        if mapped:
-            break
-    check(G, "the fixture found an authoritatively mapped Role/Skill pair",
+    # -- Skill-to-Role binding, in the order the gates actually stand ------------------
+    #
+    # The compatibility gate lives BEHIND the individual-approval gate, so these are two
+    # separate questions and the fixtures for them are drawn from two separate sets.
+    mapped_role, mapped = a_mapped_pair()
+    check(G, "the mapping records positively relate a carded Skill to an approved Role",
           mapped is not None, "%s / %s" % (mapped_role, mapped))
+
+    # (a) Parser level. A positive mapping is evidence of APPLICABILITY and nothing else.
+    ok, relationship = registries.skill_is_compatible_with_role(mapped, mapped_role)
+    check(G, "the mapping parser reports that pair compatible", ok, relationship)
+    check(G, "and the pair is carded, not individually approved",
+          mapped in registries.carded_skills() and mapped not in registries.approved_skills(),
+          "%s: carded=%r approved=%r" % (mapped, mapped in registries.carded_skills(),
+                                         mapped in registries.approved_skills()))
+
+    # (b) Preflight level. A positive mapping on a carded Skill still BLOCKS, because
+    # applicability is not eligibility. This is the check that would have been quietly lost
+    # by keeping the old "approved exemplar Skill" fixture.
     r = run_preflight(plan(
         request_id="request.C14e",
-        role_requirements=(RoleRequirement(mapped_role, "a conclusion"),),
+        role_requirements=(RoleRequirement(mapped_role, "a substantive domain conclusion"),),
         skill_requirements=(SkillRequirement(mapped, mapped_role),),
         work_plan=WorkPlan("work_plan.ok", 1, (PlanStage("S1", mapped_role, (), False, "x"),))))
-    check(G, "a mapped Skill/Role pair passes", r.state is PlannerState.VALIDATED, r.detail)
-
-    wrong = next(x for x in sorted(registries.approved_roles())
-                 if not registries.skill_is_compatible_with_role(mapped, x)[0])
-    r = run_preflight(plan(
-        request_id="request.C14f",
-        role_requirements=(RoleRequirement(wrong, "a conclusion"),),
-        skill_requirements=(SkillRequirement(mapped, wrong),),
-        work_plan=WorkPlan("work_plan.bad", 1, (PlanStage("S1", wrong, (), False, "x"),))))
-    check(G, "a Skill bound to a Role the mappings do not allow blocks",
+    check(G, "a positively mapped but unapproved Skill still BLOCKS at preflight",
           r.state is PlannerState.BLOCKED
-          and BlockReason.SKILL_ROLE_INCOMPATIBLE in r.reasons, r.detail)
+          and BlockReason.UNREGISTERED_CAPABILITY in r.reasons, r.detail)
 
-    r = run_preflight(plan(
-        request_id="request.C14g",
-        role_requirements=(RoleRequirement(mapped_role, "a conclusion"),),
-        skill_requirements=(SkillRequirement(mapped, "role.not_a_role"),),
-        work_plan=WorkPlan("work_plan.ur", 1, (PlanStage("S1", mapped_role, (), False, "x"),))))
-    check(G, "a Skill claimed for an unresolved Role blocks",
-          r.state is PlannerState.BLOCKED, r.detail)
+    # (c) The gates behind it, reached through a LABELLED double. Without this the wrong-Role
+    # and unresolved-Role rules are unreachable today and lose their coverage silently.
+    with simulated_individual_skill_approval(mapped):
+        r = run_preflight(plan(
+            request_id="request.C14e2",
+            role_requirements=(RoleRequirement(mapped_role, "a substantive domain conclusion"),),
+            skill_requirements=(SkillRequirement(mapped, mapped_role),),
+            work_plan=WorkPlan("work_plan.ok2", 1, (
+                PlanStage("S1", mapped_role, (), False, "x"),))))
+        check(G, "with individual approval simulated, the mapped pair reaches VALIDATED",
+              r.state is PlannerState.VALIDATED, r.detail)
+
+        wrong = next(x for x in sorted(registries.approved_roles())
+                     if not registries.skill_is_compatible_with_role(mapped, x)[0])
+        r = run_preflight(plan(
+            request_id="request.C14f",
+            role_requirements=(RoleRequirement(wrong, "a substantive domain conclusion"),),
+            skill_requirements=(SkillRequirement(mapped, wrong),),
+            work_plan=WorkPlan("work_plan.bad", 1, (PlanStage("S1", wrong, (), False, "x"),))))
+        check(G, "a Skill bound to a Role the mappings do not allow blocks",
+              r.state is PlannerState.BLOCKED
+              and BlockReason.SKILL_ROLE_INCOMPATIBLE in r.reasons, r.detail)
+
+        r = run_preflight(plan(
+            request_id="request.C14g",
+            role_requirements=(RoleRequirement(mapped_role,
+                                               "a substantive domain conclusion"),),
+            skill_requirements=(SkillRequirement(mapped, "role.not_a_role"),),
+            work_plan=WorkPlan("work_plan.ur", 1, (
+                PlanStage("S1", mapped_role, (), False, "x"),))))
+        check(G, "a Skill claimed for an unresolved Role blocks",
+              r.state is PlannerState.BLOCKED
+              and BlockReason.UNREGISTERED_CAPABILITY in r.reasons, r.detail)
+
+    check(G, "the double is restored and no Skill is approved afterwards",
+          registries.approved_skills() == set(), repr(registries.approved_skills()))
 
     p, store, basis = issued(request_id="request.C14h", work_plan=WorkPlan(
         "work_plan.many", 1, tuple(
@@ -814,6 +915,145 @@ def _c14():
     ids = [s.spec_id for s in trigger.planned_work_item_specs]
     check(G, "planned spec identities are unique by construction",
           len(ids) == len(set(ids)) == 8, "%d specs, %d unique" % (len(ids), len(set(ids))))
+
+
+# =========================================================== 5a. survivor invariants
+
+
+@section("C-15 architecture approval is not individual approval (B1)")
+def _c15():
+    G = "C-15 architecture approval is not individual approval (B1)"
+    carded = registries.carded_skills()
+    approved = registries.approved_skills()
+    check(G, "carded and individually approved are separate questions with separate views",
+          hasattr(registries, "carded_skills") and hasattr(registries, "approved_skills"))
+    check(G, "the Phase 4 record approves the architecture and denies mass promotion",
+          "must not be interpreted as a mass status promotion"
+          in read(os.path.join(REPO, "reviews", "phase-4-final-approval.md")))
+    check(G, "so no Skill card is individually approved today", approved == set(),
+          repr(sorted(approved)))
+    check(G, "while six Skill cards demonstrably exist", len(carded) == 6,
+          "%d: %r" % (len(carded), sorted(carded)))
+
+    # The consequence, proved rather than asserted: every carded Skill blocks at preflight.
+    for skill_ref in sorted(carded):
+        r = run_preflight(plan(request_id="request.C15.%s" % skill_ref,
+                               execution_mode=ExecutionMode.MATCH, work_plan=None,
+                               workflow_ref=a_workflow_ref(),
+                               skill_requirements=(SkillRequirement(skill_ref, a_role()),)))
+        check(G, "%s is carded and still not assignable" % skill_ref,
+              r.state is PlannerState.BLOCKED and r.basis is None
+              and BlockReason.UNREGISTERED_CAPABILITY in r.reasons, r.detail)
+
+    # The individual-approval test itself must not accept the Phase 4 record as evidence.
+    source = read(os.path.join(IMPL, "registries.py"))
+    check(G, "the individual-approval test excludes the Phase 4 phase-level record",
+          'name == "phase-4-final-approval.md"' in source,
+          "registries.py _explicit_individual_skill_approval")
+
+
+@section("C-16 issuance provenance (B3)")
+def _c16():
+    G = "C-16 issuance provenance (B3)"
+    import domain
+
+    # A BLOCKED preflight, then a hand-built basis carrying every field the real one would.
+    blocked_plan = plan(request_id="request.C16", criticality=Criticality.CRITICAL,
+                        review_requirements=())
+    blocked = run_preflight(blocked_plan)
+    check(G, "the fixture plan really is blocked",
+          blocked.state is PlannerState.BLOCKED and blocked.basis is None, blocked.detail)
+    fabricated = domain.ExecutionBasis(
+        basis_id="execution_basis.fabricated", version=1,
+        request_id=blocked_plan.request_id, intent_id=blocked_plan.intent_id,
+        scope_ref=blocked_plan.scope_ref, scope_ancestry=blocked_plan.scope_ancestry,
+        execution_mode=blocked_plan.execution_mode, criticality=blocked_plan.criticality,
+        planning_digest=blocked_plan.material_digest(),
+        implementation_spec_version=IMPLEMENTATION_SPEC_VERSION,
+        orchestrator_policy_ref=blocked_plan.orchestrator_policy_ref,
+        status=BasisStatus.EXECUTABLE,
+        work_plan_ref=blocked_plan.work_plan.ref,
+        role_bindings=tuple(r.role_ref for r in blocked_plan.role_requirements))
+    ok, ev = refuses(lambda: ActivationStore().issue(fabricated), ActivationError)
+    check(G, "a fabricated basis after a blocked preflight cannot be issued", ok, ev)
+
+    # An EQUAL-VALUE copy of a genuine basis is still not the object preflight produced.
+    good = plan(request_id="request.C16b")
+    result = run_preflight(good)
+    copy = dataclasses.replace(result.basis)
+    ok, ev = refuses(lambda: ActivationStore().issue(copy), ActivationError)
+    check(G, "an equal-value copy of a genuine basis carries no provenance", ok, ev)
+
+    # The genuine object issues once, and its provenance is consumed.
+    store = ActivationStore()
+    first = store.issue(result.basis)
+    check(G, "the genuine successful-preflight basis issues", first is not None)
+    ok, ev = refuses(lambda: ActivationStore().issue(result.basis), ActivationError)
+    check(G, "and its provenance is one-time, so a second store cannot reissue it", ok, ev)
+
+    # A non-EXECUTABLE candidate is refused before provenance is even consulted.
+    third = run_preflight(plan(request_id="request.C16c"))
+    ok, ev = refuses(
+        lambda: ActivationStore().issue(third.basis.with_status(BasisStatus.VALIDATED)),
+        ActivationError)
+    check(G, "a non-EXECUTABLE candidate is not issuable", ok, ev)
+
+    check(G, "issuance consults preflight provenance in source, not caller assertion",
+          "_consume_issuance_provenance" in read(os.path.join(IMPL, "store.py")))
+
+
+@section("C-17 mapping boundaries and owned-conclusion substance (B4)")
+def _c17():
+    G = "C-17 mapping boundaries and owned-conclusion substance (B4)"
+    mappings = registries.role_skill_mappings()
+
+    # The exact case the review named. The Wave 2 record states in a Boundary section that
+    # lifecycle cost analysis is "deliberately not mapped here" for CAPEX / Cost Engineering.
+    # Prose that DENIES a mapping must never be parsed into one.
+    boundary_pairs = (
+        ("skill.lifecycle_cost_analysis", "role.capex_cost_engineering_specialist"),
+        ("skill.lifecycle_cost_analysis", "role.asset_om_technical_operations_specialist"),
+    )
+    for skill_ref, role_ref in boundary_pairs:
+        check(G, "%s is not mapped to %s by boundary prose" % (skill_ref, role_ref),
+              skill_ref not in mappings.get(role_ref, {}),
+              "relationship=%r" % mappings.get(role_ref, {}).get(skill_ref))
+        ok, why = registries.skill_is_compatible_with_role(skill_ref, role_ref)
+        check(G, "and the pair is therefore not compatible", ok is False, why)
+
+    check(G, "the Wave 2 record does contain that boundary prose, so the check is live",
+          "is deliberately **not** mapped here" in read(os.path.join(
+              REPO, "skills", "mappings",
+              "wave-2-domain-completion-role-skill-mapping.md")))
+    check(G, "the Skill the boundary protects is still mapped to the Role that owns it",
+          mappings.get("role.technical_feasibility_lead", {}).get(
+              "skill.lifecycle_cost_analysis") in registries.COMPATIBLE_RELATIONSHIPS,
+          repr(mappings.get("role.technical_feasibility_lead", {}).get(
+              "skill.lifecycle_cost_analysis")))
+    check(G, "a non-relationship heading resets relationship state in the parser",
+          'relationship = heading_text if heading_text in _RELATIONSHIPS else None'
+          in read(os.path.join(IMPL, "registries.py")))
+
+    # Owned-conclusion substance. A load-bearing Role requirement whose conclusion is blank,
+    # whitespace or a placeholder is not a declared conclusion.
+    role = a_role()
+    for label, conclusion in (("empty", ""), ("whitespace", "   "), ("newline", "\n\t "),
+                              ("TBD", "TBD"), ("to be determined", "to be determined"),
+                              ("placeholder", "placeholder"), ("n/a", "N/A"),
+                              ("dash", "-"), ("ellipsis", "...")):
+        r = run_preflight(plan(
+            request_id="request.C17.%s" % label,
+            role_requirements=(RoleRequirement(role, conclusion),),
+            work_plan=WorkPlan("work_plan.oc", 1, (PlanStage("S1", role, (), False, "x"),))))
+        check(G, "a %s owned conclusion blocks" % label,
+              r.state is PlannerState.BLOCKED and r.basis is None
+              and BlockReason.NO_APPROVED_ROLE_OWNS_CONCLUSION in r.reasons, r.detail)
+    r = run_preflight(plan(
+        request_id="request.C17.ok",
+        role_requirements=(RoleRequirement(role, "the regulatory position on the transfer"),),
+        work_plan=WorkPlan("work_plan.oc2", 1, (PlanStage("S1", role, (), False, "x"),))))
+    check(G, "a substantive owned conclusion does not block",
+          r.state is PlannerState.VALIDATED, r.detail)
 
 
 # =========================================================== 6. prose agrees with behaviour
@@ -908,21 +1148,40 @@ def _containment():
 def main():
     verbose = "--verbose" in sys.argv
     as_json = "--json" in sys.argv
+    runner_errors = []
     for name, fn in SECTIONS:
         try:
             fn()
+        except INFRASTRUCTURE_FAULTS as err:
+            # The harness could not RUN: an import failed, a path is missing, the interpreter
+            # itself faulted. That is never a semantic finding, and the mutation harness must
+            # not read it as one, so it is carried into the top-level status as RUNNER_ERROR.
+            line = (traceback.format_exc().strip().splitlines() or [""])[-1][:200]
+            runner_errors.append("%s: section raised %s: %s"
+                                 % (name, type(err).__name__, line))
+            check(name, "section raised %s" % type(err).__name__, False, line)
         except Exception as err:
-            # A section that raises is a FAILED section, not a dead run. The harness needs
-            # this: a mutation that makes a check blow up is a detection, and it must stay
-            # distinguishable from a harness that could not start.
-            check(name, "section raised %s" % type(err).__name__, False,
-                  (traceback.format_exc().strip().splitlines() or [""])[-1][:200])
+            # The harness RAN, and the implementation under test behaved differently enough to
+            # break a fixture - an empty registry where the check indexes one, a refusal where
+            # the check expected a result. That is a finding about the implementation, so it
+            # is a semantic FAIL. Recording it as a runner error would let a real regression
+            # hide behind "infrastructure".
+            line = (traceback.format_exc().strip().splitlines() or [""])[-1][:200]
+            check(name, "section could not complete: %s" % type(err).__name__, False, line)
     passed = sum(1 for r in RESULTS if r["pass"])
+    if runner_errors:
+        status = "RUNNER_ERROR"
+    elif passed == len(RESULTS):
+        status = "PASS"
+    else:
+        status = "FAIL"
     if as_json:
-        # Valid JSON on stdout and nothing else, so the mutation harness can distinguish a
-        # semantic detection from a runner error by parsing rather than by exit code.
+        # Valid JSON on stdout and nothing else, carrying an explicit top-level execution
+        # status, so the mutation harness can distinguish a semantic failure from a runner or
+        # infrastructure failure by reading a field rather than guessing from an exit code.
         sys.stdout.write(json.dumps(
-            {"total": len(RESULTS), "passed": passed,
+            {"status": status, "runner_errors": runner_errors,
+             "total": len(RESULTS), "passed": passed,
              "failed": [r for r in RESULTS if not r["pass"]], "results": RESULTS}, indent=2))
         sys.stdout.write("\n")
     else:
@@ -936,8 +1195,14 @@ def main():
                 print("  %s  %s" % ("PASS" if r["pass"] else "FAIL", r["name"]))
                 if (verbose or not r["pass"]) and r["evidence"]:
                     print("        %s" % r["evidence"])
-        print("\n=== %d/%d PASS ===" % (passed, len(RESULTS)))
-    return 0 if passed == len(RESULTS) else 1
+        if runner_errors:
+            print("\nRUNNER_ERROR")
+            for item in runner_errors:
+                print("  - %s" % item)
+        print("\n=== %d/%d PASS === (%s)" % (passed, len(RESULTS), status))
+    if status == "RUNNER_ERROR":
+        return 2
+    return 0 if status == "PASS" else 1
 
 
 if __name__ == "__main__":

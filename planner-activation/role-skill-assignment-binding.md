@@ -29,12 +29,25 @@ human approval record covers that card class. The Role count is derived rather t
 a phase that wrote "59" would still say 59 after something added a sixtieth — and it is
 cross-checked against the approved universe in both directions.
 
-**Rule RB-4a — assignability needs a compatible binding, not only a registered Skill.** A
+**Rule RB-4aa — a Skill card is not an approved Skill.** Phase-level architecture approval is
+never individual card approval, so a Skill is assignable only with its own explicit individual
+approval evidence. None exists today, which means every Skill requirement currently blocks with
+`UNREGISTERED_CAPABILITY`. See `registry-eligibility-contract.md` §2a; the ordering matters,
+because the compatibility rule below sits *behind* this one.
+
+**Rule RB-4a — assignability needs a compatible binding, not only an approved Skill.** A
 registered Skill claimed for the wrong Role is an unassignable binding. Compatibility is read
 from the Phase 4 Role-to-Skill **mapping** records, which state in terms that they are the sole
 authoritative source for relationship type. `PROHIBITED_IN_CONTEXT` fails, and so does a pair
 that appears in no mapping record: silence in the authoritative record is not permission. The
 preflight blocks with `SKILL_ROLE_INCOMPATIBLE`.
+
+Mappings are read as **positive evidence only**. A heading that is not exactly a relationship
+heading resets the parser's state, so a Boundary, exclusion, example or narrative section can
+never inherit the relationship above it, and explicit negative wording on an entry can only
+deny. The case this exists for is `skill.lifecycle_cost_analysis`, which the Wave 2 record says
+is "deliberately **not** mapped here" for CAPEX / Cost Engineering and for Asset O&M: prose that
+denies a mapping must never be parsed into one.
 
 **Rule RB-4b — every effective stage owner resolves.** A composed stage that is not a gate must
 name an owner; that owner must be in the approved Role universe; and the plan must have declared

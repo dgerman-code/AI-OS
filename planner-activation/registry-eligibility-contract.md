@@ -28,7 +28,7 @@ derived by collecting every backticked `` `prefix.id` `` token from whole docume
 counted prose references, candidates explicitly held in consolidation and overlap groups,
 worked examples, counter-examples, and `Supersedes:` lines naming **retired** identities. The
 reported registries were 224 Skills, 44 Review Profiles, 97 Decision Rights and 57 Workflows.
-The carded sets are 6, 6, 8 and 4.
+The **carded** sets are 6, 6, 8 and 4 — and carded is not the same question as approved; see §2a.
 
 Both defects fail **open**: they make more things assignable than governance ever approved.
 That is the wrong direction for a registry check to be wrong in.
@@ -51,10 +51,43 @@ Emphasis is typography, not meaning: `- Decision ID: **`decision.x`**` declares 
 | Kind | Approval record | The phrase relied on |
 |---|---|---|
 | Role | Phase 3 final approval | "59 unique Role IDs" |
-| Skill | Phase 4 final approval | "the current selective exemplar card set" |
 | Workflow | Phase 5 final approval | "the four exemplar Workflow Cards" |
 | Review Profile | Phase 6 final approval | "the six exemplar Review Profiles" |
 | Decision Right | Phase 7 final approval | "the eight exemplar Decision Right Cards" |
+| Skill | **none** — see §2a | — |
+
+## 2a. Carded is not approved: the Skill case
+
+This section corrects a reading this document originally got wrong. An earlier version listed
+the Phase 4 approval phrase "the current selective exemplar card set" as approval evidence for
+Skills, and so reported six **approved** Skills. That is not what the Phase 4 record says. It
+says the opposite, in terms:
+
+> Existing Phase 4 cards may remain individually `PROPOSED` unless and until their own governed
+> approval state is explicitly changed. This Phase-level decision must not be interpreted as a
+> mass status promotion of all cards or universe entries.
+
+So there are two different questions, and they get two different views:
+
+| Question | View | Answer today |
+|---|---|---|
+| Does a card for this Skill exist, versioned and unsuperseded? | `carded_skills()` | **6** |
+| Is this Skill individually approved for execution? | `approved_skills()` | **none** |
+
+**Rule RE-4 — architecture approval never becomes individual approval.** A phase-level record
+that approves a registry's *architecture* cannot satisfy individual approval for a card inside
+it. The implementation excludes `phase-4-final-approval.md` from the individual-approval search
+by name, so the phase record cannot be read as the card's approval even accidentally.
+
+**Rule RE-5 — individual Skill approval needs the card marked `APPROVED` and a separate human
+approval record naming that identity.** No card meets that today, so `approved_skills()` is
+legitimately empty, and any plan naming a Skill requirement **blocks** with
+`UNREGISTERED_CAPABILITY`.
+
+That is a real consequence and it is the correct one: it means the Phase 16 bridge currently
+cannot assign any Skill, and a reviewer should read that as the registry failing closed rather
+than as a gap to be worked around. A carded Skill's mapping to a Role is evidence of
+**applicability**, never of eligibility; the two gates stand in that order.
 
 If the record is unreadable, is not marked `APPROVED — HUMAN DECISION`, or no longer contains
 the phrase its scope was read from, that whole kind resolves to the **empty set**. Fail closed,

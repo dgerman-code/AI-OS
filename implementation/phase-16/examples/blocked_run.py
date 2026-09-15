@@ -125,9 +125,12 @@ def main():
     show("stage owner the plan declares nothing for",
          work_plan=WorkPlan("work_plan.nd", 1, (
              PlanStage("S1", sorted(registries.approved_roles())[7], (), False, "x"),)))
-    show("Skill bound to a Role the mappings do not allow",
+    # A CARDED Skill, not an approved one: the Phase 4 architecture approval is not individual
+    # Skill approval, so no Skill is individually approved today and this blocks at the
+    # earlier gate. That is the refusal worth showing.
+    show("carded Skill without individual approval evidence",
          skill_requirements=(SkillRequirement(
-             sorted(registries.approved_skills())[0], role),))
+             sorted(registries.carded_skills())[0], role),))
 
     print()
     show_basis_refusals()

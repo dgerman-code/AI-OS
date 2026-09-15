@@ -31,6 +31,11 @@ result is counted, and outcomes are four, not two:
 A RUNNER_ERROR is never counted as a detection. It is a harness defect to be fixed, and the
 run reports it as one.
 
+OUTCOMES ARE ASSERTED, NOT ASSUMED. Each probe declares the outcome it expects. Almost all
+expect DETECTED; two expect RUNNER_ERROR, because "an unexpected runtime fault is never counted
+as a semantic detection" is itself an invariant worth testing rather than trusting. A probe is
+satisfied when it gets the outcome it asserts, and the totals below report both numbers.
+
 ESCAPES THAT ARE NOT VALIDATOR GAPS. Eight probes escape, and every one of them breaks a
 SECOND line of defence while a stronger first line still holds. They are kept rather than
 deleted, because a probe that escapes for a stated reason is evidence and a probe quietly
@@ -50,7 +55,18 @@ removed is not:
   * `the Role cross-check against the approved universe is dropped` - on a clean tree the
     cross-check finds nothing to reject, so removing it changes no result. The probes that
     BREAK the evidence it protects (a slugged card ID, a renamed card, a missing version, a
-    superseded card, a demoted approval record) are all detected.
+    superseded card, a demoted approval record) are all detected;
+  * `a carded Skill card status is no longer required to be APPROVED` - individual Skill
+    approval needs BOTH an APPROVED card status and a separate human approval record naming
+    the identity, and no card satisfies the second either, so dropping the first changes
+    nothing. `individual Skill approval is asserted rather than evidenced`, which drops both,
+    is detected;
+  * `a non-EXECUTABLE candidate becomes issuable` - the one-time preflight provenance refuses
+    a `with_status` copy before the status check would have mattered;
+  * `explicit negative wording stops denying a mapping` - the heading reset already keeps
+    boundary and exclusion sections from being read as mappings, so the negative-wording rule
+    is a second guard on the same prose. `boundary and exclusion prose leaks into positive
+    mappings`, which drops all three guards together, is detected.
 
 Each is defence in depth working as intended, not a rule nobody is checking. Reporting them as
 detections would be the dishonest option.
@@ -89,9 +105,14 @@ RUNNER_ERROR = "RUNNER_ERROR"
 PROBES = []
 
 
-def probe(name, path, pattern, replacement, count=1):
-    """Register a single-rule mutation. `path` is repo-relative; `pattern` is a regex."""
-    PROBES.append({"name": name, "path": path,
+def probe(name, path, pattern, replacement, count=1, expect=None):
+    """Register a single-rule mutation. `path` is repo-relative; `pattern` is a regex.
+
+    `expect` names the outcome the probe is asserting. It defaults to DETECTED; the one probe
+    that asserts RUNNER_ERROR sets it explicitly, because "the harness must not read a crash as
+    a detection" is itself an invariant worth testing rather than trusting.
+    """
+    PROBES.append({"name": name, "path": path, "expect": expect or DETECTED,
                    "edits": [(pattern, replacement, count)]})
 
 
@@ -104,7 +125,7 @@ def probe_edits(name, path, edits):
     loads cleanly, it is exactly the defect being guarded against, and the validator either
     notices or does not.
     """
-    PROBES.append({"name": name, "path": path,
+    PROBES.append({"name": name, "path": path, "expect": DETECTED,
                    "edits": [(p, r, c) for p, r, c in edits]})
 
 
@@ -317,7 +338,7 @@ probe("a Skill claimed for an unresolved Role is accepted", impl(P),
       r"if skill\.for_role is None or skill\.for_role not in approved_roles:", "if False:")
 probe("an unregistered Role is accepted for assignment", impl(P),
       r"elif role\.role_ref not in approved_roles or not role\.registered:", "elif False:")
-probe("an unregistered Skill is accepted for assignment", impl(P),
+probe("an unapproved Skill is accepted for assignment", impl(P),
       r"if skill\.skill_ref not in approved_skills or not skill\.registered:", "if False:")
 probe("planned spec identities may collide", impl(H),
       r"if len\(set\(spec_ids\)\) != len\(spec_ids\):", "if False:")
@@ -340,7 +361,7 @@ probe("the idempotency key ignores the material planning version", impl(H),
       r'"%s\|%s\|%s" % \(plan\.scope_ref, plan\.request_id, plan\.material_digest\(\)\)',
       '"%s|%s" % (plan.scope_ref, plan.request_id)')
 probe("re-issuing on unchanged inputs mints a second basis", impl(S),
-      r"return previous\.snapshot\(\)     # idempotent reuse", "pass  # idempotent reuse")
+      r"                return previous\.snapshot\(\)\n", "                pass\n")
 probe("a Work Plan may be rendered in the workflow identifier space", impl(D),
       r'if self\.work_plan_id\.startswith\("workflow\."\):', "if False:")
 probe("a repeated pattern is emitted as APPROVED rather than PROPOSED", impl(S),
@@ -371,6 +392,71 @@ probe("a new basis no longer records what it supersedes", impl(S),
 probe("the basis stops binding the implementation-spec version", impl(D),
       r'IMPLEMENTATION_SPEC_VERSION = "phase-14@ba9e3fee"',
       'IMPLEMENTATION_SPEC_VERSION = "unversioned"')
+
+# ------------------------------------------------- survivors: B1 / B3 / B4 / B5
+
+# B1. The exact defect: reading the Phase 4 ARCHITECTURE approval as individual Skill approval.
+probe("Skill eligibility is inferred from the Phase 4 architecture approval", impl(R),
+      r'    if kind_name == "skill":', "    if False:")
+probe("the individual-approval test accepts the phase-level Phase 4 record", impl(R),
+      r'if not name\.endswith\("\.md"\) or name == "phase-4-final-approval\.md":',
+      'if not name.endswith(".md"):')
+probe("individual Skill approval is asserted rather than evidenced", impl(R),
+      r"(?m)^    try:\n        card = _read\(card_path\)",
+      "    return True\n    try:\n        card = _read(card_path)")
+probe("a carded Skill card status is no longer required to be APPROVED", impl(R),
+      r'if status is None or status\.group\(1\)\.strip\(\) != "APPROVED":', "if False:")
+
+# B3. Issuance provenance: sealing arbitrary caller input is not validation.
+probe("issuance stops requiring successful-preflight provenance", impl(S),
+      r"request_id, digest, seal = _consume_issuance_provenance\(basis\)",
+      "request_id, digest, seal = (basis.request_id, basis.planning_digest, "
+      "basis.payload_seal())")
+probe("provenance is no longer consumed, so one proof issues for ever", impl(P),
+      r"entry = _ISSUABLE\.pop\(id\(basis\), None\)", "entry = _ISSUABLE.get(id(basis))")
+probe_edits("provenance is keyed by value, so an equal-value copy issues", impl(P), [
+    (r"_ISSUABLE\[id\(basis\)\] = ", "_ISSUABLE[basis.ref] = ", 1),
+    (r"entry = _ISSUABLE\.pop\(id\(basis\), None\)",
+     "entry = _ISSUABLE.pop(basis.ref, None)", 1),
+    (r"if entry is None or entry\[0\] is not basis:", "if entry is None:", 1),
+])
+probe("a non-EXECUTABLE candidate becomes issuable", impl(S),
+      r"if basis\.status is not BasisStatus\.EXECUTABLE:", "if False:")
+
+# B4. Mapping boundaries and owned-conclusion substance.
+probe("a non-relationship heading no longer resets the parser's relationship state", impl(R),
+      r"relationship = heading_text if heading_text in _RELATIONSHIPS else None",
+      "relationship = heading_text if heading_text in _RELATIONSHIPS else relationship")
+probe_edits("boundary and exclusion prose leaks into positive mappings", impl(R), [
+    (r"relationship = heading_text if heading_text in _RELATIONSHIPS else None",
+     "relationship = heading_text if heading_text in _RELATIONSHIPS else relationship", 1),
+    (r"\(\?:\\s\*\[-—:\]\\s\*\(\.\*\)\)\?\$", "(.*)$", 1),
+    (r'effective = "PROHIBITED_IN_CONTEXT" if _NEGATIVE\.search\(trailing\) else relationship',
+     "effective = relationship", 1),
+])
+probe("explicit negative wording stops denying a mapping", impl(R),
+      r'effective = "PROHIBITED_IN_CONTEXT" if _NEGATIVE\.search\(trailing\) else relationship',
+      "effective = relationship")
+
+probe("a blank or placeholder owned conclusion is accepted", impl(P),
+      r"if role\.load_bearing and not _substantive_conclusion\(role\.owned_conclusion\):",
+      "if False:")
+probe("the placeholder set empties, so TBD counts as a conclusion", impl(P),
+      r"(?s)_PLACEHOLDER_CONCLUSIONS = \{.*?\}", "_PLACEHOLDER_CONCLUSIONS = set()")
+
+# B5. The harness's own invariant: an unexpected runtime fault is never a detection. Two
+# probes, because there are two distinct paths to it: a fault at IMPORT, which leaves no JSON
+# on stdout at all, and a fault INSIDE a running section, which the validator classifies.
+probe("an unexpected RuntimeError is raised inside a running validator section", impl(R),
+      r"(?m)^    mappings: Dict\[str, Dict\[str, str\]\] = \{\}$",
+      '    raise RuntimeError("deliberate unexpected fault injected by the Phase 16 probe '
+      'harness")\n    mappings: Dict[str, Dict[str, str]] = {}',
+      1, RUNNER_ERROR)
+probe("an unexpected RuntimeError is raised inside the validated implementation", impl(D),
+      r"(?m)^IMPLEMENTATION_SPEC_VERSION = ",
+      'raise RuntimeError("deliberate unexpected fault injected by the Phase 16 probe harness")'
+      "\nIMPLEMENTATION_SPEC_VERSION = ",
+      1, RUNNER_ERROR)
 
 # ------------------------------------------------- prose
 
@@ -440,9 +526,17 @@ def run_validator(root):
 
 
 def classify(root):
+    """What did the validator actually say? Read the status field, never the exit code."""
     report, code, stderr = run_validator(root)
-    if report is None or "total" not in report or "passed" not in report:
-        return RUNNER_ERROR, "the validator produced no verdict (exit %d): %s" % (code, stderr)
+    if report is None:
+        return RUNNER_ERROR, ("the validator produced no parseable JSON (exit %d): %s"
+                              % (code, stderr))
+    status = report.get("status")
+    if status == "RUNNER_ERROR":
+        errors = report.get("runner_errors") or ["unspecified"]
+        return RUNNER_ERROR, str(errors[0])[:200]
+    if "total" not in report or "passed" not in report:
+        return RUNNER_ERROR, "the validator verdict has no counts (exit %d)" % code
     if report["passed"] < report["total"]:
         first = report["failed"][0] if report.get("failed") else {}
         return DETECTED, "%d/%d, first failure: %s" % (
@@ -496,7 +590,8 @@ def main():
                 applied += n
             if applied < len(entry["edits"]) or mutated == original:
                 outcomes.append((entry["name"], REDUNDANT,
-                                 "the pattern matched nothing; the probe is dead"))
+                                 "the pattern matched nothing; the probe is dead",
+                                 entry["expect"]))
                 say("  %-13s %s" % (REDUNDANT, entry["name"]))
                 continue
             try:
@@ -504,35 +599,42 @@ def main():
                 outcome, detail = classify(root)
             finally:
                 open(target, "w", encoding="utf-8").write(original)
-            outcomes.append((entry["name"], outcome, detail))
-            if outcome is DETECTED or outcome == DETECTED:
+            outcomes.append((entry["name"], outcome, detail, entry["expect"]))
+            if outcome == entry["expect"]:
                 if verbose:
-                    say("  %-13s %s" % (DETECTED, entry["name"]))
+                    say("  %-13s %s" % (outcome, entry["name"]))
             else:
-                say("  %-13s %s  (%s)" % (outcome, entry["name"], detail))
+                say("  %-13s %s  (expected %s; %s)"
+                    % (outcome, entry["name"], entry["expect"], detail))
 
     counts = {DETECTED: 0, ESCAPED: 0, REDUNDANT: 0, RUNNER_ERROR: 0}
-    for _name, outcome, _detail in outcomes:
+    for _name, outcome, _detail, _expect in outcomes:
         counts[outcome] += 1
+    #: A probe is SATISFIED when it got the outcome it asserts. That is not the same as being
+    #: DETECTED: the RuntimeError probe asserts RUNNER_ERROR, and counting it as a detection
+    #: would be exactly the dishonesty it exists to rule out.
+    unsatisfied = [(n, o, d, e) for n, o, d, e in outcomes if o != e]
 
     if as_json:
         sys.stdout.write(json.dumps({
             "control": "PASS",
             "control_passed": control["passed"], "control_total": control["total"],
             "total_probes": len(PROBES), "counts": counts,
-            "probes": [{"name": n, "outcome": o, "detail": d} for n, o, d in outcomes],
+            "satisfied": len(PROBES) - len(unsatisfied),
+            "probes": [{"name": n, "outcome": o, "detail": d, "expected": e}
+                       for n, o, d, e in outcomes],
         }, indent=2) + "\n")
     else:
-        print("\n=== %d/%d DETECTED === (escaped %d, redundant %d, runner errors %d)"
-              % (counts[DETECTED], len(PROBES), counts[ESCAPED], counts[REDUNDANT],
-                 counts[RUNNER_ERROR]))
-        for label in (ESCAPED, REDUNDANT, RUNNER_ERROR):
-            listed = [(n, d) for n, o, d in outcomes if o == label]
-            if listed:
-                print("\n%s:" % label)
-                for name, detail in listed:
-                    print("  - %s (%s)" % (name, detail))
-    return 0 if counts[DETECTED] == len(PROBES) else 1
+        print("\n=== %d DETECTED, %d ESCAPED, %d REDUNDANT, %d RUNNER_ERROR of %d probes ==="
+              % (counts[DETECTED], counts[ESCAPED], counts[REDUNDANT], counts[RUNNER_ERROR],
+                 len(PROBES)))
+        print("=== %d/%d probes returned the outcome they assert ==="
+              % (len(PROBES) - len(unsatisfied), len(PROBES)))
+        if unsatisfied:
+            print("\nDid not return the asserted outcome:")
+            for name, outcome, detail, expect in unsatisfied:
+                print("  - %s: got %s, expected %s (%s)" % (name, outcome, expect, detail))
+    return 0 if not unsatisfied else 1
 
 
 if __name__ == "__main__":

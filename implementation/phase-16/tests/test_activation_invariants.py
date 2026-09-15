@@ -54,21 +54,53 @@ def a_workflow_ref():
 
 
 def a_skill_for(role_ref):
-    """An approved Skill the authoritative mapping records actually allow for that Role."""
-    for skill in sorted(registries.approved_skills()):
+    """A CARDED Skill the authoritative mapping records positively relate to that Role.
+
+    Drawn from `carded_skills()`, never from `approved_skills()`. A mapping is evidence that a
+    capability is APPLICABLE to a Role; it says nothing whatever about whether that Skill is
+    individually approved, and these fixtures must not imply that it is.
+    """
+    for skill in sorted(registries.carded_skills()):
         ok, _why = registries.skill_is_compatible_with_role(skill, role_ref)
         if ok:
             return skill
-    raise AssertionError("no approved Skill is mapped to %s" % role_ref)
+    raise AssertionError("no carded Skill is mapped to %s" % role_ref)
 
 
 def a_mapped_role():
-    """An approved Role that the mapping records give at least one carded Skill."""
+    """An approved Role that the mapping records positively relate to a CARDED Skill."""
     for role in sorted(registries.approved_roles()):
-        for skill in sorted(registries.approved_skills()):
+        for skill in sorted(registries.carded_skills()):
             if registries.skill_is_compatible_with_role(skill, role)[0]:
                 return role
     raise AssertionError("no approved Role is mapped to a carded Skill")
+
+
+class simulated_individual_skill_approval(object):
+    """A LABELLED TEST DOUBLE that temporarily makes named Skills individually approved.
+
+    It creates no approval and asserts none. It exists because the downstream Skill gates —
+    Role compatibility and wrong-Role binding — sit BEHIND the individual-approval gate, and
+    with no Skill individually approved in this repository today those gates are unreachable
+    and would lose their coverage silently.
+
+    Every use is explicit, scoped to one assertion and restored afterwards. No test uses it to
+    claim that a Skill IS approved: the test that asks that question reads the real
+    `approved_skills()` and expects the empty set.
+    """
+
+    def __init__(self, *skills):
+        self.skills = set(skills)
+        self._original = None
+
+    def __enter__(self):
+        self._original = registries.approved_skills
+        registries.approved_skills = lambda: set(self.skills)
+        return self
+
+    def __exit__(self, *_exc):
+        registries.approved_skills = self._original
+        return False
 
 
 def issued(plan, **preflight_kwargs):
@@ -464,6 +496,15 @@ class TestRegistryEligibility(unittest.TestCase):
                 self.assertIsNotNone(registries.card_path(kind, identity),
                                      "%s has no declaring card" % identity)
 
+    def test_carded_skills_are_declared_cards_and_not_thereby_approved(self):
+        """Card existence is evidence of a CARD. It is not evidence of approval."""
+        carded = registries.carded_skills()
+        self.assertEqual(len(carded), 6, sorted(carded))
+        self.assertIn("skill.source_verification", carded)
+        self.assertEqual(registries.approved_skills(), set(),
+                         "no Skill card carries explicit individual approval evidence")
+        self.assertLessEqual(registries.approved_skills(), carded)
+
     def test_an_uncarded_universe_entry_is_not_eligible(self):
         """A candidate held in a consolidation group is a mention, not a registration."""
         uncarded = {
@@ -475,7 +516,9 @@ class TestRegistryEligibility(unittest.TestCase):
         self.assertNotIn(uncarded["review"], registries.approved_review_profiles())
         self.assertNotIn(uncarded["decision"], registries.approved_decision_rights())
         self.assertNotIn(uncarded["workflow"], registries.approved_workflows())
-        self.assertNotIn(uncarded["skill"], registries.approved_skills())
+        # Checked against the CARDED set, the wider of the two: absent from it is absent from
+        # the approved set a fortiori, and checking the empty set would prove nothing.
+        self.assertNotIn(uncarded["skill"], registries.carded_skills())
 
     def test_an_uncarded_workflow_is_blocked_under_match(self):
         plan = base(execution_mode=ExecutionMode.MATCH, work_plan=None,
@@ -500,7 +543,7 @@ class TestRegistryEligibility(unittest.TestCase):
 
     def test_a_retired_id_named_only_by_a_supersedes_line_is_not_eligible(self):
         """`Supersedes: `skill.legal_source_currency_check`` names a RETIRED identity."""
-        self.assertNotIn("skill.legal_source_currency_check", registries.approved_skills())
+        self.assertNotIn("skill.legal_source_currency_check", registries.carded_skills())
 
     def test_the_approved_workflow_version_is_the_one_the_card_declares(self):
         for wf, version in registries.approved_workflows().items():
@@ -743,57 +786,94 @@ class TestCompositionBindings(unittest.TestCase):
         self.assertIs(result.state, PlannerState.BLOCKED)
         self.assertIn(BlockReason.STAGE_OWNER_UNRESOLVED, result.reasons)
 
+    def test_a_positive_mapping_is_applicability_and_not_eligibility(self):
+        """The parser says the pair is applicable; preflight still refuses it.
+
+        This is the shape the corrected B1 semantics give the whole Skill path: a mapping
+        record answers "may this Role use this capability at all", and individual approval
+        answers "may this Skill be assigned in execution". Only the second one opens the gate.
+        """
+        role = a_mapped_role()
+        skill = a_skill_for(role)
+        ok, relationship = registries.skill_is_compatible_with_role(skill, role)
+        self.assertTrue(ok, relationship)
+        self.assertIn(skill, registries.carded_skills())
+        self.assertNotIn(skill, registries.approved_skills())
+
+        result = run_preflight(base(
+            role_requirements=(RoleRequirement(role, "a substantive domain conclusion"),),
+            skill_requirements=(SkillRequirement(skill, role),),
+            work_plan=WorkPlan("work_plan.rs", 1, (
+                PlanStage("S1", role, (), False, "draft"),))))
+        self.assertIs(result.state, PlannerState.BLOCKED, result.detail)
+        self.assertIn(BlockReason.UNREGISTERED_CAPABILITY, result.reasons)
+
     def test_a_skill_bound_to_the_wrong_role_blocks(self):
+        """Reached through the labelled double: this gate sits behind individual approval."""
         role = a_mapped_role()
         skill = a_skill_for(role)
         wrong = next(r for r in sorted(registries.approved_roles())
                      if not registries.skill_is_compatible_with_role(skill, r)[0])
-        plan = base(
-            role_requirements=(RoleRequirement(wrong, "a conclusion"),),
-            skill_requirements=(SkillRequirement(skill, wrong),),
-            work_plan=WorkPlan("work_plan.ws", 1, (
-                PlanStage("S1", wrong, (), False, "draft"),)))
-        result = run_preflight(plan)
+        with simulated_individual_skill_approval(skill):
+            result = run_preflight(base(
+                role_requirements=(RoleRequirement(wrong, "a substantive domain conclusion"),),
+                skill_requirements=(SkillRequirement(skill, wrong),),
+                work_plan=WorkPlan("work_plan.ws", 1, (
+                    PlanStage("S1", wrong, (), False, "draft"),))))
         self.assertIs(result.state, PlannerState.BLOCKED)
         self.assertIn(BlockReason.SKILL_ROLE_INCOMPATIBLE, result.reasons)
+        self.assertEqual(registries.approved_skills(), set(), "the double must be restored")
 
-    def test_a_skill_bound_to_a_role_the_mapping_allows_passes(self):
+    def test_a_skill_bound_to_a_role_the_mapping_allows_passes_once_approved(self):
+        """Also through the double, so the positive downstream path keeps its coverage."""
         role = a_mapped_role()
         skill = a_skill_for(role)
-        plan = base(
-            role_requirements=(RoleRequirement(role, "a conclusion"),),
-            skill_requirements=(SkillRequirement(skill, role),),
-            work_plan=WorkPlan("work_plan.rs", 1, (
-                PlanStage("S1", role, (), False, "draft"),)))
-        result = run_preflight(plan)
+        with simulated_individual_skill_approval(skill):
+            result = run_preflight(base(
+                role_requirements=(RoleRequirement(role, "a substantive domain conclusion"),),
+                skill_requirements=(SkillRequirement(skill, role),),
+                work_plan=WorkPlan("work_plan.rs2", 1, (
+                    PlanStage("S1", role, (), False, "draft"),))))
         self.assertIs(result.state, PlannerState.VALIDATED, result.detail)
+        self.assertEqual(registries.approved_skills(), set(), "the double must be restored")
 
     def test_a_skill_claimed_for_an_unresolved_role_blocks(self):
         role = a_mapped_role()
-        plan = base(
-            role_requirements=(RoleRequirement(role, "a conclusion"),),
-            skill_requirements=(SkillRequirement(a_skill_for(role), "role.not_a_role"),),
+        skill = a_skill_for(role)
+        # Blocked twice over, and both are asserted: unapproved first, and — behind the
+        # double — for a Role that does not resolve.
+        result = run_preflight(base(
+            role_requirements=(RoleRequirement(role, "a substantive domain conclusion"),),
+            skill_requirements=(SkillRequirement(skill, "role.not_a_role"),),
             work_plan=WorkPlan("work_plan.ur", 1, (
-                PlanStage("S1", role, (), False, "draft"),)))
-        result = run_preflight(plan)
+                PlanStage("S1", role, (), False, "draft"),))))
+        self.assertIs(result.state, PlannerState.BLOCKED)
+        self.assertIn(BlockReason.UNREGISTERED_CAPABILITY, result.reasons)
+        with simulated_individual_skill_approval(skill):
+            result = run_preflight(base(
+                role_requirements=(RoleRequirement(role, "a substantive domain conclusion"),),
+                skill_requirements=(SkillRequirement(skill, "role.not_a_role"),),
+                work_plan=WorkPlan("work_plan.ur2", 1, (
+                    PlanStage("S1", role, (), False, "draft"),))))
         self.assertIs(result.state, PlannerState.BLOCKED)
         self.assertIn(BlockReason.UNREGISTERED_CAPABILITY, result.reasons)
 
-    def test_an_unmapped_but_registered_skill_blocks(self):
+    def test_an_unmapped_but_approved_skill_blocks(self):
         """Silence in the authoritative mapping records is not permission."""
         role = a_mapped_role()
         unmapped = next(
-            (s for s in sorted(registries.approved_skills())
+            (s for s in sorted(registries.carded_skills())
              if not registries.skill_is_compatible_with_role(s, role)[0]), None)
         self.assertIsNotNone(unmapped)
-        plan = base(
-            role_requirements=(RoleRequirement(role, "a conclusion"),),
-            skill_requirements=(SkillRequirement(unmapped, role),),
-            work_plan=WorkPlan("work_plan.um", 1, (
-                PlanStage("S1", role, (), False, "draft"),)))
-        result = run_preflight(plan)
+        with simulated_individual_skill_approval(unmapped):
+            result = run_preflight(base(
+                role_requirements=(RoleRequirement(role, "a substantive domain conclusion"),),
+                skill_requirements=(SkillRequirement(unmapped, role),),
+                work_plan=WorkPlan("work_plan.um", 1, (
+                    PlanStage("S1", role, (), False, "draft"),))))
         self.assertIs(result.state, PlannerState.BLOCKED)
         self.assertIn(BlockReason.SKILL_ROLE_INCOMPATIBLE, result.reasons)
+        self.assertEqual(registries.approved_skills(), set(), "the double must be restored")
 
     def test_planned_spec_identities_are_unique(self):
         plan = base(work_plan=WorkPlan("work_plan.many", 1, tuple(

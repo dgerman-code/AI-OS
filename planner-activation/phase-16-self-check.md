@@ -14,9 +14,9 @@ creates no Decision Right, and does not make this proposal correct.
 
 | Suite | Result |
 |---|---|
-| `validation/phase_16_validation.py` | **204/204 PASS** |
-| `validation/phase_16_mutation_probes.py` | **91/99 DETECTED**, 8 ESCAPED (all defence-in-depth, enumerated below), 0 REDUNDANT, 0 RUNNER_ERROR, against a pristine copied control at 204/204 |
-| `implementation/phase-16/tests/test_activation_invariants.py` | **71 tests, OK** — the 15 mandatory acceptance scenarios plus the B1–B4 negative cases |
+| `validation/phase_16_validation.py` | **245/245 PASS**, top-level status `PASS`, 0 runner errors |
+| `validation/phase_16_mutation_probes.py` | **101 DETECTED, 11 ESCAPED, 0 REDUNDANT, 2 RUNNER_ERROR of 114**; **103/114 returned the outcome they assert** (both RUNNER_ERROR results are asserted, not accidents), against a pristine copied control at 245/245 |
+| `implementation/phase-16/tests/` | **83 tests, OK** — the 15 mandatory acceptance scenarios, the B1–B4 negative cases, and the survivor regressions |
 | `implementation/phase-16/examples/executable_run.py` | runs; reaches an `EXECUTABLE` basis and a trigger answering all seven intake checks |
 | `implementation/phase-16/examples/blocked_run.py` | runs; every blocked path blocks or refuses, none silently proceeds |
 
@@ -70,12 +70,53 @@ Now: the copy carries every read-only dependency, the registry root is pinned to
 four — `DETECTED`, `ESCAPED`, `REDUNDANT`, `RUNNER_ERROR` — with `RUNNER_ERROR` never counted
 as a detection. The result is **91 detected of 99, 0 redundant, 0 runner errors**.
 
-The eight escapes are enumerated in the harness's own docstring. Every one breaks a *second*
+The escapes are enumerated in the harness's own docstring — eight at that point, eleven after the assurance synchronisation added probes for guards that already stood behind stronger ones. Every one breaks a *second*
 line of defence while a stronger first line still holds — the payload seal, the material
 digest, the `work_plan.` prefix check, or a guard made unreachable by the duplicate-stage block.
 Two of them, `the Role cross-check is dropped` and the seal-covered tampers, are mutations that
 change no result on a clean tree at all. They are kept and named rather than deleted: a probe
 that escapes for a stated reason is evidence, and a probe quietly removed is not.
+
+## 2c. The assurance synchronisation, and the claim it withdrew
+
+A later remediation corrected four semantics in the implementation, and the assurance layer was
+then out of step with it. Synchronising the two withdrew a claim this document previously made.
+
+**The withdrawn claim: "six approved Skills".** §2a of this document, the validator and the
+test fixtures all read the Phase 4 approval phrase "the current selective exemplar card set" as
+individual approval of the six exemplar Skill cards. The Phase 4 record says the opposite, in
+terms: cards "may remain individually `PROPOSED`", and the phase decision "must not be
+interpreted as a mass status promotion of all cards or universe entries". So the correct
+reading separates two questions that were being answered as one:
+
+| Question | View | Answer |
+|---|---|---|
+| Does a declared, versioned, unsuperseded card exist? | `carded_skills()` | **6** |
+| Is this Skill individually approved for execution? | `approved_skills()` | **none** |
+
+The consequence is real and is the correct one: **the Phase 16 bridge can currently assign no
+Skill at all.** Every Skill requirement blocks with `UNREGISTERED_CAPABILITY`, and the validator
+proves that for each of the six carded Skills rather than asserting it once. A reviewer should
+read that as the registry failing closed, not as a gap to work around.
+
+**What that cost the assurance layer, and how it was paid.** The Role-compatibility and
+wrong-Role gates sit *behind* the individual-approval gate, so with no Skill approved they
+became unreachable and would have lost their coverage silently. Rather than delete those tests
+or quietly reintroduce "approved exemplar Skill", they now run through
+`simulated_individual_skill_approval`, a labelled test double that is scoped to one assertion,
+restored afterwards, and asserted to be restored. No check uses it to answer the question
+"is this Skill approved" — that question reads the real view and expects the empty set.
+
+**The other three.** B3 binds issuance to one-time successful-preflight provenance, so a
+fabricated basis after a blocked preflight, and even an equal-value copy of a genuine one,
+cannot be issued. B4 reads Role↔Skill mappings as positive evidence only — a non-relationship
+heading resets parser state, so Boundary and exclusion prose cannot inherit the relationship
+above it — and blocks blank, whitespace and placeholder owned conclusions. B5 gives the
+validator an explicit top-level status and separates an infrastructure fault from a finding:
+an `ImportError`, `OSError`, `SyntaxError` or `RuntimeError` is `RUNNER_ERROR` and is never
+counted as a detection, while an exception caused by the implementation under test behaving
+differently is a semantic `FAIL`, because recording that as "infrastructure" would let a real
+regression hide behind the word.
 
 ## 3. Where the assurance is weak, stated plainly
 
@@ -86,9 +127,10 @@ that escapes for a stated reason is evidence, and a probe quietly removed is not
 | L-3 | **The material-field list is asserted against itself.** The validator checks that scope, objective, criticality and the requirement sets are material. It cannot check that the list is *complete*, because completeness is a judgement about what changes authority |
 | L-4 | **Registry views are still derived by parsing approved documents.** The parse now reads declarations rather than mentions, cross-checks Roles against the approved universe in both directions, and requires named approval evidence per kind — but the parser is Phase 16 code. A declaration format that changed in an approved card would empty that registry, which fails closed; a card that declared two identities would not be noticed |
 | L-4a | **The approval evidence is a quoted phrase from each approval record.** That is evidence, and it is also brittle: an approval record reworded in a later governed pass takes its whole kind to empty until the phrase is updated. Fail-closed is the right direction for that brittleness, but it is brittleness |
-| L-4b | **Carded sets are small.** Six Skills, six Review Profiles, eight Decision Rights, four Workflows. The bridge is demonstrated against what is actually approved, not against the candidate universes, and a plan needing an uncarded capability blocks. That is correct and it is also narrow |
+| L-4b | **Carded sets are small, and the approved Skill set is empty.** Six carded Skills, six Review Profiles, eight Decision Rights, four Workflows — and **no** individually approved Skill. The bridge is demonstrated against what is actually approved, not against the candidate universes, so a plan needing any Skill blocks today. That is correct and it is also narrow |
+| L-4c | **Three Skill gates are covered only through a labelled double.** Role compatibility, wrong-Role binding and unresolved-Role binding sit behind the individual-approval gate, which nothing passes today. `simulated_individual_skill_approval` keeps them covered; it does not make them exercised against real approved evidence, and it will not be needed once any Skill card is individually approved |
 | L-5 | **The prose layer is thin on purpose.** Around fifteen prose checks, not a hundred. The instruction was useful rather than exhaustive, and prose-only gaps are recorded as debt |
-| L-5a | **Eight probes escape.** Each for a stated reason, none of them a rule nobody checks — but "defence in depth" is an explanation, not a proof, and a reviewer should read §2b rather than take it on trust |
+| L-5a | **Eleven probes escape.** Each for a stated reason, none of them a rule nobody checks — but "defence in depth" is an explanation, not a proof, and a reviewer should read the harness docstring rather than take it on trust |
 | L-6 | **`sensitivity` and `residency` default to `UNASSESSED`.** Intake check 4 is answerable, but Phase 16 performs no classification and the answer's quality depends on an upstream step this phase does not own |
 | L-7 | **No inherited suite was extended.** Phase 8/9/10/11/12/14/15 validators are run unchanged as regression evidence. Phase 16 adds no check to any of them, so nothing here proves Phase 16 is compatible with an approved contract beyond what those suites already tested |
 
