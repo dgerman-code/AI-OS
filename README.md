@@ -1,19 +1,71 @@
 # AI-OS
 
-Provider-independent AI Operating System for managing organisations, programmes, projects, ventures, digital products and operational work through reusable professional roles, skills, workflows, evidence, review and human governance.
+Provider-independent AI Operating System for managing organisations, programmes, projects, ventures, digital products and operational work through reusable professional Roles, Skills, Workflows, evidence, review and explicit human governance.
+
+## Start here
+
+For the current system state and approval boundary, read:
+
+1. `SYSTEM_STATUS.md`
+2. `AI_OS_ENTRYPOINT.md`
+3. `ai-os.yaml`
+
+If you are connecting an external AI through GitHub, use the approved **Mode A** path and follow `docs/HOW_TO_CONNECT_ANY_AI.md` plus `docs/MODE_A_OPERATIONAL_CHECKLIST.md`.
+
+## Current operating model
+
+**Mode A — approved current connection mode**
+
+`Human -> external AI -> GitHub AI-OS`
+
+The external AI reads AI-OS from GitHub at a reported ref/commit and works under repository governance. Provider memory, chat history and generated output are not canonical AI-OS state by themselves.
+
+**Mode B — deferred**
+
+AI-OS calling/routing model-provider APIs is intentionally deferred. Provider API orchestration, billing, key management, retry/fallback workers, queues and deployment runtime are not part of the current approved operating mode.
 
 ## Core principles
 
 - ROLE != MODEL.
 - ROLE != AGENT INSTANCE.
-- Roles, skills, workflows and canonical knowledge live outside any individual AI provider.
-- Models are replaceable runtimes that temporarily assume roles.
+- Roles, Skills, Workflows and canonical knowledge live outside any individual AI provider.
+- Models are replaceable runtimes that temporarily assume Roles.
 - Context is isolated by organisation / programme / project / product / workstream / task.
-- AI output does not automatically become canonical truth.
+- AI output does not automatically become canonical truth or governance approval.
 - Critical authors do not self-approve their own work.
 - Delivery, independent assurance and human authority are separate layers.
-- New roles are created only when a distinct methodology, authority boundary, review requirement or recurring professional artifact justifies them.
+- New Roles are created only when a distinct methodology, authority boundary, review requirement or recurring professional artifact justifies them.
 
-## Status
+## Governance and status
 
-This repository is the canonical system-definition repository for AI-OS. The initial architecture is being developed in phases. Operational project state, runs, handoffs, approvals and memory will be designed separately after logical architecture approval.
+Historical phase approval records live under `reviews/`. Phase-level approval does not automatically approve or canonicalise every child artifact. Existence, applicability, validation success and execution eligibility must not be confused with governance approval.
+
+See `SYSTEM_STATUS.md` for the Phase 1–17 approval chain, inherited assurance notes and current limitations.
+
+## Operational guidance
+
+- Mode A connection guide: `docs/HOW_TO_CONNECT_ANY_AI.md`
+- Mode A operational checklist: `docs/MODE_A_OPERATIONAL_CHECKLIST.md`
+- GitHub access/least-privilege guidance: `docs/GITHUB_ACCESS_MODEL.md`
+- Main-readiness/consolidation guidance: `docs/MAIN_READINESS.md`
+- Provider-neutral result contract: `contracts/ai-result-envelope.schema.json`
+- Final post-approval cold-start test plan: `tests/FINAL_COLD_START_TEST_PLAN.md`
+
+## Validation
+
+Current completion work should be checked with:
+
+```bash
+python3 validation/phase_18_completion_validation.py
+python3 validation/phase_18_completion_validation.py --json
+python3 validation/phase_17_mode_a_validation.py
+python3 validation/phase_17_mode_a_validation.py --json
+```
+
+Validation does not create human approval.
+
+## Readiness boundary
+
+AI-OS is now being completed as a coherent GitHub-based Mode A system package. This repository does **not** claim a deployed production service, production SLA, active Mode B runtime, or universal approval of all child artifacts.
+
+The final external-AI cold-start test is intentionally scheduled only after Phase 18 human approval.
