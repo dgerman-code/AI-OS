@@ -14,6 +14,7 @@ import hashlib
 from typing import Dict, List, Optional, Tuple
 
 import registries
+from workflow_contract import workflow_contract
 from domain import (
     ActivationError, BasisStatus, BlockReason, Criticality, ExecutionBasis, ExecutionMode,
     GovernanceError, IMPLEMENTATION_SPEC_VERSION, PlannerOutput, PlannerState,
@@ -22,8 +23,6 @@ from domain import (
 
 __all__ = ["IMPLEMENTATION_SPEC_VERSION", "PreflightResult", "run_preflight"]
 
-# One-time in-process issuance capabilities. A caller-constructed equal-value basis has a
-# different object identity and cannot acquire a capability. The store consumes this entry once.
 _ISSUABLE: Dict[int, Tuple[ExecutionBasis, str, str, str]] = {}
 _PLACEHOLDER_CONCLUSIONS = {
     "", "-", "...", "tbd", "todo", "unknown", "n/a", "na", "none", "placeholder",
@@ -50,17 +49,10 @@ class PreflightResult:
 
 
 def _register_issuable(plan: PlannerOutput, basis: ExecutionBasis) -> None:
-    """Bind exactly this object to exactly the successful preflight that produced it."""
     _ISSUABLE[id(basis)] = (basis, plan.request_id, plan.material_digest(), basis.payload_seal())
 
 
 def _consume_issuance_provenance(basis: ExecutionBasis) -> Tuple[str, str, str]:
-    """Consume one successful-preflight capability or refuse.
-
-    This is an in-process reference implementation capability, not authority. It proves only that
-    the exact immutable basis object was produced by a successful Phase 16 preflight and that the
-    proof has not already been consumed.
-    """
     entry = _ISSUABLE.pop(id(basis), None)
     if entry is None or entry[0] is not basis:
         raise ActivationError(
@@ -77,6 +69,54 @@ def _substantive_conclusion(text: Optional[str]) -> bool:
         return False
     normalized = " ".join(str(text).split()).strip().lower()
     return bool(normalized) and normalized not in _PLACEHOLDER_CONCLUSIONS
+
+
+def _check_match_completeness(plan: PlannerOutput, workflow_id: str, block) -> None:
+    """Verify that MATCH did not omit requirements carried by the selected Workflow.
+
+    Selection must not be able to pass by supplying only a valid Workflow identity. The Workflow
+    card is the requirement authority; the PlannerOutput is checked against it, not trusted to be
+    complete merely because its supplied requirements individually validate.
+    """
+    try:
+        contract = workflow_contract(workflow_id)
+    except (OSError, registries.RegistryEvidenceError) as exc:
+        block(BlockReason.WORKFLOW_NOT_APPROVED,
+              "cannot resolve the selected Workflow contract: %s" % exc)
+        return
+
+    roles = {r.role_ref for r in plan.role_requirements if r.role_ref}
+    reviews = {r.review_ref for r in plan.review_requirements}
+    decisions = {d.decision_ref for d in plan.decision_requirements if d.decision_ref}
+    evidence = {e.reference for e in plan.evidence_requirements}
+    skills = {s.skill_ref for s in plan.skill_requirements}
+
+    for ref in sorted(contract.mandatory_roles - roles):
+        block(BlockReason.BASIS_NOT_EXECUTABLE,
+              "MATCH omits mandatory Workflow Role requirement %s" % ref)
+    for ref in sorted(contract.required_reviews - reviews):
+        block(BlockReason.REVIEW_UNRESOLVED,
+              "MATCH omits Workflow Review requirement %s" % ref)
+    for ref in sorted(contract.required_decisions - decisions):
+        block(BlockReason.NO_APPLICABLE_DECISION_RIGHT,
+              "MATCH omits Workflow Decision Right requirement %s" % ref)
+    for ref in sorted(contract.required_evidence - evidence):
+        block(BlockReason.EVIDENCE_UNSATISFIED,
+              "MATCH omits Workflow precondition evidence requirement %s" % ref)
+    for ref in sorted(contract.required_skills - skills):
+        block(BlockReason.UNREGISTERED_CAPABILITY,
+              "MATCH omits REQUIRED_CORE Skill requirement %s" % ref)
+
+    approved_reviews = registries.approved_review_profiles()
+    for ref in sorted(contract.required_reviews):
+        if ref not in approved_reviews:
+            block(BlockReason.REVIEW_UNRESOLVED,
+                  "selected Workflow references unresolved Review Profile %s" % ref)
+    approved_rights = registries.approved_decision_rights()
+    for ref in sorted(contract.required_decisions):
+        if ref not in approved_rights:
+            block(BlockReason.NO_APPLICABLE_DECISION_RIGHT,
+                  "selected Workflow references unresolved Decision Right %s" % ref)
 
 
 def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
@@ -201,6 +241,8 @@ def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
                 block(BlockReason.WORKFLOW_VERSION_STALE,
                       "%s is bound at version %s; the approved card declares version %s"
                       % (wf_id, version, approved[wf_id]))
+            else:
+                _check_match_completeness(plan, wf_id, block)
     else:
         if plan.work_plan is None:
             block(BlockReason.BASIS_NOT_EXECUTABLE, "COMPOSE produced no Work Plan")
