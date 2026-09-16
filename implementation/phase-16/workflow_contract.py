@@ -35,6 +35,15 @@ def _section(body: str, heading: str, next_heading: str | None = None) -> str:
     return body[start:] if end < 0 else body[start:end]
 
 
+def _refs_from_marked_lines(body: str, marker: str, prefix: str) -> FrozenSet[str]:
+    refs = set()
+    pattern = re.compile(r"`(%s\.[a-z0-9_]+)`" % re.escape(prefix))
+    for line in body.splitlines():
+        if marker in line:
+            refs.update(pattern.findall(line))
+    return frozenset(refs)
+
+
 def workflow_contract(workflow_id: str) -> WorkflowContract:
     """Return the non-optional requirement surface declared by an approved Workflow.
 
@@ -62,14 +71,12 @@ def workflow_contract(workflow_id: str) -> WorkflowContract:
         r"`(artifact\.[a-z0-9_]+)`", preconditions
     ))
 
-    required_reviews = frozenset(re.findall(
-        r"REVIEW_REQUIRED_REFERENCE`?\s*(?:→|->)\s*`(review\.[a-z0-9_]+)`",
-        body,
-    ))
-    required_decisions = frozenset(re.findall(
-        r"HUMAN_GATE_REFERENCE`?\s*(?:→|->)\s*`(decision\.[a-z0-9_]+)`",
-        body,
-    ))
+    required_reviews = _refs_from_marked_lines(
+        body, "REVIEW_REQUIRED_REFERENCE", "review"
+    )
+    required_decisions = _refs_from_marked_lines(
+        body, "HUMAN_GATE_REFERENCE", "decision"
+    )
 
     mappings = registries.role_skill_mappings()
     required_skills = frozenset(
