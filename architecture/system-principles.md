@@ -5,9 +5,9 @@ Status: PROPOSED TARGET ARCHITECTURE v1
 ## Constitutional principles
 
 1. **Role != Model** — professional roles exist independently of any AI provider.
-2. **Role != Agent Instance** — a role is activated only when a workflow requires it.
+2. **Role != Agent Instance** — a Role is a reusable professional definition, not a permanently active persona. For governed execution, Role participation is activated only through an admissible Workflow or governed Work Plan. For bounded ad-hoc professional assistance, a Role may be resolved directly at task level without implying Workflow execution, Skill execution eligibility, review satisfaction, canonical status or human authority.
 3. **Skills are reusable** — skills and domain packs can be reused across roles and workflows.
-4. **Workflow selects roles** — users should not manually choose a large set of agents.
+4. **Workflow selects roles for governed execution** — users should not manually choose a large set of agents. Direct Expert Mode may express a user preference for bounded assistance, but it cannot override Role scope, competence/Skill requirements, independence, evidence requirements or authority.
 5. **Least Context Principle** — each role receives only the context necessary for its task.
 6. **Project and organisational isolation** — context must not leak across organisations, programmes, projects, products, workstreams or tasks.
 7. **Evidence before assertion** — material claims should be traceable to sources, evidence, calculations or explicitly marked assumptions.
@@ -22,6 +22,12 @@ Status: PROPOSED TARGET ARCHITECTURE v1
 16. **Structured handoffs replace uncontrolled agent conversations** — inter-role work is transferred through explicit outputs, evidence, assumptions, risks, open questions and next actions.
 17. **Canonical methodology lives outside the model** — methodology, policies and governance must be versioned and governed independently of LLM outputs.
 18. **Organisation != Programme != Project != Product != Task** — the operating context hierarchy must preserve these distinctions.
+
+## Ad-hoc assistance boundary
+
+A bounded ad-hoc task is professional assistance that does not claim to instantiate or execute a governed Workflow. Typical examples are arithmetic on user-supplied numbers, a translation, a first-pass explanation, or a narrow expert question. Such assistance may use the applicable Role definition to improve professional quality, but it does not create an ExecutionBasis, satisfy a Skill requirement, satisfy a Review, exercise a Decision Right or make the output canonical.
+
+When the requested output becomes decision-grade, relies on governed project evidence, triggers formal review/authority requirements, or is intended to enter a governed execution path, the system must leave the ad-hoc boundary and perform the applicable governed task resolution.
 
 ## System boundary
 
