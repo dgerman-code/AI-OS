@@ -22,12 +22,21 @@ preflight blocks with `WORKFLOW_VERSION_STALE`. An identity without a version bl
 Before a MATCH can issue an Execution Basis, the preflight resolves the selected approved Workflow
 card at the bound version and checks its mandatory requirement set against the proposed
 `PlannerOutput`. The planner payload is a proposal; omission from it is never evidence that the
-Workflow does not require something. At minimum, every concrete `ALWAYS` participating Role,
-explicit `REVIEW_REQUIRED_REFERENCE`, explicit `HUMAN_GATE_REFERENCE`, and artifact precondition
-that is represented by the Phase 16 contract must be present in the corresponding planner
-requirement family. An omission is fail-closed and the MATCH produces no basis. Conditional and
-parameterised bindings remain governed by the conditions and slot rules in the Workflow card;
-they are not converted to `ALWAYS` by this completeness check.
+Workflow does not require something. Every concrete `ALWAYS` participating Role, explicit
+`REVIEW_REQUIRED_REFERENCE`, explicit `HUMAN_GATE_REFERENCE`, and artifact precondition represented
+by the Phase 16 contract must be present in the corresponding planner requirement family. An
+omission is fail-closed and the MATCH produces no basis.
+
+An `ALWAYS` parameterised Role slot is also mandatory. Where the current `PlannerOutput` contract
+cannot prove the slot's binding, ownership or cardinality constraints, the preflight fails closed
+rather than treating any semantically plausible Role as an implicit binding. This targeted rule
+adds no slot registry and no new Role. Conditional Role bindings remain governed by their trigger
+conditions and are not silently promoted to `ALWAYS`.
+
+`Activated Skills / Packs` entries in the current exemplar Workflow cards are explicitly labelled
+**references only**. They therefore remain subject to the existing Phase 4/Phase 16 eligibility
+path when actually activated and are not incorrectly promoted into unconditional mandatory
+requirements merely because they are listed in that reference section.
 
 **Rule WR-3 — COMPOSE assembles approved primitives and invents none.** Approved Roles, approved
 Skills, approved Review Profiles, approved Decision Rights, Phase 8 knowledge requirements. Where
