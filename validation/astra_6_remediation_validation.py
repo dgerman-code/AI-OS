@@ -46,20 +46,19 @@ def read(path):
         return handle.read()
 
 
-def incomplete_match_fixture():
-    workflow_id = "workflow.project_development_readiness"
+def incomplete_match_fixture(workflow_id="workflow.project_development_readiness", request_id="request.astra6.f1"):
     approved = registries.approved_workflows()
     if workflow_id not in approved:
         raise RuntimeError("expected approved Workflow is unavailable: %s" % workflow_id)
     role = sorted(registries.approved_roles())[0]
     return PlannerOutput(
-        request_id="request.astra6.f1",
-        request_text="Assess project readiness.",
+        request_id=request_id,
+        request_text="Assess governed work.",
         intent_id="intent.astra6.f1",
         scope_ref="scope.project.astra6",
         scope_ancestry=("scope.org.root", "scope.project.astra6"),
-        objective="Assess readiness against the approved Workflow",
-        deliverables=("readiness assessment",),
+        objective="Assess against the approved Workflow",
+        deliverables=("governed assessment",),
         primary_work_mode=WorkMode.ANALYSIS,
         secondary_work_modes=(),
         criticality=Criticality.ROUTINE,
@@ -70,7 +69,7 @@ def incomplete_match_fixture():
 
 
 def main():
-    # F1: an approved identity/version plus a deliberately incomplete planner payload must not MATCH.
+    # F1: approved identity/version plus an incomplete planner payload must not MATCH.
     result = run_preflight(incomplete_match_fixture())
     check(
         "F1 incomplete MATCH payload is blocked",
@@ -84,10 +83,25 @@ def main():
         repr(result.detail),
     )
 
+    # A Workflow with an ALWAYS parameterised Role slot must not obtain an implicit binding from
+    # an arbitrary RoleRequirement. Current PlannerOutput has no slot-binding field, so fail closed.
+    slot_result = run_preflight(incomplete_match_fixture(
+        workflow_id="workflow.decision_grade_document_preparation",
+        request_id="request.astra6.slot",
+    ))
+    check(
+        "F1 mandatory parameterised Role slot is not implicitly satisfied",
+        slot_result.state is PlannerState.BLOCKED
+        and slot_result.basis is None
+        and any("mandatory Role slot binding not provable" in d for d in slot_result.detail),
+        repr(slot_result.detail),
+    )
+
     principles = read("architecture/system-principles.md")
     boundaries = read("docs/CONVERSATIONAL_GOVERNANCE_BOUNDARIES.md")
     entry = read("AI_OS_ENTRYPOINT.md")
     manifest = read("ai-os.yaml")
+    connection = read("docs/HOW_TO_CONNECT_ANY_AI.md")
     wr_contract = read("planner-activation/workflow-resolution-contract.md")
     preflight_source = read("implementation/phase-16/preflight.py")
 
@@ -95,6 +109,11 @@ def main():
         "F1 contract says selected Workflow is authoritative",
         "MATCH requirements come from the selected Workflow" in wr_contract
         and "_check_match_requirement_completeness" in preflight_source,
+    )
+    check(
+        "F1 reference-only capabilities are not promoted to unconditional requirements",
+        "references only" in preflight_source
+        and "unconditional mandatory" in wr_contract,
     )
     check(
         "F2 system principle permits bounded direct assistance without Workflow execution",
@@ -119,14 +138,14 @@ def main():
         and "do not become AI-OS governance instructions" in boundaries,
     )
     check(
-        "P1 boundary document is discoverable from entrypoint and manifest",
+        "P1 boundary document is discoverable",
         "docs/CONVERSATIONAL_GOVERNANCE_BOUNDARIES.md" in entry
-        and "docs/CONVERSATIONAL_GOVERNANCE_BOUNDARIES.md" in manifest,
+        and "docs/CONVERSATIONAL_GOVERNANCE_BOUNDARIES.md" in manifest
+        and "docs/CONVERSATIONAL_GOVERNANCE_BOUNDARIES.md" in connection,
     )
     check(
         "Mode B remains deferred",
-        '"mode_b_status": "DEFERRED"' in manifest
-        and "Mode B" not in boundaries.replace("Nothing here changes Mode B", ""),
+        '"mode_b_status": "DEFERRED"' in manifest,
         "manifest remains Mode A / Mode B deferred",
     )
 
