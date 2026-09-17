@@ -5,9 +5,9 @@ Status: PROPOSED TARGET ARCHITECTURE v1
 ## Constitutional principles
 
 1. **Role != Model** — professional roles exist independently of any AI provider.
-2. **Role != Agent Instance** — a role is activated only when a workflow requires it.
+2. **Role activation is task-bounded** — governed Workflow execution activates Roles through the applicable Workflow or governed Work Plan. For bounded ad-hoc professional assistance that does not execute a Workflow, governed Skill, Review, Decision Right or external act, an eligible Role may be resolved directly for the immediate analytical, advisory or drafting task. Direct assistance grants no Workflow status, Skill execution eligibility or authority.
 3. **Skills are reusable** — skills and domain packs can be reused across roles and workflows.
-4. **Workflow selects roles** — users should not manually choose a large set of agents.
+4. **Workflow selects roles for governed execution** — users should not manually choose a large set of agents. A direct request for a specialist may select an applicable Role for bounded assistance, but it does not create or modify a Workflow and does not bypass governance.
 5. **Least Context Principle** — each role receives only the context necessary for its task.
 6. **Project and organisational isolation** — context must not leak across organisations, programmes, projects, products, workstreams or tasks.
 7. **Evidence before assertion** — material claims should be traceable to sources, evidence, calculations or explicitly marked assumptions.
