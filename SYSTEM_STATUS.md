@@ -10,9 +10,29 @@ AI-OS has an approved provider-neutral architecture and reference implementation
 
 `Human -> external AI -> GitHub AI-OS`
 
-An external AI may read the repository and work under AI-OS governance. GitHub at the reported ref/commit remains the Mode A canonical source. Provider memory, chat history and generated output are not canonical AI-OS state unless separately governed into the repository.
+An external AI may read the repository and work under AI-OS governance. GitHub at the reported ref/commit remains the Mode A canonical source. Provider memory, chat history, Conversation Checkpoints and generated output are not canonical AI-OS state unless separately governed into the repository.
 
 **Mode B** — AI-OS itself calling/routing model-provider APIs — is intentionally deferred and is not implemented or approved as an active operating mode.
+
+## Astra 6 targeted remediation — 2026-09-17
+
+Independent audit verdict entering this branch: `TARGETED REMEDIATION REQUIRED`.
+
+Targeted remediation branch: `remediation/astra-6-targeted`, created from main baseline `a489efe55aa1088f2e8a19c39bc58c2c34c7dbc5`.
+
+The requested remediation scope is implemented without redesign, without new Roles, without a new expert activation registry and without changing Mode B:
+
+- MATCH preflight now derives mandatory Workflow requirement references from the selected approved Workflow card rather than trusting an incomplete planner payload. Omitted mandatory concrete Roles, Reviews, Decision Rights and artifact preconditions fail closed. Mandatory `ALWAYS` parameterised Role slots that cannot be proven by the present PlannerOutput contract also fail closed rather than receiving an implicit binding.
+- Direct Expert Mode is aligned with the system principles as bounded ad-hoc professional assistance that does not itself execute a Workflow or governed Skill, create authority, satisfy a Review or exercise a Decision Right.
+- `docs/CONVERSATIONAL_GOVERNANCE_BOUNDARIES.md` defines the compact non-canonical Conversation Checkpoint, the ordinary-assistance / governed-Skill boundary, and the project-document / prompt-injection boundary.
+- Discovery is updated through `AI_OS_ENTRYPOINT.md`, `ai-os.yaml` and `docs/HOW_TO_CONNECT_ANY_AI.md`.
+- Targeted deterministic assurance is defined in `validation/astra_6_remediation_validation.py`; the Phase 16 wrapper transparently supersedes only the historical positive MATCH fixture that conflicts with the stronger Astra 6 F1 rule, and only when the targeted validator passes.
+- Controlled conversational conformance is recorded in `tests/ASTRA_6_CONTROLLED_MULTI_TURN_TEST.md` with `8/8 PASS`.
+- Separate closure review: `reviews/astra-6-targeted-remediation-closure-review.md` — `CLOSURE REVIEW PASS — TARGETED SCOPE`.
+
+No PR has been created by this remediation work. No phase approval status is changed by the remediation or its validators.
+
+Execution-evidence limitation: no GitHub Actions/status checks are configured for the remediation branch in the connected repository view, and the current tool environment cannot execute the repository's Python validators from a local checkout. The closure review therefore does not claim a CI/local run that did not occur. Before merge, execute `python3 validation/astra_6_remediation_validation.py` and `python3 validation/phase_16_validation.py` in a checkout-capable environment.
 
 ## Approval chain
 
@@ -66,7 +86,7 @@ In particular:
 
 Mode A is approved as the current provider-neutral connection method. A human can give a compatible external AI read access to this repository, pin an exact ref/SHA, start from `AI_OS_ENTRYPOINT.md` and `ai-os.yaml`, and require results in `contracts/ai-result-envelope.schema.json`.
 
-Use `docs/MODE_A_OPERATIONAL_CHECKLIST.md` and `docs/GITHUB_ACCESS_MODEL.md` before broader use.
+Use `docs/CONVERSATIONAL_OPERATION_MODEL.md` together with `docs/CONVERSATIONAL_GOVERNANCE_BOUNDARIES.md` for interactive/long-running chat behaviour. Use `docs/MODE_A_OPERATIONAL_CHECKLIST.md` and `docs/GITHUB_ACCESS_MODEL.md` before broader use.
 
 ## What is not claimed
 
@@ -77,6 +97,7 @@ The current programme does **not** claim:
 - active Mode B provider routing/API orchestration;
 - automatic approval or canonicalisation;
 - universal approval of Skill cards or other proposed child artifacts;
-- that GitHub repository protection settings have already been configured merely because guidance exists here.
+- that GitHub repository protection settings have already been configured merely because guidance exists here;
+- that Astra 6 deterministic validators were executed by CI in this remediation session.
 
 Phase 18 is completing and consolidating the repository package. After Phase 18 human approval, the next action is the fresh external-AI test defined in `tests/FINAL_COLD_START_TEST_PLAN.md`.
