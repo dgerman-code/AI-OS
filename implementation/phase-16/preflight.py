@@ -82,14 +82,19 @@ def _substantive_conclusion(text: Optional[str]) -> bool:
 
 
 def _workflow_mandatory_requirement_refs(workflow_id: str):
-    """Read the selected approved Workflow card and return its mandatory static references.
+    """Read the selected approved Workflow card and return mandatory static references.
 
     MATCH must not treat PlannerOutput as the authoritative list of what the Workflow requires.
-    The Workflow card is the source of truth. This deliberately extracts only requirement
-    families already represented by the Phase 16 PlannerOutput contract: ALWAYS concrete Roles,
-    explicit Review references, explicit Decision Right references, and artifact Preconditions.
-    Conditional Role bindings remain subject to their trigger conditions and parameterised slots
-    remain subject to the Workflow's slot-binding rules; neither is silently promoted to ALWAYS.
+    The Workflow card is the source of truth. This extracts requirement families represented by
+    the Phase 16 PlannerOutput contract: ALWAYS concrete Roles, explicit Review references,
+    explicit Decision Right references, and artifact Preconditions. An ALWAYS parameterised Role
+    slot is also surfaced as unresolved because the current PlannerOutput contract has no slot-
+    binding field from which preflight could prove its identity/ownership/cardinality constraints.
+
+    Workflow "Activated Skills / Packs" sections in the current exemplar cards explicitly state
+    that those entries are references only, so they are not promoted into unconditional mandatory
+    execution requirements here. Conditional Role bindings remain subject to their trigger
+    conditions and are not silently promoted to ALWAYS.
     """
     path = registries.card_path("workflow", workflow_id)
     if path is None:
@@ -98,6 +103,7 @@ def _workflow_mandatory_requirement_refs(workflow_id: str):
         body = handle.read()
 
     roles = set()
+    unresolved_slots = set()
     in_roles = False
     for line in body.splitlines():
         if line.startswith("## "):
@@ -114,6 +120,10 @@ def _workflow_mandatory_requirement_refs(workflow_id: str):
         match = re.search(r"`(role\.[a-z0-9_]+)`", cells[0])
         if match:
             roles.add(match.group(1))
+            continue
+        slot_match = re.search(r"`(SLOT\.[A-Za-z0-9_]+)`", cells[0])
+        if slot_match:
+            unresolved_slots.add(slot_match.group(1))
 
     reviews = set(re.findall(
         r"REVIEW_REQUIRED_REFERENCE[^\n]*?`(review\.[a-z0-9_]+)`", body))
@@ -132,12 +142,12 @@ def _workflow_mandatory_requirement_refs(workflow_id: str):
         if "`PRECONDITION`" in line:
             evidence.update(re.findall(r"`(artifact\.[a-z0-9_]+)`", line))
 
-    return roles, reviews, decisions, evidence
+    return roles, reviews, decisions, evidence, unresolved_slots
 
 
 def _check_match_requirement_completeness(plan: PlannerOutput, workflow_id: str, block) -> None:
-    """Fail closed when a MATCH payload omits a requirement declared by its Workflow."""
-    required_roles, required_reviews, required_decisions, required_evidence = \
+    """Fail closed when a MATCH payload omits or cannot prove a Workflow requirement."""
+    required_roles, required_reviews, required_decisions, required_evidence, unresolved_slots = \
         _workflow_mandatory_requirement_refs(workflow_id)
 
     payload_roles = {r.role_ref for r in plan.role_requirements if r.role_ref}
@@ -155,11 +165,16 @@ def _check_match_requirement_completeness(plan: PlannerOutput, workflow_id: str,
         if absent:
             missing.append("%s: %s" % (label, ", ".join(absent)))
 
+    if unresolved_slots:
+        missing.append(
+            "mandatory Role slot binding not provable by PlannerOutput: %s"
+            % ", ".join(sorted(unresolved_slots)))
+
     if missing:
         block(
             BlockReason.BASIS_NOT_EXECUTABLE,
             "MATCH payload is incomplete for %s; mandatory Workflow requirements are loaded "
-            "from the selected Workflow card, not trusted from PlannerOutput; missing %s"
+            "from the selected Workflow card, not trusted from PlannerOutput; missing/unproven %s"
             % (workflow_id, "; ".join(missing)),
         )
 
