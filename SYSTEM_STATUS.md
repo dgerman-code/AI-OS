@@ -1,6 +1,6 @@
 # AI-OS System Status
 
-Status: `PHASE 1–18 APPROVED; MODE A OPERATIONALLY VALIDATED; ASTRA 6 REMEDIATION CANDIDATE`
+Status: `PHASE 1–18 APPROVED; MODE A OPERATIONALLY VALIDATED; ASTRA 6 REMEDIATION INTEGRATED`
 
 This file is the concise completion index for the current AI-OS programme. It does not replace historical approval records and does not promote child artifacts by implication.
 
@@ -20,7 +20,7 @@ The first post-Phase-18 fresh external-AI cold-start test was completed at exact
 
 Independent audit verdict entering this branch: `TARGETED REMEDIATION REQUIRED`.
 
-Targeted remediation branch: `remediation/astra-6-targeted`, created from main baseline `a489efe55aa1088f2e8a19c39bc58c2c34c7dbc5`.
+Targeted remediation branch: `remediation/astra-6-targeted`, created from main baseline `a489efe55aa1088f2e8a19c39bc58c2c34c7dbc5` and integrated into `main` through PR #2 at merge commit `cd5f0f2b52944d215f4adf1ba57f208a7a757f61`.
 
 The requested remediation scope is implemented without redesign, without new Roles, without a new expert activation registry and without changing Mode B:
 
@@ -32,9 +32,9 @@ The requested remediation scope is implemented without redesign, without new Rol
 - Controlled conversational conformance is recorded in `tests/ASTRA_6_CONTROLLED_MULTI_TURN_TEST.md` with `8/8 PASS`.
 - Separate closure review: `reviews/astra-6-targeted-remediation-closure-review.md` — `CLOSURE REVIEW PASS — TARGETED SCOPE`.
 
-No PR has been created by this remediation work. No phase approval status is changed by the remediation or its validators.
+PR #2 integrated the targeted remediation into `main` after successful automated validation. No phase approval status was changed by the remediation or its validators.
 
-Execution-evidence gate: a read-only GitHub Actions workflow is now configured on `main` to execute the completion, Mode A, Astra 6 and Phase 16 validators plus Phase 16 unit tests. The Astra 6 closure review predates that CI bootstrap and correctly did not claim a run that had not occurred. PR merge remains gated on actual successful execution evidence; until the workflow reports success, this remediation remains a candidate rather than an integrated `main` baseline.
+Execution evidence: the read-only GitHub Actions workflow executed on PR #2 head `5c0ac18128995caf5ab65970658a7b7d432cce68` and completed successfully. Phase 18 completion validation, Phase 17 Mode A validation, Astra 6 targeted remediation validation, Phase 16 planner-activation validation and all 92 Phase 16 unit tests passed before merge. The historical Astra 6 closure review predates this CI evidence and remains accurate for its review time.
 
 ## Approval chain
 
@@ -103,4 +103,4 @@ The current programme does **not** claim:
 - that GitHub repository protection settings have already been configured merely because guidance exists here;
 - that Astra 6 deterministic validators were executed by CI in this remediation session.
 
-Phase 18 is human-approved and the first fresh external-AI cold-start test is complete. `tests/FINAL_COLD_START_TEST_PLAN.md` remains the reusable procedure and `tests/FINAL_COLD_START_TEST_RESULT.md` records the first execution. The current pre-merge work is the narrowly scoped Astra 6 remediation and its execution evidence; this does not reopen Phase 1–18 architecture.
+Phase 18 is human-approved and the first fresh external-AI cold-start test is complete. `tests/FINAL_COLD_START_TEST_PLAN.md` remains the reusable procedure and `tests/FINAL_COLD_START_TEST_RESULT.md` records the first execution. The narrowly scoped Astra 6 remediation is now integrated into `main` with successful execution evidence; this does not reopen Phase 1–18 architecture.
