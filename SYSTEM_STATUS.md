@@ -100,7 +100,7 @@ The current programme does **not** claim:
 - active Mode B provider routing/API orchestration;
 - automatic approval or canonicalisation;
 - universal approval of Skill cards or other proposed child artifacts;
-- that GitHub repository protection settings have already been configured merely because guidance exists here;
-- that Astra 6 deterministic validators were executed by CI in this remediation session.
+- that the current GitHub ruleset requires pull requests or successful validation checks before every update to `main`; the verified active ruleset currently prevents deletion and non-fast-forward updates only;
+- that successful CI validation creates governance approval, production readiness or human authority.
 
 Phase 18 is human-approved and the first fresh external-AI cold-start test is complete. `tests/FINAL_COLD_START_TEST_PLAN.md` remains the reusable procedure and `tests/FINAL_COLD_START_TEST_RESULT.md` records the first execution. The narrowly scoped Astra 6 remediation is now integrated into `main` with successful execution evidence; this does not reopen Phase 1–18 architecture.

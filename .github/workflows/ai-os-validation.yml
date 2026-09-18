@@ -5,7 +5,7 @@ name: AI-OS validation
 on:
   push:
     branches:
-      - remediation/astra-6-targeted
+      - main
   pull_request:
     branches:
       - main
