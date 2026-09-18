@@ -114,4 +114,4 @@ Operational checklist: `docs/MODE_A_OPERATIONAL_CHECKLIST.md`.
 GitHub access model: `docs/GITHUB_ACCESS_MODEL.md`.
 Main-readiness map: `docs/MAIN_READINESS.md`.
 
-The final fresh external-AI cold-start test is defined in `tests/FINAL_COLD_START_TEST_PLAN.md` and was separately recorded after Phase 18 approval.
+The reusable fresh external-AI cold-start procedure is defined in `tests/FINAL_COLD_START_TEST_PLAN.md`; the first post-Phase-18 execution is recorded in `tests/FINAL_COLD_START_TEST_RESULT.md` as `PASS WITH NON-BLOCKING NOTES` at its tested baseline.
