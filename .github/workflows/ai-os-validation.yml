@@ -1,5 +1,7 @@
 name: AI-OS validation
 
+# Read-only validation only: no deployment or repository mutation.
+
 on:
   push:
     branches:
