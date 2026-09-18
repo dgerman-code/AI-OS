@@ -34,7 +34,7 @@ The requested remediation scope is implemented without redesign, without new Rol
 
 No PR has been created by this remediation work. No phase approval status is changed by the remediation or its validators.
 
-Execution-evidence limitation: no GitHub Actions/status checks are configured for the remediation branch in the connected repository view, and the current tool environment cannot execute the repository's Python validators from a local checkout. The closure review therefore does not claim a CI/local run that did not occur. Before merge, execute `python3 validation/astra_6_remediation_validation.py` and `python3 validation/phase_16_validation.py` in a checkout-capable environment.
+Execution-evidence gate: a read-only GitHub Actions workflow is now configured on `main` to execute the completion, Mode A, Astra 6 and Phase 16 validators plus Phase 16 unit tests. The Astra 6 closure review predates that CI bootstrap and correctly did not claim a run that had not occurred. PR merge remains gated on actual successful execution evidence; until the workflow reports success, this remediation remains a candidate rather than an integrated `main` baseline.
 
 ## Approval chain
 
