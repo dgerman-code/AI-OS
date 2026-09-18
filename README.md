@@ -40,7 +40,7 @@ AI-OS calling/routing model-provider APIs is intentionally deferred. Provider AP
 
 Historical phase approval records live under `reviews/`. Phase-level approval does not automatically approve or canonicalise every child artifact. Existence, applicability, validation success and execution eligibility must not be confused with governance approval.
 
-See `SYSTEM_STATUS.md` for the Phase 1–17 approval chain, inherited assurance notes and current limitations.
+See `SYSTEM_STATUS.md` for the Phase 1–18 approval chain, inherited assurance notes and current limitations.
 
 ## Operational guidance
 
@@ -53,19 +53,21 @@ See `SYSTEM_STATUS.md` for the Phase 1–17 approval chain, inherited assurance 
 
 ## Validation
 
-Current completion work should be checked with:
+Current completion and Astra 6 remediation work should be checked with:
 
 ```bash
 python3 validation/phase_18_completion_validation.py
 python3 validation/phase_18_completion_validation.py --json
 python3 validation/phase_17_mode_a_validation.py
 python3 validation/phase_17_mode_a_validation.py --json
+python3 validation/astra_6_remediation_validation.py
+python3 validation/phase_16_validation.py
 ```
 
 Validation does not create human approval.
 
 ## Readiness boundary
 
-AI-OS is now being completed as a coherent GitHub-based Mode A system package. This repository does **not** claim a deployed production service, production SLA, active Mode B runtime, or universal approval of all child artifacts.
+AI-OS Phase 18 is human-approved as a coherent GitHub-based Mode A system package, and the first post-approval external-AI cold-start test has been recorded as `PASS WITH NON-BLOCKING NOTES` in `tests/FINAL_COLD_START_TEST_RESULT.md`. This repository does **not** claim a deployed production service, production SLA, active Mode B runtime, universal provider compatibility, or universal approval of all child artifacts.
 
-The final external-AI cold-start test is intentionally scheduled only after Phase 18 human approval.
+`tests/FINAL_COLD_START_TEST_PLAN.md` remains the reusable cold-start procedure for later baselines/providers.
