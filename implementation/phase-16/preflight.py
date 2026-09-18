@@ -11,6 +11,8 @@ never converts a requirement into the thing it requires.
 from __future__ import annotations
 
 import hashlib
+import os
+import re
 from typing import Dict, List, Optional, Tuple
 
 import registries
@@ -77,6 +79,104 @@ def _substantive_conclusion(text: Optional[str]) -> bool:
         return False
     normalized = " ".join(str(text).split()).strip().lower()
     return bool(normalized) and normalized not in _PLACEHOLDER_CONCLUSIONS
+
+
+def _workflow_mandatory_requirement_refs(workflow_id: str):
+    """Read the selected approved Workflow card and return mandatory static references.
+
+    MATCH must not treat PlannerOutput as the authoritative list of what the Workflow requires.
+    The Workflow card is the source of truth. This extracts requirement families represented by
+    the Phase 16 PlannerOutput contract: ALWAYS concrete Roles, explicit Review references,
+    explicit Decision Right references, and artifact Preconditions. An ALWAYS parameterised Role
+    slot is also surfaced as unresolved because the current PlannerOutput contract has no slot-
+    binding field from which preflight could prove its identity/ownership/cardinality constraints.
+
+    Workflow "Activated Skills / Packs" sections in the current exemplar cards explicitly state
+    that those entries are references only, so they are not promoted into unconditional mandatory
+    execution requirements here. Conditional Role bindings remain subject to their trigger
+    conditions and are not silently promoted to ALWAYS.
+    """
+    path = registries.card_path("workflow", workflow_id)
+    if path is None:
+        raise ActivationError("approved Workflow card cannot be resolved: %s" % workflow_id)
+    with open(os.path.join(registries.REPO, path), encoding="utf-8") as handle:
+        body = handle.read()
+
+    roles = set()
+    unresolved_slots = set()
+    in_roles = False
+    for line in body.splitlines():
+        if line.startswith("## "):
+            in_roles = line.strip() == "## Participating Roles"
+            continue
+        if not in_roles or not line.lstrip().startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 3:
+            continue
+        activation = cells[2].replace("`", "").strip()
+        if activation != "ALWAYS":
+            continue
+        match = re.search(r"`(role\.[a-z0-9_]+)`", cells[0])
+        if match:
+            roles.add(match.group(1))
+            continue
+        slot_match = re.search(r"`(SLOT\.[A-Za-z0-9_]+)`", cells[0])
+        if slot_match:
+            unresolved_slots.add(slot_match.group(1))
+
+    reviews = set(re.findall(
+        r"REVIEW_REQUIRED_REFERENCE[^\n]*?`(review\.[a-z0-9_]+)`", body))
+    # Some lines declare more than one reference after a single marker.
+    for line in body.splitlines():
+        if "REVIEW_REQUIRED_REFERENCE" in line:
+            reviews.update(re.findall(r"`(review\.[a-z0-9_]+)`", line))
+
+    decisions = set()
+    for line in body.splitlines():
+        if "HUMAN_GATE_REFERENCE" in line:
+            decisions.update(re.findall(r"`(decision\.[a-z0-9_]+)`", line))
+
+    evidence = set()
+    for line in body.splitlines():
+        if "`PRECONDITION`" in line:
+            evidence.update(re.findall(r"`(artifact\.[a-z0-9_]+)`", line))
+
+    return roles, reviews, decisions, evidence, unresolved_slots
+
+
+def _check_match_requirement_completeness(plan: PlannerOutput, workflow_id: str, block) -> None:
+    """Fail closed when a MATCH payload omits or cannot prove a Workflow requirement."""
+    required_roles, required_reviews, required_decisions, required_evidence, unresolved_slots = \
+        _workflow_mandatory_requirement_refs(workflow_id)
+
+    payload_roles = {r.role_ref for r in plan.role_requirements if r.role_ref}
+    payload_reviews = {r.review_ref for r in plan.review_requirements}
+    payload_decisions = {d.decision_ref for d in plan.decision_requirements if d.decision_ref}
+    payload_evidence = {e.reference.split("@", 1)[0] for e in plan.evidence_requirements}
+
+    missing = []
+    for label, required, present in (
+            ("Role", required_roles, payload_roles),
+            ("Review", required_reviews, payload_reviews),
+            ("Decision Right", required_decisions, payload_decisions),
+            ("evidence precondition", required_evidence, payload_evidence)):
+        absent = sorted(required - present)
+        if absent:
+            missing.append("%s: %s" % (label, ", ".join(absent)))
+
+    if unresolved_slots:
+        missing.append(
+            "mandatory Role slot binding not provable by PlannerOutput: %s"
+            % ", ".join(sorted(unresolved_slots)))
+
+    if missing:
+        block(
+            BlockReason.BASIS_NOT_EXECUTABLE,
+            "MATCH payload is incomplete for %s; mandatory Workflow requirements are loaded "
+            "from the selected Workflow card, not trusted from PlannerOutput; missing/unproven %s"
+            % (workflow_id, "; ".join(missing)),
+        )
 
 
 def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
@@ -201,6 +301,8 @@ def run_preflight(plan: PlannerOutput, *, author_identity: Optional[str] = None,
                 block(BlockReason.WORKFLOW_VERSION_STALE,
                       "%s is bound at version %s; the approved card declares version %s"
                       % (wf_id, version, approved[wf_id]))
+            else:
+                _check_match_requirement_completeness(plan, wf_id, block)
     else:
         if plan.work_plan is None:
             block(BlockReason.BASIS_NOT_EXECUTABLE, "COMPOSE produced no Work Plan")

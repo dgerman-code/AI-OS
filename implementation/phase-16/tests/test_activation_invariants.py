@@ -135,21 +135,19 @@ def base(**overrides):
 
 
 class TestMatchPath(unittest.TestCase):
-    """Scenario 1 — simple MATCH reaches intake through an approved Workflow at its version."""
+    """Scenario 1 — MATCH fails closed unless the selected Workflow requirements are complete."""
 
-    def test_match_produces_an_executable_basis_and_a_trigger(self):
+    def test_incomplete_match_fails_closed_before_basis(self):
         plan = base(execution_mode=ExecutionMode.MATCH, work_plan=None,
                     workflow_ref=a_workflow_ref())
         result = run_preflight(plan)
-        self.assertIs(result.state, PlannerState.VALIDATED, result.detail)
-        self.assertIs(result.basis.status, BasisStatus.EXECUTABLE)
-        store, basis = issued(plan)
-        trigger = build_trigger(basis, plan, originator="human.alice", store=store)
-        self.assertEqual(trigger.command, "CreateWorkflowRun")
-        self.assertEqual(trigger.workflow_ref, a_workflow_ref())
-        self.assertIsNone(trigger.work_plan_ref)
-        self.assertFalse(trigger.creates_run)
-        self.assertEqual(set(trigger.intake_answers()), {1, 2, 3, 4, 5, 6, 7})
+        self.assertIs(result.state, PlannerState.BLOCKED, result.detail)
+        self.assertIsNone(result.basis)
+        self.assertIn(BlockReason.BASIS_NOT_EXECUTABLE, result.reasons)
+        self.assertTrue(
+            any("mandatory Workflow requirements" in detail for detail in result.detail),
+            result.detail,
+        )
 
     def test_unapproved_workflow_blocks(self):
         plan = base(execution_mode=ExecutionMode.MATCH, work_plan=None,
@@ -397,8 +395,7 @@ class TestHandoffPurity(unittest.TestCase):
 
     def test_a_valid_handoff_contains_no_synthetic_authority_object(self):
         """Scenario 14 — the trigger carries requirements, never satisfied gates."""
-        plan = base(execution_mode=ExecutionMode.MATCH, work_plan=None,
-                    workflow_ref=a_workflow_ref(),
+        plan = base(
                     criticality=Criticality.ENHANCED_DECISION_GRADE,
                     review_requirements=(ReviewRequirement(a_review(), True),),
                     decision_requirements=(DecisionRequirement(a_right(), "publish"),))

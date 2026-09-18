@@ -1,18 +1,40 @@
 # AI-OS System Status
 
-Status: `PHASE 1–17 APPROVED; PHASE 18 COMPLETION CANDIDATE`
+Status: `PHASE 1–18 APPROVED; MODE A OPERATIONALLY VALIDATED; ASTRA 6 REMEDIATION CANDIDATE`
 
 This file is the concise completion index for the current AI-OS programme. It does not replace historical approval records and does not promote child artifacts by implication.
 
 ## Current operational position
 
-AI-OS has an approved provider-neutral architecture and reference implementation through Phase 17. The approved current user-facing connection mode is **Mode A**:
+AI-OS has an approved provider-neutral architecture and reference implementation through Phase 18. Phase 18 received explicit human approval on 2026-09-15 (`reviews/phase-18-final-approval.md`; approval commit `5ab13b4b99cc46e7b68bf370b0230e0af59daef4`). The approved current user-facing connection mode is **Mode A**:
 
 `Human -> external AI -> GitHub AI-OS`
 
-An external AI may read the repository and work under AI-OS governance. GitHub at the reported ref/commit remains the Mode A canonical source. Provider memory, chat history and generated output are not canonical AI-OS state unless separately governed into the repository.
+An external AI may read the repository and work under AI-OS governance. GitHub at the reported ref/commit remains the Mode A canonical source. Provider memory, chat history, Conversation Checkpoints and generated output are not canonical AI-OS state unless separately governed into the repository.
 
 **Mode B** — AI-OS itself calling/routing model-provider APIs — is intentionally deferred and is not implemented or approved as an active operating mode.
+
+The first post-Phase-18 fresh external-AI cold-start test was completed at exact tested commit `5ab13b4b99cc46e7b68bf370b0230e0af59daef4` with `PASS WITH NON-BLOCKING NOTES`; evidence is recorded in `tests/FINAL_COLD_START_TEST_RESULT.md`. This establishes practical Mode A discoverability at that tested baseline only; it does not claim universal provider compatibility or production deployment readiness.
+
+## Astra 6 targeted remediation — 2026-09-17
+
+Independent audit verdict entering this branch: `TARGETED REMEDIATION REQUIRED`.
+
+Targeted remediation branch: `remediation/astra-6-targeted`, created from main baseline `a489efe55aa1088f2e8a19c39bc58c2c34c7dbc5`.
+
+The requested remediation scope is implemented without redesign, without new Roles, without a new expert activation registry and without changing Mode B:
+
+- MATCH preflight now derives mandatory Workflow requirement references from the selected approved Workflow card rather than trusting an incomplete planner payload. Omitted mandatory concrete Roles, Reviews, Decision Rights and artifact preconditions fail closed. Mandatory `ALWAYS` parameterised Role slots that cannot be proven by the present PlannerOutput contract also fail closed rather than receiving an implicit binding.
+- Direct Expert Mode is aligned with the system principles as bounded ad-hoc professional assistance that does not itself execute a Workflow or governed Skill, create authority, satisfy a Review or exercise a Decision Right.
+- `docs/CONVERSATIONAL_GOVERNANCE_BOUNDARIES.md` defines the compact non-canonical Conversation Checkpoint, the ordinary-assistance / governed-Skill boundary, and the project-document / prompt-injection boundary.
+- Discovery is updated through `AI_OS_ENTRYPOINT.md`, `ai-os.yaml` and `docs/HOW_TO_CONNECT_ANY_AI.md`.
+- Targeted deterministic assurance is defined in `validation/astra_6_remediation_validation.py`; the Phase 16 wrapper transparently supersedes only the historical positive MATCH fixture that conflicts with the stronger Astra 6 F1 rule, and only when the targeted validator passes.
+- Controlled conversational conformance is recorded in `tests/ASTRA_6_CONTROLLED_MULTI_TURN_TEST.md` with `8/8 PASS`.
+- Separate closure review: `reviews/astra-6-targeted-remediation-closure-review.md` — `CLOSURE REVIEW PASS — TARGETED SCOPE`.
+
+No PR has been created by this remediation work. No phase approval status is changed by the remediation or its validators.
+
+Execution-evidence gate: a read-only GitHub Actions workflow is now configured on `main` to execute the completion, Mode A, Astra 6 and Phase 16 validators plus Phase 16 unit tests. The Astra 6 closure review predates that CI bootstrap and correctly did not claim a run that had not occurred. PR merge remains gated on actual successful execution evidence; until the workflow reports success, this remediation remains a candidate rather than an integrated `main` baseline.
 
 ## Approval chain
 
@@ -35,6 +57,7 @@ An external AI may read the repository and work under AI-OS governance. GitHub a
 | 15 | Intent & Work Planning Architecture | approval commit `72870de11857140c056bfe1e482ca6cd82940d74`; baseline `2301b66c39a218e966587731eee2f7472501f39c` |
 | 16 | Planner Activation | approval commit `3a8cc7b98720c2666791fa7f83c12239f701b7c5`; baseline `a90800dcc8210d7a597806e1611434c71273f420` |
 | 17 | GitHub Mode A / Provider-Neutral AI Connection | approval commit `352c2f056177e43f422b008042b7296799742958`; baseline `47c1c5299db900373cf1adb0efba3bc6820eb226` |
+| 18 | System Completion & Operational Readiness | approval commit `5ab13b4b99cc46e7b68bf370b0230e0af59daef4`; human-approved implementation baseline `eb8a64ec5e79589f7def3a96a740d004f59236f8` |
 
 The detailed approval records under `reviews/` remain authoritative for their respective phases. Historical wording, limitations and audit outcomes are preserved there rather than rewritten here.
 
@@ -64,9 +87,9 @@ In particular:
 
 ## What is usable now
 
-Mode A is approved as the current provider-neutral connection method. A human can give a compatible external AI read access to this repository, pin an exact ref/SHA, start from `AI_OS_ENTRYPOINT.md` and `ai-os.yaml`, and require results in `contracts/ai-result-envelope.schema.json`.
+Mode A is approved as the current provider-neutral connection method, and the first post-approval cold-start validation has passed at its recorded tested baseline. A human can give a compatible external AI read access to this repository, pin an exact ref/SHA, start from `AI_OS_ENTRYPOINT.md` and `ai-os.yaml`, and require results in `contracts/ai-result-envelope.schema.json`.
 
-Use `docs/MODE_A_OPERATIONAL_CHECKLIST.md` and `docs/GITHUB_ACCESS_MODEL.md` before broader use.
+Use `docs/CONVERSATIONAL_OPERATION_MODEL.md` together with `docs/CONVERSATIONAL_GOVERNANCE_BOUNDARIES.md` for interactive/long-running chat behaviour. Use `docs/MODE_A_OPERATIONAL_CHECKLIST.md` and `docs/GITHUB_ACCESS_MODEL.md` before broader use.
 
 ## What is not claimed
 
@@ -77,6 +100,7 @@ The current programme does **not** claim:
 - active Mode B provider routing/API orchestration;
 - automatic approval or canonicalisation;
 - universal approval of Skill cards or other proposed child artifacts;
-- that GitHub repository protection settings have already been configured merely because guidance exists here.
+- that GitHub repository protection settings have already been configured merely because guidance exists here;
+- that Astra 6 deterministic validators were executed by CI in this remediation session.
 
-Phase 18 is completing and consolidating the repository package. After Phase 18 human approval, the next action is the fresh external-AI test defined in `tests/FINAL_COLD_START_TEST_PLAN.md`.
+Phase 18 is human-approved and the first fresh external-AI cold-start test is complete. `tests/FINAL_COLD_START_TEST_PLAN.md` remains the reusable procedure and `tests/FINAL_COLD_START_TEST_RESULT.md` records the first execution. The current pre-merge work is the narrowly scoped Astra 6 remediation and its execution evidence; this does not reopen Phase 1–18 architecture.
