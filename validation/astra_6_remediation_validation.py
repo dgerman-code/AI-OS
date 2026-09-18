@@ -125,8 +125,10 @@ def main():
         "Compact Conversation Checkpoint" in boundaries
         and "not `CANONICAL`" in boundaries
         and (
-            "not canonical memory" in boundaries
+            "never as canonical memory" in boundaries
+            or "not canonical memory" in boundaries
             or "does not become canonical memory" in boundaries
+            or "does **not** become canonical memory" in boundaries
         ),
     )
     check(
