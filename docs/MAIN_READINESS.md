@@ -1,12 +1,12 @@
 # Main Readiness
 
-This document describes how the approved Phase 1–17 body of work should be consolidated into a stable main-ready repository state. It does not itself merge, promote, or change the default branch.
+This document describes how the approved Phase 1–18 body of work and later narrowly governed remediations should be consolidated into a stable main-ready repository state. It does not itself merge, promote, or change the default branch.
 
 ## Integrated baseline
 
 The intended integrated system baseline includes the approved phase-level architecture, governance records, implementation specifications, reference implementation artifacts, Mode A entrypoint/manifest/adapters/result envelope, validation assets, and the Phase 18 completion documents that describe how to use and protect the repository.
 
-The Phase 17 approval commit `352c2f056177e43f422b008042b7296799742958` is the approved ancestor from which Phase 18 completion work starts. Phase 18 should produce one reviewed completion SHA before any main consolidation decision.
+The Phase 17 approval commit `352c2f056177e43f422b008042b7296799742958` is the approved ancestor from which Phase 18 completion work started. Phase 18 produced reviewed implementation baseline `eb8a64ec5e79589f7def3a96a740d004f59236f8` and explicit human approval commit `5ab13b4b99cc46e7b68bf370b0230e0af59daef4`. The first post-approval cold-start test was then recorded at that exact tested commit.
 
 ## What belongs in the main-ready package
 
@@ -42,7 +42,7 @@ Before changing the default branch or merging into `main`, verify all of the fol
 3. The Phase 18 independent final review reports no blocker.
 4. The diff from the approved Phase 17 ancestor contains only expected Phase 18 completion/onboarding changes and no accidental upstream semantic rewrite.
 5. Repository protection and least-privilege decisions are agreed separately; documentation alone must not be mistaken for configured settings.
-6. The post-approval external cold-start test plan is ready; the test itself may occur immediately after consolidation or before default-branch switch, according to the human decision.
+6. The post-approval external cold-start procedure is retained in `tests/FINAL_COLD_START_TEST_PLAN.md`, and the first execution is recorded in `tests/FINAL_COLD_START_TEST_RESULT.md`. For a later materially changed baseline or provider, rerun the procedure as appropriate.
 7. No unresolved conflict would overwrite historical approval records.
 
 ## Recommended merge strategy
@@ -60,4 +60,4 @@ Do not change the default branch merely because Phase 18 passes review. The huma
 - whether the cold-start test is to run before or immediately after main integration;
 - whether `main` contains unrelated changes needing reconciliation.
 
-Phase 18 documents readiness. It does not itself merge, open a PR, or change the default branch.
+Phase 18 approval and the recorded cold-start result document readiness evidence. They do not themselves merge later remediation work, open a PR, change the default branch, or grant production authority.
