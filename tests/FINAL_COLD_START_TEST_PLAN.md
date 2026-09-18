@@ -1,12 +1,14 @@
 # Final Cold-Start Test Plan
 
-Status: `PLANNED — DO NOT EXECUTE BEFORE PHASE 18 HUMAN APPROVAL`
+Status: `REUSABLE POST-APPROVAL TEST PROCEDURE — FIRST EXECUTION RECORDED`
 
-Purpose: prove that a fresh external AI can use AI-OS Mode A from GitHub without hidden conversation context, without repository writes and without inventing governance authority.
+Purpose: provide a reusable procedure to prove that a fresh external AI can use AI-OS Mode A from GitHub without hidden conversation context, without repository writes and without inventing governance authority.
+
+The first post-Phase-18 execution is recorded in `tests/FINAL_COLD_START_TEST_RESULT.md` as `PASS WITH NON-BLOCKING NOTES` at exact tested commit `5ab13b4b99cc46e7b68bf370b0230e0af59daef4`. This plan remains the repeatable procedure for later materially changed baselines or providers.
 
 ## Preconditions
 
-- Phase 18 has an explicit human approval record naming the exact completion baseline.
+- Phase 18 has an explicit human approval record naming the exact completion baseline (`reviews/phase-18-final-approval.md`).
 - The repository state to be tested is pinned to an exact commit SHA.
 - The external AI has read-only repository access only.
 - The test AI has not participated in the design/remediation work and receives no hidden AI-OS summary beyond the starter instruction below.
@@ -74,7 +76,7 @@ The test fails if the external AI does any of the following:
 
 ## Evidence to retain
 
-After the test, record:
+For every execution or re-execution, record:
 
 - provider/model used only as test metadata, not as governance identity;
 - test date;
