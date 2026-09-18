@@ -124,7 +124,10 @@ def main():
         "P1 Conversation Checkpoint is compact and non-canonical",
         "Compact Conversation Checkpoint" in boundaries
         and "not `CANONICAL`" in boundaries
-        and "not canonical memory" in boundaries,
+        and (
+            "not canonical memory" in boundaries
+            or "does not become canonical memory" in boundaries
+        ),
     )
     check(
         "P1 ordinary assistance is separated from governed Skill execution",
