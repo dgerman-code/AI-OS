@@ -25,7 +25,9 @@ REQUIRED = [
     "docs/MODE_A_OPERATIONAL_CHECKLIST.md",
     "docs/GITHUB_ACCESS_MODEL.md",
     "tests/FINAL_COLD_START_TEST_PLAN.md",
+    "tests/FINAL_COLD_START_TEST_RESULT.md",
     "reviews/phase-17-final-approval.md",
+    "reviews/phase-18-final-approval.md",
     "validation/phase_17_mode_a_validation.py",
     "adapters/mode-a/generic.md",
     "adapters/mode-a/openai-chatgpt.md",
@@ -42,6 +44,7 @@ COMPLETION_DOCS = [
     "docs/MODE_A_OPERATIONAL_CHECKLIST.md",
     "docs/GITHUB_ACCESS_MODEL.md",
     "tests/FINAL_COLD_START_TEST_PLAN.md",
+    "tests/FINAL_COLD_START_TEST_RESULT.md",
 ]
 
 
@@ -133,6 +136,9 @@ def main_validate():
         check(completion.get("mode_a_operational_checklist") == "docs/MODE_A_OPERATIONAL_CHECKLIST.md", "manifest:mode-a-checklist", "Mode A checklist mapped", results)
         check(completion.get("github_access_model") == "docs/GITHUB_ACCESS_MODEL.md", "manifest:access-model", "access model mapped", results)
         check(completion.get("final_cold_start_test_plan") == "tests/FINAL_COLD_START_TEST_PLAN.md", "manifest:cold-start-plan", "cold-start plan mapped", results)
+        check(completion.get("final_cold_start_test_result") == "tests/FINAL_COLD_START_TEST_RESULT.md", "manifest:cold-start-result", "cold-start result mapped", results)
+        approvals = manifest.get("approvals", {})
+        check(approvals.get("phase_18") == "reviews/phase-18-final-approval.md", "manifest:phase18-approval", "Phase 18 approval record mapped", results)
         deferred = " ".join(str(x) for x in manifest.get("prohibited_assumptions", [])) + " " + str(manifest.get("mode_b_status", ""))
         check("mode b" in deferred.lower() and "defer" in deferred.lower(), "manifest:mode-b-deferred", "Mode B explicitly deferred", results)
 
@@ -155,6 +161,10 @@ def main_validate():
           "status:phase17-approval", "Phase 17 approval commit recorded", results)
     check("47c1c5299db900373cf1adb0efba3bc6820eb226" in status_text,
           "status:phase17-baseline", "Phase 17 approved baseline recorded", results)
+    check("5ab13b4b99cc46e7b68bf370b0230e0af59daef4" in status_text,
+          "status:phase18-approval", "Phase 18 human approval commit recorded", results)
+    check("phase 1–18 approved" in status_text.lower() or "phase 1-18 approved" in status_text.lower(),
+          "status:phase18-current", "system status reflects Phase 18 approval rather than completion-candidate state", results)
     check("does not" in status_text.lower() and "every child" in status_text.lower(),
           "status:no-child-auto-approval", "phase approval does not imply child approval", results)
 
@@ -171,10 +181,25 @@ def main_validate():
           "entrypoint:provenance", "entrypoint retains exact-source/fail-closed boundary", results)
 
     test_plan = text("tests/FINAL_COLD_START_TEST_PLAN.md") if (ROOT / "tests/FINAL_COLD_START_TEST_PLAN.md").exists() else ""
-    check("DO NOT EXECUTE BEFORE PHASE 18 HUMAN APPROVAL" in test_plan,
-          "test-plan:not-executed", "cold-start test explicitly deferred until after approval", results)
+    check("REUSABLE POST-APPROVAL TEST PROCEDURE" in test_plan,
+          "test-plan:post-approval-procedure", "cold-start plan is retained as a reusable post-approval procedure", results)
     check("read-only" in test_plan.lower() and "no repository changes" in test_plan.lower(),
           "test-plan:read-only", "cold-start plan requires read-only/no-write behaviour", results)
+
+    phase18_approval = text("reviews/phase-18-final-approval.md") if (ROOT / "reviews/phase-18-final-approval.md").exists() else ""
+    check("APPROVED — HUMAN DECISION" in phase18_approval and
+          "eb8a64ec5e79589f7def3a96a740d004f59236f8" in phase18_approval,
+          "phase18:human-approval", "Phase 18 explicit human approval and reviewed baseline are recorded", results)
+
+    cold_start = text("tests/FINAL_COLD_START_TEST_RESULT.md") if (ROOT / "tests/FINAL_COLD_START_TEST_RESULT.md").exists() else ""
+    check("PASS WITH NON-BLOCKING NOTES" in cold_start and
+          "5ab13b4b99cc46e7b68bf370b0230e0af59daef4" in cold_start,
+          "cold-start:recorded-pass", "first post-approval cold-start PASS is recorded at an exact tested SHA", results)
+    check("read-only" in cold_start.lower() and
+          ("no repository modifications" in cold_start.lower() or "no repository changes" in cold_start.lower()),
+          "cold-start:no-write", "recorded cold-start preserves read-only/no-write operation", results)
+    check("NO_AUTHORITY_EXERCISED" in cold_start,
+          "cold-start:no-authority", "recorded cold-start did not exercise human authority", results)
 
     access = text("docs/GITHUB_ACCESS_MODEL.md") if (ROOT / "docs/GITHUB_ACCESS_MODEL.md").exists() else ""
     check("read-only" in access.lower() and "least privilege" in access.lower(),
