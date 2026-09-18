@@ -1,16 +1,16 @@
-# Main Readiness
+# Main Integration State
 
-This document describes how the approved Phase 1–18 body of work and later narrowly governed remediations should be consolidated into a stable main-ready repository state. It does not itself merge, promote, or change the default branch.
+This document records the integrated `main` state for the approved Phase 1–18 body of work and later narrowly governed remediations. Historical merge-readiness guidance is preserved only where it remains useful for future governed changes.
 
 ## Integrated baseline
 
-The intended integrated system baseline includes the approved phase-level architecture, governance records, implementation specifications, reference implementation artifacts, Mode A entrypoint/manifest/adapters/result envelope, validation assets, and the Phase 18 completion documents that describe how to use and protect the repository.
+The integrated `main` baseline includes the approved phase-level architecture, governance records, implementation specifications, reference implementation artifacts, Mode A entrypoint/manifest/adapters/result envelope, validation assets, Phase 18 completion documents and the validated Astra 6 targeted remediation.
 
 The Phase 17 approval commit `352c2f056177e43f422b008042b7296799742958` is the approved ancestor from which Phase 18 completion work started. Phase 18 produced reviewed implementation baseline `eb8a64ec5e79589f7def3a96a740d004f59236f8` and explicit human approval commit `5ab13b4b99cc46e7b68bf370b0230e0af59daef4`. The first post-approval cold-start test was then recorded at that exact tested commit.
 
-## What belongs in the main-ready package
+## What belongs in the integrated main package
 
-The main-ready package should retain:
+The integrated package retains:
 
 - architecture and governance sources for Phases 1–17;
 - Role, Skill, Workflow, Review Profile, Decision Right and Model registry sources with their actual recorded statuses unchanged;
@@ -29,35 +29,18 @@ Historical prompts, audits, remediation records and self-checks remain useful ev
 
 Artifacts explicitly marked `PROPOSED` remain proposed unless a separate governed approval changes that state. This is especially important for individual Skill cards and other child artifacts whose phase-level architecture was approved without blanket per-card promotion.
 
-Mode B remains deferred. Provider API invocation, provider routing, billing, key management, retries/fallbacks, workers, queues, schedulers and production deployment infrastructure are not part of the current main-ready Mode A package.
+Mode B remains deferred. Provider API invocation, provider routing, billing, key management, retries/fallbacks, workers, queues, schedulers and production deployment infrastructure are not part of the current integrated Mode A package.
 
-## Can history be consolidated safely?
+## Current integration evidence
 
-Yes, provided consolidation is history-preserving and semantic changes are avoided. The current work has been developed as an additive chain with explicit human approval records. A safe consolidation should preserve the complete approved content and approval evidence rather than cherry-picking only attractive final files and losing governance history.
+Phase 18 is explicitly human-approved, the first post-approval cold-start test is recorded, Astra 6 remediation is integrated into `main`, and the read-only GitHub Actions validation suite has passed over the integrated remediation path. Future materially changed baselines should preserve history, rerun the applicable validators and repeat the cold-start procedure when the change affects provider-facing behaviour or discovery.
 
-Before changing the default branch or merging into `main`, verify all of the following:
+Repository protection remains a separate operational control. The verified active `AI-OS Main Protection` ruleset currently prevents branch deletion and non-fast-forward updates. It does not yet require pull requests or successful validation checks before every `main` update.
 
-1. Phase 18 has an explicit human approval record naming its exact reviewed completion baseline.
-2. The completion validator and Phase 17 Mode A validator both pass on that exact baseline.
-3. The Phase 18 independent final review reports no blocker.
-4. The diff from the approved Phase 17 ancestor contains only expected Phase 18 completion/onboarding changes and no accidental upstream semantic rewrite.
-5. Repository protection and least-privilege decisions are agreed separately; documentation alone must not be mistaken for configured settings.
-6. The post-approval external cold-start procedure is retained in `tests/FINAL_COLD_START_TEST_PLAN.md`, and the first execution is recorded in `tests/FINAL_COLD_START_TEST_RESULT.md`. For a later materially changed baseline or provider, rerun the procedure as appropriate.
-7. No unresolved conflict would overwrite historical approval records.
+## Future merge strategy
 
-## Recommended merge strategy
+For future governed changes, prefer history-preserving pull requests into `main`, preserve approval/remediation evidence, and avoid silently rebasing or squashing away governance history unless that evidence is preserved separately. If branches diverge materially, compare them explicitly and resolve conflicts conservatively; governed semantics and approval records take precedence over cosmetic or stale documentation.
 
-Preferred strategy: **preserve the Phase 18 completion branch ancestry and integrate it into `main` with a normal history-preserving merge after human approval**. Avoid a squash that erases the approval/remediation history unless a separate archival mechanism first preserves all governance evidence.
+## Default branch
 
-If `main` has diverged materially, perform an explicit comparison and resolve conflicts conservatively. Governance records and approved semantics should win over cosmetic or stale root documentation. Do not silently rebase historical approval commits in a way that changes their meaning.
-
-## Default-branch decision
-
-Do not change the default branch merely because Phase 18 passes review. The human owner should first confirm:
-
-- the exact Phase 18 approval SHA;
-- desired repository access protections;
-- whether the cold-start test is to run before or immediately after main integration;
-- whether `main` contains unrelated changes needing reconciliation.
-
-Phase 18 approval and the recorded cold-start result document readiness evidence. They do not themselves merge later remediation work, open a PR, change the default branch, or grant production authority.
+`main` is the current integrated default branch. Future semantic changes should enter through governed change control and, operationally, should use pull requests with successful automated validation once the corresponding repository ruleset is strengthened. Integration into `main` does not itself grant production authority, canonicalise unrelated artifacts or exercise a human Decision Right.
