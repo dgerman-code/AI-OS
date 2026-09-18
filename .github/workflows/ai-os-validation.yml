@@ -1,0 +1,43 @@
+name: AI-OS validation
+
+# Read-only validation only: no deployment or repository mutation.
+
+on:
+  push:
+    branches:
+      - remediation/astra-6-targeted
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Phase 18 completion validation
+        run: python3 validation/phase_18_completion_validation.py
+
+      - name: Phase 17 Mode A validation
+        run: python3 validation/phase_17_mode_a_validation.py
+
+      - name: Astra 6 targeted remediation validation
+        run: python3 validation/astra_6_remediation_validation.py
+
+      - name: Phase 16 planner activation validation
+        run: python3 validation/phase_16_validation.py
+
+      - name: Phase 16 unit tests
+        run: python3 -m unittest discover -s implementation/phase-16/tests -p "test_*.py"
