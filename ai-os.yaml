@@ -1,6 +1,6 @@
 {
   "schema": "ai-os-manifest/v1",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "mode": "A",
   "mode_b_status": "DEFERRED",
   "repository": "dgerman-code/AI-OS",
@@ -38,7 +38,8 @@
   "approvals": {
     "records": "reviews",
     "phase_16": "reviews/phase-16-final-approval.md",
-    "phase_17": "reviews/phase-17-final-approval.md"
+    "phase_17": "reviews/phase-17-final-approval.md",
+    "phase_18": "reviews/phase-18-final-approval.md"
   },
   "canonical_and_memory": {
     "knowledge": "knowledge",
@@ -52,6 +53,7 @@
     "mode_a_operational_checklist": "docs/MODE_A_OPERATIONAL_CHECKLIST.md",
     "github_access_model": "docs/GITHUB_ACCESS_MODEL.md",
     "final_cold_start_test_plan": "tests/FINAL_COLD_START_TEST_PLAN.md",
+    "final_cold_start_test_result": "tests/FINAL_COLD_START_TEST_RESULT.md",
     "phase_18_validator": "validation/phase_18_completion_validation.py"
   },
   "adapters": {
